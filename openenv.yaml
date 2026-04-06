@@ -1,0 +1,19 @@
+spec_version: 1
+name: data_quality_env
+type: environment
+app: server.app:app
+port: 7860
+description: >
+  Data Quality Validation & Cleaning Pipeline — agents learn to detect
+  and fix data quality issues in tabular datasets. Covers format errors,
+  duplicates, missing values, referential integrity, and outliers across
+  three progressively challenging tasks with continuous reward signals.
+tags:
+  - openenv
+  - data-quality
+  - rl-environment
+  - tabular-data
+tasks:
+  - task_1_format_fixer
+  - task_2_duplicate_detective
+  - task_3_integrity_auditor

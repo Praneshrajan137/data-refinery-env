@@ -1,0 +1,41 @@
+# Build artifacts and caches
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+.env
+
+# Version control
+.git/
+.gitignore
+
+# Development-only files (not needed in container)
+generate_datasets.py
+test_env.py
+validate.sh
+validate.py
+Makefile
+compat_output.txt
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (not needed in container)
+LICENSE
+CHANGELOG.md
+
+# NOTE: README.md is NOT excluded — HuggingFace Spaces reads it for the landing page
+# NOTE: uv.lock is NOT excluded — Dockerfile uses it for reproducible frozen builds
+# NOTE: datasets/ is NOT excluded — environment loads data from it at runtime

@@ -1,0 +1,95 @@
+{
+  "_meta": {
+    "generator": "generate_datasets.py",
+    "version": "3.0",
+    "seed": 42,
+    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "row_indexing": "0-based",
+    "total_issues": 12,
+    "fixable_issues": 6,
+    "detection_only_issues": 6
+  },
+  "issues": [
+    {
+      "row": 12,
+      "column": "_row",
+      "type": "duplicate",
+      "expected": "DELETE_ROW",
+      "duplicate_of": 5,
+      "description": "Exact content duplicate of row 5 (different ID only)"
+    },
+    {
+      "row": 34,
+      "column": "_row",
+      "type": "duplicate",
+      "expected": "DELETE_ROW",
+      "duplicate_of": 20,
+      "description": "Exact content duplicate of row 20 (different ID only)"
+    },
+    {
+      "row": 67,
+      "column": "_row",
+      "type": "duplicate",
+      "expected": "DELETE_ROW",
+      "duplicate_of": 50,
+      "description": "Exact content duplicate of row 50 (different ID only)"
+    },
+    {
+      "row": 8,
+      "column": "first_name",
+      "type": "near_duplicate",
+      "expected": "John",
+      "description": "Typo 'Jon' → 'John'; shares email john.walker@example.com and last name 'Walker' with row 25"
+    },
+    {
+      "row": 42,
+      "column": "email",
+      "type": "near_duplicate",
+      "expected": "sarah.miller@gmail.com",
+      "description": "Domain typo 'gmal.com' → 'gmail.com'; same person as row 30 (identical name 'Sarah Miller')"
+    },
+    {
+      "row": 78,
+      "column": "phone",
+      "type": "near_duplicate",
+      "expected": "+1-555-123-4567",
+      "description": "Unformatted phone '15551234567' → '+1-555-123-4567'; same person as row 60 (identical name 'David Chen')"
+    },
+    {
+      "row": 19,
+      "column": "email",
+      "type": "missing_value",
+      "description": "Email is null — critical field for contact record"
+    },
+    {
+      "row": 55,
+      "column": "phone",
+      "type": "missing_value",
+      "description": "Phone is empty string — functionally missing"
+    },
+    {
+      "row": 88,
+      "column": "address",
+      "type": "missing_value",
+      "description": "Address is null — required for mailing"
+    },
+    {
+      "row": 27,
+      "column": "registration_date",
+      "type": "type_mismatch",
+      "description": "Value 'not_a_date' is not a valid ISO date"
+    },
+    {
+      "row": 63,
+      "column": "id",
+      "type": "type_mismatch",
+      "description": "ID 'abc' should be integer per schema"
+    },
+    {
+      "row": 91,
+      "column": "phone",
+      "type": "type_mismatch",
+      "description": "Phone stored as integer 12345 instead of string — schema requires string type"
+    }
+  ]
+}

@@ -1,0 +1,116 @@
+{
+  "_meta": {
+    "generator": "generate_datasets.py",
+    "version": "3.0",
+    "seed": 42,
+    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "row_indexing": "0-based",
+    "total_issues": 15,
+    "fixable_issues": 12,
+    "detection_only_issues": 3
+  },
+  "issues": [
+    {
+      "row": 14,
+      "column": "product_id",
+      "type": "referential_integrity",
+      "description": "References non-existent product_id 999"
+    },
+    {
+      "row": 56,
+      "column": "product_id",
+      "type": "referential_integrity",
+      "description": "product_id is -1 — invalid reference"
+    },
+    {
+      "row": 112,
+      "column": "product_id",
+      "type": "referential_integrity",
+      "description": "References non-existent product_id 9999"
+    },
+    {
+      "row": 23,
+      "column": "order_total",
+      "type": "cross_field",
+      "expected": "4582.51",
+      "description": "Total doesn't match qty × unit_price × (1 − discount/100); correct value 4582.51 derivable from row's own fields"
+    },
+    {
+      "row": 78,
+      "column": "ship_date",
+      "type": "cross_field",
+      "expected": "2024-01-26",
+      "description": "Ship date 2023-01-01 precedes order date 2024-01-26; minimum valid ship date = order date"
+    },
+    {
+      "row": 130,
+      "column": "order_total",
+      "type": "cross_field",
+      "expected": "2696.27",
+      "description": "Negative total (sign flip); correct value derivable from qty × unit_price × (1 − discount/100)"
+    },
+    {
+      "row": 8,
+      "column": "quantity",
+      "type": "outlier",
+      "expected": "7",
+      "description": "Quantity 99999 is extreme outlier; correct value 7 derivable from round(total / (unit_price × (1 − discount/100)))"
+    },
+    {
+      "row": 45,
+      "column": "unit_price",
+      "type": "outlier",
+      "expected": "206.79",
+      "description": "Negative unit price (sign flip); correct value 206.79 derivable from products table base_price or abs(unit_price)"
+    },
+    {
+      "row": 99,
+      "column": "quantity",
+      "type": "outlier",
+      "expected": "5",
+      "description": "Quantity 0 with positive total; correct value 5 derivable from round(total / (unit_price × (1 − discount/100)))"
+    },
+    {
+      "row": 33,
+      "column": "discount_pct",
+      "type": "business_rule",
+      "expected": "50",
+      "description": "Discount 150% exceeds max_discount_pct (50%); clamped to business rule maximum"
+    },
+    {
+      "row": 71,
+      "column": "order_date",
+      "type": "business_rule",
+      "expected": "2025-01-01",
+      "description": "Order date 2035-01-01 exceeds valid_order_year_range [2024, 2025]; clamped to range maximum"
+    },
+    {
+      "row": 140,
+      "column": "quantity",
+      "type": "business_rule",
+      "expected": "1",
+      "description": "Negative quantity (-1); sign flip — absolute value restores original"
+    },
+    {
+      "row": 18,
+      "column": "product_category",
+      "type": "cross_field",
+      "expected": "Books",
+      "description": "Category 'Electronics' but product 20 is Books per products table"
+    },
+    {
+      "row": 62,
+      "column": "product_category",
+      "type": "cross_field",
+      "expected": "Clothing",
+      "description": "Category 'Electronics' but product 12 is Clothing per products table"
+    },
+    {
+      "row": 105,
+      "column": "product_category",
+      "type": "cross_field",
+      "expected": "Clothing",
+      "description": "Category is empty string but product 15 is Clothing per products table"
+    }
+  ]
+}

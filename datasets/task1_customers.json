@@ -1,0 +1,420 @@
+{
+  "_meta": {
+    "generator": "generate_datasets.py",
+    "version": "3.0",
+    "seed": 42,
+    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "row_indexing": "0-based",
+    "row_count": 50
+  },
+  "schema": {
+    "name": "string",
+    "email": "string",
+    "phone": "string",
+    "date_of_birth": "date",
+    "country": "string",
+    "zip_code": "string"
+  },
+  "rows": [
+    {
+      "name": "Alice Johnson",
+      "email": "alicejohnson@example.com",
+      "phone": "+1-555-125-5506",
+      "date_of_birth": "1975-04-05",
+      "country": "CA",
+      "zip_code": "98696"
+    },
+    {
+      "name": "Bob Smith",
+      "email": "bobsmith@company.org",
+      "phone": "+1-555-189-7912",
+      "date_of_birth": "1962-01-03",
+      "country": "AU",
+      "zip_code": "40495"
+    },
+    {
+      "name": "Charlie Williams",
+      "email": "charliewilliams@company.org",
+      "phone": "+1-555-127-4257",
+      "date_of_birth": "2001-12-18",
+      "country": "JP",
+      "zip_code": "38893"
+    },
+    {
+      "name": "Diana Brown",
+      "email": "john.doeexample.com",
+      "phone": "+1-555-384-1106",
+      "date_of_birth": "1970-12-14",
+      "country": "FR",
+      "zip_code": "46421"
+    },
+    {
+      "name": "Edward Jones",
+      "email": "edward.jones@gmail.com",
+      "phone": "+1-555-881-6514",
+      "date_of_birth": "1966-02-13",
+      "country": "CA",
+      "zip_code": "57052"
+    },
+    {
+      "name": "Fiona Garcia",
+      "email": "fiona_garcia@company.org",
+      "phone": "+1-555-370-1711",
+      "date_of_birth": "1989-09-04",
+      "country": "JP",
+      "zip_code": "20328"
+    },
+    {
+      "name": "George Miller",
+      "email": "georgemiller@yahoo.com",
+      "phone": "+1-555-949-6925",
+      "date_of_birth": "1996-04-23",
+      "country": "CA",
+      "zip_code": "16006"
+    },
+    {
+      "name": "Hannah Davis",
+      "email": "hannahdavis@gmail.com",
+      "phone": "+1-555-12345",
+      "date_of_birth": "1965-04-28",
+      "country": "CA",
+      "zip_code": "59823"
+    },
+    {
+      "name": "Ivan Rodriguez",
+      "email": "ivan_rodriguez@outlook.com",
+      "phone": "+1-555-750-6977",
+      "date_of_birth": "1970-06-12",
+      "country": "AU",
+      "zip_code": "97841"
+    },
+    {
+      "name": "Julia Martinez",
+      "email": "julia_martinez@mail.net",
+      "phone": "+1-555-799-2169",
+      "date_of_birth": "1998-11-06",
+      "country": "IN",
+      "zip_code": "42087"
+    },
+    {
+      "name": "Kevin Hernandez",
+      "email": "kevin.hernandez@outlook.com",
+      "phone": "+1-555-488-5422",
+      "date_of_birth": "2000-12-18",
+      "country": "AU",
+      "zip_code": "99733"
+    },
+    {
+      "name": "Laura Lopez",
+      "email": "sarah@@gmail.com",
+      "phone": "+1-555-334-1525",
+      "date_of_birth": "1980-07-09",
+      "country": "CA",
+      "zip_code": "37653"
+    },
+    {
+      "name": "Michael Wilson",
+      "email": "michaelwilson@mail.net",
+      "phone": "+1-555-422-4483",
+      "date_of_birth": "2001-08-13",
+      "country": "BR",
+      "zip_code": "28726"
+    },
+    {
+      "name": "Nora Anderson",
+      "email": "nora_anderson@gmail.com",
+      "phone": "+1-555-352-9830",
+      "date_of_birth": "1976-12-19",
+      "country": "JP",
+      "zip_code": "86484"
+    },
+    {
+      "name": "Oscar Thomas",
+      "email": "oscar_thomas@yahoo.com",
+      "phone": "+1-555-324-3266",
+      "date_of_birth": "1992-08-03",
+      "country": "US",
+      "zip_code": "24371"
+    },
+    {
+      "name": "Patricia Taylor",
+      "email": "patricia.taylor@mail.net",
+      "phone": "+1-555-263-7916",
+      "date_of_birth": "2000-02-30",
+      "country": "JP",
+      "zip_code": "88104"
+    },
+    {
+      "name": "Quincy Moore",
+      "email": "quincy_moore@company.org",
+      "phone": "+1-555-357-1188",
+      "date_of_birth": "2003-12-04",
+      "country": "IN",
+      "zip_code": "44973"
+    },
+    {
+      "name": "Rachel Jackson",
+      "email": "racheljackson@yahoo.com",
+      "phone": "+1-555-214-5808",
+      "date_of_birth": "1987-03-15",
+      "country": "US",
+      "zip_code": "44522"
+    },
+    {
+      "name": "Steven Martin",
+      "email": "stevenmartin@gmail.com",
+      "phone": "+1-555-619-2743",
+      "date_of_birth": "2000-05-27",
+      "country": "IN",
+      "zip_code": "89818"
+    },
+    {
+      "name": "Tina Lee",
+      "email": "tina.lee@gmail.com",
+      "phone": "+1-555-482-3646",
+      "date_of_birth": "1994-09-01",
+      "country": "MX",
+      "zip_code": "52487"
+    },
+    {
+      "name": "Uma Perez",
+      "email": "uma_perez@example.com",
+      "phone": "+1-555-214-6947",
+      "date_of_birth": "1979-04-02",
+      "country": "AU",
+      "zip_code": "84364"
+    },
+    {
+      "name": "Victor Thompson",
+      "email": "victor.thompson@example.com",
+      "phone": "+1-555-849-8962",
+      "date_of_birth": "1964-09-25",
+      "country": "UK",
+      "zip_code": "26828"
+    },
+    {
+      "name": "Wendy White",
+      "email": "wendywhite@outlook.com",
+      "phone": "555-ABC-1234",
+      "date_of_birth": "1976-09-28",
+      "country": "MX",
+      "zip_code": "65461"
+    },
+    {
+      "name": "Xavier Harris",
+      "email": "xavier.harris@company.org",
+      "phone": "+1-555-873-4295",
+      "date_of_birth": "1979-07-22",
+      "country": "FR",
+      "zip_code": "67422"
+    },
+    {
+      "name": "Yolanda Sanchez",
+      "email": "yolandasanchez@outlook.com",
+      "phone": "+1-555-223-5061",
+      "date_of_birth": "1974-02-11",
+      "country": "US",
+      "zip_code": "87110"
+    },
+    {
+      "name": "Zachary Clark",
+      "email": "zacharyclark@gmail.com",
+      "phone": "+1-555-702-4608",
+      "date_of_birth": "1960-02-23",
+      "country": "US",
+      "zip_code": "40007"
+    },
+    {
+      "name": "Amelia Ramirez",
+      "email": "amelia.ramirez@example.com",
+      "phone": "+1-555-980-6413",
+      "date_of_birth": "1964-09-08",
+      "country": "DE",
+      "zip_code": "97684"
+    },
+    {
+      "name": "Brian Lewis",
+      "email": "brian_lewis@gmail.com",
+      "phone": "+1-555-652-3167",
+      "date_of_birth": "1996-10-16",
+      "country": "AU",
+      "zip_code": "71993"
+    },
+    {
+      "name": "Cynthia Robinson",
+      "email": "cynthia_robinson@gmail.com",
+      "phone": "+1-555-196-2588",
+      "date_of_birth": "2002-07-12",
+      "country": "JP",
+      "zip_code": "63883"
+    },
+    {
+      "name": "David Walker",
+      "email": "david_walker@mail.net",
+      "phone": "+1-555-155-2612",
+      "date_of_birth": "1963-07-24",
+      "country": "FR",
+      "zip_code": "24322"
+    },
+    {
+      "name": "Elena Young",
+      "email": "elena.young@gmail.com",
+      "phone": "+1-555-294-9786",
+      "date_of_birth": "1988-03-14",
+      "country": "UK",
+      "zip_code": "46509"
+    },
+    {
+      "name": "Frank Allen",
+      "email": "frank_allen@gmail.com",
+      "phone": "+1-555-995-2235",
+      "date_of_birth": "1990-04-31",
+      "country": "US",
+      "zip_code": "95477"
+    },
+    {
+      "name": "Grace King",
+      "email": "graceking@example.com",
+      "phone": "+1-555-195-4872",
+      "date_of_birth": "1970-07-16",
+      "country": "BR",
+      "zip_code": "38016"
+    },
+    {
+      "name": "Henry Wright",
+      "email": "henry_wright@example.com",
+      "phone": "+1-555-268-7209",
+      "date_of_birth": "1960-07-09",
+      "country": "BR",
+      "zip_code": "47388"
+    },
+    {
+      "name": "Irene Scott",
+      "email": "irene_scott@mail.net",
+      "phone": "+1-555-848-8973",
+      "date_of_birth": "1969-04-10",
+      "country": "AU",
+      "zip_code": "17665"
+    },
+    {
+      "name": "James Torres",
+      "email": "jamestorres@mail.net",
+      "phone": "+1-555-655-1998",
+      "date_of_birth": "1980-01-02",
+      "country": "MX",
+      "zip_code": "72493"
+    },
+    {
+      "name": "Karen Nguyen",
+      "email": "karennguyen@company.org",
+      "phone": "+1-555-261-1931",
+      "date_of_birth": "1992-02-28",
+      "country": "UK",
+      "zip_code": "18981"
+    },
+    {
+      "name": "Leonard Hill",
+      "email": "leonardhill@example.com",
+      "phone": "+1-555-791-4853",
+      "date_of_birth": "1985-02-19",
+      "country": "AU",
+      "zip_code": "85880"
+    },
+    {
+      "name": "Maria Flores",
+      "email": "mariaflores@example.com",
+      "phone": "+1-555-734-2343",
+      "date_of_birth": "1986-11-19",
+      "country": "MX",
+      "zip_code": "78522"
+    },
+    {
+      "name": "Nathan Green",
+      "email": "nathan_green@yahoo.com",
+      "phone": "+1-555-309-6147",
+      "date_of_birth": "1975-05-13",
+      "country": "UK",
+      "zip_code": "98039"
+    },
+    {
+      "name": "Olivia Adams",
+      "email": "oliviaadams@yahoo.com",
+      "phone": "+1-555-568-6180",
+      "date_of_birth": "1964-01-15",
+      "country": "MX",
+      "zip_code": "1234"
+    },
+    {
+      "name": "Peter Nelson",
+      "email": "peter.nelson@example.com",
+      "phone": "+1-555-650-4492",
+      "date_of_birth": "1992-05-05",
+      "country": "FR",
+      "zip_code": "19016"
+    },
+    {
+      "name": "Quinn Baker",
+      "email": "quinn.baker@yahoo.com",
+      "phone": "+1-555-391-3584",
+      "date_of_birth": "1988-09-23",
+      "country": "DE",
+      "zip_code": "90173"
+    },
+    {
+      "name": "Robert Hall",
+      "email": "roberthall@company.org",
+      "phone": "+1-555-108-5905",
+      "date_of_birth": "2002-02-05",
+      "country": "DE",
+      "zip_code": "25129"
+    },
+    {
+      "name": "Susan Rivera",
+      "email": "susan.rivera@mail.net",
+      "phone": "+1-555-666-3546",
+      "date_of_birth": "1977-05-20",
+      "country": "AU",
+      "zip_code": "54942"
+    },
+    {
+      "name": "Thomas Campbell",
+      "email": "thomas.campbell@mail.net",
+      "phone": "+1-555-749-5325",
+      "date_of_birth": "1992-08-09",
+      "country": "US",
+      "zip_code": "ABCDE"
+    },
+    {
+      "name": "Ursula Mitchell",
+      "email": "ursulamitchell@outlook.com",
+      "phone": "+1-555-949-5533",
+      "date_of_birth": "1962-01-11",
+      "country": "UK",
+      "zip_code": "93507"
+    },
+    {
+      "name": "Vincent Carter",
+      "email": "vincent_carter@gmail.com",
+      "phone": "+1-555-859-8239",
+      "date_of_birth": "1995-12-14",
+      "country": "IN",
+      "zip_code": "11267"
+    },
+    {
+      "name": "Wanda Roberts",
+      "email": "wanda.roberts@example.com",
+      "phone": "+1-555-807-3442",
+      "date_of_birth": "1994-01-27",
+      "country": "FR",
+      "zip_code": "86350"
+    },
+    {
+      "name": "Xander Phillips",
+      "email": "xanderphillips@gmail.com",
+      "phone": "+1-555-540-3088",
+      "date_of_birth": "1962-05-12",
+      "country": "US",
+      "zip_code": "56898"
+    }
+  ]
+}

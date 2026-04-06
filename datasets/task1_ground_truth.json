@@ -1,0 +1,75 @@
+{
+  "_meta": {
+    "generator": "generate_datasets.py",
+    "version": "3.0",
+    "seed": 42,
+    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "row_indexing": "0-based",
+    "total_issues": 8,
+    "fixable_issues": 5,
+    "detection_only_issues": 3
+  },
+  "issues": [
+    {
+      "row": 3,
+      "column": "email",
+      "type": "format_error",
+      "original": "john.doeexample.com",
+      "expected": "john.doe@example.com",
+      "description": "Missing @ — 'doeexample' unambiguously splits at 'doe' + 'example' (known domain)"
+    },
+    {
+      "row": 11,
+      "column": "email",
+      "type": "format_error",
+      "original": "sarah@@gmail.com",
+      "expected": "sarah@gmail.com",
+      "description": "Double @@ — remove duplicate @ symbol"
+    },
+    {
+      "row": 15,
+      "column": "date_of_birth",
+      "type": "format_error",
+      "original": "2000-02-30",
+      "expected": "2000-02-29",
+      "description": "Feb 30 invalid; 2000 is a leap year (divisible by 400) so maximum valid day is Feb 29"
+    },
+    {
+      "row": 31,
+      "column": "date_of_birth",
+      "type": "format_error",
+      "original": "1990-04-31",
+      "expected": "1990-04-30",
+      "description": "April 31 invalid — April has exactly 30 days; clamp to maximum valid day"
+    },
+    {
+      "row": 40,
+      "column": "zip_code",
+      "type": "format_error",
+      "original": "1234",
+      "expected": "01234",
+      "description": "Zip code has only 4 digits — expected 5-digit format per dataset schema; likely missing leading zero"
+    },
+    {
+      "row": 7,
+      "column": "phone",
+      "type": "format_error",
+      "original": "+1-555-12345",
+      "description": "Phone number incomplete — missing digit group; correct number unknown without external data"
+    },
+    {
+      "row": 22,
+      "column": "phone",
+      "type": "format_error",
+      "original": "555-ABC-1234",
+      "description": "Phone contains letters — correct digits unknown without external data"
+    },
+    {
+      "row": 45,
+      "column": "zip_code",
+      "type": "format_error",
+      "original": "ABCDE",
+      "description": "Zip code is all letters — correct code unknown without external data"
+    }
+  ]
+}

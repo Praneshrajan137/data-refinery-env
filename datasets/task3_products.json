@@ -1,0 +1,229 @@
+{
+  "_meta": {
+    "generator": "generate_datasets.py",
+    "version": "3.0",
+    "seed": 42,
+    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "row_indexing": "0-based",
+    "row_count": 30
+  },
+  "schema": {
+    "product_id": "integer",
+    "product_name": "string",
+    "category": "string",
+    "base_price": "float",
+    "stock": "integer"
+  },
+  "rows": [
+    {
+      "product_id": 1,
+      "product_name": "Laptop Pro",
+      "category": "Electronics",
+      "base_price": 35.68,
+      "stock": 759
+    },
+    {
+      "product_id": 2,
+      "product_name": "Wireless Mouse",
+      "category": "Electronics",
+      "base_price": 216.27,
+      "stock": 116
+    },
+    {
+      "product_id": 3,
+      "product_name": "USB Hub",
+      "category": "Electronics",
+      "base_price": 375.38,
+      "stock": 487
+    },
+    {
+      "product_id": 4,
+      "product_name": "Monitor 27in",
+      "category": "Electronics",
+      "base_price": 229.65,
+      "stock": 370
+    },
+    {
+      "product_id": 5,
+      "product_name": "Keyboard",
+      "category": "Electronics",
+      "base_price": 261.49,
+      "stock": 111
+    },
+    {
+      "product_id": 6,
+      "product_name": "Office Chair",
+      "category": "Furniture",
+      "base_price": 231.48,
+      "stock": 226
+    },
+    {
+      "product_id": 7,
+      "product_name": "Standing Desk",
+      "category": "Furniture",
+      "base_price": 473.25,
+      "stock": 44
+    },
+    {
+      "product_id": 8,
+      "product_name": "Bookshelf",
+      "category": "Furniture",
+      "base_price": 366.35,
+      "stock": 930
+    },
+    {
+      "product_id": 9,
+      "product_name": "Filing Cabinet",
+      "category": "Furniture",
+      "base_price": 434.82,
+      "stock": 533
+    },
+    {
+      "product_id": 10,
+      "product_name": "Desk Lamp",
+      "category": "Furniture",
+      "base_price": 157.8,
+      "stock": 658
+    },
+    {
+      "product_id": 11,
+      "product_name": "Cotton T-Shirt",
+      "category": "Clothing",
+      "base_price": 482.37,
+      "stock": 62
+    },
+    {
+      "product_id": 12,
+      "product_name": "Denim Jeans",
+      "category": "Clothing",
+      "base_price": 499.31,
+      "stock": 867
+    },
+    {
+      "product_id": 13,
+      "product_name": "Wool Sweater",
+      "category": "Clothing",
+      "base_price": 206.79,
+      "stock": 702
+    },
+    {
+      "product_id": 14,
+      "product_name": "Rain Jacket",
+      "category": "Clothing",
+      "base_price": 62.9,
+      "stock": 729
+    },
+    {
+      "product_id": 15,
+      "product_name": "Sneakers",
+      "category": "Clothing",
+      "base_price": 455.75,
+      "stock": 75
+    },
+    {
+      "product_id": 16,
+      "product_name": "Python Guide",
+      "category": "Books",
+      "base_price": 450.64,
+      "stock": 329
+    },
+    {
+      "product_id": 17,
+      "product_name": "Data Science Handbook",
+      "category": "Books",
+      "base_price": 308.07,
+      "stock": 67
+    },
+    {
+      "product_id": 18,
+      "product_name": "AI Primer",
+      "category": "Books",
+      "base_price": 71.83,
+      "stock": 639
+    },
+    {
+      "product_id": 19,
+      "product_name": "ML Textbook",
+      "category": "Books",
+      "base_price": 320.21,
+      "stock": 561
+    },
+    {
+      "product_id": 20,
+      "product_name": "Stats 101",
+      "category": "Books",
+      "base_price": 358.95,
+      "stock": 390
+    },
+    {
+      "product_id": 21,
+      "product_name": "Yoga Mat",
+      "category": "Sports",
+      "base_price": 497.37,
+      "stock": 543
+    },
+    {
+      "product_id": 22,
+      "product_name": "Dumbbells 10lb",
+      "category": "Sports",
+      "base_price": 154.5,
+      "stock": 517
+    },
+    {
+      "product_id": 23,
+      "product_name": "Jump Rope",
+      "category": "Sports",
+      "base_price": 306.66,
+      "stock": 101
+    },
+    {
+      "product_id": 24,
+      "product_name": "Resistance Bands",
+      "category": "Sports",
+      "base_price": 398.62,
+      "stock": 117
+    },
+    {
+      "product_id": 25,
+      "product_name": "Water Bottle",
+      "category": "Sports",
+      "base_price": 427.87,
+      "stock": 666
+    },
+    {
+      "product_id": 26,
+      "product_name": "Chef Knife",
+      "category": "Kitchen",
+      "base_price": 440.08,
+      "stock": 564
+    },
+    {
+      "product_id": 27,
+      "product_name": "Cutting Board",
+      "category": "Kitchen",
+      "base_price": 363.21,
+      "stock": 220
+    },
+    {
+      "product_id": 28,
+      "product_name": "Mixing Bowl Set",
+      "category": "Kitchen",
+      "base_price": 220.73,
+      "stock": 909
+    },
+    {
+      "product_id": 29,
+      "product_name": "Blender",
+      "category": "Kitchen",
+      "base_price": 121.96,
+      "stock": 347
+    },
+    {
+      "product_id": 30,
+      "product_name": "Toaster",
+      "category": "Kitchen",
+      "base_price": 415.44,
+      "stock": 408
+    }
+  ]
+}
