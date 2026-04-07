@@ -112,6 +112,30 @@ export ENV_URL="http://localhost:7860"
 python inference.py
 ```
 
+### 4. Baseline Scores
+
+Verified against the live deployment at
+`https://praneshrajan15-data-quality-env.hf.space` on 2026-04-07.
+
+**Deterministic oracle agent** (ground-truth-aware, `run_baseline.py`):
+
+| Task | ID | Score | Detection | Fixes |
+|------|----|-------|-----------|-------|
+| Format Fixer | `task_1_format_fixer` | **1.0000** | 8/8 | 5/5 |
+| Duplicate Detective | `task_2_duplicate_detective` | **1.0000** | 12/12 | 6/6 |
+| Integrity Auditor | `task_3_integrity_auditor` | **1.0000** | 15/15 | 12/12 |
+| **Average** | — | **1.0000** | **35/35** | **23/23** |
+
+> [!NOTE]
+> These scores represent the **theoretical maximum** — a perfect agent with
+> full knowledge of ground truth. Real LLM-based agents (via `inference.py`)
+> will score lower depending on model capability and prompt strategy.
+
+```bash
+# Reproduce these scores (no API key required)
+python run_baseline.py --url https://praneshrajan15-data-quality-env.hf.space
+```
+
 ## Action Space
 
 | Action | Required Parameters | Optional | Effect |
