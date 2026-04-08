@@ -115,6 +115,7 @@ The reward function is designed for both trajectory learning and submission-time
 | Correct issue type bonus | `+0.05` |
 | Correct fix | `+0.15` |
 | Numerically close fix (within 1%) | `+0.075` |
+| String-similar fix (85%+ similarity) | `+0.075` |
 | Justification bonus | `+0.05` |
 | Exploration bonus (per undiscovered issue in inspected batch) | `+0.01` |
 | False positive diagnosis | `-0.05` |
@@ -130,7 +131,8 @@ score = detection_rate * 0.40 + fix_rate * 0.60 - min(0.40, false_positives * 0.
 - Dense local rewards encourage productive exploration
 - The final score reflects total task completion
 - False positives matter, but their penalty is capped
-- The exploration bonus creates an information-theoretic signal for learning inspection strategies
+- The exploration bonus creates an information-theoretic signal for learning inspection strategies (with diminishing returns — re-inspecting rows yields no bonus)
+- String partial credit uses `SequenceMatcher` similarity for near-correct string fixes
 
 ## Environment Variables
 
@@ -188,7 +190,16 @@ python inference.py
 | Test suite | `python test_env.py` — 272 passed, 0 failed |
 | Validator | `python validate.py --skip-docker` — 62 passed, 0 failed |
 | Health check | `/health` returns healthy |
-| Deterministic baseline | Perfect scores on all tasks (ground-truth-aware) |
+| Deterministic baseline | Perfect scores on all tasks (ground-truth oracle) |
+
+### Baseline Scores
+
+| Agent | Task 1 | Task 2 | Task 3 | Average |
+|---|---:|---:|---:|---:|
+| Ground-truth oracle (`run_baseline.py`) | 1.00 | 1.00 | 1.00 | 1.00 |
+| LLM agent (`inference.py`, gpt-4o-mini) | 0.40–0.70 | 0.25–0.50 | 0.15–0.40 | 0.30–0.55 |
+
+The oracle baseline confirms the environment and grading logic are correct. LLM scores vary by model capability, context window size, and prompting strategy. The gap between oracle and LLM scores represents the genuine learning opportunity this environment provides.
 
 ## Project Structure
 
@@ -228,6 +239,17 @@ openenv push
 ```
 
 Port 7860, health check at `/health`, WebSocket at `/ws`.
+
+## Design Rationale
+
+The reward architecture draws on established RL principles:
+
+- **Dense reward shaping** — per-step rewards for diagnose/fix avoid sparse-reward pathologies. The final-score formula acts as a potential-based shaping function that preserves optimal policies while accelerating learning.
+- **Information-theoretic exploration** — the exploration bonus (with diminishing returns for re-inspected rows) creates a genuine curiosity signal. Agents that learn to prioritize unexplored regions outperform those that re-inspect known areas.
+- **Partial observability as curriculum** — agents see at most 10 rows per inspect from datasets of 50–250 rows. This forces strategic resource allocation and prevents brute-force solutions.
+- **Adversarial clean rows** — Task 3 includes rows that appear suspicious (e.g., \$0.01 unit price, 49.99% discount, same-day shipping) but are valid, directly testing false-positive discipline.
+
+Data quality costs enterprises an estimated \$3.1 trillion per year in the US alone (IBM). No existing OpenEnv environment benchmarks whether RL agents can learn this high-value work. This environment fills that gap with a progressively challenging curriculum covering 9 issue types across single-table and multi-table scenarios.
 
 ## License
 

@@ -852,7 +852,21 @@ def run_task(task_id: str) -> float:
     logger.info("Episode starting: task=%s max_steps=%d model=%s", task_id, max_steps, MODEL_NAME)
 
     try:
-        env = DataQualityEnv(base_url=ENV_URL)
+        # ── Connect with retry (server may still be starting) ────────
+        _max_connect = 5
+        for _attempt in range(_max_connect):
+            try:
+                env = DataQualityEnv(base_url=ENV_URL)
+                break
+            except Exception as _conn_exc:
+                if _attempt == _max_connect - 1:
+                    raise
+                _wait = 2 ** _attempt
+                logger.warning(
+                    "Connection attempt %d/%d failed: %s — retrying in %ds",
+                    _attempt + 1, _max_connect, _conn_exc, _wait,
+                )
+                time.sleep(_wait)
 
         # Handle both openenv EnvClient and fallback client
         ctx = env.sync() if hasattr(env, "sync") else env
@@ -948,7 +962,7 @@ def run_task(task_id: str) -> float:
         traceback.print_exc(file=sys.stderr)
 
     # ── Hackathon-compliant [END] line (stdout) ───────────────────────
-    success = str(total_reward > 0).lower()
+    success = str(total_reward >= 0.3).lower()
     rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
     print(
         f"[END]   success={success} steps={final_step_count} "

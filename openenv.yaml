@@ -16,6 +16,9 @@ tags:
   - data-quality
   - rl-environment
   - tabular-data
+  - multi-task
+  - partial-observability
+  - dense-reward
 tasks:
   - task_1_format_fixer
   - task_2_duplicate_detective

@@ -237,6 +237,7 @@ class DataQualityEnvironment(Environment):
         self.false_positives: int = 0
         self.cumulative_reward: float = 0.0
         self._is_finalized: bool = False
+        self._inspected_rows: set[int] = set()  # Track inspected rows for diminishing exploration bonus
 
     # ──────────────────────────────────────────────────────────────────────
     # Core API
@@ -274,6 +275,7 @@ class DataQualityEnvironment(Environment):
         self.false_positives = 0
         self.cumulative_reward = 0.0
         self._is_finalized = False
+        self._inspected_rows = set()
 
         self._load_datasets(task_id)
         config = TASK_CONFIG[task_id]
@@ -311,11 +313,7 @@ class DataQualityEnvironment(Environment):
                 "task_2_duplicate_detective": "medium",
                 "task_3_integrity_auditor": "hard",
             }.get(task_id, "unknown"),
-            message=(
-                f"Dataset: {config['dataset_name']}. "
-                f"{len(self.dataset)} rows × {len(self.schema_info)} columns. "
-                f"Actions: inspect, diagnose, fix, finalize."
-            ),
+            message=self._build_initial_message(config),
         )
 
     def step(self, action: DataQualityAction) -> DataQualityObservation:
@@ -505,6 +503,20 @@ class DataQualityEnvironment(Environment):
         """Add ``_row_index`` to each row for unambiguous agent reference."""
         return [{**row, "_row_index": start + i} for i, row in enumerate(rows)]
 
+    def _build_initial_message(self, config: Dict[str, Any]) -> str:
+        """Build the initial observation message, including business rules if present."""
+        msg = (
+            f"Dataset: {config['dataset_name']}. "
+            f"{len(self.dataset)} rows \u00d7 {len(self.schema_info)} columns. "
+            f"Actions: inspect, diagnose, fix, finalize."
+        )
+        if self.business_rules:
+            rules_parts = []
+            for key, val in self.business_rules.items():
+                rules_parts.append(f"{key}={val}")
+            msg += f" Business rules: {', '.join(rules_parts)}."
+        return msg
+
     def _handle_inspect(
         self, action: DataQualityAction
     ) -> Tuple[
@@ -512,8 +524,9 @@ class DataQualityEnvironment(Environment):
         Optional[Dict[str, Any]],
         Optional[List[Dict[str, Any]]],
         str,
+        float,
     ]:
-        """Process an inspect action — return rows, stats, secondary rows, message."""
+        """Process an inspect action — return rows, stats, secondary rows, message, exploration bonus."""
         visible_rows: Optional[List[Dict[str, Any]]] = None
         col_stats: Optional[Dict[str, Any]] = None
         sec_rows: Optional[List[Dict[str, Any]]] = None
@@ -591,15 +604,20 @@ class DataQualityEnvironment(Environment):
 
         # ── Exploration bonus: reward inspecting rows with undiscovered
         #    issues (information-theoretic reward shaping) ─────────────────
+        #    Diminishing returns: only newly-inspected rows earn the bonus,
+        #    preventing agents from farming rewards by re-inspecting.
         exploration_bonus = 0.0
         if visible_rows:
             inspected_indices = {
                 r.get("_row_index", -1) for r in visible_rows
             }
+            new_indices = inspected_indices - self._inspected_rows
+            self._inspected_rows.update(inspected_indices)
+
             found_rows = {f["row"] for f in self.found_issues}
             undiscovered = sum(
                 1 for gt in self.ground_truth
-                if gt["row"] in inspected_indices
+                if gt["row"] in new_indices
                 and gt["row"] not in found_rows
             )
             exploration_bonus = undiscovered * R_EXPLORE
@@ -852,6 +870,29 @@ class DataQualityEnvironment(Environment):
                             )
                     except (ValueError, TypeError):
                         pass
+
+                    # ── Partial credit for string-similar values ─────
+                    from difflib import SequenceMatcher
+
+                    sim = SequenceMatcher(
+                        None, provided.lower(), str(expected).lower()
+                    ).ratio()
+                    if sim >= 0.85:  # 85%+ string similarity
+                        reward = R_FIX_PARTIAL
+                        if action.justification:
+                            reward += R_JUSTIFY_BONUS
+                        self.fixed_issues.append({
+                            "row": action.row_index,
+                            "column": action.column_name,
+                            "value": action.new_value,
+                        })
+                        self._auto_diagnose_if_needed(action, truth)
+                        return (
+                            reward,
+                            ActionResult.PARTIAL,
+                            f"Close! String similarity {sim:.0%}. "
+                            f"Partial reward: +{reward:.2f}",
+                        )
 
                     return (
                         P_WRONG_FIX,
