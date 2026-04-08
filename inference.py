@@ -619,7 +619,9 @@ def _truncate_messages(
         return messages
 
     system = messages[0]
-    tail_size = min(8, len(messages) - 1)
+    # Smaller context windows (e.g., gpt-3.5-turbo 16K) need fewer tail messages
+    max_tail = 4 if max_tokens < 32_000 else 8
+    tail_size = min(max_tail, len(messages) - 1)
     tail = messages[-tail_size:]
 
     # Count how many middle messages we can keep
@@ -727,16 +729,18 @@ def _call_llm(
                 )
                 break
 
-            # On 400 with context overflow hints, try aggressive truncation
-            if status_code == 400 and any(
-                kw in error_body
-                for kw in ("context", "token", "length", "too long", "maximum")
-            ):
+            # On ANY 400 error, aggressively truncate context and retry once.
+            # LiteLLM proxies return 400 for context overflow, model errors,
+            # and other non-retryable issues — always truncate to be safe.
+            if status_code == 400:
                 logger.warning(
-                    "HTTP 400 likely context overflow — truncating for retry"
+                    "HTTP 400 from API — truncating context for retry"
                 )
-                if len(messages) > 5:
-                    messages = [messages[0]] + messages[-4:]
+                if len(messages) > 3:
+                    messages = [messages[0]] + messages[-2:]
+                else:
+                    # Context is already minimal — don't retry
+                    break
 
             wait = min(2 ** attempt, 2)  # 1s, 2s max
             logger.warning(
