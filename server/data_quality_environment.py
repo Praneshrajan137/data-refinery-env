@@ -399,6 +399,11 @@ class DataQualityEnvironment(Environment):
                 self.cumulative_reward,
             )
 
+        # Clamp terminal scores to (0, 1) exclusive — validator rejects 0.0 and 1.0
+        if done:
+            self.cumulative_reward = max(0.0001, min(0.9999, self.cumulative_reward))
+            self._state.current_reward = self.cumulative_reward
+
         return DataQualityObservation(
             done=done,
             reward=self.cumulative_reward if done else reward_delta,
@@ -1020,7 +1025,7 @@ class DataQualityEnvironment(Environment):
         returns ``PARTIAL`` for ``expected is None`` entries.
 
         Returns:
-            Score clamped to [0.0, 1.0], rounded to 4 decimal places.
+            Score clamped to (0, 1) exclusive, rounded to 4 decimal places.
         """
         if not self.ground_truth:
             return 0.0001

@@ -707,7 +707,7 @@ def test_finalize_no_work() -> None:
     obs = env.step(DataQualityAction(action_type="finalize"))
     _check("finalize done=True", obs.done is True)
     _check("action_result=complete", obs.action_result == ActionResult.COMPLETE)
-    _check("score in [0, 1]", 0.0 <= obs.cumulative_reward <= 1.0)
+    _check("score in (0, 1) exclusive", 0.0 < obs.cumulative_reward < 1.0)
     # No work done: detection_rate=0, fix_rate=0, score should be ~0
     _check("score ~0 (no work)", obs.cumulative_reward < 0.1,
            f"got {obs.cumulative_reward}")
