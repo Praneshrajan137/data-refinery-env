@@ -114,9 +114,12 @@ logger = logging.getLogger("inference")
 
 
 # ── Configuration from environment ────────────────────────────────────────
+# Required env vars per hackathon spec (defaults where mandated):
 
 API_BASE_URL: str = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME: str = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+HF_TOKEN: str | None = os.environ.get("HF_TOKEN")  # Mandatory — no default
+LOCAL_IMAGE_NAME: str | None = os.environ.get("LOCAL_IMAGE_NAME")  # Optional — for from_docker_image()
 ENV_URL: str = os.environ.get("ENV_URL", "http://localhost:7860")
 
 TEMPERATURE: float = float(os.environ.get("TEMPERATURE", "0.1"))
