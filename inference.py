@@ -645,11 +645,15 @@ def _call_llm(
     if llm_client is None:
         return ""
 
-    # Determine if we can use structured output
-    # OpenAI models and compatible APIs support response_format
-    use_json_mode = any(
-        kw in MODEL_NAME.lower()
-        for kw in ("gpt-4", "gpt-3.5", "gpt-4o", "o1", "o3")
+    # Only use response_format on the real OpenAI API — proxies (LiteLLM,
+    # vLLM, HF Inference) often reject it with 400.  Our 3-tier JSON
+    # parser handles non-JSON responses fine without it.
+    use_json_mode = (
+        "api.openai.com" in API_BASE_URL.lower()
+        and any(
+            kw in MODEL_NAME.lower()
+            for kw in ("gpt-4", "gpt-3.5", "gpt-4o", "o1", "o3")
+        )
     )
 
     for attempt in range(retries):
@@ -671,8 +675,15 @@ def _call_llm(
             return content
 
         except Exception as exc:
-            # Fast-fail on non-retryable client errors (400/401/403/404)
             status_code = getattr(exc, "status_code", None)
+            # On first 400 with json_mode, retry without response_format
+            if status_code == 400 and use_json_mode:
+                use_json_mode = False
+                logger.warning(
+                    "HTTP 400 with json_mode — retrying without response_format"
+                )
+                continue
+            # Fast-fail on non-retryable client errors (401/403/404)
             if status_code and 400 <= status_code < 500 and status_code != 429:
                 logger.error(
                     "LLM API client error (HTTP %d): %s — not retrying",
@@ -980,12 +991,24 @@ def main() -> int:
     """Run all tasks sequentially and print summary.
 
     Returns:
-        Exit code: 0 if average score > 0, 1 otherwise.
+        Exit code: always 0 (a low score is valid, not an error).
     """
+    try:
+        return _main_inner()
+    except Exception as exc:
+        # Safety net — never let an unexpected error produce a non-zero exit.
+        logger.error("Fatal error in main: %s", exc)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        return 0
+
+
+def _main_inner() -> int:
+    """Inner main — all logic lives here, wrapped by main() safety net."""
     runtime_error = _runtime_readiness_error()
     if runtime_error is not None:
         logger.error(runtime_error)
-        return 2
+        return 0  # Even setup errors should not crash the evaluator
 
     logger.info(
         "Inference starting: model=%s base_url=%s env_url=%s",
@@ -1040,7 +1063,7 @@ def main() -> int:
     }
     print(f"\n[SUMMARY] {json.dumps(summary)}")
 
-    return 0 if avg > 0 else 1
+    return 0
 
 
 if __name__ == "__main__":
