@@ -298,20 +298,23 @@ def validate_ground_truth(
 # I/O Utilities
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_GENERATION_TIMESTAMP: str = datetime.now(timezone.utc).isoformat()
-
 
 def _make_meta(**extra: Any) -> dict[str, Any]:
-    """Build a ``_meta`` dict with standard provenance fields."""
+    """Build a ``_meta`` dict with standard provenance fields.
+
+    Timestamp is captured at call time (not import time) so it
+    accurately reflects when generation actually occurred.
+    """
     meta = {
         "generator": "generate_datasets.py",
         "version": VERSION,
         "seed": SEED,
-        "generated_at": _GENERATION_TIMESTAMP,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "row_indexing": "0-based",
     }
     meta.update(extra)
     return meta
+
 
 
 def _write_dataset(
@@ -467,7 +470,7 @@ def generate_task1() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK 2: DUPLICATE DETECTIVE — 100 rows, 12 planted issues
+# TASK 2: DUPLICATE DETECTIVE — 120 rows, 15 planted issues
 #
 # [FIX-03] Exact duplicates: column="_row" sentinel
 # [FIX-05] Near-duplicate emails explicitly match planted names
@@ -479,6 +482,7 @@ def generate_task2() -> None:
 
     Scenario: A contacts database with exact duplicates, near-duplicate
     records (typos/reformatting), missing values, and type mismatches.
+    Expanded to 120 rows with harder near-duplicates to challenge frontier models.
     """
     schema = {
         "id": "integer", "first_name": "string", "last_name": "string",
@@ -487,9 +491,8 @@ def generate_task2() -> None:
     }
 
     rows: list[dict[str, Any]] = []
-    for i in range(100):
-        # Batch-offset indexing: rows 50-99 shift last names by 1 to avoid
-        # accidental name collisions with rows 0-49.
+    for i in range(120):
+        # Batch-offset indexing to avoid accidental name collisions
         batch = i // len(FIRST_NAMES)
         first = FIRST_NAMES[i % len(FIRST_NAMES)]
         last = LAST_NAMES[(i + batch) % len(LAST_NAMES)]
@@ -505,15 +508,11 @@ def generate_task2() -> None:
         })
 
     # ── Exact duplicates (DELETE_ROW) ─────────────────────────────────────
-    # Copy content from source row, preserve unique ID.
-    # These are NOT tracked via corrupt() since they replace entire rows.
-
-    for dup_idx, src_idx in [(12, 5), (34, 20), (67, 50)]:
+    for dup_idx, src_idx in [(12, 5), (34, 20), (67, 50), (95, 40)]:
         rows[dup_idx] = dict(rows[src_idx])
-        rows[dup_idx]["id"] = dup_idx + 1  # keep unique ID
+        rows[dup_idx]["id"] = dup_idx + 1
 
     # ── Near-duplicates (fixable — derivable from matching row) ───────────
-    # [FIX-05] All names and emails explicitly set for self-consistency.
 
     # Pair 1: "John Walker" (row 25) vs "Jon Walker" (row 8), same email
     corrupt("task2", rows, 25, "first_name", "John")
@@ -539,6 +538,14 @@ def generate_task2() -> None:
     corrupt("task2", rows, 78, "last_name",  "Chen")
     corrupt("task2", rows, 78, "phone",      "15551234567")
 
+    # Pair 4 (HARDER): "Robert Garcia" (row 70) vs transposed name (row 103)
+    corrupt("task2", rows, 70, "first_name", "Robert")
+    corrupt("task2", rows, 70, "last_name",  "Garcia")
+    corrupt("task2", rows, 70, "email",      "robert.garcia@outlook.com")
+    corrupt("task2", rows, 103, "first_name", "Garcia")    # transposed!
+    corrupt("task2", rows, 103, "last_name",  "Robert")    # transposed!
+    corrupt("task2", rows, 103, "email",      "robert.garcia@outlook.com")  # same email
+
     # ── Missing values (detection-only) [FIX-02] ─────────────────────────
     corrupt("task2", rows, 19, "email",   None)
     corrupt("task2", rows, 55, "phone",   "")
@@ -548,6 +555,7 @@ def generate_task2() -> None:
     corrupt("task2", rows, 27, "registration_date", "not_a_date")
     corrupt("task2", rows, 63, "id",                "abc")
     corrupt("task2", rows, 91, "phone",             12345)
+    corrupt("task2", rows, 110, "registration_date", "13/05/2023")
 
     # ── Ground truth ──────────────────────────────────────────────────────
 
@@ -562,6 +570,9 @@ def generate_task2() -> None:
         {"row": 67, "column": "_row", "type": "duplicate",
          "expected": "DELETE_ROW", "duplicate_of": 50,
          "description": "Exact content duplicate of row 50 (different ID only)"},
+        {"row": 95, "column": "_row", "type": "duplicate",
+         "expected": "DELETE_ROW", "duplicate_of": 40,
+         "description": "Exact content duplicate of row 40 (different ID only)"},
 
         # Near-duplicates: fixable (derivable from anchor row)
         {"row": 8, "column": "first_name", "type": "near_duplicate",
@@ -582,6 +593,13 @@ def generate_task2() -> None:
              "Unformatted phone '15551234567' → '+1-555-123-4567'; "
              "same person as row 60 (identical name 'David Chen')"
          )},
+        {"row": 103, "column": "first_name", "type": "near_duplicate",
+         "expected": "Robert",
+         "description": (
+             "First/last name transposed: 'Garcia Robert' should be "
+             "'Robert Garcia'; shares email robert.garcia@outlook.com "
+             "with row 70"
+         )},
 
         # Missing values: detection-only [FIX-02]
         {"row": 19, "column": "email", "type": "missing_value",
@@ -601,6 +619,11 @@ def generate_task2() -> None:
              "Phone stored as integer 12345 instead of string — "
              "schema requires string type"
          )},
+        {"row": 110, "column": "registration_date", "type": "type_mismatch",
+         "description": (
+             "Date '13/05/2023' uses DD/MM/YYYY format instead of "
+             "required ISO YYYY-MM-DD format"
+         )},
     ]
 
     validate_ground_truth(ground_truth, rows, schema, "task2")
@@ -615,7 +638,11 @@ def generate_task2() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK 3: INTEGRITY AUDITOR — 150 orders + 30 products, 15 planted issues
+# TASK 3: INTEGRITY AUDITOR — 250 orders + 40 products, 22 planted issues
+#
+# Expanded and hardened to genuinely challenge frontier models.
+# Includes multi-hop reasoning, cascading errors, statistical outliers,
+# adversarial clean rows, and floating-point precision traps.
 #
 # [FIX-04] All originals saved BEFORE corruption via corrupt()
 # [FIX-06] All expected values via canonical_str()
@@ -626,16 +653,35 @@ def generate_task3() -> None:
 
     Scenario: An orders database with a linked products table.  Issues include
     referential integrity violations, cross-field inconsistencies, outliers,
-    business rule violations, and category mismatches.
+    business rule violations, category mismatches, cascading errors, and
+    temporal cross-table reasoning.
+
+    This task is designed to be genuinely hard:
+    - 250 rows means the agent cannot brute-force inspect everything in 65 steps
+    - Adversarial clean rows punish false positives
+    - Cascading errors require root-cause identification
+    - Statistical outliers require per-category reasoning
+    - Multi-hop issues require cross-table temporal comparison
 
     Business rules are encoded in dataset metadata so the agent can derive fixes.
     """
-    # ── Products table ────────────────────────────────────────────────────
+    # ── Products table (expanded to 40) ───────────────────────────────────
+
+    # Add more product names per category
+    EXTRA_PRODUCTS: dict[str, list[str]] = {
+        "Electronics": ["Tablet 10in", "Bluetooth Speaker"],
+        "Furniture":   ["Corner Desk", "Bar Stool"],
+        "Clothing":    ["Silk Scarf", "Hiking Boots"],
+        "Books":       ["Algorithms 4th Ed", "Design Patterns"],
+        "Sports":      ["Tennis Racket", "Boxing Gloves"],
+        "Kitchen":     ["Air Fryer", "Espresso Machine"],
+    }
 
     products: list[dict[str, Any]] = []
     pid = 1
     for cat in CATEGORIES:
-        for name in PRODUCT_NAMES[cat]:
+        all_names = PRODUCT_NAMES[cat] + EXTRA_PRODUCTS.get(cat, [])
+        for name in all_names:
             products.append({
                 "product_id": pid,
                 "product_name": name,
@@ -652,10 +698,11 @@ def generate_task3() -> None:
         p["product_id"]: p for p in products
     }
 
-    # ── Orders table (clean) ──────────────────────────────────────────────
+    # ── Orders table (expanded to 250 clean rows) ────────────────────────
 
     orders_schema = {
-        "order_id": "integer", "product_id": "integer",
+        "order_id": "integer", "customer_id": "integer",
+        "product_id": "integer",
         "quantity": "integer", "unit_price": "float",
         "order_total": "float", "discount_pct": "float",
         "order_date": "date", "ship_date": "date",
@@ -672,7 +719,7 @@ def generate_task3() -> None:
     }
 
     orders: list[dict[str, Any]] = []
-    for i in range(150):
+    for i in range(250):
         prod = random.choice(products)
         qty = random.randint(1, 10)
         price = prod["base_price"]
@@ -685,6 +732,7 @@ def generate_task3() -> None:
 
         orders.append({
             "order_id": i + 1,
+            "customer_id": random.randint(1000, 9999),
             "product_id": prod["product_id"],
             "quantity": qty,
             "unit_price": price,
@@ -695,15 +743,42 @@ def generate_task3() -> None:
             "product_category": prod["category"],
         })
 
+    # ── ADVERSARIAL CLEAN ROWS (look suspicious but are valid) ────────────
+    # These exist to punish false positives. An imprecise agent will flag them.
+
+    # Row 50: Very cheap product ($0.01) — legitimate sample/promo item
+    sample_prod = random.choice(products)
+    orders[50]["unit_price"] = 0.01
+    orders[50]["quantity"] = 1
+    orders[50]["discount_pct"] = 0
+    orders[50]["order_total"] = 0.01  # correct: 1 * 0.01 * 1.0
+
+    # Row 120: Discount at 49.99% — just under max, but valid
+    orders[120]["discount_pct"] = 49.99
+    p120 = orders[120]
+    orders[120]["order_total"] = round(
+        p120["quantity"] * p120["unit_price"] * (1 - 49.99 / 100), 2
+    )
+
+    # Row 175: Ship date == order date (same-day shipping, valid)
+    orders[175]["ship_date"] = orders[175]["order_date"]
+
+    # Row 200: Quantity of exactly 100 (boundary — valid per max_quantity=100)
+    orders[200]["quantity"] = 100
+    p200 = orders[200]
+    orders[200]["order_total"] = round(
+        100 * p200["unit_price"] * (1 - p200["discount_pct"] / 100), 2
+    )
+
     # ── 1–3: Referential integrity (detection-only) ──────────────────────
 
     corrupt("task3", orders, 14,  "product_id", 999)
     corrupt("task3", orders, 56,  "product_id", -1)
-    corrupt("task3", orders, 112, "product_id", 9999)
+    corrupt("task3", orders, 180, "product_id", 9999)
 
     # ── 4–6: Cross-field errors (fixable — derivable) ────────────────────
 
-    # Row 23: corrupt total (save original BEFORE corruption) [FIX-04]
+    # Row 23: corrupt total
     orig_total_23 = corrupt(
         "task3", orders, 23, "order_total",
         round(orders[23]["order_total"] * 3.7, 2),
@@ -711,37 +786,30 @@ def generate_task3() -> None:
 
     # Row 78: ship date before order date
     corrupt("task3", orders, 78, "ship_date", "2023-01-01")
-    # Expected = order_date (minimum valid ship date)
     expected_ship_78 = orders[78]["order_date"]
 
-    # Row 130: negative total (sign flip) [FIX-04]
-    orig_total_130 = orders[130]["order_total"]
-    corrupt("task3", orders, 130, "order_total", -orig_total_130)
+    # Row 210: negative total (sign flip)
+    orig_total_210 = orders[210]["order_total"]
+    corrupt("task3", orders, 210, "order_total", -orig_total_210)
 
-    # ── 7–9: Outliers (fixable — derivable from cross-field formula) ─────
-    # [FIX-04] Originals saved; expected = original value.
-    # Agent derives via: qty = round(total / (price * (1 - discount/100)))
+    # ── 7–9: Outliers (fixable — derivable) ──────────────────────────────
 
     orig_qty_8 = corrupt("task3", orders, 8, "quantity", 99999)
 
-    # Row 45: negative price (sign flip of original base_price)
     orig_price_45 = orders[45]["unit_price"]
     corrupt("task3", orders, 45, "unit_price", -orig_price_45)
 
     orig_qty_99 = corrupt("task3", orders, 99, "quantity", 0)
 
-    # ── 10–12: Business rule violations (fixable — rules in metadata) ────
+    # ── 10–12: Business rule violations (fixable) ────────────────────────
 
     corrupt("task3", orders, 33,  "discount_pct", 150)
     corrupt("task3", orders, 71,  "order_date",   "2035-01-01")
-    orig_qty_140 = orders[140]["quantity"]
-    corrupt("task3", orders, 140, "quantity",      -orig_qty_140)
+    orig_qty_220 = orders[220]["quantity"]
+    corrupt("task3", orders, 220, "quantity", -orig_qty_220)
 
     # ── 13–15: Category mismatches (fixable — derivable from products) ───
-    # Keep original product_id, only corrupt the category field.
-    # Expected = actual category of the product referenced by product_id.
 
-    # Find rows with specific categories for deterministic setup
     cat_18_actual = product_by_id[orders[18]["product_id"]]["category"]
     cat_18_wrong = next(c for c in CATEGORIES if c != cat_18_actual)
     corrupt("task3", orders, 18, "product_category", cat_18_wrong)
@@ -750,8 +818,57 @@ def generate_task3() -> None:
     cat_62_wrong = next(c for c in CATEGORIES if c != cat_62_actual)
     corrupt("task3", orders, 62, "product_category", cat_62_wrong)
 
-    cat_105_actual = product_by_id[orders[105]["product_id"]]["category"]
-    corrupt("task3", orders, 105, "product_category", "")  # empty = missing
+    cat_155_actual = product_by_id[orders[155]["product_id"]]["category"]
+    corrupt("task3", orders, 155, "product_category", "")
+
+    # ── 16–17: CASCADING ERRORS (harder — root cause identification) ─────
+    # Discount is wrong (75% instead of 7.5%), which ALSO makes total wrong.
+    # Agent must identify discount as the root cause, not just flag the total.
+
+    orig_discount_90 = corrupt("task3", orders, 90, "discount_pct", 75)
+    # Recompute total with the WRONG discount to make it internally consistent
+    # with the wrong discount — the total looks "correct" for discount=75,
+    # but the discount itself is the error.
+    row90 = orders[90]
+    corrupt("task3", orders, 90, "order_total",
+            round(row90["quantity"] * row90["unit_price"] * (1 - 75 / 100), 2))
+    # The CORRECT total (with original discount) is what we save
+    orig_total_90 = round(
+        row90["quantity"] * row90["unit_price"] * (1 - orig_discount_90 / 100), 2
+    )
+
+    # Row 145: similar cascading — discount 0.5 instead of 5 (decimal shift)
+    orig_discount_145 = corrupt("task3", orders, 145, "discount_pct", 0.5)
+    row145 = orders[145]
+    corrupt("task3", orders, 145, "order_total",
+            round(row145["quantity"] * row145["unit_price"] * (1 - 0.5 / 100), 2))
+    orig_total_145 = round(
+        row145["quantity"] * row145["unit_price"] * (1 - orig_discount_145 / 100), 2
+    )
+
+    # ── 18–19: FLOATING POINT PRECISION TRAPS ────────────────────────────
+    # Total is close but not exact — tests numeric precision
+
+    # Row 130: total off by rounding error (e.g. 206.789 instead of 206.79)
+    orig_total_130 = orders[130]["order_total"]
+    corrupt("task3", orders, 130, "order_total",
+            round(orig_total_130 + 0.009, 3))  # adds tiny rounding error
+
+    # ── 20: SEMANTIC DUPLICATE ORDER ─────────────────────────────────────
+    # Same customer_id + product_id + order_date = likely duplicate submission
+
+    orders[235] = dict(orders[110])
+    orders[235]["order_id"] = 236  # different order_id
+    # Same customer_id, product_id, order_date → duplicate submission
+
+    # ── 21–22: Additional cross-field issues ─────────────────────────────
+
+    # Row 190: ship_date is 2 years after order_date (suspicious but fixable)
+    corrupt("task3", orders, 190, "ship_date", "2027-06-15")
+    expected_ship_190 = orders[190]["order_date"]
+
+    # Row 240: quantity exceeds max_quantity (business rule)
+    corrupt("task3", orders, 240, "quantity", 500)
 
     # ── Ground truth ──────────────────────────────────────────────────────
 
@@ -761,14 +878,14 @@ def generate_task3() -> None:
          "description": "References non-existent product_id 999"},
         {"row": 56, "column": "product_id", "type": "referential_integrity",
          "description": "product_id is -1 — invalid reference"},
-        {"row": 112, "column": "product_id", "type": "referential_integrity",
+        {"row": 180, "column": "product_id", "type": "referential_integrity",
          "description": "References non-existent product_id 9999"},
 
-        # Cross-field: fixable (derivable from other columns)
+        # Cross-field: fixable
         {"row": 23, "column": "order_total", "type": "cross_field",
          "expected": canonical_str(orig_total_23),
          "description": (
-             "Total doesn't match qty × unit_price × (1 − discount/100); "
+             "Total doesn't match qty * unit_price * (1 - discount/100); "
              f"correct value {canonical_str(orig_total_23)} derivable from "
              "row's own fields"
          )},
@@ -778,35 +895,35 @@ def generate_task3() -> None:
              f"Ship date 2023-01-01 precedes order date {expected_ship_78}; "
              "minimum valid ship date = order date"
          )},
-        {"row": 130, "column": "order_total", "type": "cross_field",
-         "expected": canonical_str(orig_total_130),
+        {"row": 210, "column": "order_total", "type": "cross_field",
+         "expected": canonical_str(orig_total_210),
          "description": (
              "Negative total (sign flip); correct value derivable from "
-             "qty × unit_price × (1 − discount/100)"
+             "qty * unit_price * (1 - discount/100)"
          )},
 
-        # Outliers: fixable (derivable from cross-field formula) [FIX-04]
+        # Outliers: fixable
         {"row": 8, "column": "quantity", "type": "outlier",
          "expected": str(orig_qty_8),
          "description": (
              f"Quantity 99999 is extreme outlier; correct value {orig_qty_8} "
-             "derivable from round(total / (unit_price × (1 − discount/100)))"
+             "derivable from round(total / (unit_price * (1 - discount/100)))"
          )},
         {"row": 45, "column": "unit_price", "type": "outlier",
          "expected": canonical_str(orig_price_45),
          "description": (
              f"Negative unit price (sign flip); correct value "
              f"{canonical_str(orig_price_45)} derivable from products table "
-             f"base_price or abs(unit_price)"
+             "base_price or abs(unit_price)"
          )},
         {"row": 99, "column": "quantity", "type": "outlier",
          "expected": str(orig_qty_99),
          "description": (
              f"Quantity 0 with positive total; correct value {orig_qty_99} "
-             "derivable from round(total / (unit_price × (1 − discount/100)))"
+             "derivable from round(total / (unit_price * (1 - discount/100)))"
          )},
 
-        # Business rules: fixable (rules documented in business_rules metadata)
+        # Business rules: fixable
         {"row": 33, "column": "discount_pct", "type": "business_rule",
          "expected": str(business_rules["max_discount_pct"]),
          "description": (
@@ -821,14 +938,14 @@ def generate_task3() -> None:
              f"{business_rules['valid_order_year_range']}; "
              "clamped to range maximum"
          )},
-        {"row": 140, "column": "quantity", "type": "business_rule",
-         "expected": str(orig_qty_140),
+        {"row": 220, "column": "quantity", "type": "business_rule",
+         "expected": str(orig_qty_220),
          "description": (
-             f"Negative quantity (-{orig_qty_140}); sign flip — "
+             f"Negative quantity (-{orig_qty_220}); sign flip — "
              "absolute value restores original"
          )},
 
-        # Category mismatches: fixable (derivable from products table)
+        # Category mismatches: fixable
         {"row": 18, "column": "product_category", "type": "cross_field",
          "expected": cat_18_actual,
          "description": (
@@ -843,12 +960,64 @@ def generate_task3() -> None:
              f"{orders[62]['product_id']} is {cat_62_actual} "
              "per products table"
          )},
-        {"row": 105, "column": "product_category", "type": "cross_field",
-         "expected": cat_105_actual,
+        {"row": 155, "column": "product_category", "type": "cross_field",
+         "expected": cat_155_actual,
          "description": (
              f"Category is empty string but product "
-             f"{orders[105]['product_id']} is {cat_105_actual} "
+             f"{orders[155]['product_id']} is {cat_155_actual} "
              "per products table"
+         )},
+
+        # CASCADING ERRORS: discount is root cause
+        {"row": 90, "column": "discount_pct", "type": "business_rule",
+         "expected": canonical_str(orig_discount_90),
+         "description": (
+             f"Discount 75% is likely a data entry error "
+             f"(original {canonical_str(orig_discount_90)}%); "
+             "total was recomputed with wrong discount — "
+             "fix discount first, then total follows"
+         )},
+        {"row": 145, "column": "discount_pct", "type": "cross_field",
+         "expected": canonical_str(orig_discount_145),
+         "description": (
+             f"Discount 0.5% is likely decimal shift error "
+             f"(should be {canonical_str(orig_discount_145)}%); "
+             "total was recomputed with wrong discount"
+         )},
+
+        # FLOATING POINT PRECISION TRAP
+        {"row": 130, "column": "order_total", "type": "cross_field",
+         "expected": canonical_str(orig_total_130),
+         "description": (
+             f"Total {orders[130]['order_total']} has rounding error; "
+             f"correct value {canonical_str(orig_total_130)} derivable "
+             "from qty * unit_price * (1 - discount/100)"
+         )},
+
+        # SEMANTIC DUPLICATE
+        {"row": 235, "column": "_row", "type": "duplicate",
+         "expected": "DELETE_ROW",
+         "duplicate_of": 110,
+         "description": (
+             "Semantic duplicate: same customer_id, product_id, and "
+             "order_date as row 110 — likely duplicate submission"
+         )},
+
+        # Additional cross-field
+        {"row": 190, "column": "ship_date", "type": "cross_field",
+         "expected": expected_ship_190,
+         "description": (
+             "Ship date 2027-06-15 is 2+ years after order date "
+             f"{expected_ship_190} — exceeds reasonable shipping window; "
+             "minimum valid ship date = order date"
+         )},
+
+        # Business rule: quantity exceeds max
+        {"row": 240, "column": "quantity", "type": "business_rule",
+         "expected": str(business_rules["max_quantity"]),
+         "description": (
+             "Quantity 500 exceeds max_quantity (100); "
+             "clamped to business rule maximum"
          )},
     ]
 
@@ -931,8 +1100,8 @@ def verify_all() -> bool:
     # Gate 3: Ground truth issue counts
     gt_expectations = {
         "task1_ground_truth.json": (8, 5),   # total, fixable
-        "task2_ground_truth.json": (12, 6),
-        "task3_ground_truth.json": (15, 12),
+        "task2_ground_truth.json": (15, 8),
+        "task3_ground_truth.json": (21, 18),
     }
     for fname, (exp_total, exp_fixable) in gt_expectations.items():
         def _check_counts(

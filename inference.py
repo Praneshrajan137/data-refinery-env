@@ -1,21 +1,58 @@
 # Copyright (c) 2026 Data Quality Environment Project
 # SPDX-License-Identifier: MIT
 
-"""Baseline inference script for the Data Quality RL environment.
+"""Multi-turn LLM inference engine for the Data Quality RL environment.
 
-Drives an LLM agent through all three data-quality tasks, streaming
-structured log events that can be consumed by CI, dashboards, or
-downstream evaluation pipelines.
+Drives an LLM agent through all three data-quality tasks using a **stateful
+conversation memory** — every observation and action in the episode is
+retained in the message history so the agent has full context to make
+increasingly informed decisions.
+
+Architecture::
+
+    ┌─────────────────────────────────────────────────────────────┐
+    │  Episode Loop (per task)                                    │
+    │                                                             │
+    │  messages = [system_prompt]                                 │
+    │                                                             │
+    │  for step in range(max_steps):                              │
+    │      messages.append({"role": "user", "content": obs})      │
+    │      messages = truncate_if_over_budget(messages)            │
+    │      response = llm(messages)                               │
+    │      messages.append({"role": "assistant", "content": resp}) │
+    │      action = parse(response)                               │
+    │      obs = env.step(action)                                 │
+    │      if obs.done: break                                     │
+    └─────────────────────────────────────────────────────────────┘
+
+Key Design Decisions:
+    1. **Multi-turn memory** — The agent remembers everything it has
+       inspected, diagnosed, and fixed within an episode.  This is
+       the single biggest factor in agent quality.
+    2. **Structured output** — Uses ``response_format={"type":"json_object"}``
+       on OpenAI-compatible models for guaranteed valid JSON.
+    3. **Token-budget sliding window** — When the conversation exceeds
+       80% of the model's context window, the oldest observation/action
+       pairs are dropped (system prompt is always retained).
+    4. **Strategic planning prompts** — Task-specific guidance that
+       emphasizes systematic row inspection, diagnosis before fix,
+       and efficient finalization.
+    5. **Inspected-row tracking** — Fallback actions target uninspected
+       row ranges instead of repeatedly inspecting [0–4].
+    6. **Automatic .env loading** — Reads ``OPENAI_API_KEY`` from the
+       ``.env`` file at project root if not already in env vars.
 
 Environment variables (all optional):
 
     API_BASE_URL      LLM provider base URL          (default: OpenAI)
-    MODEL_NAME        Chat-completion model           (default: gpt-3.5-turbo)
-    OPENAI_API_KEY    API key (also reads HF_TOKEN)   (required for real runs)
+    MODEL_NAME        Chat-completion model           (default: gpt-4o-mini)
+    HF_TOKEN          API key (primary, mandatory)      (required for real runs)
+    OPENAI_API_KEY    API key (fallback if HF_TOKEN unset)
     ENV_URL           Environment server URL          (default: http://localhost:7860)
     TEMPERATURE       Sampling temperature            (default: 0.1)
-    MAX_TOKENS        Max tokens per completion       (default: 512)
+    MAX_TOKENS        Max tokens per completion       (default: 1024)
     INFERENCE_RETRIES Max retry attempts on API error (default: 3)
+    MAX_CONTEXT_TOKENS Model context window size      (default: 128000)
 
 Usage::
 
@@ -23,22 +60,12 @@ Usage::
     export OPENAI_API_KEY="sk-..."
     python inference.py
 
-    # Against a local dev server on a custom port
-    ENV_URL=http://localhost:7860 python inference.py
-
-    # Using a HuggingFace-hosted model
-    API_BASE_URL=https://api-inference.huggingface.co/v1 \\
-    MODEL_NAME=meta-llama/Llama-3-70b-instruct \\
-    HF_TOKEN=hf_... \\
+    # Or: place key in .env file (auto-loaded)
+    echo 'OPENAI_API_KEY=sk-...' > .env
     python inference.py
 
-Bug fixes from review:
-    [I-01]  Proper import resolution — no sys.path hacking.
-    [I-06]  Action sanitization — strips unknown keys, coerces enums.
-    [I-07]  Retry with exponential backoff on API errors.
-    [I-09]  Robust JSON parsing with nested brace/bracket support.
-    [I-13]  Fallback action is inspect (not premature finalize).
-    [I-16]  Default port 7860 matches HuggingFace Spaces convention.
+    # Custom model and provider
+    MODEL_NAME=gpt-4o API_BASE_URL=https://api.openai.com/v1 python inference.py
 """
 
 from __future__ import annotations
@@ -49,10 +76,33 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+
+# ── .env auto-loading (no external dependency) ───────────────────────────
+# Load .env file from project root before reading any env vars.
+# This is a zero-dependency implementation that handles the common cases.
+
+_ENV_FILE = Path(__file__).resolve().parent / ".env"
+
+if _ENV_FILE.is_file():
+    try:
+        with open(_ENV_FILE, encoding="utf-8-sig") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if not _line or _line.startswith("#") or "=" not in _line:
+                    continue
+                _key, _, _val = _line.partition("=")
+                _key = _key.strip()
+                _val = _val.strip().strip("'\"")
+                # Only set if not already in environment (env takes precedence)
+                if _key and _key not in os.environ:
+                    os.environ[_key] = _val
+    except Exception:
+        pass  # .env loading is best-effort
+
 
 # ── Logging ───────────────────────────────────────────────────────────────
-# Structured log format: every line is machine-parseable.
 
 logging.basicConfig(
     level=logging.INFO,
@@ -66,15 +116,16 @@ logger = logging.getLogger("inference")
 # ── Configuration from environment ────────────────────────────────────────
 
 API_BASE_URL: str = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME: str = os.environ.get("MODEL_NAME", "gpt-3.5-turbo")
-API_KEY: str = os.environ.get(
-    "OPENAI_API_KEY", os.environ.get("HF_TOKEN", "")
-)
+MODEL_NAME: str = os.environ.get("MODEL_NAME", "gpt-4o-mini")
 ENV_URL: str = os.environ.get("ENV_URL", "http://localhost:7860")
 
 TEMPERATURE: float = float(os.environ.get("TEMPERATURE", "0.1"))
-MAX_TOKENS: int = int(os.environ.get("MAX_TOKENS", "512"))
+MAX_TOKENS: int = int(os.environ.get("MAX_TOKENS", "1024"))
 INFERENCE_RETRIES: int = int(os.environ.get("INFERENCE_RETRIES", "3"))
+MAX_CONTEXT_TOKENS: int = int(os.environ.get("MAX_CONTEXT_TOKENS", "128000"))
+
+# Budget threshold: truncate history when exceeding this fraction of context
+_CONTEXT_BUDGET_FRACTION: float = 0.75
 
 TASKS: List[str] = [
     "task_1_format_fixer",
@@ -85,13 +136,11 @@ TASKS: List[str] = [
 MAX_STEPS: Dict[str, int] = {
     "task_1_format_fixer": 30,
     "task_2_duplicate_detective": 50,
-    "task_3_integrity_auditor": 80,
+    "task_3_integrity_auditor": 65,
 }
 
 
 # ── Import models using project convention ────────────────────────────────
-# [I-01] No sys.path hacking.  Follows the same try-relative / except-absolute
-# pattern used by client.py, server/data_quality_environment.py, etc.
 
 try:
     from .models import DataQualityAction, IssueType, FixType
@@ -101,11 +150,10 @@ except ImportError:
         from models import DataQualityAction, IssueType, FixType  # type: ignore[no-redef]
         from client import DataQualityEnv  # type: ignore[no-redef]
     except ImportError:
-        logger.error(
-            "Cannot import models/client.  Run from the project root:\n"
-            "    cd data_quality_env && python inference.py"
-        )
-        sys.exit(2)
+        DataQualityAction = None  # type: ignore[assignment]
+        IssueType = None  # type: ignore[assignment]
+        FixType = None  # type: ignore[assignment]
+        DataQualityEnv = None  # type: ignore[assignment]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -115,96 +163,212 @@ except ImportError:
 try:
     from openai import OpenAI
 except ImportError:
-    logger.error(
-        "openai package required for inference.  Install with:\n"
-        "    pip install 'openai>=1.0'"
-    )
-    sys.exit(2)
+    OpenAI = None  # type: ignore[assignment]
 
-_llm_client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
+_llm_client: Any | None = None
+_llm_client_config: tuple[str, str] | None = None
+_runtime_error_once: set[str] = set()
+
+
+def _log_runtime_error_once(key: str, message: str) -> None:
+    """Avoid spamming the same runtime setup error on every step."""
+    if key not in _runtime_error_once:
+        logger.error(message)
+        _runtime_error_once.add(key)
+
+
+def _current_api_key() -> str:
+    """Read the current API key from environment variables.
+
+    Priority: HF_TOKEN (hackathon requirement) → OPENAI_API_KEY (fallback).
+    """
+    return os.environ.get("HF_TOKEN", os.environ.get("OPENAI_API_KEY", "")).strip()
+
+
+def _runtime_readiness_error() -> str | None:
+    """Return a user-facing runtime error message, if any."""
+    if DataQualityAction is None or DataQualityEnv is None:
+        return (
+            "Cannot import models/client.  Run from the project root:\n"
+            "    cd data_quality_env && python inference.py"
+        )
+    if OpenAI is None:
+        return (
+            "openai package required for inference.  Install with:\n"
+            "    pip install 'openai>=1.0'"
+        )
+    if not _current_api_key():
+        return (
+            "No API key found.  Set HF_TOKEN in environment or in .env file:\n"
+            "    export HF_TOKEN='hf_...'\n"
+            "  or:\n"
+            "    echo 'HF_TOKEN=hf_...' > .env\n"
+            "  (OPENAI_API_KEY is also accepted as a fallback)"
+        )
+    return None
+
+
+def _get_llm_client() -> Any | None:
+    """Create or reuse the OpenAI-compatible client on demand."""
+    global _llm_client, _llm_client_config
+
+    runtime_error = _runtime_readiness_error()
+    if runtime_error is not None:
+        error_key = "runtime_readiness"
+        if OpenAI is None:
+            error_key = "missing_openai"
+        elif not _current_api_key():
+            error_key = "missing_api_key"
+        _log_runtime_error_once(error_key, runtime_error)
+        return None
+
+    api_key = _current_api_key()
+    config = (API_BASE_URL, api_key)
+    if _llm_client is None or _llm_client_config != config:
+        _llm_client = OpenAI(base_url=API_BASE_URL, api_key=api_key)
+        _llm_client_config = config
+    return _llm_client
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# §2  System Prompts — task-adaptive
+# §2  System Prompts — Expert-Tier Strategic Guidance
 # ═══════════════════════════════════════════════════════════════════════════
 
 _BASE_SYSTEM_PROMPT = """\
-You are a data quality analyst agent. Examine datasets, find issues, fix them.
+You are an expert data quality analyst. Your job is to systematically \
+examine a dataset, find all data quality issues, fix them with correct \
+values, and finalize when done.
 
-## Actions (respond with ONE JSON object, no other text)
+## Response Format
+Respond with EXACTLY ONE JSON object per turn. No explanation, no markdown, \
+no text before or after the JSON. Example: {"action_type": "inspect", "row_indices": [0,1,2,3,4]}
 
-1. INSPECT rows:
-   {"action_type": "inspect", "row_indices": [0, 1, 2]}
+## Available Actions
+
+1. INSPECT rows (view data):
+   {"action_type": "inspect", "row_indices": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]}
 
 2. INSPECT column statistics:
    {"action_type": "inspect", "column_names": ["email", "phone"]}
 
-3. INSPECT secondary/related table:
-   {"action_type": "inspect", "row_indices": [0, 1], "related_table": "products"}
+3. INSPECT secondary table (Task 3 only):
+   {"action_type": "inspect", "row_indices": [0,1,2,3,4], "related_table": "products"}
 
-4. DIAGNOSE an issue:
-   {"action_type": "diagnose", "row_index": 5, "column_name": "email", "issue_type": "<TYPE>"}
+4. DIAGNOSE an issue (flag it):
+   {"action_type": "diagnose", "row_index": 5, "column_name": "email", "issue_type": "format_error"}
 
-5. FIX an issue:
-   {"action_type": "fix", "row_index": 5, "column_name": "email", "new_value": "correct@email.com", "fix_type": "correct_value", "justification": "Reason"}
+5. FIX an issue (provide corrected value):
+   {"action_type": "fix", "row_index": 5, "column_name": "email", \
+"fix_type": "correct_value", "new_value": "correct@email.com", \
+"justification": "Missing @ symbol"}
 
 6. FIX by deleting a duplicate row:
-   {"action_type": "fix", "row_index": 12, "column_name": "email", "fix_type": "delete_row", "justification": "Duplicate of row 5"}
+   {"action_type": "fix", "row_index": 12, "column_name": "email", \
+"fix_type": "delete_row", "justification": "Exact duplicate of row 5"}
 
-7. FINALIZE (end episode):
+7. FINALIZE (end episode when all issues are found):
    {"action_type": "finalize"}
 
 ## Valid issue_type values
-format_error, missing_value, duplicate, near_duplicate, type_mismatch, outlier, referential_integrity, cross_field, business_rule
+format_error, missing_value, duplicate, near_duplicate, type_mismatch, \
+outlier, referential_integrity, cross_field, business_rule
 
 ## Valid fix_type values
-correct_value (requires new_value), delete_row (no new_value), impute, standardize
+correct_value (requires new_value), delete_row (NO new_value), impute, standardize
 
-## Strategy
-- Inspect rows systematically (e.g., 10 at a time).
-- When you find an anomaly, diagnose it with the correct issue_type.
-- If you can determine the correct value, fix it with justification.
-- If you cannot determine the fix, just diagnose — partial credit is given.
-- Finalize when you believe all issues are found.
+## Expert Strategy (FOLLOW THIS ORDER)
 
-RESPOND WITH ONLY A SINGLE JSON OBJECT. No explanation, no markdown."""
+**Phase 1 — SYSTEMATIC INSPECTION**: Inspect ALL rows in batches of 10 \
+(rows 0-9, then 10-19, etc.) until you've covered the entire dataset. \
+Also inspect column statistics for anomaly detection.
+
+**Phase 2 — DIAGNOSIS**: For every anomaly you observed during inspection, \
+diagnose it with the precise row_index, column_name, and issue_type.
+
+**Phase 3 — FIXES**: For every diagnosed issue where you can determine \
+the correct value, apply a fix. Provide thorough justification.
+
+**Phase 4 — FINALIZE**: Once you've inspected all rows and addressed \
+all anomalies, finalize the episode.
+
+## Critical Rules
+- NEVER finalize early — inspect all rows first.
+- ALWAYS diagnose before fixing (both earn separate rewards).
+- Each action must be a single valid JSON object.
+- Track which rows you've already inspected — don't re-inspect them.
+- The issues_remaining_hint tells you: "none", "few", "some", "many".
+- You earn +0.10 for each correct diagnosis, +0.15 for each correct fix.
+- You lose -0.05 for false positives. Be precise, not speculative."""
 
 _TASK_HINTS: Dict[str, str] = {
     "task_1_format_fixer": """
-## Task-Specific Guidance: Format Fixer
-Focus on: malformed emails (missing @, double @@), invalid dates (Feb 30, Apr 31),
-phone number irregularities, and zip code formatting (missing leading zeros, letters).
-Check every column value against its expected format per the schema.""",
+
+## Task: Format Fixer (Customer Database)
+Focus on these specific format violations:
+- **Emails**: Missing @ (like "john.doeexample.com" → add @ before domain), \
+double @@ (remove duplicate), invalid format
+- **Dates**: Impossible calendar dates (Feb 30 → Feb 29 in leap year, \
+Apr 31 → Apr 30). Dates use YYYY-MM-DD format.
+- **Phone numbers**: Wrong digit count, letters in phone numbers
+- **Zip codes**: Wrong length (4 digits → prepend 0 for 5-digit format), \
+all letters where digits expected
+
+When fixing dates: clamp to the last valid day of that month. \
+When fixing emails: the domain is usually visible in the string. \
+Some issues are detection-only (e.g., phone with unknown correct digits) — \
+just diagnose those, don't try to fix.""",
 
     "task_2_duplicate_detective": """
-## Task-Specific Guidance: Duplicate Detective
-Focus on: exact duplicate rows (fix with delete_row), near-duplicates (typos in names,
-domain typos in emails, unformatted phone numbers), missing values (null/empty fields),
-and type mismatches (wrong data types per schema).
-Compare rows with similar names/emails to find near-duplicates.""",
+
+## Task: Duplicate Detective (Contacts Database)
+Focus on these categories:
+- **Exact duplicates**: Rows with identical content (different ID). \
+Fix with: {"action_type": "fix", "fix_type": "delete_row", ...}
+- **Near-duplicates**: Same person with typos (e.g., "Jon" vs "John"), \
+domain typos in email ("gmal.com" → "gmail.com"), reformatted phones. \
+Compare rows with similar names — look for matching emails or last names.
+- **Missing values**: null or empty string fields (detection-only)
+- **Type mismatches**: Wrong data type vs schema (detection-only)
+
+Strategy: After inspecting all rows, compare rows with similar names. \
+Duplicates will share names/emails with slight variations. \
+For exact duplicates, use fix_type="delete_row" (no new_value!).""",
 
     "task_3_integrity_auditor": """
-## Task-Specific Guidance: Integrity Auditor
-Focus on: referential integrity (product_id references to products table — inspect it!),
-cross-field consistency (order_total = qty × unit_price × (1 − discount/100), ship_date ≥ order_date),
-outliers (extreme quantities, negative prices), business rule violations (discount > max_discount,
-future order dates, negative quantities).
-IMPORTANT: Inspect the products table early using {"action_type": "inspect", "row_indices": [0,1,2,3,4], "related_table": "products"}""",
+
+## Task: Integrity Auditor (Orders + Products Tables)
+This task has TWO tables. Inspect the products table early!
+
+Focus areas:
+- **Referential integrity**: product_id in orders must exist in products \
+table. Inspect products first!
+- **Cross-field consistency**: order_total should equal \
+quantity × unit_price × (1 − discount_pct/100). ship_date must be ≥ order_date.
+- **Outliers**: Extreme quantities (99999, 0, negative), negative prices
+- **Business rules**: Check business_rules metadata. Max discount is 50%. \
+Valid order years: 2024-2025. Quantities must be ≥ 1.
+- **Category mismatches**: product_category in orders should match the \
+product's actual category in the products table.
+
+Strategy:
+1. First: {"action_type": "inspect", "row_indices": [0,1,2,3,4,5,6,7,8,9], \
+"related_table": "products"} to see product catalog
+2. Then: {"action_type": "inspect", "row_indices": [0,1,2,3,4], \
+"related_table": "business_rules"} to see rules
+3. Then: Inspect all order rows systematically in batches of 10
+4. Cross-reference product_id values, verify totals, check dates""",
 }
 
 
-def _system_prompt(task_id: str) -> str:
-    """Build a task-adaptive system prompt."""
+def _build_system_prompt(task_id: str) -> str:
+    """Build a task-adaptive system prompt with strategic guidance."""
     hint = _TASK_HINTS.get(task_id, "")
     return _BASE_SYSTEM_PROMPT + hint
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# §3  JSON Parsing — robust handling of LLM output
+# §3  JSON Parsing — Robust Extraction from LLM Output
 # ═══════════════════════════════════════════════════════════════════════════
-
-# [I-13] Fallback is inspect (gather information) not finalize (abort episode).
-_FALLBACK_ACTION = '{"action_type": "inspect", "row_indices": [0, 1, 2, 3, 4]}'
 
 # Valid keys per action type, for sanitization
 _VALID_KEYS: Dict[str, set] = {
@@ -214,18 +378,23 @@ _VALID_KEYS: Dict[str, set] = {
     "finalize": {"action_type", "metadata"},
 }
 
-# Enum value sets for coercion validation
-_ISSUE_TYPES: set = {e.value for e in IssueType}
-_FIX_TYPES: set = {e.value for e in FixType}
+# Enum value sets for coercion validation.
+# Keep these import-safe even when the module is loaded in tooling contexts
+# where models/client imports are intentionally unavailable.
+_ISSUE_TYPES: set[str] = (
+    {e.value for e in IssueType} if IssueType is not None else set()
+)
+_FIX_TYPES: set[str] = (
+    {e.value for e in FixType} if FixType is not None else set()
+)
 
 
 def _extract_json(text: str) -> Optional[str]:
     """Extract the first balanced JSON object from text.
 
-    [I-09] Handles nested braces/brackets correctly, unlike a naive
-    `[^{}]+` regex which fails on arrays inside objects.
+    Handles nested braces/brackets correctly using a state machine
+    with proper string-escape tracking.
     """
-    # Strategy: find first '{', then track brace depth to find matching '}'
     start = text.find("{")
     if start == -1:
         return None
@@ -240,9 +409,10 @@ def _extract_json(text: str) -> Optional[str]:
             escape_next = False
             continue
         if ch == "\\":
-            escape_next = True
+            if in_string:
+                escape_next = True
             continue
-        if ch == '"' and not escape_next:
+        if ch == '"':
             in_string = not in_string
             continue
         if in_string:
@@ -260,26 +430,22 @@ def _extract_json(text: str) -> Optional[str]:
 def _sanitize_action(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Sanitize an LLM-produced action dict for Pydantic construction.
 
-    [I-06] Strips unknown keys (preventing ``extra="forbid"`` rejection)
+    Strips unknown keys (preventing ``extra="forbid"`` rejection)
     and coerces string enum values to their canonical forms.
     """
     action_type = str(raw.get("action_type", "inspect")).lower().strip()
 
     # Normalize common LLM hallucinations
-    action_type_map = {
-        "investigate": "inspect",
-        "examine": "inspect",
-        "check": "inspect",
-        "detect": "diagnose",
-        "report": "diagnose",
-        "repair": "fix",
-        "correct": "fix",
-        "complete": "finalize",
-        "done": "finalize",
-        "finish": "finalize",
-        "end": "finalize",
+    _ALIASES = {
+        "investigate": "inspect", "examine": "inspect", "check": "inspect",
+        "look": "inspect", "view": "inspect", "show": "inspect",
+        "detect": "diagnose", "report": "diagnose", "identify": "diagnose",
+        "flag": "diagnose", "find": "diagnose",
+        "repair": "fix", "correct": "fix", "update": "fix", "change": "fix",
+        "complete": "finalize", "done": "finalize", "finish": "finalize",
+        "end": "finalize", "submit": "finalize",
     }
-    action_type = action_type_map.get(action_type, action_type)
+    action_type = _ALIASES.get(action_type, action_type)
 
     if action_type not in _VALID_KEYS:
         action_type = "inspect"
@@ -296,20 +462,19 @@ def _sanitize_action(raw: Dict[str, Any]) -> Dict[str, Any]:
     if "issue_type" in sanitized:
         it = str(sanitized["issue_type"]).lower().strip().replace(" ", "_").replace("-", "_")
         if it not in _ISSUE_TYPES:
-            # Best-effort fuzzy match
             for valid in _ISSUE_TYPES:
                 if it in valid or valid in it:
                     it = valid
                     break
             else:
-                it = "format_error"  # Safe default
+                it = "format_error"
         sanitized["issue_type"] = it
 
     # Coerce fix_type to valid enum value
     if "fix_type" in sanitized:
         ft = str(sanitized["fix_type"]).lower().strip().replace(" ", "_").replace("-", "_")
         if ft not in _FIX_TYPES:
-            ft = "correct_value"  # Safe default
+            ft = "correct_value"
         sanitized["fix_type"] = ft
 
     # Ensure row_indices are integers
@@ -370,47 +535,151 @@ def parse_action(text: str) -> Dict[str, Any]:
             pass
 
     logger.warning("Failed to parse action from LLM response, using fallback")
-    return json.loads(_FALLBACK_ACTION)
+    return {"action_type": "inspect", "row_indices": [0, 1, 2, 3, 4]}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# §4  LLM Interaction — with retry and backoff
+# §4  LLM Interaction — Multi-Turn with Retry
 # ═══════════════════════════════════════════════════════════════════════════
+
+def _estimate_tokens(text: str) -> int:
+    """Rough token count estimate (1 token ≈ 4 chars for English/JSON)."""
+    return len(text) // 4
+
+
+def _estimate_messages_tokens(messages: List[Dict[str, str]]) -> int:
+    """Estimate total tokens across all messages."""
+    total = 0
+    for msg in messages:
+        # ~4 tokens overhead per message for role, delimiters
+        total += 4 + _estimate_tokens(msg.get("content", ""))
+    return total
+
+
+def _truncate_messages(
+    messages: List[Dict[str, str]],
+    max_tokens: int,
+) -> List[Dict[str, str]]:
+    """Truncate conversation history to fit within token budget.
+
+    Strategy:
+        1. System prompt (messages[0]) is ALWAYS retained.
+        2. The most recent 4 message pairs (8 messages) are ALWAYS retained.
+        3. Oldest observation/action pairs in the middle are dropped.
+        4. A summary message replaces dropped history.
+
+    This preserves the agent's most recent working context while
+    staying within the model's context window.
+    """
+    budget = int(max_tokens * _CONTEXT_BUDGET_FRACTION)
+    current = _estimate_messages_tokens(messages)
+
+    if current <= budget:
+        return messages
+
+    # Always keep: system prompt (index 0) + last 8 messages
+    if len(messages) <= 9:
+        return messages
+
+    system = messages[0]
+    tail_size = min(8, len(messages) - 1)
+    tail = messages[-tail_size:]
+
+    # Count how many middle messages we can keep
+    system_tokens = _estimate_tokens(system.get("content", ""))
+    tail_tokens = _estimate_messages_tokens(tail)
+    remaining_budget = budget - system_tokens - tail_tokens - 100  # 100 for summary
+
+    # Build middle from oldest to newest, adding until budget exhausted
+    middle = messages[1:-tail_size]
+    kept_middle: List[Dict[str, str]] = []
+
+    if remaining_budget > 0 and middle:
+        # Keep from the end of middle (more recent = more valuable)
+        for msg in reversed(middle):
+            msg_tokens = _estimate_tokens(msg.get("content", ""))
+            if remaining_budget >= msg_tokens:
+                kept_middle.insert(0, msg)
+                remaining_budget -= msg_tokens
+            else:
+                break
+
+    dropped_count = len(middle) - len(kept_middle)
+
+    result = [system]
+    if dropped_count > 0:
+        result.append({
+            "role": "user",
+            "content": (
+                f"[CONTEXT NOTE: {dropped_count} earlier observation/action "
+                f"exchanges were truncated to fit context window. "
+                f"Your recent actions and their results are preserved below.]"
+            ),
+        })
+    result.extend(kept_middle)
+    result.extend(tail)
+
+    logger.debug(
+        "Truncated conversation: %d → %d messages (dropped %d)",
+        len(messages), len(result), dropped_count,
+    )
+    return result
+
 
 def _call_llm(
-    system_prompt: str,
-    user_content: str,
+    messages: List[Dict[str, str]],
     retries: int = INFERENCE_RETRIES,
 ) -> str:
-    """Call the LLM with exponential backoff retry.
+    """Call the LLM with multi-turn conversation history.
 
-    [I-07] Up to ``retries`` attempts with 1s / 2s / 4s delays.
+    Uses structured JSON output (``response_format``) on OpenAI-compatible
+    models for guaranteed valid JSON.  Falls back gracefully to unstructured
+    output if the model doesn't support it.
+
     Returns the raw response text, or an empty string on total failure.
     """
+    llm_client = _get_llm_client()
+    if llm_client is None:
+        return ""
+
+    # Determine if we can use structured output
+    # OpenAI models and compatible APIs support response_format
+    use_json_mode = any(
+        kw in MODEL_NAME.lower()
+        for kw in ("gpt-4", "gpt-3.5", "gpt-4o", "o1", "o3")
+    )
+
     for attempt in range(retries):
         try:
-            completion = _llm_client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_content},
-                ],
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS,
-                stream=False,
-                timeout=30,  # Prevent indefinite hangs on slow providers
-            )
+            kwargs: Dict[str, Any] = {
+                "model": MODEL_NAME,
+                "messages": messages,
+                "temperature": TEMPERATURE,
+                "max_tokens": MAX_TOKENS,
+                "stream": False,
+                "timeout": 60,
+            }
+
+            if use_json_mode:
+                kwargs["response_format"] = {"type": "json_object"}
+
+            completion = llm_client.chat.completions.create(**kwargs)
             content = completion.choices[0].message.content or ""
             return content
 
         except Exception as exc:
-            wait = 2**attempt  # 1s, 2s, 4s
+            # Fast-fail on non-retryable client errors (400/401/403/404)
+            status_code = getattr(exc, "status_code", None)
+            if status_code and 400 <= status_code < 500 and status_code != 429:
+                logger.error(
+                    "LLM API client error (HTTP %d): %s — not retrying",
+                    status_code, exc,
+                )
+                break
+            wait = 2 ** attempt  # 1s, 2s, 4s
             logger.warning(
                 "LLM API error (attempt %d/%d): %s — retrying in %ds",
-                attempt + 1,
-                retries,
-                exc,
-                wait,
+                attempt + 1, retries, exc, wait,
             )
             if attempt < retries - 1:
                 time.sleep(wait)
@@ -420,14 +689,22 @@ def _call_llm(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# §5  Observation → Context String
+# §5  Observation → Context String (Compact, Signal-Dense)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def _obs_to_context(obs: Any, task_id: str, step_num: int, max_steps: int) -> str:
-    """Convert an observation object to a context string for the LLM.
+def _obs_to_context(
+    obs: Any,
+    task_id: str,
+    step_num: int,
+    max_steps: int,
+    inspected_rows: Set[int],
+    total_rows: int,
+) -> str:
+    """Convert an observation to a compact, token-efficient context string.
 
-    Handles both DataQualityObservation objects (attribute access) and
-    raw dicts (key access) for compatibility across client types.
+    Emphasizes actionable signals: what data is visible, what the last
+    action achieved, and how much budget remains.  Avoids redundant
+    schema repetition after the first step.
     """
     def _get(obj: Any, attr: str, default: Any = None) -> Any:
         if hasattr(obj, attr):
@@ -436,126 +713,250 @@ def _obs_to_context(obs: Any, task_id: str, step_num: int, max_steps: int) -> st
             return obj.get(attr, default)
         return default
 
-    parts: List[str] = [
-        f"Task: {_get(obs, 'task_id', task_id)}",
-        f"Schema: {json.dumps(_get(obs, 'schema_info', {}), separators=(',', ':'))}",
-        f"Total rows: {_get(obs, 'total_rows', 0)}",
-        f"Step {_get(obs, 'steps_taken', step_num)} / {_get(obs, 'max_steps', max_steps)}",
-        f"Issues found so far: {_get(obs, 'issues_found', 0)}",
-        f"Issues remaining (hint): {_get(obs, 'issues_remaining_hint', 'unknown')}",
-        f"Last action result: {_get(obs, 'action_result', 'initial')}",
-        f"Cumulative reward: {float(_get(obs, 'cumulative_reward', 0.0)):.4f}",
-    ]
+    parts: List[str] = []
 
+    # ── Step counter and budget ───────────────────────────────────────
+    steps_taken = _get(obs, "steps_taken", step_num)
+    steps_max = _get(obs, "max_steps", max_steps)
+    budget_pct = int(100 * steps_taken / steps_max) if steps_max > 0 else 0
+    parts.append(f"Step {steps_taken}/{steps_max} ({budget_pct}% used)")
+
+    # ── Last action result ────────────────────────────────────────────
+    result = _get(obs, "action_result", "initial")
+    reward_delta = float(_get(obs, "reward_delta", 0.0))
+    cumulative = float(_get(obs, "cumulative_reward", 0.0))
+
+    if str(result) != "initial":
+        parts.append(
+            f"Last action: {result} (reward: {reward_delta:+.3f}, "
+            f"cumulative: {cumulative:.4f})"
+        )
+
+    # ── Issue tracking ────────────────────────────────────────────────
+    found = _get(obs, "issues_found", 0)
+    hint = _get(obs, "issues_remaining_hint", "unknown")
+    parts.append(f"Issues found: {found} | Remaining: {hint}")
+
+    # ── Coverage tracking ─────────────────────────────────────────────
+    uninspected = total_rows - len(inspected_rows)
+    if uninspected > 0:
+        parts.append(
+            f"Row coverage: {len(inspected_rows)}/{total_rows} inspected "
+            f"({uninspected} remaining)"
+        )
+    else:
+        parts.append(f"Row coverage: ALL {total_rows} rows inspected ✓")
+
+    # ── Message from environment ──────────────────────────────────────
     message = _get(obs, "message", "")
     if message:
-        parts.append(f"Message: {message}")
+        parts.append(f"Environment: {message}")
 
+    # ── Schema info (first step only to save tokens) ──────────────────
+    if step_num == 0:
+        schema = _get(obs, "schema_info", {})
+        if schema:
+            parts.append(f"Schema: {json.dumps(schema, separators=(',', ':'))}")
+        parts.append(f"Dataset: {_get(obs, 'total_rows', 0)} rows × {_get(obs, 'total_columns', 0)} columns")
+
+    # ── Visible rows ──────────────────────────────────────────────────
     visible = _get(obs, "visible_rows", None)
-    if visible:
-        # Show up to 10 rows to give the agent more data
-        display = visible[:10] if isinstance(visible, list) else visible
-        parts.append(f"Visible rows:\n{json.dumps(display, indent=2)}")
+    if visible and isinstance(visible, list) and len(visible) > 0:
+        parts.append(f"Visible rows ({len(visible)}):")
+        parts.append(json.dumps(visible, indent=1, ensure_ascii=False))
 
+    # ── Column statistics ─────────────────────────────────────────────
     stats = _get(obs, "column_statistics", None)
     if stats:
-        parts.append(f"Column statistics:\n{json.dumps(stats, indent=2)}")
+        parts.append(f"Column statistics:")
+        parts.append(json.dumps(stats, indent=1, ensure_ascii=False))
 
+    # ── Secondary table ───────────────────────────────────────────────
     secondary = _get(obs, "secondary_table_rows", None)
-    if secondary:
-        display = secondary[:10] if isinstance(secondary, list) else secondary
-        parts.append(f"Secondary table rows:\n{json.dumps(display, indent=2)}")
+    if secondary and isinstance(secondary, list) and len(secondary) > 0:
+        parts.append(f"Related table ({len(secondary)} rows):")
+        parts.append(json.dumps(secondary, indent=1, ensure_ascii=False))
 
     return "\n".join(parts)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# §6  Task Runner
+# §6  Strategic Fallback Action Generator
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _make_fallback_action(
+    inspected_rows: Set[int],
+    total_rows: int,
+    step_num: int,
+    max_steps: int,
+) -> Dict[str, Any]:
+    """Generate an intelligent fallback action based on current progress.
+
+    Instead of always falling back to inspecting rows [0-4], this cycles
+    through uninspected row ranges.  If all rows have been inspected,
+    it finalizes the episode.
+    """
+    # If we've passed 90% of budget, finalize
+    if max_steps > 0 and step_num >= int(max_steps * 0.90):
+        return {"action_type": "finalize"}
+
+    # Find the next uninspected batch of rows
+    uninspected = sorted(set(range(total_rows)) - inspected_rows)
+
+    if uninspected:
+        # Take up to 10 uninspected rows
+        batch = uninspected[:10]
+        return {"action_type": "inspect", "row_indices": batch}
+
+    # All rows inspected — finalize
+    return {"action_type": "finalize"}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# §7  Task Runner — Stateful Multi-Turn Loop
 # ═══════════════════════════════════════════════════════════════════════════
 
 def run_task(task_id: str) -> float:
-    """Run a single task episode against the environment server.
+    """Run a single task episode with multi-turn conversation memory.
+
+    The agent maintains a full message history across all steps, giving
+    the LLM complete context of its exploration journey: which rows it
+    has inspected, which issues it has diagnosed, and which fixes it
+    has applied.
 
     Returns:
         The final cumulative reward for the episode (float in [0, 1]).
     """
     max_steps = MAX_STEPS.get(task_id, 30)
     total_reward = 0.0
-    system_prompt = _system_prompt(task_id)
+    system_prompt = _build_system_prompt(task_id)
+    total_rows = 0
 
-    logger.info("[START] task_id=%s max_steps=%d", task_id, max_steps)
+    # ── Conversation memory ───────────────────────────────────────────
+    messages: List[Dict[str, str]] = [
+        {"role": "system", "content": system_prompt},
+    ]
+
+    # ── Row coverage tracking ─────────────────────────────────────────
+    inspected_rows: Set[int] = set()
+
+    # ── Per-step reward accumulator for [END] line ────────────────────
+    rewards_list: List[str] = []
+    final_step_count: int = 0
+
+    # ── Hackathon-compliant [START] line (stdout) ─────────────────────
+    print(f"[START] task={task_id} env=data_quality_env model={MODEL_NAME}")
+    logger.info("Episode starting: task=%s max_steps=%d model=%s", task_id, max_steps, MODEL_NAME)
 
     try:
         env = DataQualityEnv(base_url=ENV_URL)
 
-        # Handle both openenv EnvClient (async, needs sync() + context manager)
-        # and our fallback client (sync, is its own context manager)
+        # Handle both openenv EnvClient and fallback client
         ctx = env.sync() if hasattr(env, "sync") else env
 
         with ctx as e:
             result = e.reset(task_id=task_id)
-
-            # Handle both StepResult wrapper and direct Observation
             obs = getattr(result, "observation", result)
 
-            for step_num in range(max_steps):
-                # Build context for the LLM
-                user_content = _obs_to_context(obs, task_id, step_num, max_steps)
+            # Extract total rows for coverage tracking
+            total_rows = int(getattr(obs, "total_rows", 50))
 
-                # Call LLM with retry
-                response_text = _call_llm(system_prompt, user_content)
+            for step_num in range(max_steps):
+                # ── Format observation as user message ────────────────
+                user_content = _obs_to_context(
+                    obs, task_id, step_num, max_steps,
+                    inspected_rows, total_rows,
+                )
+                messages.append({"role": "user", "content": user_content})
+
+                # ── Token-budget truncation ───────────────────────────
+                messages = _truncate_messages(messages, MAX_CONTEXT_TOKENS)
+
+                # ── Call LLM with full conversation history ───────────
+                response_text = _call_llm(messages)
 
                 if not response_text:
-                    # Total API failure — use fallback action
-                    action_dict = json.loads(_FALLBACK_ACTION)
+                    # Total API failure — use strategic fallback
+                    action_dict = _make_fallback_action(
+                        inspected_rows, total_rows, step_num, max_steps,
+                    )
+                    response_text = json.dumps(action_dict)
                 else:
                     action_dict = parse_action(response_text)
 
-                # Construct validated action
+                # ── Append assistant response to history ──────────────
+                messages.append({"role": "assistant", "content": response_text})
+
+                # ── Track inspected rows ──────────────────────────────
+                if action_dict.get("action_type") == "inspect":
+                    indices = action_dict.get("row_indices", [])
+                    if isinstance(indices, list):
+                        inspected_rows.update(int(i) for i in indices if isinstance(i, (int, float)))
+
+                # ── Construct validated action ────────────────────────
                 try:
                     action = DataQualityAction(**action_dict)
                 except Exception as exc:
                     logger.warning(
                         "Action construction failed: %s — using fallback", exc
                     )
-                    action = DataQualityAction(**json.loads(_FALLBACK_ACTION))
+                    fallback = _make_fallback_action(
+                        inspected_rows, total_rows, step_num, max_steps,
+                    )
+                    action = DataQualityAction(**fallback)
 
-                # Execute step
+                # ── Execute step ──────────────────────────────────────
                 result = e.step(action)
                 obs = getattr(result, "observation", result)
 
-                # Extract step metrics
-                done = getattr(obs, "done", False)
+                # ── Extract step metrics ──────────────────────────────
+                # The step result or observation might hold the done flag
+                done = getattr(result, "done", None)
+                if done is None:
+                    done = getattr(obs, "done", False)
                 if isinstance(done, property):
                     done = False
                 reward_delta = float(getattr(obs, "reward_delta", 0.0))
                 total_reward = float(getattr(obs, "cumulative_reward", 0.0))
 
+                # ── Hackathon-compliant [STEP] line (stdout) ────────
+                action_str = action_dict.get("action_type", "inspect")
+                error_str = str(getattr(obs, "last_action_error", None) or "null")
+                print(
+                    f"[STEP]  step={step_num + 1} action={action_str} "
+                    f"reward={reward_delta:.2f} done={str(done).lower()} "
+                    f"error={error_str}"
+                )
+                rewards_list.append(f"{reward_delta:.2f}")
+                final_step_count = step_num + 1
+
                 logger.info(
-                    "[STEP] task=%s step=%d action=%s delta=%+.4f cum=%.4f done=%s",
-                    task_id,
-                    step_num,
-                    action_dict.get("action_type"),
-                    reward_delta,
-                    total_reward,
-                    done,
+                    "step=%d/%d action=%s delta=%+.4f cum=%.4f done=%s",
+                    step_num + 1, max_steps,
+                    action_str, reward_delta, total_reward, done,
                 )
 
                 if done:
                     break
 
     except Exception as exc:
-        logger.error("[ERROR] task=%s error=%s", task_id, exc)
+        logger.error("Episode error: task=%s error=%s", task_id, exc)
         import traceback
-
         traceback.print_exc(file=sys.stderr)
 
-    logger.info("[END] task_id=%s final_reward=%.4f", task_id, total_reward)
+    # ── Hackathon-compliant [END] line (stdout) ───────────────────────
+    success = str(total_reward > 0).lower()
+    rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
+    print(
+        f"[END]   success={success} steps={final_step_count} "
+        f"rewards={rewards_str}"
+    )
+    logger.info("Episode finished: task=%s final_reward=%.4f", task_id, total_reward)
     return total_reward
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# §7  Main — orchestrate all tasks and emit summary
+# §8  Main — Orchestrate All Tasks and Emit Summary
 # ═══════════════════════════════════════════════════════════════════════════
 
 def main() -> int:
@@ -564,11 +965,14 @@ def main() -> int:
     Returns:
         Exit code: 0 if average score > 0, 1 otherwise.
     """
+    runtime_error = _runtime_readiness_error()
+    if runtime_error is not None:
+        logger.error(runtime_error)
+        return 2
+
     logger.info(
         "Inference starting: model=%s base_url=%s env_url=%s",
-        MODEL_NAME,
-        API_BASE_URL,
-        ENV_URL,
+        MODEL_NAME, API_BASE_URL, ENV_URL,
     )
 
     scores: Dict[str, float] = {}
@@ -592,19 +996,22 @@ def main() -> int:
     total_elapsed = time.time() - start_time
 
     # ── Human-readable summary ────────────────────────────────────────────
-    print("\n" + "=" * 56)
+    print("\n" + "=" * 60)
     print("  BASELINE INFERENCE SCORES")
-    print("=" * 56)
+    print("=" * 60)
+    print(f"  Model:  {MODEL_NAME}")
+    print(f"  Server: {ENV_URL}")
+    print("-" * 60)
     for tid, score in scores.items():
-        bar = "█" * int(score * 40) + "░" * (40 - int(score * 40))
+        bar = "#" * int(score * 40) + "-" * (40 - int(score * 40))
         print(f"  {tid:30s}  {score:.4f}  {bar}")
 
     avg = sum(scores.values()) / len(scores) if scores else 0.0
-    bar = "█" * int(avg * 40) + "░" * (40 - int(avg * 40))
-    print("-" * 56)
+    bar = "#" * int(avg * 40) + "-" * (40 - int(avg * 40))
+    print("-" * 60)
     print(f"  {'AVERAGE':30s}  {avg:.4f}  {bar}")
     print(f"  Elapsed: {total_elapsed:.1f}s")
-    print("=" * 56)
+    print("=" * 60)
 
     # ── Machine-readable JSON summary ─────────────────────────────────────
     summary = {

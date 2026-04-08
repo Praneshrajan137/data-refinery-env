@@ -11,7 +11,7 @@ Resolution Strategy:
     1. **Primary** — subclass ``openenv.core.EnvClient`` if available
        (preferred: handles connection lifecycle, WebSocket framing,
        reconnection, and Docker integration out of the box).
-    2. **Fallback** — lightweight ``websocket-client`` wrapper for
+    2. **Fallback** — lightweight synchronous WebSocket wrapper for
        environments where openenv-core is not installed.
 
 Usage (openenv-core available)::
@@ -176,8 +176,8 @@ else:
         """Minimal WebSocket client fallback when openenv-core is unavailable.
 
         Provides the same public API surface (``reset``, ``step``, ``state``)
-        as the openenv-native version, using the ``websocket-client`` library
-        for synchronous communication.
+        as the openenv-native version, using either ``websocket-client`` or
+        ``websockets.sync`` for synchronous communication.
 
         Usage::
 
@@ -195,6 +195,7 @@ else:
                 + "/ws"
             )
             self._ws: Any = None
+            self._transport_name: str = "unknown"
 
         # ── Context manager protocol ─────────────────────────────────────
 
@@ -202,13 +203,26 @@ else:
             try:
                 import websocket as ws_lib
             except ImportError as exc:
-                raise ImportError(
-                    "Fallback client requires the 'websocket-client' package. "
-                    "Install it with: pip install websocket-client"
-                ) from exc
+                try:
+                    from websockets.sync.client import connect as ws_connect
+                except ImportError as sync_exc:
+                    raise ImportError(
+                        "Fallback client requires either 'websocket-client' "
+                        "or 'websockets>=11'. Install one of them with:\n"
+                        "    pip install websocket-client\n"
+                        "or:\n"
+                        "    pip install 'websockets>=11'"
+                    ) from sync_exc
 
-            self._ws = ws_lib.create_connection(self.ws_url)
-            logger.info("Connected to %s", self.ws_url)
+                self._ws = ws_connect(self.ws_url, open_timeout=30)
+                self._transport_name = "websockets.sync"
+            else:
+                self._ws = ws_lib.create_connection(self.ws_url, timeout=30)
+                self._transport_name = "websocket-client"
+
+            logger.info(
+                "Connected to %s via %s", self.ws_url, self._transport_name
+            )
             return self
 
         def __exit__(self, *args: Any) -> None:

@@ -144,12 +144,14 @@ TASK_CONFIG: Dict[str, Dict[str, Any]] = {
     "task_3_integrity_auditor": {
         "dataset": "task3_orders.json",
         "ground_truth": "task3_ground_truth.json",
-        "max_steps": 80,
+        "max_steps": 65,
         "dataset_name": "Orders & Products",
         "secondary_dataset": "task3_products.json",
         "description": (
             "Audit referential integrity, cross-field consistency, outliers, "
-            "and business rule compliance across orders and products tables."
+            "cascading errors, precision traps, and business rule compliance "
+            "across orders and products tables. Requires strategic inspection "
+            "of 250 rows within a 65-step budget."
         ),
     },
 }
@@ -165,7 +167,9 @@ VALID_TASK_IDS: frozenset[str] = frozenset(TASK_CONFIG.keys())
 R_DIAGNOSE: float = 0.10          # Correct issue identification
 R_TYPE_BONUS: float = 0.05        # Correct issue type classification bonus
 R_FIX: float = 0.15              # Correct fix value
+R_FIX_PARTIAL: float = 0.075     # Numerically close fix (within 1%)
 R_JUSTIFY_BONUS: float = 0.05    # Justification provided bonus
+R_EXPLORE: float = 0.01           # Per undiscovered issue in inspected batch
 
 # Negative penalties (incurred by incorrect actions)
 P_FALSE_POS: float = -0.05       # False positive diagnosis
@@ -302,6 +306,11 @@ class DataQualityEnvironment(Environment):
             issues_remaining_hint=self._remaining_hint(),
             steps_taken=0,
             max_steps=config["max_steps"],
+            difficulty_level={
+                "task_1_format_fixer": "easy",
+                "task_2_duplicate_detective": "medium",
+                "task_3_integrity_auditor": "hard",
+            }.get(task_id, "unknown"),
             message=(
                 f"Dataset: {config['dataset_name']}. "
                 f"{len(self.dataset)} rows × {len(self.schema_info)} columns. "
@@ -333,9 +342,10 @@ class DataQualityEnvironment(Environment):
 
         try:
             if action.action_type == "inspect":
-                visible_rows, col_stats, sec_rows, message = (
+                visible_rows, col_stats, sec_rows, message, exploration_bonus = (
                     self._handle_inspect(action)
                 )
+                reward_delta = exploration_bonus
                 result = ActionResult.INITIAL
 
             elif action.action_type == "diagnose":
@@ -579,7 +589,22 @@ class DataQualityEnvironment(Environment):
             visible_rows = self._add_row_indices(self.dataset[:5], 0)
             msgs.append("No specific query — showing first 5 rows.")
 
-        return visible_rows, col_stats, sec_rows, " ".join(msgs)
+        # ── Exploration bonus: reward inspecting rows with undiscovered
+        #    issues (information-theoretic reward shaping) ─────────────────
+        exploration_bonus = 0.0
+        if visible_rows:
+            inspected_indices = {
+                r.get("_row_index", -1) for r in visible_rows
+            }
+            found_rows = {f["row"] for f in self.found_issues}
+            undiscovered = sum(
+                1 for gt in self.ground_truth
+                if gt["row"] in inspected_indices
+                and gt["row"] not in found_rows
+            )
+            exploration_bonus = undiscovered * R_EXPLORE
+
+        return visible_rows, col_stats, sec_rows, " ".join(msgs), exploration_bonus
 
     def _handle_diagnose(
         self, action: DataQualityAction
@@ -806,6 +831,28 @@ class DataQualityEnvironment(Environment):
                         f"Correct fix! Reward: +{reward:.2f}",
                     )
                 else:
+                    # ── Partial credit for numerically close values ───
+                    try:
+                        provided_num = float(provided)
+                        expected_num = float(str(expected))
+                        if expected_num != 0.0:
+                            rel_err = abs(provided_num - expected_num) / abs(expected_num)
+                        else:
+                            rel_err = abs(provided_num)
+                        if rel_err < 0.01:  # within 1%
+                            reward = R_FIX_PARTIAL
+                            if action.justification:
+                                reward += R_JUSTIFY_BONUS
+                            self._auto_diagnose_if_needed(action, truth)
+                            return (
+                                reward,
+                                ActionResult.PARTIAL,
+                                f"Close! Value within 1% of expected. "
+                                f"Partial reward: +{reward:.2f}",
+                            )
+                    except (ValueError, TypeError):
+                        pass
+
                     return (
                         P_WRONG_FIX,
                         ActionResult.INCORRECT,

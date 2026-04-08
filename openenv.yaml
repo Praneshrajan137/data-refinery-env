@@ -5,9 +5,12 @@ app: server.app:app
 port: 7860
 description: >
   Data Quality Validation & Cleaning Pipeline — agents learn to detect
-  and fix data quality issues in tabular datasets. Covers format errors,
-  duplicates, missing values, referential integrity, and outliers across
-  three progressively challenging tasks with continuous reward signals.
+  and fix real-world data quality issues in tabular datasets under partial
+  observability. Covers format errors, duplicates, missing values,
+  referential integrity, cascading errors, floating-point precision traps,
+  and business rule violations across three progressively challenging tasks
+  (50–250 rows) with dense reward signals and information-theoretic
+  exploration bonuses.
 tags:
   - openenv
   - data-quality

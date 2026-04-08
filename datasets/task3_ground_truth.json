@@ -3,10 +3,10 @@
     "generator": "generate_datasets.py",
     "version": "3.0",
     "seed": 42,
-    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "generated_at": "2026-04-08T02:33:15.458945+00:00",
     "row_indexing": "0-based",
-    "total_issues": 15,
-    "fixable_issues": 12,
+    "total_issues": 21,
+    "fixable_issues": 18,
     "detection_only_issues": 3
   },
   "issues": [
@@ -23,7 +23,7 @@
       "description": "product_id is -1 — invalid reference"
     },
     {
-      "row": 112,
+      "row": 180,
       "column": "product_id",
       "type": "referential_integrity",
       "description": "References non-existent product_id 9999"
@@ -32,43 +32,43 @@
       "row": 23,
       "column": "order_total",
       "type": "cross_field",
-      "expected": "4582.51",
-      "description": "Total doesn't match qty × unit_price × (1 − discount/100); correct value 4582.51 derivable from row's own fields"
+      "expected": "540.00",
+      "description": "Total doesn't match qty * unit_price * (1 - discount/100); correct value 540.00 derivable from row's own fields"
     },
     {
       "row": 78,
       "column": "ship_date",
       "type": "cross_field",
-      "expected": "2024-01-26",
-      "description": "Ship date 2023-01-01 precedes order date 2024-01-26; minimum valid ship date = order date"
+      "expected": "2025-06-18",
+      "description": "Ship date 2023-01-01 precedes order date 2025-06-18; minimum valid ship date = order date"
     },
     {
-      "row": 130,
+      "row": 210,
       "column": "order_total",
       "type": "cross_field",
-      "expected": "2696.27",
-      "description": "Negative total (sign flip); correct value derivable from qty × unit_price × (1 − discount/100)"
+      "expected": "1437.69",
+      "description": "Negative total (sign flip); correct value derivable from qty * unit_price * (1 - discount/100)"
     },
     {
       "row": 8,
       "column": "quantity",
       "type": "outlier",
-      "expected": "7",
-      "description": "Quantity 99999 is extreme outlier; correct value 7 derivable from round(total / (unit_price × (1 − discount/100)))"
+      "expected": "5",
+      "description": "Quantity 99999 is extreme outlier; correct value 5 derivable from round(total / (unit_price * (1 - discount/100)))"
     },
     {
       "row": 45,
       "column": "unit_price",
       "type": "outlier",
-      "expected": "206.79",
-      "description": "Negative unit price (sign flip); correct value 206.79 derivable from products table base_price or abs(unit_price)"
+      "expected": "260.14",
+      "description": "Negative unit price (sign flip); correct value 260.14 derivable from products table base_price or abs(unit_price)"
     },
     {
       "row": 99,
       "column": "quantity",
       "type": "outlier",
-      "expected": "5",
-      "description": "Quantity 0 with positive total; correct value 5 derivable from round(total / (unit_price × (1 − discount/100)))"
+      "expected": "6",
+      "description": "Quantity 0 with positive total; correct value 6 derivable from round(total / (unit_price * (1 - discount/100)))"
     },
     {
       "row": 33,
@@ -85,32 +85,75 @@
       "description": "Order date 2035-01-01 exceeds valid_order_year_range [2024, 2025]; clamped to range maximum"
     },
     {
-      "row": 140,
+      "row": 220,
       "column": "quantity",
       "type": "business_rule",
-      "expected": "1",
-      "description": "Negative quantity (-1); sign flip — absolute value restores original"
+      "expected": "6",
+      "description": "Negative quantity (-6); sign flip — absolute value restores original"
     },
     {
       "row": 18,
       "column": "product_category",
       "type": "cross_field",
-      "expected": "Books",
-      "description": "Category 'Electronics' but product 20 is Books per products table"
+      "expected": "Sports",
+      "description": "Category 'Electronics' but product 30 is Sports per products table"
     },
     {
       "row": 62,
       "column": "product_category",
       "type": "cross_field",
-      "expected": "Clothing",
-      "description": "Category 'Electronics' but product 12 is Clothing per products table"
+      "expected": "Furniture",
+      "description": "Category 'Electronics' but product 9 is Furniture per products table"
     },
     {
-      "row": 105,
+      "row": 155,
       "column": "product_category",
       "type": "cross_field",
-      "expected": "Clothing",
-      "description": "Category is empty string but product 15 is Clothing per products table"
+      "expected": "Books",
+      "description": "Category is empty string but product 28 is Books per products table"
+    },
+    {
+      "row": 90,
+      "column": "discount_pct",
+      "type": "business_rule",
+      "expected": "10",
+      "description": "Discount 75% is likely a data entry error (original 10%); total was recomputed with wrong discount — fix discount first, then total follows"
+    },
+    {
+      "row": 145,
+      "column": "discount_pct",
+      "type": "cross_field",
+      "expected": "15",
+      "description": "Discount 0.5% is likely decimal shift error (should be 15%); total was recomputed with wrong discount"
+    },
+    {
+      "row": 130,
+      "column": "order_total",
+      "type": "cross_field",
+      "expected": "1038.93",
+      "description": "Total 1038.939 has rounding error; correct value 1038.93 derivable from qty * unit_price * (1 - discount/100)"
+    },
+    {
+      "row": 235,
+      "column": "_row",
+      "type": "duplicate",
+      "expected": "DELETE_ROW",
+      "duplicate_of": 110,
+      "description": "Semantic duplicate: same customer_id, product_id, and order_date as row 110 — likely duplicate submission"
+    },
+    {
+      "row": 190,
+      "column": "ship_date",
+      "type": "cross_field",
+      "expected": "2024-12-08",
+      "description": "Ship date 2027-06-15 is 2+ years after order date 2024-12-08 — exceeds reasonable shipping window; minimum valid ship date = order date"
+    },
+    {
+      "row": 240,
+      "column": "quantity",
+      "type": "business_rule",
+      "expected": "100",
+      "description": "Quantity 500 exceeds max_quantity (100); clamped to business rule maximum"
     }
   ]
 }

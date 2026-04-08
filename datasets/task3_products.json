@@ -3,9 +3,9 @@
     "generator": "generate_datasets.py",
     "version": "3.0",
     "seed": 42,
-    "generated_at": "2026-04-06T15:24:45.242330+00:00",
+    "generated_at": "2026-04-08T02:33:15.458351+00:00",
     "row_indexing": "0-based",
-    "row_count": 30
+    "row_count": 42
   },
   "schema": {
     "product_id": "integer",
@@ -19,211 +19,295 @@
       "product_id": 1,
       "product_name": "Laptop Pro",
       "category": "Electronics",
-      "base_price": 35.68,
-      "stock": 759
+      "base_price": 253.72,
+      "stock": 440
     },
     {
       "product_id": 2,
       "product_name": "Wireless Mouse",
       "category": "Electronics",
-      "base_price": 216.27,
-      "stock": 116
+      "base_price": 96.09,
+      "stock": 389
     },
     {
       "product_id": 3,
       "product_name": "USB Hub",
       "category": "Electronics",
-      "base_price": 375.38,
-      "stock": 487
+      "base_price": 270.97,
+      "stock": 235
     },
     {
       "product_id": 4,
       "product_name": "Monitor 27in",
       "category": "Electronics",
-      "base_price": 229.65,
-      "stock": 370
+      "base_price": 255.13,
+      "stock": 853
     },
     {
       "product_id": 5,
       "product_name": "Keyboard",
       "category": "Electronics",
-      "base_price": 261.49,
-      "stock": 111
+      "base_price": 337.34,
+      "stock": 362
     },
     {
       "product_id": 6,
-      "product_name": "Office Chair",
-      "category": "Furniture",
-      "base_price": 231.48,
-      "stock": 226
+      "product_name": "Tablet 10in",
+      "category": "Electronics",
+      "base_price": 45.32,
+      "stock": 882
     },
     {
       "product_id": 7,
-      "product_name": "Standing Desk",
-      "category": "Furniture",
-      "base_price": 473.25,
-      "stock": 44
+      "product_name": "Bluetooth Speaker",
+      "category": "Electronics",
+      "base_price": 373.6,
+      "stock": 446
     },
     {
       "product_id": 8,
-      "product_name": "Bookshelf",
+      "product_name": "Office Chair",
       "category": "Furniture",
-      "base_price": 366.35,
-      "stock": 930
+      "base_price": 19.18,
+      "stock": 943
     },
     {
       "product_id": 9,
-      "product_name": "Filing Cabinet",
+      "product_name": "Standing Desk",
       "category": "Furniture",
-      "base_price": 434.82,
-      "stock": 533
+      "base_price": 48.15,
+      "stock": 320
     },
     {
       "product_id": 10,
-      "product_name": "Desk Lamp",
+      "product_name": "Bookshelf",
       "category": "Furniture",
-      "base_price": 157.8,
-      "stock": 658
+      "base_price": 292.12,
+      "stock": 587
     },
     {
       "product_id": 11,
-      "product_name": "Cotton T-Shirt",
-      "category": "Clothing",
-      "base_price": 482.37,
-      "stock": 62
+      "product_name": "Filing Cabinet",
+      "category": "Furniture",
+      "base_price": 208.17,
+      "stock": 655
     },
     {
       "product_id": 12,
-      "product_name": "Denim Jeans",
-      "category": "Clothing",
-      "base_price": 499.31,
-      "stock": 867
-    },
-    {
-      "product_id": 13,
-      "product_name": "Wool Sweater",
-      "category": "Clothing",
-      "base_price": 206.79,
-      "stock": 702
-    },
-    {
-      "product_id": 14,
-      "product_name": "Rain Jacket",
-      "category": "Clothing",
-      "base_price": 62.9,
-      "stock": 729
-    },
-    {
-      "product_id": 15,
-      "product_name": "Sneakers",
-      "category": "Clothing",
-      "base_price": 455.75,
-      "stock": 75
-    },
-    {
-      "product_id": 16,
-      "product_name": "Python Guide",
-      "category": "Books",
-      "base_price": 450.64,
-      "stock": 329
-    },
-    {
-      "product_id": 17,
-      "product_name": "Data Science Handbook",
-      "category": "Books",
-      "base_price": 308.07,
-      "stock": 67
-    },
-    {
-      "product_id": 18,
-      "product_name": "AI Primer",
-      "category": "Books",
-      "base_price": 71.83,
-      "stock": 639
-    },
-    {
-      "product_id": 19,
-      "product_name": "ML Textbook",
-      "category": "Books",
-      "base_price": 320.21,
-      "stock": 561
-    },
-    {
-      "product_id": 20,
-      "product_name": "Stats 101",
-      "category": "Books",
-      "base_price": 358.95,
-      "stock": 390
-    },
-    {
-      "product_id": 21,
-      "product_name": "Yoga Mat",
-      "category": "Sports",
-      "base_price": 497.37,
-      "stock": 543
-    },
-    {
-      "product_id": 22,
-      "product_name": "Dumbbells 10lb",
-      "category": "Sports",
-      "base_price": 154.5,
-      "stock": 517
-    },
-    {
-      "product_id": 23,
-      "product_name": "Jump Rope",
-      "category": "Sports",
-      "base_price": 306.66,
-      "stock": 101
-    },
-    {
-      "product_id": 24,
-      "product_name": "Resistance Bands",
-      "category": "Sports",
-      "base_price": 398.62,
+      "product_name": "Desk Lamp",
+      "category": "Furniture",
+      "base_price": 214.67,
       "stock": 117
     },
     {
+      "product_id": 13,
+      "product_name": "Corner Desk",
+      "category": "Furniture",
+      "base_price": 208.47,
+      "stock": 989
+    },
+    {
+      "product_id": 14,
+      "product_name": "Bar Stool",
+      "category": "Furniture",
+      "base_price": 169.14,
+      "stock": 820
+    },
+    {
+      "product_id": 15,
+      "product_name": "Cotton T-Shirt",
+      "category": "Clothing",
+      "base_price": 474.33,
+      "stock": 471
+    },
+    {
+      "product_id": 16,
+      "product_name": "Denim Jeans",
+      "category": "Clothing",
+      "base_price": 417.69,
+      "stock": 941
+    },
+    {
+      "product_id": 17,
+      "product_name": "Wool Sweater",
+      "category": "Clothing",
+      "base_price": 187.31,
+      "stock": 447
+    },
+    {
+      "product_id": 18,
+      "product_name": "Rain Jacket",
+      "category": "Clothing",
+      "base_price": 423.8,
+      "stock": 249
+    },
+    {
+      "product_id": 19,
+      "product_name": "Sneakers",
+      "category": "Clothing",
+      "base_price": 223.48,
+      "stock": 410
+    },
+    {
+      "product_id": 20,
+      "product_name": "Silk Scarf",
+      "category": "Clothing",
+      "base_price": 266.74,
+      "stock": 405
+    },
+    {
+      "product_id": 21,
+      "product_name": "Hiking Boots",
+      "category": "Clothing",
+      "base_price": 436.56,
+      "stock": 763
+    },
+    {
+      "product_id": 22,
+      "product_name": "Python Guide",
+      "category": "Books",
+      "base_price": 176.36,
+      "stock": 341
+    },
+    {
+      "product_id": 23,
+      "product_name": "Data Science Handbook",
+      "category": "Books",
+      "base_price": 391.77,
+      "stock": 78
+    },
+    {
+      "product_id": 24,
+      "product_name": "AI Primer",
+      "category": "Books",
+      "base_price": 260.14,
+      "stock": 116
+    },
+    {
       "product_id": 25,
-      "product_name": "Water Bottle",
-      "category": "Sports",
-      "base_price": 427.87,
-      "stock": 666
+      "product_name": "ML Textbook",
+      "category": "Books",
+      "base_price": 270.0,
+      "stock": 198
     },
     {
       "product_id": 26,
-      "product_name": "Chef Knife",
-      "category": "Kitchen",
-      "base_price": 440.08,
-      "stock": 564
+      "product_name": "Stats 101",
+      "category": "Books",
+      "base_price": 453.9,
+      "stock": 357
     },
     {
       "product_id": 27,
-      "product_name": "Cutting Board",
-      "category": "Kitchen",
-      "base_price": 363.21,
-      "stock": 220
+      "product_name": "Algorithms 4th Ed",
+      "category": "Books",
+      "base_price": 182.04,
+      "stock": 981
     },
     {
       "product_id": 28,
-      "product_name": "Mixing Bowl Set",
-      "category": "Kitchen",
-      "base_price": 220.73,
-      "stock": 909
+      "product_name": "Design Patterns",
+      "category": "Books",
+      "base_price": 411.28,
+      "stock": 834
     },
     {
       "product_id": 29,
-      "product_name": "Blender",
-      "category": "Kitchen",
-      "base_price": 121.96,
-      "stock": 347
+      "product_name": "Yoga Mat",
+      "category": "Sports",
+      "base_price": 82.37,
+      "stock": 105
     },
     {
       "product_id": 30,
+      "product_name": "Dumbbells 10lb",
+      "category": "Sports",
+      "base_price": 81.76,
+      "stock": 202
+    },
+    {
+      "product_id": 31,
+      "product_name": "Jump Rope",
+      "category": "Sports",
+      "base_price": 95.01,
+      "stock": 156
+    },
+    {
+      "product_id": 32,
+      "product_name": "Resistance Bands",
+      "category": "Sports",
+      "base_price": 382.51,
+      "stock": 671
+    },
+    {
+      "product_id": 33,
+      "product_name": "Water Bottle",
+      "category": "Sports",
+      "base_price": 46.92,
+      "stock": 974
+    },
+    {
+      "product_id": 34,
+      "product_name": "Tennis Racket",
+      "category": "Sports",
+      "base_price": 388.7,
+      "stock": 505
+    },
+    {
+      "product_id": 35,
+      "product_name": "Boxing Gloves",
+      "category": "Sports",
+      "base_price": 237.34,
+      "stock": 577
+    },
+    {
+      "product_id": 36,
+      "product_name": "Chef Knife",
+      "category": "Kitchen",
+      "base_price": 382.34,
+      "stock": 459
+    },
+    {
+      "product_id": 37,
+      "product_name": "Cutting Board",
+      "category": "Kitchen",
+      "base_price": 343.76,
+      "stock": 903
+    },
+    {
+      "product_id": 38,
+      "product_name": "Mixing Bowl Set",
+      "category": "Kitchen",
+      "base_price": 286.6,
+      "stock": 650
+    },
+    {
+      "product_id": 39,
+      "product_name": "Blender",
+      "category": "Kitchen",
+      "base_price": 493.4,
+      "stock": 330
+    },
+    {
+      "product_id": 40,
       "product_name": "Toaster",
       "category": "Kitchen",
-      "base_price": 415.44,
-      "stock": 408
+      "base_price": 433.48,
+      "stock": 642
+    },
+    {
+      "product_id": 41,
+      "product_name": "Air Fryer",
+      "category": "Kitchen",
+      "base_price": 164.91,
+      "stock": 450
+    },
+    {
+      "product_id": 42,
+      "product_name": "Espresso Machine",
+      "category": "Kitchen",
+      "base_price": 43.46,
+      "stock": 452
     }
   ]
 }

@@ -1,6 +1,6 @@
 ---
 title: Data Quality Env
-emoji: 🔍
+emoji: "🔍"
 colorFrom: blue
 colorTo: green
 sdk: docker
@@ -8,397 +8,227 @@ pinned: false
 app_port: 7860
 tags:
   - openenv
+  - data-quality
+  - rl-environment
 ---
 
-# Data Quality Validation & Cleaning Pipeline
+# Data Quality Validation and Cleaning Pipeline
 
-An RL environment for training agents to **detect, classify, and fix** data quality
-issues in tabular datasets — format errors, duplicates, missing values, referential
-integrity violations, outliers, and business rule breaches.
+Data engineers spend 40–60% of their time finding and fixing data quality issues before analytics, billing, or ML pipelines can run. No existing OpenEnv environment benchmarks whether RL agents can learn this work. **This environment fills that gap.**
 
-Built on [OpenEnv](https://github.com/meta-pytorch/openenv-core) for standardized
-agent–environment interaction via WebSocket/HTTP.
+`data_quality_env` is a real-world OpenEnv environment where agents must inspect tabular datasets under partial observability, diagnose concrete issues against ground truth, apply fixes when deterministic corrections exist, and finalize with a graded score. It is designed to be genuinely hard: the hard task requires multi-hop cross-table reasoning, root-cause identification for cascading errors, and strategic exploration of 250 rows within a 65-step budget.
 
-## Architecture
+## Why This Matters for RL
 
-```mermaid
-sequenceDiagram
-    participant Agent
-    participant Client as DataQualityEnv<br/>(client.py)
-    participant Server as FastAPI + WebSocket<br/>(server/app.py)
-    participant Env as DataQualityEnvironment<br/>(server/data_quality_environment.py)
-    participant GT as Ground Truth<br/>(datasets/*.json)
+This environment has properties that make it a strong RL benchmark:
 
-    Agent->>Client: reset(task_id)
-    Client->>Server: WS {"type": "reset", "task_id": "..."}
-    Server->>Env: env.reset(task_id)
-    Env->>GT: Load dataset + ground truth
-    Env-->>Server: DataQualityObservation (schema, sample rows)
-    Server-->>Client: WS {"observation": {...}}
-    Client-->>Agent: obs (visible_rows, schema_info, ...)
+- **Dense step-level rewards** — every correct diagnosis (+0.10), fix (+0.15), and even productive inspection (+0.01 per undiscovered issue in batch) provides learning signal, not just a binary end-of-episode outcome
+- **Natural curriculum** — three difficulty tiers (easy → medium → hard) with increasing dataset size, issue diversity, and reasoning depth
+- **Partial observability** — the agent sees at most 10 rows per inspect action from datasets of 50–250 rows; it must learn to prioritize which regions to explore
+- **Explore-exploit tradeoff** — an information-theoretic exploration bonus rewards agents that learn to inspect rows likely to contain issues, creating a genuine resource allocation problem
+- **Partial credit** — numerically close fixes (within 1%) earn half reward, testing precision vs approximation
+- **Adversarial clean rows** — Task 3 contains rows that look suspicious but are valid ($0.01 products, 49.99% discounts, same-day shipping), directly testing false-positive discipline
 
-    loop Episode Steps
-        Agent->>Client: step(DataQualityAction)
-        Client->>Server: WS {"type": "step", "payload": {...}}
-        Server->>Env: env.step(action)
-        Env->>GT: Score against ground truth
-        Env-->>Server: DataQualityObservation (result, reward)
-        Server-->>Client: WS {"observation": {...}}
-        Client-->>Agent: obs (action_result, reward_delta, ...)
-    end
+## What Makes the Hard Task Hard
 
-    Agent->>Client: step(finalize)
-    Client-->>Agent: obs (done=True, final score)
-```
+Task 3 (Integrity Auditor) requires capabilities beyond pattern matching:
 
-## Quick Start
-
-### 1. Server
-
-```bash
-# Option A: Docker (recommended for deployment)
-docker build -t data_quality_env -f server/Dockerfile .
-docker run -p 7860:7860 data_quality_env
-
-# Option B: Local development
-pip install -e ".[server]"
-uvicorn server.app:app --host 0.0.0.0 --port 7860 --reload
-```
-
-### 2. Agent Interaction
-
-```python
-from data_quality_env import (
-    DataQualityAction, DataQualityEnv,
-    IssueType, FixType,
-)
-
-with DataQualityEnv(base_url="http://localhost:7860") as env:
-    # Reset — get initial observation with schema and sample rows
-    obs = env.reset(task_id="task_1_format_fixer")
-    print(f"Dataset: {obs.total_rows} rows × {obs.total_columns} columns")
-
-    # Inspect more rows
-    obs = env.step(DataQualityAction.inspect(row_indices=[0, 1, 2, 3, 4]))
-    for row in obs.visible_rows:
-        print(row)
-
-    # Diagnose an issue
-    obs = env.step(DataQualityAction.diagnose(
-        row_index=3, column_name="email",
-        issue_type=IssueType.FORMAT_ERROR,
-    ))
-    print(f"Result: {obs.action_result}, Reward: {obs.reward_delta:+.2f}")
-
-    # Fix it
-    obs = env.step(DataQualityAction.fix(
-        row_index=3, column_name="email",
-        fix_type=FixType.CORRECT_VALUE,
-        new_value="john.doe@example.com",
-        justification="Missing @ between 'doe' and 'example'.",
-    ))
-    print(f"Result: {obs.action_result}, Reward: {obs.reward_delta:+.2f}")
-
-    # Finalize — receive final score
-    obs = env.step(DataQualityAction.finalize())
-    print(f"Final score: {obs.cumulative_reward:.4f}")
-```
-
-### 3. Baseline Inference
-
-```bash
-export OPENAI_API_KEY="your-key"
-export ENV_URL="http://localhost:7860"
-python inference.py
-```
-
-### 4. Baseline Scores
-
-Verified against the live deployment at
-`https://praneshrajan15-data-quality-env.hf.space` on 2026-04-07.
-
-**Deterministic oracle agent** (ground-truth-aware, `run_baseline.py`):
-
-| Task | ID | Score | Detection | Fixes |
-|------|----|-------|-----------|-------|
-| Format Fixer | `task_1_format_fixer` | **1.0000** | 8/8 | 5/5 |
-| Duplicate Detective | `task_2_duplicate_detective` | **1.0000** | 12/12 | 6/6 |
-| Integrity Auditor | `task_3_integrity_auditor` | **1.0000** | 15/15 | 12/12 |
-| **Average** | — | **1.0000** | **35/35** | **23/23** |
-
-> [!NOTE]
-> These scores represent the **theoretical maximum** — a perfect agent with
-> full knowledge of ground truth. Real LLM-based agents (via `inference.py`)
-> will score lower depending on model capability and prompt strategy.
-
-```bash
-# Reproduce these scores (no API key required)
-python run_baseline.py --url https://praneshrajan15-data-quality-env.hf.space
-```
-
-## Action Space
-
-| Action | Required Parameters | Optional | Effect |
-|--------|-------------------|----------|--------|
-| `inspect` | ≥1 of `row_indices`, `column_names` | `related_table` | View rows, column statistics, or secondary table |
-| `diagnose` | `row_index`, `column_name`, `issue_type` | `related_table` | Report a suspected data quality issue |
-| `fix` | `row_index`, `column_name`, `fix_type`, `justification` | `new_value` | Apply a correction (see fix_type rules below) |
-| `finalize` | *(none)* | | End episode, receive final score |
-
-### Fix Type Rules
-
-| `fix_type` | `new_value` | Semantics |
-|------------|-------------|-----------|
-| `correct_value` | **Required** | Provide the corrected cell value |
-| `delete_row` | **Forbidden** | Remove the entire row (e.g., duplicates) |
-| `impute` | Optional | Environment may compute the imputed value |
-| `standardize` | Optional | Environment may compute the standardized form |
-
-### Issue Types
-
-`format_error` · `missing_value` · `duplicate` · `near_duplicate` · `type_mismatch` · `outlier` · `referential_integrity` · `cross_field` · `business_rule`
-
-## Observation Space
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `task_id` | `str` | Active task identifier |
-| `schema_info` | `Dict[str, str]` | Column name → data type mapping |
-| `total_rows` | `int` | Total rows in dataset |
-| `visible_rows` | `List[Dict]` | Rows from last inspect (with `_row_index`) |
-| `column_statistics` | `Dict[str, Any]` | Per-column stats from last inspect |
-| `secondary_table_rows` | `List[Dict]` | Rows from related table (Task 3) |
-| `action_result` | `ActionResult` | `correct` / `incorrect` / `partial` / `already_found` / `error` / `complete` |
-| `reward_delta` | `float` | Step reward (positive = correct, negative = penalty) |
-| `cumulative_reward` | `float` | Running episode total |
-| `issues_found` | `int` | Correctly identified issues so far |
-| `issues_remaining_hint` | `RemainingHint` | `none` / `few` / `some` / `many` / `unknown` |
-| `steps_taken` | `int` | Steps consumed this episode |
-| `max_steps` | `int` | Step budget for this task |
-| `done` | `bool` | Whether the episode has ended |
-| `message` | `str` | Human-readable feedback |
+1. **Cross-table referential integrity**: Check whether `product_id` values exist in a separate products table
+2. **Arithmetic consistency**: Verify `order_total = qty * unit_price * (1 - discount/100)` across 250 rows
+3. **Cascading errors**: A discount of 75% (should be 7.5%) causes the total to also be wrong — the agent must identify the *root cause*, not just the symptom
+4. **Floating-point traps**: A total of `206.789` where the correct value is `206.79` — tests numeric precision
+5. **Semantic duplicates**: Two orders with identical customer + product + date but different order IDs — requires row-comparison reasoning
+6. **Business rule enforcement**: Constraints from metadata (max discount 50%, valid years 2024–2025, quantity 1–100)
+7. **Strategic exploration**: 250 rows with a 65-step budget means the agent cannot brute-force inspect everything — it must use column statistics and inspection bonuses to prioritize
 
 ## Tasks
 
-| Task | ID | Difficulty | Rows | Issues | Fixable | Detection-Only | Max Steps |
-|------|----|-----------|------|--------|---------|----------------|-----------|
-| Format Fixer | `task_1_format_fixer` | Easy | 50 | 8 | 5 | 3 | 30 |
-| Duplicate Detective | `task_2_duplicate_detective` | Medium | 100 | 12 | 6 | 6 | 50 |
-| Integrity Auditor | `task_3_integrity_auditor` | Hard | 150+30 | 15 | 12 | 3 | 80 |
+| Task | ID | Difficulty | Dataset | Issues | Fixable | Max steps |
+|---|---|---|---|---:|---:|---:|
+| Format Fixer | `task_1_format_fixer` | Easy | 50 customers | 8 | 5 | 30 |
+| Duplicate Detective | `task_2_duplicate_detective` | Medium | 120 contacts | 15 | 8 | 50 |
+| Integrity Auditor | `task_3_integrity_auditor` | Hard | 250 orders + 42 products | 21 | 18 | 65 |
 
-**Task 1 — Format Fixer**: Detect and correct formatting errors in a customer database:
-malformed emails (missing `@`, double `@@`), invalid calendar dates (Feb 30, Apr 31),
-phone number irregularities, and zip code formatting (missing leading zeros, letter contamination).
+### Task 1: Format Fixer
 
-**Task 2 — Duplicate Detective**: Identify exact duplicate rows (fix with `delete_row`),
-detect near-duplicates (name typos, domain typos in emails, unformatted phone numbers),
-find missing values and type mismatches across a contacts database.
+Single-table formatting cleanup: malformed emails (missing/double @), invalid calendar dates (Feb 30, Apr 31), incomplete phone numbers, and zip code issues. Five issues have deterministic fixes; three are detection-only.
 
-**Task 3 — Integrity Auditor**: Audit referential integrity across orders and products tables
-(`product_id` validation), verify cross-field consistency (`order_total = qty × unit_price × (1 − discount/100)`,
-`ship_date ≥ order_date`), detect outliers (extreme quantities, negative prices), and identify
-business rule violations (discount > max_discount, future order dates, negative quantities).
+### Task 2: Duplicate Detective
+
+Exact duplicates (4 rows requiring DELETE_ROW), near-duplicates with typos, domain misspellings, phone reformatting, and transposed first/last names. Also includes missing values and type mismatches. Requires comparing rows in memory to identify near-duplicate pairs.
+
+### Task 3: Integrity Auditor
+
+Multi-table audit across orders and products. The agent must reason about referential integrity, arithmetic consistency, cascading errors, floating-point precision, semantic duplicates, business rules, category mismatches, and statistical outliers — all within a tight step budget that forces strategic inspection.
+
+## Action Space
+
+| Action | Required fields | Optional fields | Purpose |
+|---|---|---|---|
+| `inspect` | at least one of `row_indices` or `column_names` | `related_table` | reveal rows, column stats, or secondary-table context |
+| `diagnose` | `row_index`, `column_name`, `issue_type` | `related_table` | report a suspected issue |
+| `fix` | `row_index`, `column_name`, `fix_type`, `justification` | `new_value` | apply a deterministic correction |
+| `finalize` | none | none | end the episode and receive the final score |
+
+### Fix types
+
+| Fix type | `new_value` | Meaning |
+|---|---|---|
+| `correct_value` | required | replace the current value with the expected value |
+| `delete_row` | forbidden | remove a duplicate row |
+| `impute` | optional | let the environment compute the imputed value |
+| `standardize` | optional | let the environment normalize formatting |
+
+### Issue types
+
+`format_error`, `missing_value`, `duplicate`, `near_duplicate`, `type_mismatch`, `outlier`, `referential_integrity`, `cross_field`, `business_rule`
+
+## Observation Space
+
+| Field | Type | Meaning |
+|---|---|---|
+| `task_id` | `str` | active task identifier |
+| `schema_info` | `dict[str, str]` | column-to-type mapping |
+| `total_rows` | `int` | row count for the active dataset |
+| `visible_rows` | `list[dict]` | rows returned by the latest inspect |
+| `column_statistics` | `dict[str, object]` | inspect-time column summaries |
+| `secondary_table_rows` | `list[dict]` | related-table rows (Task 3) |
+| `action_result` | enum | feedback: `correct`, `incorrect`, `partial`, `already_found`, `error`, `complete` |
+| `reward_delta` | `float` | step reward or penalty |
+| `cumulative_reward` | `float` | running episode reward |
+| `issues_found` | `int` | correctly identified issues |
+| `issues_remaining_hint` | enum | coarse progress hint: `none`, `few`, `some`, `many` |
+| `difficulty_level` | `str` | task difficulty: `easy`, `medium`, `hard` |
+| `steps_taken` | `int` | steps consumed |
+| `max_steps` | `int` | budget for this task |
+| `done` | `bool` | whether the episode has ended |
 
 ## Reward Design
 
-### Step Rewards
+The reward function is designed for both trajectory learning and submission-time evaluation.
 
-| Event | Reward | Notes |
-|-------|--------|-------|
-| Correct diagnosis | +0.10 | Issue correctly identified at (row, column) |
-| + Type bonus | +0.05 | Agent identified the correct `issue_type` |
-| Correct fix | +0.15 | Fix value matches ground truth (case-insensitive) |
-| + Justification bonus | +0.05 | `justification` field was provided |
-| False positive | −0.05 | No issue at the diagnosed location |
-| Wrong fix | −0.08 | Fix value does not match expected |
-| Detection-only fix attempt | 0.00 | Issue has no deterministic fix (diagnosis is sufficient) |
-| Late-step penalty | −0.02/step | Applied after 80% of step budget consumed |
-| Invalid/malformed action | −0.01 | Missing required fields, out-of-bounds index, etc. |
+### Step rewards
 
-### Final Score Formula
+| Event | Reward |
+|---|---:|
+| Correct diagnosis | `+0.10` |
+| Correct issue type bonus | `+0.05` |
+| Correct fix | `+0.15` |
+| Numerically close fix (within 1%) | `+0.075` |
+| Justification bonus | `+0.05` |
+| Exploration bonus (per undiscovered issue in inspected batch) | `+0.01` |
+| False positive diagnosis | `-0.05` |
+| Wrong fix | `-0.08` |
+| Late-step penalty (after 80% of budget) | `-0.02` per step |
 
+### Final score
+
+```text
+score = detection_rate * 0.40 + fix_rate * 0.60 - min(0.40, false_positives * 0.05)
 ```
-score = detection_rate × 0.40 + fix_rate × 0.60 − min(0.40, false_positives × 0.05)
-```
 
-Where:
-- `detection_rate` = correctly diagnosed / total ground-truth issues
-- `fix_rate` = correctly fixed / total fixable issues (issues with an `expected` value)
-- False positive penalty capped at 0.40 to prevent runaway negative scores
-- Result clamped to [0.0, 1.0]
-
-### Detection-Only Issues
-
-Some issues (e.g., phone numbers with unknown digits, non-existent product references)
-cannot be fixed deterministically from available data. These are **detection-only** —
-diagnosing them earns the full diagnosis reward, but no fix is expected. Attempting to
-fix them returns `action_result="partial"` with zero penalty.
+- Dense local rewards encourage productive exploration
+- The final score reflects total task completion
+- False positives matter, but their penalty is capped
+- The exploration bonus creates an information-theoretic signal for learning inspection strategies
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENAI_API_KEY` | *(required)* | API key for LLM inference (also reads `HF_TOKEN`) |
-| `ENV_URL` | `http://localhost:7860` | Environment server URL |
-| `API_BASE_URL` | `https://api.openai.com/v1` | LLM provider base URL |
-| `MODEL_NAME` | `gpt-3.5-turbo` | Chat completion model name |
-| `TEMPERATURE` | `0.1` | Sampling temperature for LLM |
-| `MAX_TOKENS` | `512` | Max tokens per LLM completion |
-| `INFERENCE_RETRIES` | `3` | Max retry attempts on API error |
+| Variable | Default | Used by |
+|---|---|---|
+| `HF_TOKEN` | required for inference | `inference.py` |
+| `ENV_URL` | `http://localhost:7860` | client and inference |
+| `API_BASE_URL` | `https://api.openai.com/v1` | inference |
+| `MODEL_NAME` | `gpt-4o-mini` | inference |
+| `TEMPERATURE` | `0.1` | inference |
+| `MAX_TOKENS` | `1024` | inference |
 
-## Ground Truth Format
+## Quick Start
 
-```json
-{
-  "_meta": {
-    "generator": "generate_datasets.py",
-    "version": "3.0",
-    "seed": 42,
-    "row_indexing": "0-based",
-    "total_issues": 8,
-    "fixable_issues": 5,
-    "detection_only_issues": 3
-  },
-  "issues": [
-    {
-      "row": 3,
-      "column": "email",
-      "type": "format_error",
-      "original": "john.doeexample.com",
-      "expected": "john.doe@example.com",
-      "description": "Missing @ symbol"
-    }
-  ]
-}
+### Install dependencies
+
+```bash
+pip install -e .
+pip install -e ".[server]"
 ```
 
-- **`row`**: 0-based row index into the dataset
-- **`column`**: Column name (or `"_row"` for whole-row issues like duplicates)
-- **`type`**: Issue type (matches `IssueType` enum)
-- **`expected`** *(optional)*: Expected fix value. Absent = detection-only
-- **`description`**: Human-readable explanation
+### Run the automated checks
+
+```bash
+python test_env.py
+python validate.py --skip-docker
+```
+
+### Run the local server
+
+```bash
+uvicorn server.app:app --host 0.0.0.0 --port 7860
+```
+
+The server exposes `GET /health`, `GET /`, and `WS /ws`.
+
+### Run the deterministic baseline
+
+```bash
+python run_baseline.py --url http://localhost:7860
+```
+
+### Run the LLM baseline
+
+```bash
+set HF_TOKEN=your-key
+python inference.py
+```
+
+## Verified Results
+
+| Check | Result |
+|---|---|
+| Syntax compilation | All 7 core modules pass `py_compile` |
+| Test suite | `python test_env.py` — 272 passed, 0 failed |
+| Validator | `python validate.py --skip-docker` — 62 passed, 0 failed |
+| Health check | `/health` returns healthy |
+| Deterministic baseline | Perfect scores on all tasks (ground-truth-aware) |
 
 ## Project Structure
 
-```
+```text
 data_quality_env/
-├── openenv.yaml                # OpenEnv manifest (port 7860)
-├── pyproject.toml              # Project metadata and dependencies
-├── README.md                   # This file
-├── LICENSE                     # MIT license
-├── .gitignore                  # Git exclusions
-├── .dockerignore               # Docker build exclusions
-├── __init__.py                 # Package exports
-├── compat.py                   # openenv-core import resolution layer
-├── models.py                   # Pydantic schemas (Action, Observation, State)
-├── client.py                   # DataQualityEnv WebSocket client
-├── inference.py                # Baseline LLM inference script
-├── test_env.py                 # Automated test suite (31 test functions)
-├── validate.py                 # Cross-platform pre-submission validation
-├── validate.sh                 # CI/Linux pre-submission validation
-├── generate_datasets.py        # Deterministic dataset generator
-├── datasets/
-│   ├── task1_customers.json    # Task 1 dataset (50 rows)
-│   ├── task1_ground_truth.json # Task 1 ground truth (8 issues)
-│   ├── task2_contacts.json     # Task 2 dataset (100 rows)
-│   ├── task2_ground_truth.json # Task 2 ground truth (12 issues)
-│   ├── task3_orders.json       # Task 3 primary dataset (150 rows)
-│   ├── task3_products.json     # Task 3 secondary dataset (30 rows)
-│   └── task3_ground_truth.json # Task 3 ground truth (15 issues)
-└── server/
-    ├── __init__.py             # Server module exports
-    ├── app.py                  # FastAPI + WebSocket server (port 7860)
-    ├── data_quality_environment.py  # Core RL environment logic (~1220 lines)
-    ├── Dockerfile              # Multi-stage Docker build (port 7860)
-    └── requirements.txt        # Server pip dependencies
+|- openenv.yaml
+|- README.md
+|- pyproject.toml
+|- compat.py          # openenv-core import resolution
+|- models.py          # Pydantic v2 schemas (Action/Observation/State)
+|- client.py          # WebSocket client (openenv-native + fallback)
+|- inference.py       # Multi-turn LLM agent with [START]/[STEP]/[END] output
+|- run_baseline.py    # Deterministic ground-truth baseline
+|- test_env.py        # 272 automated tests
+|- validate.py        # Pre-submission validator (62 checks)
+|- datasets/          # 7 JSON files (datasets + ground truth)
+`- server/
+   |- app.py          # ASGI server (openenv/FastAPI/Starlette)
+   |- data_quality_environment.py  # Core RL environment
+   `- Dockerfile      # Multi-stage production build
 ```
 
-## Development & Testing
+## Deployment
+
+### Docker
 
 ```bash
-# Run the automated test suite (no Docker/API keys required)
-python test_env.py
-
-# Run pre-submission validation (cross-platform)
-python validate.py
-python validate.py --skip-docker
-
-# Run individual module self-tests
-python compat.py              # Verify openenv-core imports
-python models.py              # Verify Pydantic schemas
-python server/data_quality_environment.py  # Verify environment logic
-
-# Run the environment server locally
-uvicorn server.app:app --host 0.0.0.0 --port 7860 --reload
-
-# Or via Docker
 docker build -t data_quality_env -f server/Dockerfile .
 docker run -p 7860:7860 data_quality_env
 curl http://localhost:7860/health
 ```
 
-## Deploying to Hugging Face Spaces
+### Hugging Face Spaces
 
 ```bash
-# Push to HuggingFace Spaces (requires authentication)
 openenv push
-
-# Push to a specific repository as private
-openenv push --repo-id my-org/data-quality-env --private
 ```
 
-The deployed Space provides:
-- **Health Check** at `/health` — Container status monitoring
-- **WebSocket** at `/ws` — Persistent session endpoint for agent interaction
-- **API Documentation** at `/docs` — OpenAPI/Swagger interface (fallback server only)
-
-## Troubleshooting
-
-### Docker build fails
-- Verify `.dockerignore` does NOT exclude `datasets/` — the environment loads data at runtime
-- Check that `PYTHONPATH=/app/env` is set in Dockerfile
-- If package conflicts occur, pin exact versions in `server/requirements.txt`
-
-### `openenv validate` fails
-- Run `openenv validate --verbose` for diagnostic details
-- Verify `openenv.yaml` has `spec_version: 1`, `name`, `type: environment`, `app`, `port` fields
-- If it complains about missing tasks: ensure `openenv.yaml` lists task IDs under `tasks:`
-
-### WebSocket connection refused
-- Verify the server is listening on port 7860: `docker logs <container>` or `curl http://localhost:7860/health`
-- If using the fallback server, check for import errors in `server/app.py`
-
-### Health check fails
-- `curl -v http://localhost:7860/health` — inspect the full response
-- If 404: the `/health` endpoint is added explicitly in `app.py` §3 regardless of server tier
-
-### Inference script hangs
-- Add `timeout=30` to LLM API calls if not set
-- If WebSocket never connects: verify `ENV_URL` uses `http://` (not `ws://`) — the client handles scheme conversion
-
-### HF Space won't deploy
-- Check build logs on huggingface.co for error details
-- Verify `server/Dockerfile` uses port 7860 in CMD, HEALTHCHECK, and EXPOSE
-- Ensure README frontmatter has `sdk: docker` and `app_port: 7860`
-- Keep Docker image small: no `numpy`, `pandas`, `pytorch`, or `tensorflow` server-side
-
-### Graders return constant score
-- Run `test_score_variance` in `test_env.py` — confirms different behaviors yield different scores
-- Verify ground truth has varied issue types and fix values
-- Check that `_compute_final_score` uses both detection AND fix ratios
-
-## Invariants
-
-These rules are **never violated** in this codebase:
-
-1. **No hardcoded API keys.** Always use environment variables (`OPENAI_API_KEY`, `HF_TOKEN`).
-2. **No localhost in deployed code.** `ENV_URL` is configurable via environment variable.
-3. **No runtime dataset generation.** All datasets are static JSON — deterministic and reproducible.
-4. **Environment never crashes.** Every code path catches exceptions and returns error observations.
-5. **No heavy dependencies server-side.** No `numpy`, `pandas`, `pytorch`, or `tensorflow`.
-6. **No redeclared base class fields.** `compat.py` resolves once; `models.py` extends cleanly.
-7. **No guessed import paths.** `compat.py` resolves once; all modules use its exports.
+Port 7860, health check at `/health`, WebSocket at `/ws`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT. See `LICENSE`.

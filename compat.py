@@ -1,88 +1,109 @@
 # Copyright (c) 2026 Data Quality Environment Project
 # SPDX-License-Identifier: MIT
 
-"""Compatibility layer — single source of truth for all openenv imports.
+"""Compatibility layer for openenv imports.
 
 [FIX-01] Replaces scattered try/except import blocks throughout the codebase.
 [FIX-02] Validates openenv-core version at import time with actionable errors.
-[FIX-03] Provides complete type annotations for IDE/mypy support.
-[FIX-04] Exports every symbol any downstream module needs — never import from
-         openenv directly in application code; always use:
+[FIX-03] Provides stable re-export names for the rest of the repo.
+[FIX-04] Exports every symbol downstream modules need; application code should
+         import from this module instead of importing openenv directly.
+[FIX-23] Remains importable without openenv-core by exposing minimal local
+         fallback base types for offline validation and local test paths.
 
-             from compat import Action, Observation, State, Environment, ...
-
-Module Layout (by provenance):
-    openenv.core.env_server.types    → Action, Observation, State,
-                                       ConcurrencyConfig, EnvironmentMetadata
-    openenv.core.env_server.interfaces → Environment, Transform
-    openenv.core.env_server.http_server → create_app
-    openenv.core.env_client          → EnvClient
-    openenv.core.client_types        → StepResult
+Module layout when openenv-core is installed:
+    openenv.core.env_server.types -> Action, Observation, State,
+                                     ConcurrencyConfig, EnvironmentMetadata
+    openenv.core.env_server.interfaces -> Environment, Transform
+    openenv.core.env_server.http_server -> create_app
+    openenv.core.env_client -> EnvClient
+    openenv.core.client_types -> StepResult
 
 Verification:
-    python compat.py          # prints diagnostic table
-    python -m pytest compat.py -v  # if doctest desired
+    python compat.py
 """
 
 from __future__ import annotations
 
+import abc
 import importlib
 import sys
 import warnings
-from typing import (
-    Any,
-    Callable,
-    Optional,
-    TYPE_CHECKING,
-    Type,
-)
+from dataclasses import dataclass
+from typing import Any, Callable
 
-if TYPE_CHECKING:
-    # For static analysis only — these are resolved dynamically below
-    from openenv.core.env_server.types import (
-        Action as _ActionT,
-        ConcurrencyConfig as _ConcurrencyConfigT,
-        EnvironmentMetadata as _EnvironmentMetadataT,
-        Observation as _ObservationT,
-        State as _StateT,
-    )
-    from openenv.core.env_server.interfaces import (
-        Environment as _EnvironmentT,
-        Transform as _TransformT,
-    )
-    from openenv.core.env_client import EnvClient as _EnvClientT
-    from openenv.core.client_types import StepResult as _StepResultT
+from pydantic import BaseModel, ConfigDict, Field
 
-# ---------------------------------------------------------------------------
-# Public API — exhaustive list of every re-exported symbol
-# ---------------------------------------------------------------------------
 __all__ = [
-    # Core types (openenv.core.env_server.types)
     "Action",
     "Observation",
     "State",
     "ConcurrencyConfig",
     "EnvironmentMetadata",
-    # Server interfaces (openenv.core.env_server.interfaces)
     "Environment",
     "Transform",
-    # App factory (openenv.core.env_server.http_server)
     "create_app",
-    # Client (openenv.core.env_client)
     "EnvClient",
-    # Client types (openenv.core.client_types)
     "StepResult",
-    # Metadata
     "IMPORT_ROOT",
     "OPENENV_VERSION",
-    # Diagnostics
     "print_diagnostics",
     "validate_installation",
 ]
 
 
+def _build_fallback_types() -> tuple[type[BaseModel], ...]:
+    """Construct local stand-ins for the openenv base types."""
+
+    class _FallbackAction(BaseModel):
+        metadata: dict[str, Any] = Field(default_factory=dict)
+        model_config = ConfigDict(extra="forbid")
+
+    class _FallbackObservation(BaseModel):
+        done: bool = False
+        reward: bool | int | float | None = 0.0
+        metadata: dict[str, Any] = Field(default_factory=dict)
+        model_config = ConfigDict(extra="forbid")
+
+    class _FallbackState(BaseModel):
+        episode_id: str | None = None
+        step_count: int = Field(default=0, ge=0)
+        model_config = ConfigDict(extra="allow")
+
+    class _FallbackEnvironment(abc.ABC):
+        @abc.abstractmethod
+        def reset(self, **kwargs: Any) -> Any:
+            ...
+
+        @abc.abstractmethod
+        def step(self, action: Any) -> Any:
+            ...
+
+        @property
+        @abc.abstractmethod
+        def state(self) -> Any:
+            ...
+
+        def close(self) -> None:
+            """Compatibility no-op when no transport runtime exists."""
+
+    @dataclass
+    class _FallbackStepResult:
+        observation: Any
+        reward: bool | int | float | None = 0.0
+        done: bool = False
+
+    return (
+        _FallbackAction,
+        _FallbackObservation,
+        _FallbackState,
+        _FallbackEnvironment,
+        _FallbackStepResult,
+    )
+
+
 # ===========================================================================
-# §1  Resolve import root
+# Resolve import root
 # ===========================================================================
 
 _CANDIDATES = ("openenv.core", "openenv_core")
@@ -96,16 +117,8 @@ for _candidate in _CANDIDATES:
     except ImportError:
         continue
 
-if IMPORT_ROOT is None:
-    raise ImportError(
-        "openenv-core is not installed or its import path has changed.\n"
-        "Install it with:\n"
-        "    pip install 'openenv-core>=0.2.0'\n"
-        "\n"
-        f"Tried import roots: {_CANDIDATES}"
-    )
+_USING_FALLBACK_TYPES = IMPORT_ROOT is None
 
-# Warn if using the deprecated path
 if IMPORT_ROOT == "openenv_core":
     warnings.warn(
         "Importing via 'openenv_core' is deprecated. "
@@ -116,7 +129,7 @@ if IMPORT_ROOT == "openenv_core":
 
 
 # ===========================================================================
-# §2  Version validation
+# Version validation
 # ===========================================================================
 
 OPENENV_VERSION: str | None = None
@@ -126,7 +139,6 @@ try:
 
     OPENENV_VERSION = _pkg_version("openenv-core")
 except Exception:
-    # importlib.metadata may not find it if installed in non-standard location
     pass
 
 _MIN_VERSION = (0, 2, 0)
@@ -136,110 +148,93 @@ if OPENENV_VERSION is not None:
         _parts = tuple(int(x) for x in OPENENV_VERSION.split(".")[:3])
         if _parts < _MIN_VERSION:
             warnings.warn(
-                f"openenv-core {OPENENV_VERSION} is below minimum {'.'.join(map(str, _MIN_VERSION))}. "
-                f"Some features may not work. Upgrade with: pip install 'openenv-core>={'.'.join(map(str, _MIN_VERSION))}'",
+                "openenv-core "
+                f"{OPENENV_VERSION} is below minimum "
+                f"{'.'.join(map(str, _MIN_VERSION))}. "
+                "Some features may not work. Upgrade with: "
+                f"pip install 'openenv-core>={'.'.join(map(str, _MIN_VERSION))}'",
                 UserWarning,
                 stacklevel=2,
             )
     except (ValueError, TypeError):
-        pass  # Non-standard version string; skip check
-
-
-# ===========================================================================
-# §3  Import core types  —  openenv.core.env_server.types
-# ===========================================================================
-
-_types_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server.types")
-
-Action: Type[_ActionT] = _types_mod.Action  # type: ignore[assignment]
-Observation: Type[_ObservationT] = _types_mod.Observation  # type: ignore[assignment]
-State: Type[_StateT] = _types_mod.State  # type: ignore[assignment]
-ConcurrencyConfig: Type[_ConcurrencyConfigT] = getattr(  # type: ignore[assignment]
-    _types_mod, "ConcurrencyConfig", None
-)
-EnvironmentMetadata: Type[_EnvironmentMetadataT] = getattr(  # type: ignore[assignment]
-    _types_mod, "EnvironmentMetadata", None
-)
-
-
-# ===========================================================================
-# §4  Import server interfaces  —  openenv.core.env_server.interfaces
-# ===========================================================================
-
-Environment: Type[_EnvironmentT] | None = None  # type: ignore[assignment]
-Transform: Type[_TransformT] | None = None  # type: ignore[assignment]
-
-try:
-    _ifaces_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server.interfaces")
-    Environment = getattr(_ifaces_mod, "Environment", None)  # type: ignore[assignment]
-    Transform = getattr(_ifaces_mod, "Transform", None)  # type: ignore[assignment]
-except ImportError:
-    pass  # Older openenv-core without interfaces module
-
-
-# ===========================================================================
-# §5  Import app factory  —  openenv.core.env_server.http_server
-# ===========================================================================
-
-create_app: Callable[..., Any] | None = None
-
-try:
-    _http_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server.http_server")
-    create_app = getattr(_http_mod, "create_app", None)
-except ImportError:
-    pass
-
-# Fallback: some versions expose it at the env_server level
-if create_app is None:
-    try:
-        _srv_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server")
-        create_app = getattr(_srv_mod, "create_app", None)
-    except ImportError:
         pass
 
 
 # ===========================================================================
-# §6  Import client  —  openenv.core.env_client
+# Core types
 # ===========================================================================
 
-EnvClient: Type[_EnvClientT] | None = None  # type: ignore[assignment]
+Action: type[Any]
+Observation: type[Any]
+State: type[Any]
+Environment: type[Any] | None
+StepResult: type[Any] | None
+ConcurrencyConfig: type[Any] | None = None
+EnvironmentMetadata: type[Any] | None = None
+Transform: type[Any] | None = None
+create_app: Callable[..., Any] | None = None
+EnvClient: type[Any] | None = None
 
-try:
-    _client_mod = importlib.import_module(f"{IMPORT_ROOT}.env_client")
-    EnvClient = getattr(_client_mod, "EnvClient", None)  # type: ignore[assignment]
-except ImportError:
-    pass
+if IMPORT_ROOT is not None:
+    _types_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server.types")
 
+    Action = _types_mod.Action
+    Observation = _types_mod.Observation
+    State = _types_mod.State
+    ConcurrencyConfig = getattr(_types_mod, "ConcurrencyConfig", None)
+    EnvironmentMetadata = getattr(_types_mod, "EnvironmentMetadata", None)
 
-# ===========================================================================
-# §7  Import client types  —  openenv.core.client_types
-# ===========================================================================
-
-StepResult: Type[_StepResultT] | None = None  # type: ignore[assignment]
-
-for _sub in ("client_types", "types"):
     try:
-        _ct_mod = importlib.import_module(f"{IMPORT_ROOT}.{_sub}")
-        _sr = getattr(_ct_mod, "StepResult", None)
-        if _sr is not None:
-            StepResult = _sr  # type: ignore[assignment]
-            break
+        _ifaces_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server.interfaces")
+        Environment = getattr(_ifaces_mod, "Environment", None)
+        Transform = getattr(_ifaces_mod, "Transform", None)
     except ImportError:
-        continue
+        Environment = None
+        Transform = None
+
+    try:
+        _http_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server.http_server")
+        create_app = getattr(_http_mod, "create_app", None)
+    except ImportError:
+        try:
+            _srv_mod = importlib.import_module(f"{IMPORT_ROOT}.env_server")
+            create_app = getattr(_srv_mod, "create_app", None)
+        except ImportError:
+            create_app = None
+
+    try:
+        _client_mod = importlib.import_module(f"{IMPORT_ROOT}.env_client")
+        EnvClient = getattr(_client_mod, "EnvClient", None)
+    except ImportError:
+        EnvClient = None
+
+    StepResult = None
+    for _sub in ("client_types", "types"):
+        try:
+            _ct_mod = importlib.import_module(f"{IMPORT_ROOT}.{_sub}")
+            _step_result = getattr(_ct_mod, "StepResult", None)
+            if _step_result is not None:
+                StepResult = _step_result
+                break
+        except ImportError:
+            continue
+else:
+    (
+        Action,
+        Observation,
+        State,
+        Environment,
+        StepResult,
+    ) = _build_fallback_types()
 
 
 # ===========================================================================
-# §8  Diagnostics and validation
+# Diagnostics
 # ===========================================================================
 
 def validate_installation() -> dict[str, bool]:
-    """Validate that all required components are available.
+    """Validate which compatibility components are available."""
 
-    Returns:
-        Dictionary mapping component names to availability (True/False).
-        The 'core_types' key covers Action, Observation, State — these are
-        mandatory.  Everything else is recommended but has fallback paths.
-    """
     return {
         "core_types": all(x is not None for x in (Action, Observation, State)),
         "Environment": Environment is not None,
@@ -253,21 +248,22 @@ def validate_installation() -> dict[str, bool]:
 
 
 def print_diagnostics() -> None:
-    """Print a comprehensive diagnostic table of all resolved imports.
+    """Print a diagnostic table of resolved imports."""
 
-    Useful for debugging import issues and verifying the installation.
-    """
-    _SEP = "-" * 60
+    separator = "-" * 60
 
-    print(f"\n{_SEP}")
+    print(f"\n{separator}")
     print("  openenv-core Compatibility Layer -- Diagnostics")
-    print(_SEP)
-    print(f"  Import root:          {IMPORT_ROOT}")
+    print(separator)
+    print(
+        "  Import root:          "
+        f"{IMPORT_ROOT or 'fallback (openenv-core unavailable)'}"
+    )
     print(f"  openenv-core version: {OPENENV_VERSION or 'unknown'}")
     print(f"  Python version:       {sys.version.split()[0]}")
-    print(_SEP)
+    print(separator)
 
-    _components = [
+    components = [
         ("Action", Action),
         ("Observation", Observation),
         ("State", State),
@@ -280,17 +276,16 @@ def print_diagnostics() -> None:
         ("StepResult", StepResult),
     ]
 
-    for name, obj in _components:
+    for name, obj in components:
         if obj is not None:
-            loc = getattr(obj, "__module__", "?")
-            status = f"OK  {loc}"
+            module_name = getattr(obj, "__module__", "?")
+            status = f"OK  {module_name}"
         else:
             status = "MISSING"
         print(f"  {name:<24s} {status}")
 
-    print(_SEP)
+    print(separator)
 
-    # Validation summary
     results = validate_installation()
     mandatory_ok = results["core_types"]
     total_ok = sum(results.values())
@@ -299,96 +294,128 @@ def print_diagnostics() -> None:
     if mandatory_ok and total_ok == total:
         print("  Status: ALL COMPONENTS AVAILABLE [OK]")
     elif mandatory_ok:
-        missing = [k for k, v in results.items() if not v]
-        print(f"  Status: CORE OK, optional missing: {', '.join(missing)} [WARN]")
+        missing = [name for name, present in results.items() if not present]
+        if _USING_FALLBACK_TYPES:
+            print(
+                "  Status: FALLBACK CORE TYPES ACTIVE, optional missing: "
+                f"{', '.join(missing)} [WARN]"
+            )
+        else:
+            print(
+                "  Status: CORE OK, optional missing: "
+                f"{', '.join(missing)} [WARN]"
+            )
     else:
         print("  Status: CRITICAL -- core types unavailable [FAIL]")
         print("  Run: pip install 'openenv-core>=0.2.0'")
 
-    print(f"{_SEP}\n")
+    print(f"{separator}\n")
 
 
 # ===========================================================================
-# §9  Self-test entry point
+# Self-test entry point
 # ===========================================================================
 
 if __name__ == "__main__":
     print_diagnostics()
 
-    # Structural assertions for CI/CD gates
     results = validate_installation()
     if not results["core_types"]:
         print("FATAL: Core types (Action, Observation, State) are unavailable.")
         sys.exit(1)
 
-    # Verify inherited fields are present (guards against API breakage)
-    _obs_fields = set(Observation.model_fields.keys())  # type: ignore[union-attr]
-    _expected_obs = {"done", "reward", "metadata"}
-    _missing_obs = _expected_obs - _obs_fields
-    if _missing_obs:
-        print(f"WARNING: Observation is missing expected fields: {_missing_obs}")
-        print("  This may indicate an openenv-core API change.")
+    observation_fields = set(Observation.model_fields.keys())
+    expected_observation_fields = {"done", "reward", "metadata"}
+    missing_observation_fields = expected_observation_fields - observation_fields
+    if missing_observation_fields:
+        print(
+            "WARNING: Observation is missing expected fields: "
+            f"{missing_observation_fields}"
+        )
     else:
-        print(f"Observation base fields verified: {sorted(_expected_obs)} [OK]")
+        print(
+            "Observation base fields verified: "
+            f"{sorted(expected_observation_fields)} [OK]"
+        )
 
-    _action_fields = set(Action.model_fields.keys())  # type: ignore[union-attr]
-    _expected_action = {"metadata"}
-    _missing_action = _expected_action - _action_fields
-    if _missing_action:
-        print(f"WARNING: Action is missing expected fields: {_missing_action}")
+    action_fields = set(Action.model_fields.keys())
+    expected_action_fields = {"metadata"}
+    missing_action_fields = expected_action_fields - action_fields
+    if missing_action_fields:
+        print(f"WARNING: Action is missing expected fields: {missing_action_fields}")
     else:
-        print(f"Action base fields verified: {sorted(_expected_action)} [OK]")
+        print(
+            "Action base fields verified: "
+            f"{sorted(expected_action_fields)} [OK]"
+        )
 
-    _state_fields = set(State.model_fields.keys())  # type: ignore[union-attr]
-    _expected_state = {"episode_id", "step_count"}
-    _missing_state = _expected_state - _state_fields
-    if _missing_state:
-        print(f"WARNING: State is missing expected fields: {_missing_state}")
+    state_fields = set(State.model_fields.keys())
+    expected_state_fields = {"episode_id", "step_count"}
+    missing_state_fields = expected_state_fields - state_fields
+    if missing_state_fields:
+        print(f"WARNING: State is missing expected fields: {missing_state_fields}")
     else:
-        print(f"State base fields verified: {sorted(_expected_state)} [OK]")
+        print(
+            "State base fields verified: "
+            f"{sorted(expected_state_fields)} [OK]"
+        )
 
-    # Verify create_app signature
     if create_app is not None:
         import inspect
 
-        sig = inspect.signature(create_app)
-        _expected_params = {"env", "action_cls", "observation_cls"}
-        _actual_params = set(sig.parameters.keys())
-        _missing_params = _expected_params - _actual_params
-        if _missing_params:
-            print(f"WARNING: create_app missing expected params: {_missing_params}")
+        signature = inspect.signature(create_app)
+        expected_params = {"env", "action_cls", "observation_cls"}
+        actual_params = set(signature.parameters.keys())
+        missing_params = expected_params - actual_params
+        if missing_params:
+            print(f"WARNING: create_app missing expected params: {missing_params}")
         else:
-            print(f"create_app signature verified: {list(sig.parameters.keys())} [OK]")
+            print(
+                "create_app signature verified: "
+                f"{list(signature.parameters.keys())} [OK]"
+            )
 
-    # Verify Environment abstract methods
     if Environment is not None:
         import inspect
 
-        _abstracts = {
+        abstract_methods = {
             name
             for name, method in inspect.getmembers(Environment)
             if getattr(method, "__isabstractmethod__", False)
         }
-        _expected_abstracts = {"reset", "step", "state"}
-        if _expected_abstracts <= _abstracts:
-            print(f"Environment abstract methods verified: {sorted(_expected_abstracts)} [OK]")
+        expected_abstract_methods = {"reset", "step", "state"}
+        if expected_abstract_methods <= abstract_methods:
+            print(
+                "Environment abstract methods verified: "
+                f"{sorted(expected_abstract_methods)} [OK]"
+            )
         else:
-            _missing_abs = _expected_abstracts - _abstracts
-            print(f"WARNING: Environment missing abstract methods: {_missing_abs}")
+            missing_methods = expected_abstract_methods - abstract_methods
+            print(f"WARNING: Environment missing abstract methods: {missing_methods}")
 
-    # Verify StepResult fields
     if StepResult is not None:
         import dataclasses
 
         if dataclasses.is_dataclass(StepResult):
-            _sr_fields = {f.name for f in dataclasses.fields(StepResult)}
-            _expected_sr = {"observation", "reward", "done"}
-            _missing_sr = _expected_sr - _sr_fields
-            if _missing_sr:
-                print(f"WARNING: StepResult missing fields: {_missing_sr}")
+            step_result_fields = {field.name for field in dataclasses.fields(StepResult)}
+            expected_step_result_fields = {"observation", "reward", "done"}
+            missing_step_result_fields = (
+                expected_step_result_fields - step_result_fields
+            )
+            if missing_step_result_fields:
+                print(
+                    "WARNING: StepResult missing fields: "
+                    f"{missing_step_result_fields}"
+                )
             else:
-                print(f"StepResult fields verified: {sorted(_expected_sr)} [OK]")
+                print(
+                    "StepResult fields verified: "
+                    f"{sorted(expected_step_result_fields)} [OK]"
+                )
         else:
             print("NOTE: StepResult is not a dataclass (API may have changed)")
 
-    print("\ncompat.py validation PASSED -- all checks green.")
+    if _USING_FALLBACK_TYPES:
+        print("\ncompat.py validation PASSED -- fallback types active.")
+    else:
+        print("\ncompat.py validation PASSED -- all checks green.")

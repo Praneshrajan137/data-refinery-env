@@ -517,6 +517,9 @@ class DataQualityObservation(Observation):
     max_steps: int = Field(
         DEFAULT_MAX_STEPS, ge=1, description="Maximum allowed steps this episode.",
     )
+    difficulty_level: Optional[str] = Field(
+        None, description="Task difficulty tier: easy, medium, or hard.",
+    )
     message: str = Field("", description="Human-readable feedback from the environment.")
 
     # ── custom repr for readable debug logs ───────────────────────────────
@@ -590,11 +593,6 @@ if __name__ == "__main__":
     print(_SEP)
 
     # 1. Inheritance
-    _check(
-        "DataQualityAction inherits from Action",
-        lambda: assert_(issubclass(DataQualityAction, Action)),
-    ) if False else None  # noqa — handled below
-
     def assert_(cond: bool, msg: str = "") -> None:
         if not cond:
             raise AssertionError(msg or "assertion failed")
