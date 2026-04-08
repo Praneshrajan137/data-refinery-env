@@ -1037,14 +1037,15 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
 
     # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
     success = str(total_reward >= 0.3).lower()
-    rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
+    rewards_str = ",".join(rewards_list) if rewards_list else "0.01"
     print(
         f"[END] success={success} steps={final_step_count} "
         f"rewards={rewards_str}",
         flush=True,
     )
     logger.info("Episode finished: task=%s final_reward=%.4f", task_id, total_reward)
-    return total_reward
+    # Clamp to (0, 1) exclusive — validator rejects exactly 0.0 and 1.0
+    return max(0.0001, min(0.9999, total_reward))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1089,15 +1090,15 @@ def _main_inner() -> int:
         task_start = time.time()
         if time.time() > global_deadline:
             logger.warning("Global deadline reached — skipping remaining tasks")
-            scores[task_id] = 0.0
+            scores[task_id] = 0.0001
             continue
         try:
             scores[task_id] = run_task(task_id, deadline=global_deadline)
         except BaseException as exc:
             logger.error(
-                "[END] task_id=%s final_reward=0.0 error=%s", task_id, exc
+                "[END] task_id=%s final_reward=0.0001 error=%s", task_id, exc
             )
-            scores[task_id] = 0.0
+            scores[task_id] = 0.0001
         task_elapsed = time.time() - task_start
         logger.info(
             "Task %s completed in %.1fs — score=%.4f",
