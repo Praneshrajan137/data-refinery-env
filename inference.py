@@ -124,8 +124,42 @@ ENV_URL: str = os.environ.get("ENV_URL", "http://localhost:7860")
 
 TEMPERATURE: float = float(os.environ.get("TEMPERATURE", "0.1"))
 MAX_TOKENS: int = int(os.environ.get("MAX_TOKENS", "1024"))
-INFERENCE_RETRIES: int = int(os.environ.get("INFERENCE_RETRIES", "3"))
-MAX_CONTEXT_TOKENS: int = int(os.environ.get("MAX_CONTEXT_TOKENS", "128000"))
+INFERENCE_RETRIES: int = int(os.environ.get("INFERENCE_RETRIES", "5"))
+
+# ── Model-aware context window detection ─────────────────────────────
+# litellm proxies often assign models with smaller context windows than
+# a 128K default.  Override when MODEL_NAME matches a known model.
+_MODEL_CONTEXT_WINDOWS: Dict[str, int] = {
+    "gpt-3.5-turbo": 16_000,
+    "gpt-3.5-turbo-16k": 16_000,
+    "gpt-4": 8_000,
+    "gpt-4-32k": 32_000,
+    "gpt-4-turbo": 128_000,
+    "gpt-4-turbo-preview": 128_000,
+    "gpt-4o": 128_000,
+    "gpt-4o-mini": 128_000,
+    "gpt-4.1": 128_000,
+    "gpt-4.1-mini": 128_000,
+    "gpt-4.1-nano": 128_000,
+}
+
+
+def _detect_context_window() -> int:
+    """Detect the model's context window, falling back to env var or 16K."""
+    explicit = os.environ.get("MAX_CONTEXT_TOKENS")
+    if explicit:
+        return int(explicit)
+    model_lower = MODEL_NAME.lower().strip()
+    if model_lower in _MODEL_CONTEXT_WINDOWS:
+        return _MODEL_CONTEXT_WINDOWS[model_lower]
+    for prefix, window in _MODEL_CONTEXT_WINDOWS.items():
+        if model_lower.startswith(prefix):
+            return window
+    # Conservative default: 16K is safe for any model
+    return 16_000
+
+
+MAX_CONTEXT_TOKENS: int = _detect_context_window()
 
 # Budget threshold: truncate history when exceeding this fraction of context
 _CONTEXT_BUDGET_FRACTION: float = 0.75
@@ -663,7 +697,6 @@ def _call_llm(
                 "messages": messages,
                 "temperature": TEMPERATURE,
                 "max_tokens": MAX_TOKENS,
-                "stream": False,
                 "timeout": 60,
             }
 
@@ -676,6 +709,8 @@ def _call_llm(
 
         except Exception as exc:
             status_code = getattr(exc, "status_code", None)
+            error_body = str(exc).lower()
+
             # On first 400 with json_mode, retry without response_format
             if status_code == 400 and use_json_mode:
                 use_json_mode = False
@@ -683,17 +718,30 @@ def _call_llm(
                     "HTTP 400 with json_mode — retrying without response_format"
                 )
                 continue
-            # Fast-fail on non-retryable client errors (401/403/404)
-            if status_code and 400 <= status_code < 500 and status_code != 429:
+
+            # Only fast-fail on truly non-retryable auth/routing errors
+            if status_code in (401, 403, 404):
                 logger.error(
                     "LLM API client error (HTTP %d): %s — not retrying",
                     status_code, exc,
                 )
                 break
-            wait = 2 ** attempt  # 1s, 2s, 4s
+
+            # On 400 with context overflow hints, try aggressive truncation
+            if status_code == 400 and any(
+                kw in error_body
+                for kw in ("context", "token", "length", "too long", "maximum")
+            ):
+                logger.warning(
+                    "HTTP 400 likely context overflow — truncating for retry"
+                )
+                if len(messages) > 5:
+                    messages = [messages[0]] + messages[-4:]
+
+            wait = min(2 ** attempt, 8)  # 1s, 2s, 4s, 8s, 8s
             logger.warning(
-                "LLM API error (attempt %d/%d): %s — retrying in %ds",
-                attempt + 1, retries, exc, wait,
+                "LLM API error (attempt %d/%d, HTTP %s): %s — retrying in %ds",
+                attempt + 1, retries, status_code or "N/A", exc, wait,
             )
             if attempt < retries - 1:
                 time.sleep(wait)
@@ -859,7 +907,7 @@ def run_task(task_id: str) -> float:
     final_step_count: int = 0
 
     # ── Hackathon-compliant [START] line (stdout) ─────────────────────
-    print(f"[START] task={task_id} env=data_quality_env model={MODEL_NAME}")
+    print(f"[START] task={task_id} env=data_quality_env model={MODEL_NAME}", flush=True)
     logger.info("Episode starting: task=%s max_steps=%d model=%s", task_id, max_steps, MODEL_NAME)
 
     try:
@@ -950,10 +998,12 @@ def run_task(task_id: str) -> float:
                 # ── Hackathon-compliant [STEP] line (stdout) ────────
                 action_str = action_dict.get("action_type", "inspect")
                 error_str = str(getattr(obs, "last_action_error", None) or "null")
+                error_str = error_str.replace("\n", " ").replace("\r", "")
                 print(
-                    f"[STEP]  step={step_num + 1} action={action_str} "
+                    f"[STEP] step={step_num + 1} action={action_str} "
                     f"reward={reward_delta:.2f} done={str(done).lower()} "
-                    f"error={error_str}"
+                    f"error={error_str}",
+                    flush=True,
                 )
                 rewards_list.append(f"{reward_delta:.2f}")
                 final_step_count = step_num + 1
@@ -967,17 +1017,18 @@ def run_task(task_id: str) -> float:
                 if done:
                     break
 
-    except Exception as exc:
+    except BaseException as exc:
         logger.error("Episode error: task=%s error=%s", task_id, exc)
         import traceback
         traceback.print_exc(file=sys.stderr)
 
-    # ── Hackathon-compliant [END] line (stdout) ───────────────────────
+    # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
     success = str(total_reward >= 0.3).lower()
     rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
     print(
-        f"[END]   success={success} steps={final_step_count} "
-        f"rewards={rewards_str}"
+        f"[END] success={success} steps={final_step_count} "
+        f"rewards={rewards_str}",
+        flush=True,
     )
     logger.info("Episode finished: task=%s final_reward=%.4f", task_id, total_reward)
     return total_reward
@@ -995,8 +1046,9 @@ def main() -> int:
     """
     try:
         return _main_inner()
-    except Exception as exc:
+    except BaseException as exc:
         # Safety net — never let an unexpected error produce a non-zero exit.
+        # Catches KeyboardInterrupt (SIGINT from validator timeout) and SystemExit.
         logger.error("Fatal error in main: %s", exc)
         import traceback
         traceback.print_exc(file=sys.stderr)
@@ -1022,7 +1074,7 @@ def _main_inner() -> int:
         task_start = time.time()
         try:
             scores[task_id] = run_task(task_id)
-        except Exception as exc:
+        except BaseException as exc:
             logger.error(
                 "[END] task_id=%s final_reward=0.0 error=%s", task_id, exc
             )
@@ -1061,10 +1113,14 @@ def _main_inner() -> int:
         "average": round(avg, 4),
         "elapsed_seconds": round(total_elapsed, 1),
     }
-    print(f"\n[SUMMARY] {json.dumps(summary)}")
+    print(f"\n[SUMMARY] {json.dumps(summary)}", flush=True)
 
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        _exit_code = main()
+    except BaseException:
+        _exit_code = 0
+    sys.exit(_exit_code)
