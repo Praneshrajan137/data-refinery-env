@@ -134,7 +134,7 @@ TASK_CONFIG: Dict[str, Dict[str, Any]] = {
     "task_2_duplicate_detective": {
         "dataset": "task2_contacts.json",
         "ground_truth": "task2_ground_truth.json",
-        "max_steps": 50,
+        "max_steps": 35,
         "dataset_name": "Contact Records",
         "description": (
             "Identify exact and near-duplicate contact records, detect "
@@ -144,14 +144,14 @@ TASK_CONFIG: Dict[str, Dict[str, Any]] = {
     "task_3_integrity_auditor": {
         "dataset": "task3_orders.json",
         "ground_truth": "task3_ground_truth.json",
-        "max_steps": 65,
+        "max_steps": 45,
         "dataset_name": "Orders & Products",
         "secondary_dataset": "task3_products.json",
         "description": (
             "Audit referential integrity, cross-field consistency, outliers, "
             "cascading errors, precision traps, and business rule compliance "
             "across orders and products tables. Requires strategic inspection "
-            "of 250 rows within a 65-step budget."
+            "of 250 rows within a 45-step budget."
         ),
     },
 }

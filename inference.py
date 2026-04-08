@@ -51,7 +51,7 @@ Environment variables (all optional):
     ENV_URL           Environment server URL          (default: http://localhost:7860)
     TEMPERATURE       Sampling temperature            (default: 0.1)
     MAX_TOKENS        Max tokens per completion       (default: 1024)
-    INFERENCE_RETRIES Max retry attempts on API error (default: 3)
+    INFERENCE_RETRIES Max retry attempts on API error (default: 2)
     MAX_CONTEXT_TOKENS Model context window size      (default: 128000)
 
 Usage::
@@ -124,7 +124,7 @@ ENV_URL: str = os.environ.get("ENV_URL", "http://localhost:7860")
 
 TEMPERATURE: float = float(os.environ.get("TEMPERATURE", "0.1"))
 MAX_TOKENS: int = int(os.environ.get("MAX_TOKENS", "1024"))
-INFERENCE_RETRIES: int = int(os.environ.get("INFERENCE_RETRIES", "5"))
+INFERENCE_RETRIES: int = int(os.environ.get("INFERENCE_RETRIES", "2"))
 
 # ── Model-aware context window detection ─────────────────────────────
 # litellm proxies often assign models with smaller context windows than
@@ -172,8 +172,8 @@ TASKS: List[str] = [
 
 MAX_STEPS: Dict[str, int] = {
     "task_1_format_fixer": 30,
-    "task_2_duplicate_detective": 50,
-    "task_3_integrity_auditor": 65,
+    "task_2_duplicate_detective": 35,
+    "task_3_integrity_auditor": 45,
 }
 
 
@@ -697,7 +697,7 @@ def _call_llm(
                 "messages": messages,
                 "temperature": TEMPERATURE,
                 "max_tokens": MAX_TOKENS,
-                "timeout": 60,
+                "timeout": 20,
             }
 
             if use_json_mode:
@@ -738,7 +738,7 @@ def _call_llm(
                 if len(messages) > 5:
                     messages = [messages[0]] + messages[-4:]
 
-            wait = min(2 ** attempt, 8)  # 1s, 2s, 4s, 8s, 8s
+            wait = min(2 ** attempt, 2)  # 1s, 2s max
             logger.warning(
                 "LLM API error (attempt %d/%d, HTTP %s): %s — retrying in %ds",
                 attempt + 1, retries, status_code or "N/A", exc, wait,
@@ -878,13 +878,17 @@ def _make_fallback_action(
 # §7  Task Runner — Stateful Multi-Turn Loop
 # ═══════════════════════════════════════════════════════════════════════════
 
-def run_task(task_id: str) -> float:
+def run_task(task_id: str, deadline: float = 0.0) -> float:
     """Run a single task episode with multi-turn conversation memory.
 
     The agent maintains a full message history across all steps, giving
     the LLM complete context of its exploration journey: which rows it
     has inspected, which issues it has diagnosed, and which fixes it
     has applied.
+
+    Args:
+        task_id: The task identifier.
+        deadline: Unix timestamp after which we must stop (0 = no limit).
 
     Returns:
         The final cumulative reward for the episode (float in [0, 1]).
@@ -912,7 +916,7 @@ def run_task(task_id: str) -> float:
 
     try:
         # ── Connect with retry (server may still be starting) ────────
-        _max_connect = 5
+        _max_connect = 3
         for _attempt in range(_max_connect):
             try:
                 env = DataQualityEnv(base_url=ENV_URL)
@@ -920,7 +924,7 @@ def run_task(task_id: str) -> float:
             except Exception as _conn_exc:
                 if _attempt == _max_connect - 1:
                     raise
-                _wait = 2 ** _attempt
+                _wait = min(2 ** _attempt, 3)
                 logger.warning(
                     "Connection attempt %d/%d failed: %s — retrying in %ds",
                     _attempt + 1, _max_connect, _conn_exc, _wait,
@@ -938,6 +942,11 @@ def run_task(task_id: str) -> float:
             total_rows = int(getattr(obs, "total_rows", 50))
 
             for step_num in range(max_steps):
+                # ── Deadline guard — partial score beats timeout ─────
+                if deadline and time.time() > deadline:
+                    logger.warning("Deadline reached at step %d — stopping early", step_num)
+                    break
+
                 # ── Format observation as user message ────────────────
                 user_content = _obs_to_context(
                     obs, task_id, step_num, max_steps,
@@ -1069,11 +1078,17 @@ def _main_inner() -> int:
 
     scores: Dict[str, float] = {}
     start_time = time.time()
+    # Hard deadline: 25 min (validator kills at 30 min — leave 5 min buffer)
+    global_deadline = start_time + 25 * 60
 
     for task_id in TASKS:
         task_start = time.time()
+        if time.time() > global_deadline:
+            logger.warning("Global deadline reached — skipping remaining tasks")
+            scores[task_id] = 0.0
+            continue
         try:
-            scores[task_id] = run_task(task_id)
+            scores[task_id] = run_task(task_id, deadline=global_deadline)
         except BaseException as exc:
             logger.error(
                 "[END] task_id=%s final_reward=0.0 error=%s", task_id, exc
