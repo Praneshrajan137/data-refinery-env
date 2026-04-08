@@ -1023,7 +1023,7 @@ class DataQualityEnvironment(Environment):
             Score clamped to [0.0, 1.0], rounded to 4 decimal places.
         """
         if not self.ground_truth:
-            return 0.0
+            return 0.0001
 
         n_total = len(self.ground_truth)
         detection_rate = len(self.found_issues) / n_total
@@ -1049,7 +1049,8 @@ class DataQualityEnvironment(Environment):
             - penalty
         )
 
-        return round(max(0.0, min(1.0, raw)), 4)
+        # Clamp to (0, 1) exclusive — validator rejects exactly 0.0 and 1.0
+        return round(max(0.0001, min(0.9999, raw)), 4)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
