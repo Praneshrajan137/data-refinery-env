@@ -952,6 +952,8 @@ class DataQualityEnvironment(Environment):
         """
         config = TASK_CONFIG[self.task_id]
         final_score = self._compute_final_score()
+        # Belt-and-suspenders: ensure score is strictly in (0, 1)
+        final_score = max(0.0001, min(0.9999, final_score))
 
         # [FIX-05] Delta must be computed BEFORE updating cumulative
         reward_delta = final_score - self.cumulative_reward
