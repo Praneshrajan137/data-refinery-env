@@ -522,20 +522,20 @@ class DataQualityObservation(Observation):
     )
     message: str = Field("", description="Human-readable feedback from the environment.")
 
-    # ── Clamp terminal scores — validator rejects exactly 0.0 and 1.0 ───
+    # ── Clamp terminal scores to [0, 1] ─────────────────────────────────
 
     @model_validator(mode="after")
     def _clamp_terminal_scores(self) -> "DataQualityObservation":
-        """Ensure done=True observations have scores strictly in (0, 1)."""
+        """Ensure done=True observations have scores in [0, 1]."""
         if self.done:
             if isinstance(self.reward, (int, float)) and self.reward is not None:
                 object.__setattr__(
                     self, "reward",
-                    max(0.0001, min(0.9999, float(self.reward))),
+                    max(0.0, min(1.0, float(self.reward))),
                 )
             object.__setattr__(
                 self, "cumulative_reward",
-                max(0.0001, min(0.9999, self.cumulative_reward)),
+                max(0.0, min(1.0, self.cumulative_reward)),
             )
         return self
 

@@ -172,8 +172,8 @@ TASKS: List[str] = [
 
 MAX_STEPS: Dict[str, int] = {
     "task_1_format_fixer": 30,
-    "task_2_duplicate_detective": 35,
-    "task_3_integrity_auditor": 45,
+    "task_2_duplicate_detective": 50,
+    "task_3_integrity_auditor": 65,
 }
 
 

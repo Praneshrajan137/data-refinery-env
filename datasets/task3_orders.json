@@ -3,7 +3,7 @@
     "generator": "generate_datasets.py",
     "version": "3.0",
     "seed": 42,
-    "generated_at": "2026-04-08T02:33:15.455591+00:00",
+    "generated_at": "2026-04-09T18:26:47.530363+00:00",
     "row_indexing": "0-based",
     "row_count": 250
   },
@@ -21,14 +21,17 @@
   },
   "business_rules": {
     "max_discount_pct": 50,
+    "min_discount_pct": 0,
     "valid_order_year_range": [
       2024,
       2025
     ],
     "min_quantity": 1,
     "max_quantity": 100,
+    "min_unit_price": 0.01,
     "order_total_formula": "quantity * unit_price * (1 - discount_pct / 100)",
-    "ship_date_constraint": "ship_date >= order_date"
+    "ship_date_constraint": "ship_date >= order_date",
+    "ship_date_max_days_after_order": 730
   },
   "rows": [
     {
@@ -541,7 +544,7 @@
       "product_id": 6,
       "quantity": 6,
       "unit_price": 45.32,
-      "order_total": 231.13,
+      "order_total": null,
       "discount_pct": 15,
       "order_date": "2025-05-15",
       "ship_date": "2025-05-25",
@@ -815,7 +818,7 @@
       "order_id": 66,
       "customer_id": 5012,
       "product_id": 40,
-      "quantity": 1,
+      "quantity": 10,
       "unit_price": 433.48,
       "order_total": 411.81,
       "discount_pct": 5,
@@ -1055,9 +1058,9 @@
       "order_id": 86,
       "customer_id": 4968,
       "product_id": 11,
-      "quantity": 9,
+      "quantity": 95,
       "unit_price": 208.17,
-      "order_total": 1592.5,
+      "order_total": 16809.73,
       "discount_pct": 15,
       "order_date": "2025-03-27",
       "ship_date": "2025-03-28",
@@ -1416,7 +1419,7 @@
       "customer_id": 7806,
       "product_id": 6,
       "quantity": 9,
-      "unit_price": 45.32,
+      "unit_price": 0.0,
       "order_total": 387.49,
       "discount_pct": 5,
       "order_date": "2024-08-05",
@@ -1717,8 +1720,8 @@
       "product_id": 32,
       "quantity": 8,
       "unit_price": 382.51,
-      "order_total": 3060.08,
-      "discount_pct": 0,
+      "order_total": 3059.77,
+      "discount_pct": 0.01,
       "order_date": "2025-06-07",
       "ship_date": "2025-06-13",
       "product_category": "Sports"
@@ -1960,7 +1963,7 @@
       "order_total": 391.77,
       "discount_pct": 0,
       "order_date": "2025-04-27",
-      "ship_date": "2025-04-28",
+      "ship_date": "2024-04-27",
       "product_category": "Books"
     },
     {
@@ -2017,7 +2020,7 @@
       "product_id": 7,
       "quantity": 2,
       "unit_price": 373.6,
-      "order_total": 747.2,
+      "order_total": 747.19,
       "discount_pct": 0,
       "order_date": "2025-08-12",
       "ship_date": "2025-08-25",
@@ -2373,7 +2376,7 @@
     },
     {
       "order_id": 196,
-      "customer_id": 9646,
+      "customer_id": 8454,
       "product_id": 13,
       "quantity": 8,
       "unit_price": 208.47,
@@ -2496,7 +2499,7 @@
       "customer_id": 8492,
       "product_id": 19,
       "quantity": 1,
-      "unit_price": 223.48,
+      "unit_price": -0.5,
       "order_total": 223.48,
       "discount_pct": 0,
       "order_date": "2024-09-10",
@@ -2617,8 +2620,8 @@
       "product_id": 10,
       "quantity": 6,
       "unit_price": 292.12,
-      "order_total": 1402.18,
-      "discount_pct": 20,
+      "order_total": 876.36,
+      "discount_pct": 50,
       "order_date": "2024-11-13",
       "ship_date": "2024-11-21",
       "product_category": "Furniture"
@@ -2740,7 +2743,7 @@
       "order_total": 1518.02,
       "discount_pct": 15,
       "order_date": "2025-12-23",
-      "ship_date": "2025-12-28",
+      "ship_date": "2029-11-01",
       "product_category": "Electronics"
     },
     {
@@ -2795,9 +2798,9 @@
       "order_id": 231,
       "customer_id": 8210,
       "product_id": 9,
-      "quantity": 3,
+      "quantity": 100,
       "unit_price": 48.15,
-      "order_total": 144.45,
+      "order_total": 4815.0,
       "discount_pct": 0,
       "order_date": "2024-10-21",
       "ship_date": "2024-10-24",
@@ -2978,7 +2981,7 @@
       "quantity": 1,
       "unit_price": 19.18,
       "order_total": 16.3,
-      "discount_pct": 15,
+      "discount_pct": -10,
       "order_date": "2024-12-01",
       "ship_date": "2024-12-04",
       "product_category": "Furniture"

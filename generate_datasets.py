@@ -132,34 +132,39 @@ PRODUCT_NAMES: dict[str, list[str]] = {
 # Random Generators — clean-data primitives
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def rand_email(first: str, last: str) -> str:
+def rand_email(first: str, last: str, rng: random.Random | None = None) -> str:
     """Generate a plausible email from a name.  Always contains exactly one @."""
-    sep = random.choice([".", "_", ""])
-    domain = random.choice(DOMAINS)
+    _r = rng or random
+    sep = _r.choice([".", "_", ""])
+    domain = _r.choice(DOMAINS)
     return f"{first.lower()}{sep}{last.lower()}@{domain}"
 
 
-def rand_phone() -> str:
+def rand_phone(rng: random.Random | None = None) -> str:
     """Generate a US-format phone string: +1-555-XXX-XXXX."""
-    return f"+1-555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
+    _r = rng or random
+    return f"+1-555-{_r.randint(100, 999)}-{_r.randint(1000, 9999)}"
 
 
-def rand_date(start_year: int = 1960, end_year: int = 2004) -> str:
+def rand_date(start_year: int = 1960, end_year: int = 2004, rng: random.Random | None = None) -> str:
     """Generate an ISO date (YYYY-MM-DD).  Day capped at 28 to avoid invalids."""
-    y = random.randint(start_year, end_year)
-    m = random.randint(1, 12)
-    d = random.randint(1, 28)
+    _r = rng or random
+    y = _r.randint(start_year, end_year)
+    m = _r.randint(1, 12)
+    d = _r.randint(1, 28)
     return f"{y:04d}-{m:02d}-{d:02d}"
 
 
-def rand_zip() -> str:
+def rand_zip(rng: random.Random | None = None) -> str:
     """Generate a 5-digit US-style zip code string."""
-    return f"{random.randint(10000, 99999)}"
+    _r = rng or random
+    return f"{_r.randint(10000, 99999)}"
 
 
-def rand_address() -> str:
+def rand_address(rng: random.Random | None = None) -> str:
     """Generate a simple street address string."""
-    return f"{random.randint(1, 9999)} {random.choice(STREETS)}"
+    _r = rng or random
+    return f"{_r.randint(1, 9999)} {_r.choice(STREETS)}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -176,6 +181,7 @@ def corrupt(
     idx: int,
     column: str,
     new_value: Any,
+    originals: dict | None = None,
 ) -> Any:
     """Corrupt a single cell, saving the original value for ground-truth derivation.
 
@@ -185,6 +191,7 @@ def corrupt(
         idx: Row index to corrupt.
         column: Column name to corrupt.
         new_value: The corrupted value to plant.
+        originals: Provenance dict.  If ``None``, uses the global ``_originals``.
 
     Returns:
         The original value before corruption.
@@ -193,27 +200,29 @@ def corrupt(
         ValueError: If the same (task, idx, column) has already been corrupted
             (detects accidental double-corruption bugs).
     """
-    _originals.setdefault(task, {})
+    store = originals if originals is not None else _originals
+    store.setdefault(task, {})
     key = (idx, column)
-    if key in _originals[task]:
+    if key in store[task]:
         raise ValueError(
             f"Double corruption at {task}[{idx}][{column}] — "
-            f"original was {_originals[task][key]!r}, "
+            f"original was {store[task][key]!r}, "
             f"attempted new value {new_value!r}"
         )
     original = rows[idx][column]
-    _originals[task][key] = original
+    store[task][key] = original
     rows[idx][column] = new_value
     return original
 
 
-def get_original(task: str, idx: int, column: str) -> Any:
+def get_original(task: str, idx: int, column: str, originals: dict | None = None) -> Any:
     """Retrieve the original value before corruption.
 
     Raises:
         KeyError: If no corruption was recorded for this cell.
     """
-    return _originals[task][(idx, column)]
+    store = originals if originals is not None else _originals
+    return store[task][(idx, column)]
 
 
 def canonical_str(value: Any) -> str:
@@ -291,7 +300,7 @@ def validate_ground_truth(
         )
         seen.add(key)
 
-    print(f"  ✓ {task_label}: {len(ground_truth)} entries validated")
+    print(f"  [OK] {task_label}: {len(ground_truth)} entries validated")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -362,12 +371,23 @@ def _write_ground_truth(
 # [FIX-04] all expected values provenance-tracked
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_task1() -> None:
+def generate_task1(
+    rng: random.Random | None = None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """Generate the Format Fixer dataset (Task 1).
 
-    Scenario: A customer database with format violations in emails, phones,
-    dates, and zip codes.  The agent must detect and fix formatting issues.
+    Args:
+        rng: Random instance for procedural generation.  If ``None``, uses
+            the global ``random`` module (seeded externally).
+
+    Returns:
+        ``(dataset_info, ground_truth_issues, secondary_rows)`` where
+        ``dataset_info = {"schema": ..., "rows": ...}`` and
+        ``secondary_rows`` is always ``[]`` for Task 1.
     """
+    _r = rng or random
+    _orig: dict = {}  # local provenance registry
+
     schema = {
         "name": "string", "email": "string", "phone": "string",
         "date_of_birth": "date", "country": "string", "zip_code": "string",
@@ -379,26 +399,26 @@ def generate_task1() -> None:
         last = LAST_NAMES[i % len(LAST_NAMES)]
         rows.append({
             "name": f"{first} {last}",
-            "email": rand_email(first, last),
-            "phone": rand_phone(),
-            "date_of_birth": rand_date(),
-            "country": random.choice(COUNTRIES),
-            "zip_code": rand_zip(),
+            "email": rand_email(first, last, rng=_r),
+            "phone": rand_phone(rng=_r),
+            "date_of_birth": rand_date(rng=_r),
+            "country": _r.choice(COUNTRIES),
+            "zip_code": rand_zip(rng=_r),
         })
 
     # ── Plant issues (provenance-tracked) ─────────────────────────────────
 
     # FIXABLE: expected value is logically derivable
-    corrupt("task1", rows, 3,  "email",         "john.doeexample.com")
-    corrupt("task1", rows, 11, "email",         "sarah@@gmail.com")
-    corrupt("task1", rows, 15, "date_of_birth", "2000-02-30")
-    corrupt("task1", rows, 31, "date_of_birth", "1990-04-31")    # [C-6 fix]
-    corrupt("task1", rows, 40, "zip_code",      "1234")
+    corrupt("task1", rows, 3,  "email",         "john.doeexample.com",  originals=_orig)
+    corrupt("task1", rows, 11, "email",         "sarah@@gmail.com",     originals=_orig)
+    corrupt("task1", rows, 15, "date_of_birth", "2000-02-30",           originals=_orig)
+    corrupt("task1", rows, 31, "date_of_birth", "1990-04-31",           originals=_orig)
+    corrupt("task1", rows, 40, "zip_code",      "1234",                 originals=_orig)
 
     # DETECTION-ONLY: correct value not derivable [FIX-02]
-    corrupt("task1", rows, 7,  "phone",    "+1-555-12345")
-    corrupt("task1", rows, 22, "phone",    "555-ABC-1234")
-    corrupt("task1", rows, 45, "zip_code", "ABCDE")
+    corrupt("task1", rows, 7,  "phone",    "+1-555-12345",  originals=_orig)
+    corrupt("task1", rows, 22, "phone",    "555-ABC-1234",  originals=_orig)
+    corrupt("task1", rows, 45, "zip_code", "ABCDE",         originals=_orig)
 
     # ── Ground truth ──────────────────────────────────────────────────────
 
@@ -459,14 +479,9 @@ def generate_task1() -> None:
     ]
 
     validate_ground_truth(ground_truth, rows, schema, "task1")
-    _write_dataset("task1_customers.json", schema, rows)
-    _write_ground_truth("task1_ground_truth.json", ground_truth)
 
-    fixable = sum(1 for g in ground_truth if "expected" in g)
-    print(
-        f"Task 1: {len(rows)} rows, {len(ground_truth)} issues "
-        f"({fixable} fixable, {len(ground_truth) - fixable} detection-only)"
-    )
+    dataset_info = {"schema": schema, "rows": rows}
+    return dataset_info, ground_truth, []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -477,13 +492,18 @@ def generate_task1() -> None:
 # [FIX-02] Missing values / type mismatches: detection-only
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_task2() -> None:
+def generate_task2(
+    rng: random.Random | None = None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """Generate the Duplicate Detective dataset (Task 2).
 
-    Scenario: A contacts database with exact duplicates, near-duplicate
-    records (typos/reformatting), missing values, and type mismatches.
-    Expanded to 120 rows with harder near-duplicates to challenge frontier models.
+    Returns:
+        ``(dataset_info, ground_truth_issues, secondary_rows)`` where
+        ``secondary_rows`` is always ``[]`` for Task 2.
     """
+    _r = rng or random
+    _orig: dict = {}
+
     schema = {
         "id": "integer", "first_name": "string", "last_name": "string",
         "email": "string", "phone": "string", "address": "string",
@@ -492,7 +512,6 @@ def generate_task2() -> None:
 
     rows: list[dict[str, Any]] = []
     for i in range(120):
-        # Batch-offset indexing to avoid accidental name collisions
         batch = i // len(FIRST_NAMES)
         first = FIRST_NAMES[i % len(FIRST_NAMES)]
         last = LAST_NAMES[(i + batch) % len(LAST_NAMES)]
@@ -500,11 +519,11 @@ def generate_task2() -> None:
             "id": i + 1,
             "first_name": first,
             "last_name": last,
-            "email": rand_email(first, last),
-            "phone": rand_phone(),
-            "address": rand_address(),
-            "city": random.choice(CITIES),
-            "registration_date": rand_date(2020, 2025),
+            "email": rand_email(first, last, rng=_r),
+            "phone": rand_phone(rng=_r),
+            "address": rand_address(rng=_r),
+            "city": _r.choice(CITIES),
+            "registration_date": rand_date(2020, 2025, rng=_r),
         })
 
     # ── Exact duplicates (DELETE_ROW) ─────────────────────────────────────
@@ -513,49 +532,50 @@ def generate_task2() -> None:
         rows[dup_idx]["id"] = dup_idx + 1
 
     # ── Near-duplicates (fixable — derivable from matching row) ───────────
+    _c = lambda *a, **kw: corrupt(*a, originals=_orig, **kw)
 
     # Pair 1: "John Walker" (row 25) vs "Jon Walker" (row 8), same email
-    corrupt("task2", rows, 25, "first_name", "John")
-    corrupt("task2", rows, 25, "last_name",  "Walker")
-    corrupt("task2", rows, 25, "email",      "john.walker@example.com")
-    corrupt("task2", rows, 8,  "first_name", "Jon")       # typo
-    corrupt("task2", rows, 8,  "last_name",  "Walker")
-    corrupt("task2", rows, 8,  "email",      "john.walker@example.com")
+    _c("task2", rows, 25, "first_name", "John")
+    _c("task2", rows, 25, "last_name",  "Walker")
+    _c("task2", rows, 25, "email",      "john.walker@example.com")
+    _c("task2", rows, 8,  "first_name", "Jon")       # typo
+    _c("task2", rows, 8,  "last_name",  "Walker")
+    _c("task2", rows, 8,  "email",      "john.walker@example.com")
 
     # Pair 2: "Sarah Miller" (row 30) vs same name, email domain typo (row 42)
-    corrupt("task2", rows, 30, "first_name", "Sarah")
-    corrupt("task2", rows, 30, "last_name",  "Miller")
-    corrupt("task2", rows, 30, "email",      "sarah.miller@gmail.com")
-    corrupt("task2", rows, 42, "first_name", "Sarah")
-    corrupt("task2", rows, 42, "last_name",  "Miller")
-    corrupt("task2", rows, 42, "email",      "sarah.miller@gmal.com")
+    _c("task2", rows, 30, "first_name", "Sarah")
+    _c("task2", rows, 30, "last_name",  "Miller")
+    _c("task2", rows, 30, "email",      "sarah.miller@gmail.com")
+    _c("task2", rows, 42, "first_name", "Sarah")
+    _c("task2", rows, 42, "last_name",  "Miller")
+    _c("task2", rows, 42, "email",      "sarah.miller@gmal.com")
 
     # Pair 3: "David Chen" (row 60) vs same name, phone reformatted (row 78)
-    corrupt("task2", rows, 60, "first_name", "David")
-    corrupt("task2", rows, 60, "last_name",  "Chen")
-    corrupt("task2", rows, 60, "phone",      "+1-555-123-4567")
-    corrupt("task2", rows, 78, "first_name", "David")
-    corrupt("task2", rows, 78, "last_name",  "Chen")
-    corrupt("task2", rows, 78, "phone",      "15551234567")
+    _c("task2", rows, 60, "first_name", "David")
+    _c("task2", rows, 60, "last_name",  "Chen")
+    _c("task2", rows, 60, "phone",      "+1-555-123-4567")
+    _c("task2", rows, 78, "first_name", "David")
+    _c("task2", rows, 78, "last_name",  "Chen")
+    _c("task2", rows, 78, "phone",      "15551234567")
 
     # Pair 4 (HARDER): "Robert Garcia" (row 70) vs transposed name (row 103)
-    corrupt("task2", rows, 70, "first_name", "Robert")
-    corrupt("task2", rows, 70, "last_name",  "Garcia")
-    corrupt("task2", rows, 70, "email",      "robert.garcia@outlook.com")
-    corrupt("task2", rows, 103, "first_name", "Garcia")    # transposed!
-    corrupt("task2", rows, 103, "last_name",  "Robert")    # transposed!
-    corrupt("task2", rows, 103, "email",      "robert.garcia@outlook.com")  # same email
+    _c("task2", rows, 70, "first_name", "Robert")
+    _c("task2", rows, 70, "last_name",  "Garcia")
+    _c("task2", rows, 70, "email",      "robert.garcia@outlook.com")
+    _c("task2", rows, 103, "first_name", "Garcia")    # transposed!
+    _c("task2", rows, 103, "last_name",  "Robert")    # transposed!
+    _c("task2", rows, 103, "email",      "robert.garcia@outlook.com")  # same email
 
     # ── Missing values (detection-only) [FIX-02] ─────────────────────────
-    corrupt("task2", rows, 19, "email",   None)
-    corrupt("task2", rows, 55, "phone",   "")
-    corrupt("task2", rows, 88, "address", None)
+    _c("task2", rows, 19, "email",   None)
+    _c("task2", rows, 55, "phone",   "")
+    _c("task2", rows, 88, "address", None)
 
     # ── Type mismatches (detection-only) [FIX-02] ────────────────────────
-    corrupt("task2", rows, 27, "registration_date", "not_a_date")
-    corrupt("task2", rows, 63, "id",                "abc")
-    corrupt("task2", rows, 91, "phone",             12345)
-    corrupt("task2", rows, 110, "registration_date", "13/05/2023")
+    _c("task2", rows, 27, "registration_date", "not_a_date")
+    _c("task2", rows, 63, "id",                "abc")
+    _c("task2", rows, 91, "phone",             12345)
+    _c("task2", rows, 110, "registration_date", "13/05/2023")
 
     # ── Ground truth ──────────────────────────────────────────────────────
 
@@ -627,18 +647,13 @@ def generate_task2() -> None:
     ]
 
     validate_ground_truth(ground_truth, rows, schema, "task2")
-    _write_dataset("task2_contacts.json", schema, rows)
-    _write_ground_truth("task2_ground_truth.json", ground_truth)
 
-    fixable = sum(1 for g in ground_truth if "expected" in g)
-    print(
-        f"Task 2: {len(rows)} rows, {len(ground_truth)} issues "
-        f"({fixable} fixable, {len(ground_truth) - fixable} detection-only)"
-    )
+    dataset_info = {"schema": schema, "rows": rows}
+    return dataset_info, ground_truth, []
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK 3: INTEGRITY AUDITOR — 250 orders + 40 products, 22 planted issues
+# TASK 3: INTEGRITY AUDITOR — 250 orders + 40 products, 29 planted issues
 #
 # Expanded and hardened to genuinely challenge frontier models.
 # Includes multi-hop reasoning, cascading errors, statistical outliers,
@@ -648,26 +663,21 @@ def generate_task2() -> None:
 # [FIX-06] All expected values via canonical_str()
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def generate_task3() -> None:
+def generate_task3(
+    rng: random.Random | None = None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     """Generate the Integrity Auditor dataset (Task 3).
 
-    Scenario: An orders database with a linked products table.  Issues include
-    referential integrity violations, cross-field inconsistencies, outliers,
-    business rule violations, category mismatches, cascading errors, and
-    temporal cross-table reasoning.
-
-    This task is designed to be genuinely hard:
-    - 250 rows means the agent cannot brute-force inspect everything in 65 steps
-    - Adversarial clean rows punish false positives
-    - Cascading errors require root-cause identification
-    - Statistical outliers require per-category reasoning
-    - Multi-hop issues require cross-table temporal comparison
-
-    Business rules are encoded in dataset metadata so the agent can derive fixes.
+    Returns:
+        ``(dataset_info, ground_truth_issues, secondary_rows)`` where
+        ``dataset_info = {"schema": ..., "rows": ..., "business_rules": ...}``
+        and ``secondary_rows`` is the products table rows.
     """
+    _r = rng or random
+    _orig: dict = {}
+
     # ── Products table (expanded to 40) ───────────────────────────────────
 
-    # Add more product names per category
     EXTRA_PRODUCTS: dict[str, list[str]] = {
         "Electronics": ["Tablet 10in", "Bluetooth Speaker"],
         "Furniture":   ["Corner Desk", "Bar Stool"],
@@ -686,14 +696,13 @@ def generate_task3() -> None:
                 "product_id": pid,
                 "product_name": name,
                 "category": cat,
-                "base_price": round(random.uniform(10, 500), 2),
-                "stock": random.randint(0, 1000),
+                "base_price": round(_r.uniform(10, 500), 2),
+                "stock": _r.randint(0, 1000),
             })
             pid += 1
 
     valid_pids = {p["product_id"] for p in products}
 
-    # Product lookup for cross-field validation
     product_by_id: dict[int, dict[str, Any]] = {
         p["product_id"]: p for p in products
     }
@@ -711,28 +720,31 @@ def generate_task3() -> None:
 
     business_rules = {
         "max_discount_pct": 50,
+        "min_discount_pct": 0,
         "valid_order_year_range": [2024, 2025],
         "min_quantity": 1,
         "max_quantity": 100,
+        "min_unit_price": 0.01,
         "order_total_formula": "quantity * unit_price * (1 - discount_pct / 100)",
         "ship_date_constraint": "ship_date >= order_date",
+        "ship_date_max_days_after_order": 730,
     }
 
     orders: list[dict[str, Any]] = []
     for i in range(250):
-        prod = random.choice(products)
-        qty = random.randint(1, 10)
+        prod = _r.choice(products)
+        qty = _r.randint(1, 10)
         price = prod["base_price"]
-        discount = random.choice([0, 0, 0, 5, 10, 15, 20])
+        discount = _r.choice([0, 0, 0, 5, 10, 15, 20])
         total = round(qty * price * (1 - discount / 100), 2)
-        odate = rand_date(2024, 2025)
+        odate = rand_date(2024, 2025, rng=_r)
         y, m, d = map(int, odate.split("-"))
-        sd = min(d + random.randint(1, 14), 28)
+        sd = min(d + _r.randint(1, 14), 28)
         sdate = f"{y:04d}-{m:02d}-{sd:02d}"
 
         orders.append({
             "order_id": i + 1,
-            "customer_id": random.randint(1000, 9999),
+            "customer_id": _r.randint(1000, 9999),
             "product_id": prod["product_id"],
             "quantity": qty,
             "unit_price": price,
@@ -744,10 +756,8 @@ def generate_task3() -> None:
         })
 
     # ── ADVERSARIAL CLEAN ROWS (look suspicious but are valid) ────────────
-    # These exist to punish false positives. An imprecise agent will flag them.
 
-    # Row 50: Very cheap product ($0.01) — legitimate sample/promo item
-    sample_prod = random.choice(products)
+    sample_prod = _r.choice(products)
     orders[50]["unit_price"] = 0.01
     orders[50]["quantity"] = 1
     orders[50]["discount_pct"] = 0
@@ -770,67 +780,109 @@ def generate_task3() -> None:
         100 * p200["unit_price"] * (1 - p200["discount_pct"] / 100), 2
     )
 
-    # ── 1–3: Referential integrity (detection-only) ──────────────────────
+    # Row 85: High quantity (95) just under max — valid
+    orders[85]["quantity"] = 95
+    p85 = orders[85]
+    orders[85]["order_total"] = round(
+        95 * p85["unit_price"] * (1 - p85["discount_pct"] / 100), 2
+    )
 
-    corrupt("task3", orders, 14,  "product_id", 999)
-    corrupt("task3", orders, 56,  "product_id", -1)
-    corrupt("task3", orders, 180, "product_id", 9999)
+    # Row 100: Minimum quantity (1) — valid
+    orders[100]["quantity"] = 1
+    p100 = orders[100]
+    orders[100]["order_total"] = round(
+        1 * p100["unit_price"] * (1 - p100["discount_pct"] / 100), 2
+    )
+
+    # Row 140: Near-zero discount (0.01%) — valid
+    orders[140]["discount_pct"] = 0.01
+    p140 = orders[140]
+    orders[140]["order_total"] = round(
+        p140["quantity"] * p140["unit_price"] * (1 - 0.01 / 100), 2
+    )
+
+    # Row 195: Same customer_id as row 110 but different product/date — NOT duplicate
+    orders[195]["customer_id"] = orders[110]["customer_id"]
+    if orders[195]["order_date"] == orders[110]["order_date"]:
+        orders[195]["order_date"] = "2025-02-14"
+        orders[195]["ship_date"] = "2025-02-20"
+
+    # Row 215: Max discount exactly at boundary (50%) — valid
+    orders[215]["discount_pct"] = 50
+    p215 = orders[215]
+    orders[215]["order_total"] = round(
+        p215["quantity"] * p215["unit_price"] * (1 - 50 / 100), 2
+    )
+
+    # Row 230: Quantity at max boundary (100) — valid (second boundary case)
+    orders[230]["quantity"] = 100
+    p230 = orders[230]
+    orders[230]["order_total"] = round(
+        100 * p230["unit_price"] * (1 - p230["discount_pct"] / 100), 2
+    )
+
+    # ── 1–3: Referential integrity (detection-only) ──────────────────────
+    _c = lambda *a, **kw: corrupt(*a, originals=_orig, **kw)
+
+    _c("task3", orders, 14,  "product_id", 999)
+    _c("task3", orders, 56,  "product_id", -1)
+    _c("task3", orders, 180, "product_id", 9999)
 
     # ── 4–6: Cross-field errors (fixable — derivable) ────────────────────
 
     # Row 23: corrupt total
-    orig_total_23 = corrupt(
+    orig_total_23 = _c(
         "task3", orders, 23, "order_total",
         round(orders[23]["order_total"] * 3.7, 2),
     )
 
     # Row 78: ship date before order date
-    corrupt("task3", orders, 78, "ship_date", "2023-01-01")
+    _c("task3", orders, 78, "ship_date", "2023-01-01")
     expected_ship_78 = orders[78]["order_date"]
 
     # Row 210: negative total (sign flip)
     orig_total_210 = orders[210]["order_total"]
-    corrupt("task3", orders, 210, "order_total", -orig_total_210)
+    _c("task3", orders, 210, "order_total", -orig_total_210)
 
     # ── 7–9: Outliers (fixable — derivable) ──────────────────────────────
 
-    orig_qty_8 = corrupt("task3", orders, 8, "quantity", 99999)
+    orig_qty_8 = _c("task3", orders, 8, "quantity", 99999)
 
     orig_price_45 = orders[45]["unit_price"]
-    corrupt("task3", orders, 45, "unit_price", -orig_price_45)
+    _c("task3", orders, 45, "unit_price", -orig_price_45)
 
-    orig_qty_99 = corrupt("task3", orders, 99, "quantity", 0)
+    orig_qty_99 = _c("task3", orders, 99, "quantity", 0)
 
     # ── 10–12: Business rule violations (fixable) ────────────────────────
 
-    corrupt("task3", orders, 33,  "discount_pct", 150)
-    corrupt("task3", orders, 71,  "order_date",   "2035-01-01")
+    _c("task3", orders, 33,  "discount_pct", 150)
+    _c("task3", orders, 71,  "order_date",   "2035-01-01")
     orig_qty_220 = orders[220]["quantity"]
-    corrupt("task3", orders, 220, "quantity", -orig_qty_220)
+    _c("task3", orders, 220, "quantity", -orig_qty_220)
 
     # ── 13–15: Category mismatches (fixable — derivable from products) ───
 
     cat_18_actual = product_by_id[orders[18]["product_id"]]["category"]
     cat_18_wrong = next(c for c in CATEGORIES if c != cat_18_actual)
-    corrupt("task3", orders, 18, "product_category", cat_18_wrong)
+    _c("task3", orders, 18, "product_category", cat_18_wrong)
 
     cat_62_actual = product_by_id[orders[62]["product_id"]]["category"]
     cat_62_wrong = next(c for c in CATEGORIES if c != cat_62_actual)
-    corrupt("task3", orders, 62, "product_category", cat_62_wrong)
+    _c("task3", orders, 62, "product_category", cat_62_wrong)
 
     cat_155_actual = product_by_id[orders[155]["product_id"]]["category"]
-    corrupt("task3", orders, 155, "product_category", "")
+    _c("task3", orders, 155, "product_category", "")
 
     # ── 16–17: CASCADING ERRORS (harder — root cause identification) ─────
     # Discount is wrong (75% instead of 7.5%), which ALSO makes total wrong.
     # Agent must identify discount as the root cause, not just flag the total.
 
-    orig_discount_90 = corrupt("task3", orders, 90, "discount_pct", 75)
+    orig_discount_90 = _c("task3", orders, 90, "discount_pct", 75)
     # Recompute total with the WRONG discount to make it internally consistent
     # with the wrong discount — the total looks "correct" for discount=75,
     # but the discount itself is the error.
     row90 = orders[90]
-    corrupt("task3", orders, 90, "order_total",
+    _c("task3", orders, 90, "order_total",
             round(row90["quantity"] * row90["unit_price"] * (1 - 75 / 100), 2))
     # The CORRECT total (with original discount) is what we save
     orig_total_90 = round(
@@ -838,9 +890,9 @@ def generate_task3() -> None:
     )
 
     # Row 145: similar cascading — discount 0.5 instead of 5 (decimal shift)
-    orig_discount_145 = corrupt("task3", orders, 145, "discount_pct", 0.5)
+    orig_discount_145 = _c("task3", orders, 145, "discount_pct", 0.5)
     row145 = orders[145]
-    corrupt("task3", orders, 145, "order_total",
+    _c("task3", orders, 145, "order_total",
             round(row145["quantity"] * row145["unit_price"] * (1 - 0.5 / 100), 2))
     orig_total_145 = round(
         row145["quantity"] * row145["unit_price"] * (1 - orig_discount_145 / 100), 2
@@ -851,7 +903,7 @@ def generate_task3() -> None:
 
     # Row 130: total off by rounding error (e.g. 206.789 instead of 206.79)
     orig_total_130 = orders[130]["order_total"]
-    corrupt("task3", orders, 130, "order_total",
+    _c("task3", orders, 130, "order_total",
             round(orig_total_130 + 0.009, 3))  # adds tiny rounding error
 
     # ── 20: SEMANTIC DUPLICATE ORDER ─────────────────────────────────────
@@ -864,11 +916,48 @@ def generate_task3() -> None:
     # ── 21–22: Additional cross-field issues ─────────────────────────────
 
     # Row 190: ship_date is 2 years after order_date (suspicious but fixable)
-    corrupt("task3", orders, 190, "ship_date", "2027-06-15")
+    _c("task3", orders, 190, "ship_date", "2027-06-15")
     expected_ship_190 = orders[190]["order_date"]
 
     # Row 240: quantity exceeds max_quantity (business rule)
-    corrupt("task3", orders, 240, "quantity", 500)
+    _c("task3", orders, 240, "quantity", 500)
+
+    # ── 23: MISSING VALUE — null total (fixable via formula) ─────────────
+    # Row 42: order_total is null.  Agent must detect the null AND compute
+    # the correct value from qty * unit_price * (1 - discount/100).
+    orig_total_42 = _c("task3", orders, 42, "order_total", None)
+
+    # ── 24: CASCADING — quantity 10x decimal shift ───────────────────────
+    # Row 65: quantity inflated 10x.  order_total was computed with original
+    # quantity, creating a cascade: qty * price != total.  Agent must figure
+    # out quantity is the root cause (not total).
+    orig_qty_65 = _c("task3", orders, 65, "quantity", orders[65]["quantity"] * 10)
+
+    # ── 25–26: HIDDEN BUSINESS RULE — min_unit_price violations ──────────
+    # Agent must discover min_unit_price from business_rules metadata.
+    _c("task3", orders, 115, "unit_price", 0.0)
+    _c("task3", orders, 205, "unit_price", -0.50)
+
+    # ── 27–28: TEMPORAL CONSISTENCY ──────────────────────────────────────
+    # Row 160: ship_date exactly 1 year BEFORE order_date (year-entry error)
+    odate_160 = orders[160]["order_date"]
+    y160, m160, d160 = odate_160.split("-")
+    _c("task3", orders, 160, "ship_date",
+       f"{int(y160) - 1}-{m160}-{d160}")
+
+    # Row 225: ship_date 4+ years in future (exceeds max_days=730)
+    expected_ship_225 = orders[225]["order_date"]
+    _c("task3", orders, 225, "ship_date", "2029-11-01")
+
+    # ── 29: SUBTLE PRECISION — off by one cent ───────────────────────────
+    # Row 165: total is $0.01 less than formula result (truncation artefact)
+    orig_total_165 = orders[165]["order_total"]
+    _c("task3", orders, 165, "order_total",
+       round(orig_total_165 - 0.01, 2))
+
+    # ── 30: BUSINESS RULE — negative discount ────────────────────────────
+    # Row 245: discount_pct = -10 (negative surcharge, violates min_discount_pct=0)
+    _c("task3", orders, 245, "discount_pct", -10)
 
     # ── Ground truth ──────────────────────────────────────────────────────
 
@@ -1019,6 +1108,76 @@ def generate_task3() -> None:
              "Quantity 500 exceeds max_quantity (100); "
              "clamped to business rule maximum"
          )},
+
+        # MISSING VALUE — null total (fixable via formula)
+        {"row": 42, "column": "order_total", "type": "missing_value",
+         "expected": canonical_str(orig_total_42),
+         "description": (
+             "Order total is null but derivable from formula: "
+             f"qty * unit_price * (1 - discount/100) = "
+             f"{canonical_str(orig_total_42)}"
+         )},
+
+        # CASCADING — quantity 10x decimal shift
+        {"row": 65, "column": "quantity", "type": "outlier",
+         "expected": str(orig_qty_65),
+         "description": (
+             f"Quantity {orig_qty_65 * 10} appears to be 10x decimal "
+             f"shift; order_total matches qty={orig_qty_65} — "
+             "verify via total / (unit_price * (1 - discount/100))"
+         )},
+
+        # HIDDEN BUSINESS RULE — min_unit_price violations
+        {"row": 115, "column": "unit_price", "type": "business_rule",
+         "expected": canonical_str(business_rules["min_unit_price"]),
+         "description": (
+             f"Unit price 0.00 violates min_unit_price "
+             f"({business_rules['min_unit_price']}); "
+             "clamped to business rule minimum"
+         )},
+        {"row": 205, "column": "unit_price", "type": "business_rule",
+         "expected": canonical_str(business_rules["min_unit_price"]),
+         "description": (
+             f"Unit price -0.50 violates min_unit_price "
+             f"({business_rules['min_unit_price']}); "
+             "clamped to business rule minimum"
+         )},
+
+        # TEMPORAL CONSISTENCY
+        {"row": 160, "column": "ship_date", "type": "cross_field",
+         "expected": odate_160,
+         "description": (
+             f"Ship date {orders[160]['ship_date']} is exactly 1 year "
+             f"before order date {odate_160} — likely year entry error; "
+             "minimum valid ship date = order date"
+         )},
+        {"row": 225, "column": "ship_date", "type": "cross_field",
+         "expected": expected_ship_225,
+         "description": (
+             "Ship date 2029-11-01 is 4+ years after order date "
+             f"{expected_ship_225} — exceeds ship_date_max_days "
+             f"({business_rules['ship_date_max_days_after_order']} days); "
+             "minimum valid ship date = order date"
+         )},
+
+        # SUBTLE PRECISION — truncation artefact
+        {"row": 165, "column": "order_total", "type": "cross_field",
+         "expected": canonical_str(orig_total_165),
+         "description": (
+             f"Total {canonical_str(orders[165]['order_total'])} is off "
+             f"by $0.01 from formula result "
+             f"{canonical_str(orig_total_165)}; "
+             "appears to be truncation instead of rounding"
+         )},
+
+        # BUSINESS RULE — negative discount
+        {"row": 245, "column": "discount_pct", "type": "business_rule",
+         "expected": str(business_rules["min_discount_pct"]),
+         "description": (
+             "Discount -10% is negative; "
+             f"min_discount_pct is {business_rules['min_discount_pct']}; "
+             "clamped to business rule minimum"
+         )},
     ]
 
     products_schema = {
@@ -1027,19 +1186,14 @@ def generate_task3() -> None:
     }
 
     validate_ground_truth(ground_truth, orders, orders_schema, "task3")
-    _write_dataset(
-        "task3_orders.json", orders_schema, orders,
-        business_rules=business_rules,
-    )
-    _write_dataset("task3_products.json", products_schema, products)
-    _write_ground_truth("task3_ground_truth.json", ground_truth)
 
-    fixable = sum(1 for g in ground_truth if "expected" in g)
-    print(
-        f"Task 3: {len(orders)} orders, {len(products)} products, "
-        f"{len(ground_truth)} issues "
-        f"({fixable} fixable, {len(ground_truth) - fixable} detection-only)"
-    )
+    dataset_info = {
+        "schema": orders_schema,
+        "rows": orders,
+        "business_rules": business_rules,
+        "products_schema": products_schema,
+    }
+    return dataset_info, ground_truth, products
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1052,7 +1206,7 @@ def verify_all() -> bool:
     Returns:
         True if all checks pass, False otherwise.
     """
-    SEP = "─" * 64
+    SEP = "-" * 64
     print(f"\n{SEP}")
     print("  Post-Generation Verification Suite")
     print(SEP)
@@ -1101,7 +1255,7 @@ def verify_all() -> bool:
     gt_expectations = {
         "task1_ground_truth.json": (8, 5),   # total, fixable
         "task2_ground_truth.json": (15, 8),
-        "task3_ground_truth.json": (21, 18),
+        "task3_ground_truth.json": (29, 26),
     }
     for fname, (exp_total, exp_fixable) in gt_expectations.items():
         def _check_counts(
@@ -1194,9 +1348,38 @@ def _assert(condition: bool, msg: str = "") -> None:
 # Main Entry Point
 # ═══════════════════════════════════════════════════════════════════════════════
 
-if __name__ == "__main__":
+def _write_all() -> None:
+    """Generate all datasets and write to disk.  Uses global seed."""
     random.seed(SEED)
 
+    # Task 1
+    ds1, gt1, _ = generate_task1()
+    _write_dataset("task1_customers.json", ds1["schema"], ds1["rows"])
+    _write_ground_truth("task1_ground_truth.json", gt1)
+    fixable1 = sum(1 for g in gt1 if "expected" in g)
+    print(f"Task 1: {len(ds1['rows'])} rows, {len(gt1)} issues "
+          f"({fixable1} fixable, {len(gt1) - fixable1} detection-only)")
+
+    # Task 2
+    ds2, gt2, _ = generate_task2()
+    _write_dataset("task2_contacts.json", ds2["schema"], ds2["rows"])
+    _write_ground_truth("task2_ground_truth.json", gt2)
+    fixable2 = sum(1 for g in gt2 if "expected" in g)
+    print(f"Task 2: {len(ds2['rows'])} rows, {len(gt2)} issues "
+          f"({fixable2} fixable, {len(gt2) - fixable2} detection-only)")
+
+    # Task 3
+    ds3, gt3, products = generate_task3()
+    _write_dataset("task3_orders.json", ds3["schema"], ds3["rows"],
+                   business_rules=ds3["business_rules"])
+    _write_dataset("task3_products.json", ds3["products_schema"], products)
+    _write_ground_truth("task3_ground_truth.json", gt3)
+    fixable3 = sum(1 for g in gt3 if "expected" in g)
+    print(f"Task 3: {len(ds3['rows'])} orders, {len(products)} products, "
+          f"{len(gt3)} issues ({fixable3} fixable, {len(gt3) - fixable3} detection-only)")
+
+
+if __name__ == "__main__":
     print("=" * 64)
     print("  Data Quality Environment — Dataset Generator v" + VERSION)
     print("=" * 64)
@@ -1204,9 +1387,7 @@ if __name__ == "__main__":
 
     os.makedirs(DATASETS_DIR, exist_ok=True)
 
-    generate_task1()
-    generate_task2()
-    generate_task3()
+    _write_all()
 
     all_ok = verify_all()
 
@@ -1217,7 +1398,7 @@ if __name__ == "__main__":
         print(f"  {f:40s} {size:>8,d} bytes")
 
     if not all_ok:
-        print("\n⚠ VERIFICATION FAILED — review errors above")
+        print("\n[!] VERIFICATION FAILED -- review errors above")
         sys.exit(1)
     else:
-        print("\n✓ All verification gates passed")
+        print("\n[OK] All verification gates passed")

@@ -229,7 +229,7 @@ def check_dataset_integrity() -> None:
     gt_files = {
         "task1_ground_truth.json": {"min_issues": 8, "label": "task1"},
         "task2_ground_truth.json": {"min_issues": 15, "label": "task2"},
-        "task3_ground_truth.json": {"min_issues": 21, "label": "task3"},
+        "task3_ground_truth.json": {"min_issues": 29, "label": "task3"},
     }
 
     for filename, config in gt_files.items():

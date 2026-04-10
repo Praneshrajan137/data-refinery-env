@@ -1,10 +1,45 @@
-name: Sync to HuggingFace Space
+name: Validate and Sync to HuggingFace Space
+
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install pydantic>=2.0
+
+      - name: Run test suite
+        working-directory: data_quality_env
+        run: python test_env.py
+
+      - name: Run dataset verification
+        working-directory: data_quality_env
+        run: python generate_datasets.py
+
+      - name: Run validation checks
+        working-directory: data_quality_env
+        run: python validate.py --skip-docker
+
+      - name: Run benchmark (smoke test)
+        working-directory: data_quality_env
+        run: python benchmark.py --seeds 2
+
   sync:
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

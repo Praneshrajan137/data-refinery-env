@@ -134,7 +134,7 @@ TASK_CONFIG: Dict[str, Dict[str, Any]] = {
     "task_2_duplicate_detective": {
         "dataset": "task2_contacts.json",
         "ground_truth": "task2_ground_truth.json",
-        "max_steps": 35,
+        "max_steps": 50,
         "dataset_name": "Contact Records",
         "description": (
             "Identify exact and near-duplicate contact records, detect "
@@ -144,14 +144,14 @@ TASK_CONFIG: Dict[str, Dict[str, Any]] = {
     "task_3_integrity_auditor": {
         "dataset": "task3_orders.json",
         "ground_truth": "task3_ground_truth.json",
-        "max_steps": 45,
+        "max_steps": 65,
         "dataset_name": "Orders & Products",
         "secondary_dataset": "task3_products.json",
         "description": (
             "Audit referential integrity, cross-field consistency, outliers, "
             "cascading errors, precision traps, and business rule compliance "
             "across orders and products tables. Requires strategic inspection "
-            "of 250 rows within a 45-step budget."
+            "of 250 rows within a 65-step budget."
         ),
     },
 }
@@ -176,6 +176,7 @@ P_FALSE_POS: float = -0.05       # False positive diagnosis
 P_WRONG_FIX: float = -0.08       # Incorrect fix value
 P_LATE_STEP: float = -0.02       # Per step after 80% budget consumed
 P_INVALID: float = -0.01         # Malformed or invalid action
+P_REINSPECT: float = -0.01      # All requested rows already inspected
 
 # Late-step penalty threshold (fraction of max_steps)
 LATE_STEP_THRESHOLD: float = 0.80
@@ -183,8 +184,9 @@ LATE_STEP_THRESHOLD: float = 0.80
 # Final score weights
 DETECTION_WEIGHT: float = 0.40
 FIX_WEIGHT: float = 0.60
-MAX_FALSE_POS_PENALTY: float = 0.40
+MAX_FALSE_POS_PENALTY: float = 0.40   # Kept for backward compat (no longer used in scoring)
 FALSE_POS_PENALTY_RATE: float = 0.05
+SPAM_THRESHOLD: float = 2.0          # Diagnoses > 2× ground truth triggers spam multiplier
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -243,13 +245,22 @@ class DataQualityEnvironment(Environment):
     # Core API
     # ──────────────────────────────────────────────────────────────────────
 
-    def reset(self, task_id: str = "task_1_format_fixer") -> DataQualityObservation:
+    def reset(
+        self,
+        task_id: str = "task_1_format_fixer",
+        *,
+        seed: int | None = None,
+        **kwargs: Any,
+    ) -> DataQualityObservation:
         """Reset the environment for a new episode.
 
         Args:
             task_id: Which task to load.  Must be one of:
                 ``task_1_format_fixer``, ``task_2_duplicate_detective``,
                 ``task_3_integrity_auditor``.  Defaults to task 1 if invalid.
+            seed: If provided, generate the dataset procedurally using this
+                seed instead of loading from static JSON files.  Same seed
+                always produces identical episodes (deterministic).
 
         Returns:
             Initial observation containing dataset metadata, schema info,
@@ -277,7 +288,10 @@ class DataQualityEnvironment(Environment):
         self._is_finalized = False
         self._inspected_rows = set()
 
-        self._load_datasets(task_id)
+        if seed is not None:
+            self._generate_procedural(task_id, seed)
+        else:
+            self._load_datasets(task_id)
         config = TASK_CONFIG[task_id]
 
         # Populate state with ground-truth count for metrics
@@ -399,9 +413,9 @@ class DataQualityEnvironment(Environment):
                 self.cumulative_reward,
             )
 
-        # Clamp terminal scores to (0, 1) exclusive — validator rejects 0.0 and 1.0
+        # Clamp terminal scores to [0, 1]
         if done:
-            self.cumulative_reward = max(0.0001, min(0.9999, self.cumulative_reward))
+            self.cumulative_reward = max(0.0, min(1.0, self.cumulative_reward))
             self._state.current_reward = self.cumulative_reward
 
         return DataQualityObservation(
@@ -495,6 +509,42 @@ class DataQualityEnvironment(Environment):
             len(self.dataset),
             len(self.ground_truth),
             len(self.secondary_dataset),
+        )
+
+    def _generate_procedural(self, task_id: str, seed: int) -> None:
+        """Generate dataset procedurally from a seed.
+
+        Uses the refactored generator functions from ``generate_datasets``
+        which accept a ``random.Random`` instance for full determinism.
+        """
+        import random as _random_mod
+        rng = _random_mod.Random(seed)
+
+        try:
+            from ..generate_datasets import generate_task1, generate_task2, generate_task3
+        except ImportError:
+            from generate_datasets import generate_task1, generate_task2, generate_task3  # type: ignore[no-redef]
+
+        if task_id == "task_1_format_fixer":
+            ds, gt, _ = generate_task1(rng=rng)
+        elif task_id == "task_2_duplicate_detective":
+            ds, gt, _ = generate_task2(rng=rng)
+        elif task_id == "task_3_integrity_auditor":
+            ds, gt, secondary = generate_task3(rng=rng)
+            self.secondary_dataset = secondary
+        else:
+            raise ValueError(f"Unknown task_id for procedural generation: {task_id}")
+
+        self.dataset = ds["rows"]
+        self.schema_info = ds["schema"]
+        self.business_rules = ds.get("business_rules", {})
+        if task_id != "task_3_integrity_auditor":
+            self.secondary_dataset = []
+        self.ground_truth = gt
+
+        logger.debug(
+            "Procedural generation (seed=%d): %d rows, %d issues",
+            seed, len(self.dataset), len(self.ground_truth),
         )
 
     # ──────────────────────────────────────────────────────────────────────
@@ -619,13 +669,17 @@ class DataQualityEnvironment(Environment):
             new_indices = inspected_indices - self._inspected_rows
             self._inspected_rows.update(inspected_indices)
 
-            found_rows = {f["row"] for f in self.found_issues}
-            undiscovered = sum(
-                1 for gt in self.ground_truth
-                if gt["row"] in new_indices
-                and gt["row"] not in found_rows
-            )
-            exploration_bonus = undiscovered * R_EXPLORE
+            # Penalize full re-inspection (all requested rows already seen)
+            if not new_indices:
+                exploration_bonus = P_REINSPECT
+            else:
+                found_rows = {f["row"] for f in self.found_issues}
+                undiscovered = sum(
+                    1 for gt in self.ground_truth
+                    if gt["row"] in new_indices
+                    and gt["row"] not in found_rows
+                )
+                exploration_bonus = undiscovered * R_EXPLORE
 
         return visible_rows, col_stats, sec_rows, " ".join(msgs), exploration_bonus
 
@@ -866,6 +920,11 @@ class DataQualityEnvironment(Environment):
                             reward = R_FIX_PARTIAL
                             if action.justification:
                                 reward += R_JUSTIFY_BONUS
+                            self.fixed_issues.append({
+                                "row": action.row_index,
+                                "column": action.column_name,
+                                "value": action.new_value,
+                            })
                             self._auto_diagnose_if_needed(action, truth)
                             return (
                                 reward,
@@ -952,8 +1011,8 @@ class DataQualityEnvironment(Environment):
         """
         config = TASK_CONFIG[self.task_id]
         final_score = self._compute_final_score()
-        # Belt-and-suspenders: ensure score is strictly in (0, 1)
-        final_score = max(0.0001, min(0.9999, final_score))
+        # Clamp score to [0, 1]
+        final_score = max(0.0, min(1.0, final_score))
 
         # [FIX-05] Delta must be computed BEFORE updating cumulative
         reward_delta = final_score - self.cumulative_reward
@@ -1015,7 +1074,11 @@ class DataQualityEnvironment(Environment):
 
             score = detection_rate × 0.40
                   + fix_rate       × 0.60
-                  − min(0.40, false_positives × 0.05)
+                  − false_positives × 0.05
+
+        The false-positive penalty is **uncapped** (linear).  If total
+        diagnoses exceed ``SPAM_THRESHOLD`` × ground-truth issue count,
+        the penalty rate doubles as a spam deterrent.
 
         Where:
             - ``detection_rate`` = found_issues / total_issues
@@ -1027,10 +1090,10 @@ class DataQualityEnvironment(Environment):
         returns ``PARTIAL`` for ``expected is None`` entries.
 
         Returns:
-            Score clamped to (0, 1) exclusive, rounded to 4 decimal places.
+            Score clamped to [0, 1], rounded to 4 decimal places.
         """
         if not self.ground_truth:
-            return 0.0001
+            return 0.0
 
         n_total = len(self.ground_truth)
         detection_rate = len(self.found_issues) / n_total
@@ -1045,10 +1108,12 @@ class DataQualityEnvironment(Environment):
             len(self.fixed_issues) / n_fixable if n_fixable > 0 else 0.0
         )
 
-        penalty = min(
-            MAX_FALSE_POS_PENALTY,
-            self.false_positives * FALSE_POS_PENALTY_RATE,
-        )
+        # Uncapped linear penalty + spam multiplier
+        fp_penalty_rate = FALSE_POS_PENALTY_RATE
+        total_diagnoses = len(self.found_issues) + self.false_positives
+        if n_total > 0 and total_diagnoses > SPAM_THRESHOLD * n_total:
+            fp_penalty_rate *= 2.0  # Double penalty rate for spam
+        penalty = self.false_positives * fp_penalty_rate
 
         raw = (
             detection_rate * DETECTION_WEIGHT
@@ -1056,8 +1121,8 @@ class DataQualityEnvironment(Environment):
             - penalty
         )
 
-        # Clamp to (0, 1) exclusive — validator rejects exactly 0.0 and 1.0
-        return round(max(0.0001, min(0.9999, raw)), 4)
+        # Clamp to [0, 1]
+        return round(max(0.0, min(1.0, raw)), 4)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

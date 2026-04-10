@@ -3,10 +3,10 @@
     "generator": "generate_datasets.py",
     "version": "3.0",
     "seed": 42,
-    "generated_at": "2026-04-08T02:33:15.458945+00:00",
+    "generated_at": "2026-04-09T18:26:47.533952+00:00",
     "row_indexing": "0-based",
-    "total_issues": 21,
-    "fixable_issues": 18,
+    "total_issues": 29,
+    "fixable_issues": 26,
     "detection_only_issues": 3
   },
   "issues": [
@@ -154,6 +154,62 @@
       "type": "business_rule",
       "expected": "100",
       "description": "Quantity 500 exceeds max_quantity (100); clamped to business rule maximum"
+    },
+    {
+      "row": 42,
+      "column": "order_total",
+      "type": "missing_value",
+      "expected": "231.13",
+      "description": "Order total is null but derivable from formula: qty * unit_price * (1 - discount/100) = 231.13"
+    },
+    {
+      "row": 65,
+      "column": "quantity",
+      "type": "outlier",
+      "expected": "1",
+      "description": "Quantity 10 appears to be 10x decimal shift; order_total matches qty=1 — verify via total / (unit_price * (1 - discount/100))"
+    },
+    {
+      "row": 115,
+      "column": "unit_price",
+      "type": "business_rule",
+      "expected": "0.01",
+      "description": "Unit price 0.00 violates min_unit_price (0.01); clamped to business rule minimum"
+    },
+    {
+      "row": 205,
+      "column": "unit_price",
+      "type": "business_rule",
+      "expected": "0.01",
+      "description": "Unit price -0.50 violates min_unit_price (0.01); clamped to business rule minimum"
+    },
+    {
+      "row": 160,
+      "column": "ship_date",
+      "type": "cross_field",
+      "expected": "2025-04-27",
+      "description": "Ship date 2024-04-27 is exactly 1 year before order date 2025-04-27 — likely year entry error; minimum valid ship date = order date"
+    },
+    {
+      "row": 225,
+      "column": "ship_date",
+      "type": "cross_field",
+      "expected": "2025-12-23",
+      "description": "Ship date 2029-11-01 is 4+ years after order date 2025-12-23 — exceeds ship_date_max_days (730 days); minimum valid ship date = order date"
+    },
+    {
+      "row": 165,
+      "column": "order_total",
+      "type": "cross_field",
+      "expected": "747.20",
+      "description": "Total 747.19 is off by $0.01 from formula result 747.20; appears to be truncation instead of rounding"
+    },
+    {
+      "row": 245,
+      "column": "discount_pct",
+      "type": "business_rule",
+      "expected": "0",
+      "description": "Discount -10% is negative; min_discount_pct is 0; clamped to business rule minimum"
     }
   ]
 }

@@ -146,8 +146,8 @@ def run_task(task_id: str) -> float:
 
         traceback.print_exc()
 
-    # Clamp to (0, 1) exclusive — validator rejects exactly 0.0 and 1.0
-    return max(0.0001, min(0.9999, total_reward))
+    # Clamp to [0, 1]
+    return max(0.0, min(1.0, total_reward))
 
 
 def main() -> int:

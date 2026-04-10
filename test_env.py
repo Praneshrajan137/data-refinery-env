@@ -61,16 +61,19 @@ try:
         R_DIAGNOSE,
         R_TYPE_BONUS,
         R_FIX,
+        R_FIX_PARTIAL,
         R_JUSTIFY_BONUS,
         P_FALSE_POS,
         P_WRONG_FIX,
         P_LATE_STEP,
         P_INVALID,
+        P_REINSPECT,
         LATE_STEP_THRESHOLD,
         DETECTION_WEIGHT,
         FIX_WEIGHT,
         MAX_FALSE_POS_PENALTY,
         FALSE_POS_PENALTY_RATE,
+        SPAM_THRESHOLD,
         TASK_CONFIG,
     )
 except ImportError:
@@ -87,16 +90,19 @@ except ImportError:
         R_DIAGNOSE,
         R_TYPE_BONUS,
         R_FIX,
+        R_FIX_PARTIAL,
         R_JUSTIFY_BONUS,
         P_FALSE_POS,
         P_WRONG_FIX,
         P_LATE_STEP,
         P_INVALID,
+        P_REINSPECT,
         LATE_STEP_THRESHOLD,
         DETECTION_WEIGHT,
         FIX_WEIGHT,
         MAX_FALSE_POS_PENALTY,
         FALSE_POS_PENALTY_RATE,
+        SPAM_THRESHOLD,
         TASK_CONFIG,
     )
 
@@ -707,7 +713,7 @@ def test_finalize_no_work() -> None:
     obs = env.step(DataQualityAction(action_type="finalize"))
     _check("finalize done=True", obs.done is True)
     _check("action_result=complete", obs.action_result == ActionResult.COMPLETE)
-    _check("score in (0, 1) exclusive", 0.0 < obs.cumulative_reward < 1.0)
+    _check("score in [0, 1]", 0.0 <= obs.cumulative_reward <= 1.0)
     # No work done: detection_rate=0, fix_rate=0, score should be ~0
     _check("score ~0 (no work)", obs.cumulative_reward < 0.1,
            f"got {obs.cumulative_reward}")
@@ -772,12 +778,12 @@ def test_late_step_penalty() -> None:
 
     threshold = int(30 * LATE_STEP_THRESHOLD)  # 24
 
-    # Advance to just before threshold
+    # Advance to just before threshold (use different rows to avoid re-inspect penalty)
     for i in range(threshold):
-        env.step(DataQualityAction(action_type="inspect", row_indices=[0]))
+        env.step(DataQualityAction(action_type="inspect", row_indices=[i % 50]))
 
-    # Step at threshold+1: should have late penalty on inspect (which otherwise has 0 reward)
-    obs = env.step(DataQualityAction(action_type="inspect", row_indices=[0]))
+    # Step at threshold+1: inspect a FRESH row so only late-step penalty applies
+    obs = env.step(DataQualityAction(action_type="inspect", row_indices=[threshold]))
     _check(f"late-step penalty applied at step {threshold + 1}",
            obs.reward_delta < 0,
            f"reward_delta={obs.reward_delta}, expected < 0 (P_LATE_STEP={P_LATE_STEP})")
@@ -1101,6 +1107,462 @@ def test_remaining_hint_progression() -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# §3b  New Tests — Phase 1 Bug Fixes
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def test_perfect_score_is_1_0() -> None:
+    """Bug 1.3: Perfect oracle run should yield exactly 1.0, not 0.9999."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_perfect_score_is_1_0"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    gt = _load_ground_truth("task_1_format_fixer")
+
+    for issue in gt:
+        col = issue["column"] if issue["column"] != "_row" else list(env.schema_info.keys())[0]
+        try:
+            issue_type = IssueType(issue.get("type", "format_error"))
+        except ValueError:
+            issue_type = IssueType.FORMAT_ERROR
+
+        env.step(DataQualityAction(
+            action_type="diagnose",
+            row_index=issue["row"],
+            column_name=col,
+            issue_type=issue_type,
+        ))
+
+        if issue.get("expected") is not None:
+            fix_type_val = "delete_row" if issue["expected"] == "DELETE_ROW" else "correct_value"
+            fix_kwargs = {
+                "action_type": "fix",
+                "row_index": issue["row"],
+                "column_name": col,
+                "fix_type": fix_type_val,
+                "justification": "Ground truth value",
+            }
+            if fix_type_val != "delete_row":
+                fix_kwargs["new_value"] = str(issue["expected"])
+            env.step(DataQualityAction(**fix_kwargs))
+
+    obs = env.step(DataQualityAction(action_type="finalize"))
+    _check("perfect score == 1.0",
+           obs.cumulative_reward == 1.0,
+           f"got {obs.cumulative_reward}")
+
+
+def test_zero_score_is_0_0() -> None:
+    """Bug 1.3: Immediate finalize with no work should yield 0.0, not 0.0001."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_zero_score_is_0_0"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    obs = env.step(DataQualityAction(action_type="finalize"))
+    _check("zero score == 0.0",
+           obs.cumulative_reward == 0.0,
+           f"got {obs.cumulative_reward}")
+
+
+def test_numeric_partial_counts_in_fix_rate() -> None:
+    """Bug 1.4: Numerically close fix should count toward fix_rate in final score."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_numeric_partial_counts_in_fix_rate"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    gt = _load_ground_truth("task_1_format_fixer")
+
+    # Find a fixable issue with a numeric expected value
+    numeric_issue = None
+    for issue in gt:
+        expected = issue.get("expected")
+        if expected is not None and expected != "DELETE_ROW":
+            try:
+                float(str(expected))
+                numeric_issue = issue
+                break
+            except (ValueError, TypeError):
+                pass
+
+    if numeric_issue is None:
+        print("  [SKIP] No numeric fixable issue found in task_1")
+        return
+
+    col = numeric_issue["column"]
+    expected_val = float(str(numeric_issue["expected"]))
+    # Provide a value within 1% (but not exact)
+    close_val = str(round(expected_val * 1.005, 6))
+
+    env.step(DataQualityAction(
+        action_type="diagnose",
+        row_index=numeric_issue["row"],
+        column_name=col,
+        issue_type=IssueType(numeric_issue.get("type", "format_error")),
+    ))
+
+    obs = env.step(DataQualityAction(
+        action_type="fix",
+        row_index=numeric_issue["row"],
+        column_name=col,
+        new_value=close_val,
+        fix_type="correct_value",
+        justification="Numerically close value",
+    ))
+    _check("partial credit earned",
+           obs.action_result == ActionResult.PARTIAL,
+           f"got {obs.action_result}")
+
+    # Finalize and check fix_rate > 0
+    obs = env.step(DataQualityAction(action_type="finalize"))
+    n_fixable = len([g for g in gt if g.get("expected") is not None])
+    expected_fix_component = (1.0 / n_fixable) * FIX_WEIGHT
+    _check("fix_rate > 0 in final score (numeric partial counted)",
+           obs.cumulative_reward >= expected_fix_component * 0.5,
+           f"got {obs.cumulative_reward}, expected at least {expected_fix_component * 0.5:.4f}")
+
+
+def test_reinspect_penalty() -> None:
+    """Bug 1.5: Re-inspecting only already-seen rows incurs P_REINSPECT penalty."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_reinspect_penalty"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    # First inspect: fresh rows, should have >= 0 reward
+    obs1 = env.step(DataQualityAction(action_type="inspect", row_indices=[0, 1, 2]))
+    _check("first inspect reward >= 0",
+           obs1.reward_delta >= 0,
+           f"got {obs1.reward_delta}")
+
+    # Second inspect: same rows, should trigger P_REINSPECT
+    obs2 = env.step(DataQualityAction(action_type="inspect", row_indices=[0, 1, 2]))
+    _check("re-inspect penalty applied",
+           _approx(obs2.reward_delta, P_REINSPECT),
+           f"got {obs2.reward_delta}, expected {P_REINSPECT}")
+
+
+def test_spam_penalty_uncapped() -> None:
+    """Bug 1.2: FP penalty is uncapped — spam diagnoses lose more than 0.40."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_spam_penalty_uncapped"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    gt = _load_ground_truth("task_1_format_fixer")
+    schema_cols = list(env.schema_info.keys())
+
+    # Diagnose all ground truth issues first
+    for issue in gt:
+        col = issue["column"] if issue["column"] != "_row" else schema_cols[0]
+        try:
+            issue_type = IssueType(issue.get("type", "format_error"))
+        except ValueError:
+            issue_type = IssueType.FORMAT_ERROR
+        env.step(DataQualityAction(
+            action_type="diagnose",
+            row_index=issue["row"],
+            column_name=col,
+            issue_type=issue_type,
+        ))
+
+    # Now spam false positives: diagnose clean rows
+    gt_rows = {issue["row"] for issue in gt}
+    fp_count = 0
+    for row_idx in range(min(50, len(env.dataset))):
+        if row_idx not in gt_rows and fp_count < 20:
+            env.step(DataQualityAction(
+                action_type="diagnose",
+                row_index=row_idx,
+                column_name=schema_cols[0],
+                issue_type=IssueType.FORMAT_ERROR,
+            ))
+            fp_count += 1
+
+    obs = env.step(DataQualityAction(action_type="finalize"))
+
+    # With 20 FPs and uncapped penalty: 20 * 0.05 = 1.0 (or 2.0 with spam multiplier)
+    # detection_rate=1.0 → 0.40, fix_rate=0.0 → 0.0
+    # score = 0.40 - (20 * penalty_rate) = very low or 0
+    _check("spam penalty drives score to 0",
+           obs.cumulative_reward < 0.1,
+           f"got {obs.cumulative_reward} (expected < 0.1 with {fp_count} FPs)")
+
+
+def test_max_steps_task2_task3() -> None:
+    """Bug 1.1: Verify task_2 and task_3 have corrected max_steps (50, 65)."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_max_steps_task2_task3"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+
+    obs2 = env.reset(task_id="task_2_duplicate_detective")
+    _check("task_2 max_steps=50", obs2.max_steps == 50, f"got {obs2.max_steps}")
+
+    obs3 = env.reset(task_id="task_3_integrity_auditor")
+    _check("task_3 max_steps=65", obs3.max_steps == 65, f"got {obs3.max_steps}")
+
+
+def test_procedural_determinism() -> None:
+    """Procedural generation: same seed produces identical data."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_procedural_determinism"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    obs1 = env.reset(task_id="task_1_format_fixer", seed=42)
+    rows1 = obs1.visible_rows
+
+    obs2 = env.reset(task_id="task_1_format_fixer", seed=42)
+    rows2 = obs2.visible_rows
+
+    _check("same seed -> same rows", rows1 == rows2)
+    _check("same seed -> same total_rows", obs1.total_rows == obs2.total_rows)
+    _check("same seed -> same schema", obs1.schema_info == obs2.schema_info)
+
+
+def test_procedural_different_seeds() -> None:
+    """Procedural generation: different seeds produce different data."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_procedural_different_seeds"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    obs1 = env.reset(task_id="task_1_format_fixer", seed=42)
+    rows1 = obs1.visible_rows
+
+    obs2 = env.reset(task_id="task_1_format_fixer", seed=99)
+    rows2 = obs2.visible_rows
+
+    _check("different seeds -> different rows", rows1 != rows2)
+
+
+def test_procedural_backward_compat() -> None:
+    """Procedural generation: reset without seed loads static data."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_procedural_backward_compat"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    obs = env.reset(task_id="task_1_format_fixer")
+    _check("static load works", obs.total_rows == 50)
+    _check("static load schema populated", len(obs.schema_info) > 0)
+
+
+def test_procedural_all_tasks() -> None:
+    """Procedural generation works for all 3 tasks."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_procedural_all_tasks"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    for task_id in ["task_1_format_fixer", "task_2_duplicate_detective",
+                    "task_3_integrity_auditor"]:
+        obs = env.reset(task_id=task_id, seed=123)
+        _check(f"{task_id}: procedural reset ok", obs.done is False)
+        _check(f"{task_id}: has rows", obs.total_rows > 0)
+        _check(f"{task_id}: has schema", len(obs.schema_info) > 0)
+
+
+def test_procedural_episode_plays() -> None:
+    """Procedural episode can be played through diagnose+fix+finalize."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_procedural_episode_plays"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer", seed=42)
+
+    # The ground truth should be populated
+    _check("ground truth populated", len(env.ground_truth) > 0)
+
+    # Play through: diagnose first issue
+    gt = env.ground_truth
+    issue = gt[0]
+    col = issue["column"] if issue["column"] != "_row" else list(env.schema_info.keys())[0]
+    obs = env.step(DataQualityAction(
+        action_type="diagnose",
+        row_index=issue["row"],
+        column_name=col,
+        issue_type=IssueType(issue.get("type", "format_error")),
+    ))
+    _check("diagnose works on procedural data", obs.action_result == ActionResult.CORRECT)
+
+    # Finalize
+    obs = env.step(DataQualityAction(action_type="finalize"))
+    _check("finalize works on procedural data", obs.done is True)
+    _check("score > 0 after one correct diagnose", obs.cumulative_reward > 0)
+
+
+# ── Phase 3: Task 3 Hardening Tests ──────────────────────────────────────
+
+
+def test_task3_issue_count_29() -> None:
+    """Task 3 now has exactly 29 ground truth issues (26 fixable, 3 detection-only)."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task3_issue_count_29"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_3_integrity_auditor")
+    gt = env.ground_truth
+    total = len(gt)
+    fixable = sum(1 for g in gt if "expected" in g)
+    detection = total - fixable
+    _check("task3 total issues == 29", total == 29)
+    _check("task3 fixable issues == 26", fixable == 26)
+    _check("task3 detection-only == 3", detection == 3)
+
+
+def test_task3_null_total_fixable() -> None:
+    """Row 42: null order_total is detectable and fixable via formula."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task3_null_total_fixable"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_3_integrity_auditor")
+
+    # Row 42 should have a null order_total
+    row42 = env.dataset[42]
+    _check("row 42 order_total is None", row42["order_total"] is None)
+
+    # Find the ground truth for row 42
+    gt42 = next(g for g in env.ground_truth
+                if g["row"] == 42 and g["column"] == "order_total")
+    _check("row 42 issue type is missing_value", gt42["type"] == "missing_value")
+    _check("row 42 has expected value", "expected" in gt42)
+
+    # Fix it
+    obs = env.step(DataQualityAction(
+        action_type="fix",
+        row_index=42,
+        column_name="order_total",
+        fix_type="correct_value",
+        new_value=gt42["expected"],
+        justification="Computed from qty * unit_price * (1 - discount/100)",
+    ))
+    _check("null total fix accepted", obs.reward_delta > 0)
+
+
+def test_task3_cascading_qty_mismatch() -> None:
+    """Row 65: quantity is 10x inflated; total matches original quantity."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task3_cascading_qty_mismatch"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_3_integrity_auditor")
+
+    gt65 = next(g for g in env.ground_truth
+                if g["row"] == 65 and g["column"] == "quantity")
+    expected_qty = int(gt65["expected"])
+    actual_qty = env.dataset[65]["quantity"]
+    _check("row 65 qty is 10x expected", actual_qty == expected_qty * 10)
+
+    # Total should match original qty, not corrupted qty
+    row65 = env.dataset[65]
+    expected_total = round(
+        expected_qty * row65["unit_price"]
+        * (1 - row65["discount_pct"] / 100), 2
+    )
+    _check("row 65 total matches original qty",
+           abs(row65["order_total"] - expected_total) < 0.015)
+
+
+def test_task3_hidden_business_rules() -> None:
+    """Rows 115/205: min_unit_price violations discoverable from metadata."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task3_hidden_business_rules"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_3_integrity_auditor")
+
+    # Business rules should contain min_unit_price
+    _check("min_unit_price in business_rules",
+           "min_unit_price" in env.business_rules)
+    _check("min_discount_pct in business_rules",
+           "min_discount_pct" in env.business_rules)
+
+    # Row 115: unit_price == 0.0
+    _check("row 115 unit_price == 0.0", env.dataset[115]["unit_price"] == 0.0)
+
+    # Row 205: unit_price negative
+    _check("row 205 unit_price < 0", env.dataset[205]["unit_price"] < 0)
+
+    # Fix row 115
+    gt115 = next(g for g in env.ground_truth
+                 if g["row"] == 115 and g["column"] == "unit_price")
+    obs = env.step(DataQualityAction(
+        action_type="fix",
+        row_index=115,
+        column_name="unit_price",
+        fix_type="correct_value",
+        new_value=gt115["expected"],
+        justification="Violates min_unit_price business rule",
+    ))
+    _check("min_unit_price fix accepted", obs.reward_delta > 0)
+
+
+def test_task3_temporal_consistency() -> None:
+    """Rows 160/225: temporal ship_date violations."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task3_temporal_consistency"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_3_integrity_auditor")
+
+    # Row 160: ship_date 1 year before order_date
+    row160 = env.dataset[160]
+    _check("row 160 ship_date < order_date",
+           row160["ship_date"] < row160["order_date"])
+
+    # Row 225: ship_date way in future
+    _check("row 225 ship_date is 2029",
+           env.dataset[225]["ship_date"].startswith("2029"))
+
+    # Diagnose row 160
+    obs = env.step(DataQualityAction(
+        action_type="diagnose",
+        row_index=160,
+        column_name="ship_date",
+        issue_type=IssueType("cross_field"),
+    ))
+    _check("temporal diagnose accepted",
+           obs.action_result == ActionResult.CORRECT)
+
+
+def test_task3_adversarial_clean_rows() -> None:
+    """Adversarial clean rows should not be in ground truth."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task3_adversarial_clean_rows"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_3_integrity_auditor")
+
+    gt_rows = {g["row"] for g in env.ground_truth}
+    adversarial = [50, 85, 100, 120, 140, 175, 195, 200, 215, 230]
+    for r in adversarial:
+        _check(f"adversarial row {r} NOT in ground truth", r not in gt_rows)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # §4  Test Runner
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1137,6 +1599,26 @@ _ALL_TESTS = [
     test_all_tasks_ground_truth_integrity,
     test_state_property,
     test_remaining_hint_progression,
+    # Phase 1 bug fix tests
+    test_perfect_score_is_1_0,
+    test_zero_score_is_0_0,
+    test_numeric_partial_counts_in_fix_rate,
+    test_reinspect_penalty,
+    test_spam_penalty_uncapped,
+    test_max_steps_task2_task3,
+    # Phase 2: Procedural generation tests
+    test_procedural_determinism,
+    test_procedural_different_seeds,
+    test_procedural_backward_compat,
+    test_procedural_all_tasks,
+    test_procedural_episode_plays,
+    # Phase 3: Task 3 hardening tests
+    test_task3_issue_count_29,
+    test_task3_null_total_fixable,
+    test_task3_cascading_qty_mismatch,
+    test_task3_hidden_business_rules,
+    test_task3_temporal_consistency,
+    test_task3_adversarial_clean_rows,
 ]
 
 
