@@ -43,6 +43,17 @@ def _serialize(obj: Any) -> dict[str, Any]:
     return dict(obj)  # type: ignore[call-overload]
 
 
+_default_env: DataQualityEnvironment | None = None
+
+
+def _get_or_create_env() -> DataQualityEnvironment:
+    """Return the shared HTTP environment, creating one if needed."""
+    global _default_env
+    if _default_env is None:
+        _default_env = DataQualityEnvironment()
+    return _default_env
+
+
 def _manual_handlers(json_response_cls: type[Any]) -> tuple[Callable[..., Any], ...]:
     """Build reusable HTTP and WebSocket handlers for the manual fallback app."""
     try:
@@ -136,7 +147,40 @@ def _manual_handlers(json_response_cls: type[Any]) -> tuple[Callable[..., Any], 
         finally:
             logger.info("WebSocket client disconnected")
 
-    return health, root, websocket_endpoint
+    async def reset_http(request: Any) -> Any:
+        """POST /reset — create a new environment session and reset to a task."""
+        global _default_env
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        task_id = body.get("task_id", "task_1_format_fixer")
+        _default_env = DataQualityEnvironment()
+        obs = _default_env.reset(task_id=task_id)
+        return json_response_cls({"observation": _serialize(obs)})
+
+    async def step_http(request: Any) -> Any:
+        """POST /step — submit an action and receive the next observation."""
+        env = _get_or_create_env()
+        try:
+            body = await request.json()
+        except Exception:
+            return json_response_cls({"error": "Invalid JSON body"}, status_code=400)
+        # Accept both {"action": {...}} (openenv protocol) and flat fields
+        action_data = body.get("action", body)
+        action_data = {
+            k: v for k, v in action_data.items() if k not in ("type", "command")
+        }
+        action = DataQualityAction(**action_data)
+        obs = env.step(action)
+        return json_response_cls({"observation": _serialize(obs)})
+
+    async def state_http(request: Any = None) -> Any:
+        """GET /state — return current environment state."""
+        env = _get_or_create_env()
+        return json_response_cls({"state": _serialize(env.state)})
+
+    return health, root, websocket_endpoint, reset_http, step_http, state_http
 
 
 def _build_manual_app() -> Any:
@@ -157,7 +201,7 @@ def _build_manual_app() -> Any:
             ),
             version="1.0.0",
         )
-        health, root, websocket_endpoint = _manual_handlers(JSONResponse)
+        health, root, websocket_endpoint, reset_http, step_http, state_http = _manual_handlers(JSONResponse)
     except ImportError:
         from starlette.applications import Starlette
         from starlette.middleware.cors import CORSMiddleware
@@ -165,12 +209,15 @@ def _build_manual_app() -> Any:
         from starlette.routing import Route, WebSocketRoute
 
         framework = "starlette"
-        health, root, websocket_endpoint = _manual_handlers(JSONResponse)
+        health, root, websocket_endpoint, reset_http, step_http, state_http = _manual_handlers(JSONResponse)
         app_obj = Starlette(
             debug=False,
             routes=[
                 Route("/health", health, methods=["GET"]),
                 Route("/", root, methods=["GET"]),
+                Route("/reset", reset_http, methods=["POST"]),
+                Route("/step", step_http, methods=["POST"]),
+                Route("/state", state_http, methods=["GET"]),
                 WebSocketRoute("/ws", websocket_endpoint),
             ],
         )
@@ -190,6 +237,9 @@ def _build_manual_app() -> Any:
     if framework == "fastapi":
         app_obj.get("/health")(health)
         app_obj.get("/")(root)
+        app_obj.post("/reset")(reset_http)
+        app_obj.post("/step")(step_http)
+        app_obj.get("/state")(state_http)
         app_obj.websocket("/ws")(websocket_endpoint)
 
     return app_obj
@@ -228,7 +278,7 @@ if not _app_created:
     try:
         app = _build_manual_app()
         _app_created = True
-        logger.info("Fallback server ready with /health, /, /ws endpoints")
+        logger.info("Fallback server ready with /health, /, /reset, /step, /state, /ws endpoints")
     except ImportError as tier2_err:
         raise ImportError(
             "Neither openenv-core, FastAPI, nor Starlette is available. "
@@ -261,6 +311,57 @@ if not _has_health:
             "status": "healthy",
             "environment": "data_quality_env",
         })
+
+
+# ── Ensure /reset, /step, /state HTTP endpoints exist (defense-in-depth) ──
+try:
+    _has_reset = any(
+        getattr(route, "path", None) == "/reset"
+        for route in getattr(app, "routes", [])
+    )
+except Exception:
+    _has_reset = False
+
+if not _has_reset:
+    try:
+        from starlette.responses import JSONResponse as _ResetJSONResponse
+    except ImportError:
+        from fastapi.responses import JSONResponse as _ResetJSONResponse  # type: ignore[no-redef]
+
+    @app.post("/reset")  # type: ignore[union-attr]
+    async def _fallback_reset(request: Any) -> _ResetJSONResponse:
+        global _default_env
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        task_id = body.get("task_id", "task_1_format_fixer")
+        _default_env = DataQualityEnvironment()
+        obs = _default_env.reset(task_id=task_id)
+        return _ResetJSONResponse({"observation": _serialize(obs)})
+
+    @app.post("/step")  # type: ignore[union-attr]
+    async def _fallback_step(request: Any) -> _ResetJSONResponse:
+        env = _get_or_create_env()
+        try:
+            body = await request.json()
+        except Exception:
+            return _ResetJSONResponse({"error": "Invalid JSON body"}, status_code=400)
+        # Accept both {"action": {...}} (openenv protocol) and flat fields
+        action_data = body.get("action", body)
+        action_data = {
+            k: v for k, v in action_data.items() if k not in ("type", "command")
+        }
+        action = DataQualityAction(**action_data)
+        obs = env.step(action)
+        return _ResetJSONResponse({"observation": _serialize(obs)})
+
+    @app.get("/state")  # type: ignore[union-attr]
+    async def _fallback_state() -> _ResetJSONResponse:
+        env = _get_or_create_env()
+        return _ResetJSONResponse({"state": _serialize(env.state)})
+
+    logger.info("Added fallback /reset, /step, /state HTTP endpoints")
 
 
 def main(host: str = "0.0.0.0", port: int = 7860) -> None:

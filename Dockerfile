@@ -20,10 +20,11 @@ COPY pyproject.toml uv.lock ./
 COPY server/ server/
 COPY datasets/ datasets/
 COPY models.py compat.py generate_datasets.py openenv.yaml __init__.py ./
-COPY README.md ./
+COPY client.py inference.py ./
+COPY README.md REWARD_DESIGN.md ./
 
 # Install dependencies
-RUN uv sync --frozen --no-editable
+RUN uv sync --frozen --no-editable --extra server
 
 # Set environment
 ENV PATH="/app/.venv/bin:$PATH"
