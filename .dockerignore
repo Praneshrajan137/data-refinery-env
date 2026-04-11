@@ -18,7 +18,6 @@ venv/
 .gitignore
 
 # Development-only files (not needed in container)
-generate_datasets.py
 test_env.py
 validate.sh
 validate.py
