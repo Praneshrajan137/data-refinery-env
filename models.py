@@ -532,20 +532,25 @@ class DataQualityObservation(Observation):
         ),
     )
 
-    # ── Clamp terminal scores to [0, 1] ─────────────────────────────────
+    # ── Clamp terminal scores to (0, 1) — strictly exclusive ───────────
+    # Hackathon validator rejects exactly 0.0 and 1.0.
+
+    _SCORE_EPS: float = 0.0001  # Class-level constant for clamping
 
     @model_validator(mode="after")
     def _clamp_terminal_scores(self) -> "DataQualityObservation":
-        """Ensure done=True observations have scores in [0, 1]."""
+        """Ensure done=True observations have scores strictly in (0, 1)."""
         if self.done:
+            lo = self._SCORE_EPS
+            hi = 1.0 - self._SCORE_EPS
             if isinstance(self.reward, (int, float)) and self.reward is not None:
                 object.__setattr__(
                     self, "reward",
-                    max(0.0, min(1.0, float(self.reward))),
+                    max(lo, min(hi, float(self.reward))),
                 )
             object.__setattr__(
                 self, "cumulative_reward",
-                max(0.0, min(1.0, self.cumulative_reward)),
+                max(lo, min(hi, self.cumulative_reward)),
             )
         return self
 

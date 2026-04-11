@@ -1113,7 +1113,10 @@ def test_remaining_hint_progression() -> None:
 
 
 def test_perfect_score_is_1_0() -> None:
-    """Bug 1.3: Perfect oracle run should yield exactly 1.0, not 0.9999."""
+    """Perfect oracle run should yield SCORE_MAX (0.9999), not exactly 1.0.
+
+    The hackathon validator requires scores strictly in (0, 1).
+    """
     global _CURRENT_SUITE
     _CURRENT_SUITE = "test_perfect_score_is_1_0"
     print(f"\n=== {_CURRENT_SUITE} ===")
@@ -1151,13 +1154,22 @@ def test_perfect_score_is_1_0() -> None:
             env.step(DataQualityAction(**fix_kwargs))
 
     obs = env.step(DataQualityAction(action_type="finalize"))
-    _check("perfect score == 1.0",
-           obs.cumulative_reward == 1.0,
+    _check("perfect score == 0.9999 (strict open interval)",
+           _approx(obs.cumulative_reward, 0.9999),
+           f"got {obs.cumulative_reward}")
+    _check("perfect score strictly < 1.0",
+           obs.cumulative_reward < 1.0,
+           f"got {obs.cumulative_reward}")
+    _check("perfect score > 0.99",
+           obs.cumulative_reward > 0.99,
            f"got {obs.cumulative_reward}")
 
 
 def test_zero_score_is_0_0() -> None:
-    """Bug 1.3: Immediate finalize with no work should yield 0.0, not 0.0001."""
+    """Immediate finalize with no work should yield SCORE_MIN (0.0001), not exactly 0.0.
+
+    The hackathon validator requires scores strictly in (0, 1).
+    """
     global _CURRENT_SUITE
     _CURRENT_SUITE = "test_zero_score_is_0_0"
     print(f"\n=== {_CURRENT_SUITE} ===")
@@ -1166,8 +1178,14 @@ def test_zero_score_is_0_0() -> None:
     env.reset(task_id="task_1_format_fixer")
 
     obs = env.step(DataQualityAction(action_type="finalize"))
-    _check("zero score == 0.0",
-           obs.cumulative_reward == 0.0,
+    _check("zero score == 0.0001 (strict open interval)",
+           _approx(obs.cumulative_reward, 0.0001),
+           f"got {obs.cumulative_reward}")
+    _check("zero score strictly > 0.0",
+           obs.cumulative_reward > 0.0,
+           f"got {obs.cumulative_reward}")
+    _check("zero score < 0.01",
+           obs.cumulative_reward < 0.01,
            f"got {obs.cumulative_reward}")
 
 

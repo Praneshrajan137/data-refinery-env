@@ -1036,7 +1036,7 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
         traceback.print_exc(file=sys.stderr)
 
     # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
-    clamped_score = max(0.0, min(1.0, total_reward))
+    clamped_score = max(0.0001, min(0.9999, total_reward))
     success = str(clamped_score >= 0.3).lower()
     rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
     print(

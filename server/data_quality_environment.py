@@ -188,6 +188,12 @@ MAX_FALSE_POS_PENALTY: float = 0.40   # Kept for backward compat (no longer used
 FALSE_POS_PENALTY_RATE: float = 0.05
 SPAM_THRESHOLD: float = 2.0          # Diagnoses > 2× ground truth triggers spam multiplier
 
+# Hackathon validator requires scores STRICTLY in (0, 1).
+# Scores of exactly 0.0 or 1.0 are rejected by Phase 2 deep validation.
+SCORE_EPSILON: float = 0.0001
+SCORE_MIN: float = SCORE_EPSILON       # Minimum possible score
+SCORE_MAX: float = 1.0 - SCORE_EPSILON # Maximum possible score
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # §3  DataQualityEnvironment
@@ -427,9 +433,10 @@ class DataQualityEnvironment(Environment):
                 self.cumulative_reward,
             )
 
-        # Clamp terminal scores to [0, 1]
+        # Clamp terminal scores to (0, 1) — strictly exclusive of endpoints.
+        # The hackathon validator rejects exactly 0.0 and 1.0.
         if done:
-            self.cumulative_reward = max(0.0, min(1.0, self.cumulative_reward))
+            self.cumulative_reward = max(SCORE_MIN, min(SCORE_MAX, self.cumulative_reward))
             self._state.current_reward = self.cumulative_reward
 
         # Build grader diagnostics on terminal observations
@@ -1083,8 +1090,9 @@ class DataQualityEnvironment(Environment):
         """
         config = TASK_CONFIG[self.task_id]
         final_score = self._compute_final_score()
-        # Clamp score to [0, 1]
-        final_score = max(0.0, min(1.0, final_score))
+        # Clamp score to (0, 1) — strictly exclusive of endpoints.
+        # The hackathon validator rejects exactly 0.0 and 1.0.
+        final_score = max(SCORE_MIN, min(SCORE_MAX, final_score))
 
         # [FIX-05] Delta must be computed BEFORE updating cumulative
         reward_delta = final_score - self.cumulative_reward
@@ -1239,7 +1247,7 @@ class DataQualityEnvironment(Environment):
             Score clamped to [0, 1], rounded to 4 decimal places.
         """
         if not self.ground_truth:
-            return 0.0
+            return SCORE_MIN
 
         n_total = len(self.ground_truth)
         detection_rate = len(self.found_issues) / n_total
@@ -1267,8 +1275,8 @@ class DataQualityEnvironment(Environment):
             - penalty
         )
 
-        # Clamp to [0, 1]
-        return round(max(0.0, min(1.0, raw)), 4)
+        # Clamp to (0, 1) — strictly exclusive of endpoints.
+        return round(max(SCORE_MIN, min(SCORE_MAX, raw)), 4)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
