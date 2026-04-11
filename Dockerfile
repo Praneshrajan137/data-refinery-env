@@ -19,7 +19,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY server/ server/
 COPY datasets/ datasets/
-COPY models.py compat.py openenv.yaml __init__.py ./
+COPY models.py compat.py generate_datasets.py openenv.yaml __init__.py ./
 COPY README.md ./
 
 # Install dependencies

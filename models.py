@@ -522,6 +522,16 @@ class DataQualityObservation(Observation):
     )
     message: str = Field("", description="Human-readable feedback from the environment.")
 
+    # ── Grader diagnostics (populated only on finalize/auto-finalize) ────
+    grader_diagnostics: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "Detailed scoring breakdown at episode end: detection_rate, "
+            "fix_rate, false_positives, per-issue hit/miss details, and "
+            "the final score formula decomposition."
+        ),
+    )
+
     # ── Clamp terminal scores to [0, 1] ─────────────────────────────────
 
     @model_validator(mode="after")

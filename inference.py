@@ -45,7 +45,7 @@ Key Design Decisions:
 Environment variables (all optional):
 
     API_BASE_URL      LLM provider base URL          (default: OpenAI)
-    MODEL_NAME        Chat-completion model           (default: gpt-4o-mini)
+    MODEL_NAME        Chat-completion model           (default: gpt-4.1-mini)
     HF_TOKEN          API key (primary, mandatory)      (required for real runs)
     OPENAI_API_KEY    API key (fallback if HF_TOKEN unset)
     ENV_URL           Environment server URL          (default: http://localhost:7860)
@@ -117,7 +117,7 @@ logger = logging.getLogger("inference")
 # Required env vars per hackathon spec (defaults where mandated):
 
 API_BASE_URL: str = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME: str = os.environ.get("MODEL_NAME", "gpt-4o-mini")
+MODEL_NAME: str = os.environ.get("MODEL_NAME", "gpt-4.1-mini")
 HF_TOKEN: str | None = os.environ.get("HF_TOKEN")  # Mandatory — no default
 LOCAL_IMAGE_NAME: str | None = os.environ.get("LOCAL_IMAGE_NAME")  # Optional — for from_docker_image()
 ENV_URL: str = os.environ.get("ENV_URL", "http://localhost:7860")
@@ -1036,12 +1036,12 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
         traceback.print_exc(file=sys.stderr)
 
     # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
-    clamped_score = max(0.0001, min(0.9999, total_reward))
+    clamped_score = max(0.0, min(1.0, total_reward))
     success = str(clamped_score >= 0.3).lower()
-    rewards_str = ",".join(rewards_list) if rewards_list else "0.01"
+    rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
     print(
         f"[END] success={success} steps={final_step_count} "
-        f"score={clamped_score:.4f} rewards={rewards_str}",
+        f"rewards={rewards_str}",
         flush=True,
     )
     logger.info("Episode finished: task=%s final_reward=%.4f", task_id, clamped_score)

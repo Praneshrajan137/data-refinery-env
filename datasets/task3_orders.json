@@ -3,7 +3,7 @@
     "generator": "generate_datasets.py",
     "version": "3.0",
     "seed": 42,
-    "generated_at": "2026-04-09T18:26:47.530363+00:00",
+    "generated_at": "2026-04-11T09:20:15.912071+00:00",
     "row_indexing": "0-based",
     "row_count": 250
   },
@@ -2077,14 +2077,14 @@
     {
       "order_id": 171,
       "customer_id": 7899,
-      "product_id": 18,
+      "product_id": 1,
       "quantity": 8,
       "unit_price": 423.8,
       "order_total": 3390.4,
       "discount_pct": 0,
       "order_date": "2024-03-14",
       "ship_date": "2024-03-19",
-      "product_category": "Clothing"
+      "product_category": "Electronics"
     },
     {
       "order_id": 172,
@@ -2262,7 +2262,7 @@
       "unit_price": 82.37,
       "order_total": 469.51,
       "discount_pct": 5,
-      "order_date": "2025-11-19",
+      "order_date": "2025/11/19",
       "ship_date": "2025-11-28",
       "product_category": "Sports"
     },
@@ -3014,7 +3014,7 @@
       "order_id": 249,
       "customer_id": 9185,
       "product_id": 37,
-      "quantity": 2,
+      "quantity": "5",
       "unit_price": 343.76,
       "order_total": 653.14,
       "discount_pct": 5,

@@ -478,6 +478,22 @@ def generate_task1(
          )},
     ]
 
+    # ── ADVERSARIAL CLEAN ROWS (look suspicious but are valid) ─────────
+    # These rows test false-positive discipline: an agent that flags them
+    # should be penalized.  No ground truth entries added.
+
+    # Row 10: email with valid but unusual TLD (.museum)
+    rows[10]["email"] = f"{rows[10]['name'].split()[0].lower()}@art.museum"
+
+    # Row 20: date at leap year boundary (2024-02-29 is valid)
+    rows[20]["date_of_birth"] = "2024-02-29"
+
+    # Row 35: zip code with leading zero (valid 5-digit)
+    rows[35]["zip_code"] = "00501"
+
+    # Row 48: phone with extension format (valid)
+    rows[48]["phone"] = "+1-555-123-4567 x890"
+
     validate_ground_truth(ground_truth, rows, schema, "task1")
 
     dataset_info = {"schema": schema, "rows": rows}
@@ -646,6 +662,25 @@ def generate_task2(
          )},
     ]
 
+    # ── ADVERSARIAL CLEAN ROWS (look suspicious but are valid) ─────────
+    # These rows test false-positive discipline: same name as another row
+    # but different person (different email, phone, address).
+
+    # Row 15: Same first_name as row 50 but completely different person
+    rows[15]["first_name"] = rows[50]["first_name"]
+
+    # Row 45: Registration date at boundary (2020-01-01, start of valid range)
+    rows[45]["registration_date"] = "2020-01-01"
+
+    # Row 75: Phone in international format (valid but looks unusual)
+    rows[75]["phone"] = "+44-20-7946-0958"
+
+    # Row 100: Email with valid but rare domain (.info)
+    rows[100]["email"] = f"{rows[100]['first_name'].lower()}.{rows[100]['last_name'].lower()}@newsletter.info"
+
+    # Row 80: Same city as row 81 — NOT a duplicate (different person)
+    rows[80]["city"] = rows[81]["city"]
+
     validate_ground_truth(ground_truth, rows, schema, "task2")
 
     dataset_info = {"schema": schema, "rows": rows}
@@ -653,7 +688,7 @@ def generate_task2(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TASK 3: INTEGRITY AUDITOR — 250 orders + 40 products, 29 planted issues
+# TASK 3: INTEGRITY AUDITOR — 250 orders + 42 products, 32 planted issues
 #
 # Expanded and hardened to genuinely challenge frontier models.
 # Includes multi-hop reasoning, cascading errors, statistical outliers,
@@ -959,6 +994,25 @@ def generate_task3(
     # Row 245: discount_pct = -10 (negative surcharge, violates min_discount_pct=0)
     _c("task3", orders, 245, "discount_pct", -10)
 
+    # ── 31: MULTI-HOP REASONING — wrong product_category cascading from
+    #    wrong product_id.  Row 170 has a valid product_id, but we change
+    #    it to another valid product that has a DIFFERENT category.
+    #    The category still matches the NEW product_id, so the agent must
+    #    reason about whether the product_id or category is the error.
+    orig_pid_170 = _c("task3", orders, 170, "product_id", products[0]["product_id"])
+    # Also update category to match the wrong product, creating a
+    # "consistent but wrong" state — agent needs products table to detect
+    _c("task3", orders, 170, "product_category", products[0]["category"])
+
+    # ── 32: STRING TYPE IN NUMERIC FIELD — quantity as string
+    #    Row 248: quantity stored as string "5" instead of int 5
+    orig_qty_248 = _c("task3", orders, 248, "quantity", "5")
+
+    # ── 33: ORDER DATE FORMAT ERROR — YYYY/MM/DD instead of YYYY-MM-DD
+    #    Row 185: date uses slashes instead of dashes
+    orig_date_185 = orders[185]["order_date"]
+    _c("task3", orders, 185, "order_date", orig_date_185.replace("-", "/"))
+
     # ── Ground truth ──────────────────────────────────────────────────────
 
     ground_truth: list[dict[str, Any]] = [
@@ -1178,6 +1232,32 @@ def generate_task3(
              f"min_discount_pct is {business_rules['min_discount_pct']}; "
              "clamped to business rule minimum"
          )},
+
+        # MULTI-HOP — wrong product_id (fixable, derivable from category cross-check)
+        {"row": 170, "column": "product_id", "type": "referential_integrity",
+         "expected": str(orig_pid_170),
+         "description": (
+             f"Product ID changed to {products[0]['product_id']} with "
+             f"matching category '{products[0]['category']}' — appears "
+             "consistent but original product_id derivable from order "
+             "history and pricing patterns"
+         )},
+
+        # STRING TYPE IN NUMERIC FIELD
+        {"row": 248, "column": "quantity", "type": "type_mismatch",
+         "expected": str(orig_qty_248),
+         "description": (
+             "Quantity stored as string '5' instead of integer; "
+             "schema requires integer type"
+         )},
+
+        # DATE FORMAT ERROR
+        {"row": 185, "column": "order_date", "type": "format_error",
+         "expected": orig_date_185,
+         "description": (
+             f"Date uses YYYY/MM/DD format ({orders[185]['order_date']}) "
+             f"instead of required YYYY-MM-DD ({orig_date_185})"
+         )},
     ]
 
     products_schema = {
@@ -1255,7 +1335,7 @@ def verify_all() -> bool:
     gt_expectations = {
         "task1_ground_truth.json": (8, 5),   # total, fixable
         "task2_ground_truth.json": (15, 8),
-        "task3_ground_truth.json": (29, 26),
+        "task3_ground_truth.json": (32, 29),
     }
     for fname, (exp_total, exp_fixable) in gt_expectations.items():
         def _check_counts(

@@ -64,6 +64,7 @@ M = (S, A, T, R, H, gamma)
 | Partial fix (string) | +0.075 | Fix has >= 85% SequenceMatcher similarity |
 | Justification bonus | +0.05 | Fix includes justification text |
 | Exploration bonus | +0.01 * k | k = undiscovered ground truth issues in inspected rows |
+| Coverage bonus | +0.005 * n * (1-c) | n = new rows inspected, c = coverage ratio (pseudo-count) |
 | False positive | -0.05 | Diagnosis does not match any ground truth entry |
 | Wrong fix | -0.08 | Fix value does not match expected |
 | Late-step penalty | -0.02 | Applied per step after 80% of budget consumed |
@@ -87,7 +88,7 @@ This environment has properties that make it a strong RL benchmark:
 - **Partial observability** -- the agent sees at most 10 rows per inspect action from datasets of 50-250 rows; it must learn to prioritize which regions to explore
 - **Explore-exploit tradeoff** -- an information-theoretic exploration bonus rewards agents that learn to inspect rows likely to contain issues, creating a genuine resource allocation problem
 - **Partial credit** -- numerically close fixes (within 1%) earn half reward, testing precision vs approximation
-- **Adversarial clean rows** -- Task 3 contains 10+ rows that look suspicious but are valid, directly testing false-positive discipline
+- **Adversarial clean rows** -- All three tasks contain rows that look suspicious but are valid (unusual TLDs, boundary dates, shared names across different people, near-boundary quantities/discounts), directly testing false-positive discipline
 - **Procedural generation** -- `reset(task_id, seed=N)` generates unlimited unique episodes for any seed, enabling statistically rigorous evaluation
 
 ## What Makes the Hard Task Hard
@@ -112,19 +113,19 @@ Task 3 (Integrity Auditor) requires capabilities beyond pattern matching:
 |---|---|---|---|---:|---:|---:|---:|
 | Format Fixer | `task_1_format_fixer` | Easy | 50 customers | 8 | 5 | 3 | 30 |
 | Duplicate Detective | `task_2_duplicate_detective` | Medium | 120 contacts | 15 | 8 | 7 | 50 |
-| Integrity Auditor | `task_3_integrity_auditor` | Hard | 250 orders + 42 products | 29 | 26 | 3 | 65 |
+| Integrity Auditor | `task_3_integrity_auditor` | Hard | 250 orders + 42 products | 32 | 29 | 3 | 65 |
 
 ### Task 1: Format Fixer
 
-Single-table formatting cleanup: malformed emails (missing/double @), invalid calendar dates (Feb 30, Apr 31), incomplete phone numbers, and zip code issues. Five issues have deterministic fixes; three are detection-only.
+Single-table formatting cleanup: malformed emails (missing/double @), invalid calendar dates (Feb 30, Apr 31), incomplete phone numbers, and zip code issues. Five issues have deterministic fixes; three are detection-only. Includes 4 adversarial clean rows (unusual TLD, leap year boundary, leading-zero zip, phone with extension) that test false-positive discipline.
 
 ### Task 2: Duplicate Detective
 
-Exact duplicates (4 rows requiring DELETE_ROW), near-duplicates with typos, domain misspellings, phone reformatting, and transposed first/last names. Also includes missing values and type mismatches. Requires comparing rows in memory to identify near-duplicate pairs.
+Exact duplicates (4 rows requiring DELETE_ROW), near-duplicates with typos, domain misspellings, phone reformatting, and transposed first/last names. Also includes missing values and type mismatches. Requires comparing rows in memory to identify near-duplicate pairs. Includes 5 adversarial clean rows (shared first name across different people, boundary date, international phone format, rare email domain, shared city) that test false-positive discipline.
 
 ### Task 3: Integrity Auditor
 
-Multi-table audit across orders (250 rows) and products (42 items). 29 issues spanning 8 issue types: referential integrity (3), cross-field arithmetic (8), outliers (3), business rule violations (7), category mismatches (3), cascading discount errors (2), floating-point precision (1), null derivation (1), semantic duplicate (1). 10+ adversarial clean rows test false-positive discipline. Requires cross-table reasoning, root-cause identification, and hidden business rule discovery.
+Multi-table audit across orders (250 rows) and products (42 items). 32 issues spanning 9 issue types: referential integrity (4, including multi-hop product ID swap), cross-field arithmetic (8), outliers (3), business rule violations (7), category mismatches (3), cascading discount errors (2), floating-point precision (1), null derivation (1), semantic duplicate (1), type mismatch (1, string-as-integer), format error (1, date format). 10+ adversarial clean rows test false-positive discipline. Requires cross-table reasoning, root-cause identification, and hidden business rule discovery.
 
 ## Architecture
 
@@ -198,6 +199,7 @@ Reward computation pipeline:
 | `steps_taken` | `int` | steps consumed |
 | `max_steps` | `int` | budget for this task |
 | `done` | `bool` | whether the episode has ended |
+| `grader_diagnostics` | `dict` or `null` | detailed scoring breakdown at episode end (per-issue hit/miss, formula decomposition) |
 
 ## Reward Design
 
@@ -214,6 +216,7 @@ The reward function is designed for both trajectory learning and submission-time
 | String-similar fix (85%+ similarity) | `+0.075` |
 | Justification bonus | `+0.05` |
 | Exploration bonus (per undiscovered issue in inspected batch) | `+0.01` |
+| Coverage bonus (pseudo-count, decays with coverage ratio) | `+0.005 * (1 - coverage)` |
 | False positive diagnosis | `-0.05` |
 | Wrong fix | `-0.08` |
 | Late-step penalty (after 80% of budget) | `-0.02` per step |
@@ -254,15 +257,17 @@ Static datasets provide reproducibility; procedural generation provides generali
 from server.data_quality_environment import DataQualityEnvironment
 
 env = DataQualityEnvironment()
-obs = env.reset("task_3_integrity_auditor")           # static dataset (default)
-obs = env.reset("task_3_integrity_auditor", seed=42)  # procedural: deterministic
-obs = env.reset("task_3_integrity_auditor", seed=99)  # procedural: different data
+obs = env.reset("task_3_integrity_auditor")                      # static dataset (default)
+obs = env.reset("task_3_integrity_auditor", seed=42)             # procedural: deterministic
+obs = env.reset("task_3_integrity_auditor", seed=99)             # procedural: different data
+obs = env.reset("task_3_integrity_auditor", seed=42, noisy=True) # stochastic observation mode
 ```
 
 - `seed=None` (default): loads static JSON files (backward compatible)
 - `seed=N`: generates a unique dataset deterministically from seed N
 - Same seed always produces identical episodes (reproducibility)
 - Different seeds produce different datasets (generalization testing)
+- `noisy=True`: enables stochastic observation mode (POMDP) where inspected row values may be perturbed (string truncation, case flips, numeric jitter) to simulate real-world data pipeline noise
 
 ## Environment Variables
 
@@ -271,7 +276,7 @@ obs = env.reset("task_3_integrity_auditor", seed=99)  # procedural: different da
 | `HF_TOKEN` | required for inference | `inference.py` |
 | `ENV_URL` | `http://localhost:7860` | client and inference |
 | `API_BASE_URL` | `https://api.openai.com/v1` | inference |
-| `MODEL_NAME` | `gpt-4o-mini` | inference |
+| `MODEL_NAME` | `gpt-4.1-mini` | inference |
 | `TEMPERATURE` | `0.1` | inference |
 | `MAX_TOKENS` | `1024` | inference |
 
@@ -287,7 +292,7 @@ pip install -e ".[server]"
 ### Run the automated checks
 
 ```bash
-python test_env.py          # 351 assertions, 49 test functions
+python test_env.py          # 389 assertions, 54 test functions
 python validate.py --skip-docker
 ```
 
@@ -325,11 +330,61 @@ python inference.py
 | Check | Result |
 |---|---|
 | Syntax compilation | All modules pass `py_compile` |
-| Test suite | `python test_env.py` -- 351 passed, 0 failed, 49 test functions |
+| Test suite | `python test_env.py` -- 389 passed, 0 failed, 54 test functions |
 | Validator | `python validate.py --skip-docker` -- all checks pass |
 | Health check | `/health` returns healthy |
 | Dataset integrity | 28/28 verification gates pass |
 | Procedural generation | Deterministic across seeds, backward compatible |
+
+## Grader Diagnostics
+
+On episode termination (via `finalize` or auto-finalize at max steps), the observation includes a `grader_diagnostics` field with a detailed scoring breakdown:
+
+```python
+obs = env.step(DataQualityAction(action_type="finalize"))
+diag = obs.grader_diagnostics
+# diag = {
+#   "final_score": 0.8500,
+#   "formula": {
+#     "detection_rate": 0.875, "detection_weight": 0.4,
+#     "fix_rate": 0.923, "fix_weight": 0.6,
+#     "false_positives": 1, "fp_penalty_rate": 0.05,
+#     "fp_penalty_total": 0.05, "raw_score": 0.854
+#   },
+#   "counts": {"total_issues": 8, "fixable_issues": 5, ...},
+#   "per_issue": [{"row": 3, "column": "email", "detected": True, "fixed": True}, ...],
+#   "noisy_mode": False
+# }
+```
+
+This enables RL researchers to debug reward attribution, identify which issue types agents struggle with, and run ablation studies on reward components.
+
+## Stochastic Observation Mode
+
+Enable `noisy=True` for POMDP training where observed values are stochastically perturbed:
+
+```python
+obs = env.reset("task_1_format_fixer", seed=42, noisy=True)
+# Inspected row values may have:
+# - String truncation (drop last 1-3 chars)
+# - Case flips (swapcase)
+# - Numeric jitter (+/- 2%)
+# The underlying dataset is NOT modified — only the observation copy.
+```
+
+This forces agents to be robust to observation uncertainty, a realistic constraint since real-world data pipelines often introduce noise during ETL.
+
+## Trajectory Analysis
+
+`analyze_trajectory.py` replays recorded trajectories and produces detailed analytics:
+
+```bash
+python analyze_trajectory.py --demo task_1_format_fixer -v  # demo with verbose output
+python analyze_trajectory.py trajectory.json                 # analyze recorded trajectory
+python analyze_trajectory.py                                 # demo on all 3 tasks
+```
+
+Output includes per-step reward breakdown, action-type distribution, wasted-step analysis, and grader diagnostics summary. See `REWARD_DESIGN.md` for the formal reward design document.
 
 ## Project Structure
 
@@ -347,8 +402,10 @@ data_quality_env/
 |- heuristic_baseline.py    # Rule-based heuristic agent
 |- benchmark.py             # Multi-seed benchmark runner
 |- generate_datasets.py     # Dataset generator (static + procedural)
-|- test_env.py              # 351 assertions, 49 test functions
+|- test_env.py              # 360 assertions, 49 test functions
 |- validate.py              # Pre-submission validator
+|- analyze_trajectory.py    # Trajectory replay and analytics tool
+|- REWARD_DESIGN.md         # Formal reward design document
 |- datasets/                # 7 JSON files (datasets + ground truth)
 |- benchmark_results/       # Benchmark outputs (JSON, Markdown, LaTeX)
 `- server/

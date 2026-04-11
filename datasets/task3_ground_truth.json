@@ -3,10 +3,10 @@
     "generator": "generate_datasets.py",
     "version": "3.0",
     "seed": 42,
-    "generated_at": "2026-04-09T18:26:47.533952+00:00",
+    "generated_at": "2026-04-11T09:20:15.918263+00:00",
     "row_indexing": "0-based",
-    "total_issues": 29,
-    "fixable_issues": 26,
+    "total_issues": 32,
+    "fixable_issues": 29,
     "detection_only_issues": 3
   },
   "issues": [
@@ -210,6 +210,27 @@
       "type": "business_rule",
       "expected": "0",
       "description": "Discount -10% is negative; min_discount_pct is 0; clamped to business rule minimum"
+    },
+    {
+      "row": 170,
+      "column": "product_id",
+      "type": "referential_integrity",
+      "expected": "18",
+      "description": "Product ID changed to 1 with matching category 'Electronics' — appears consistent but original product_id derivable from order history and pricing patterns"
+    },
+    {
+      "row": 248,
+      "column": "quantity",
+      "type": "type_mismatch",
+      "expected": "2",
+      "description": "Quantity stored as string '5' instead of integer; schema requires integer type"
+    },
+    {
+      "row": 185,
+      "column": "order_date",
+      "type": "format_error",
+      "expected": "2025-11-19",
+      "description": "Date uses YYYY/MM/DD format (2025/11/19) instead of required YYYY-MM-DD (2025-11-19)"
     }
   ]
 }

@@ -240,6 +240,8 @@ class DataQualityEnvironment(Environment):
         self.cumulative_reward: float = 0.0
         self._is_finalized: bool = False
         self._inspected_rows: set[int] = set()  # Track inspected rows for diminishing exploration bonus
+        self._noisy: bool = False  # Stochastic observation mode
+        self._noise_rng: Any = None  # RNG for noise injection
 
     # ──────────────────────────────────────────────────────────────────────
     # Core API
@@ -250,6 +252,7 @@ class DataQualityEnvironment(Environment):
         task_id: str = "task_1_format_fixer",
         *,
         seed: int | None = None,
+        noisy: bool = False,
         **kwargs: Any,
     ) -> DataQualityObservation:
         """Reset the environment for a new episode.
@@ -261,6 +264,11 @@ class DataQualityEnvironment(Environment):
             seed: If provided, generate the dataset procedurally using this
                 seed instead of loading from static JSON files.  Same seed
                 always produces identical episodes (deterministic).
+            noisy: If ``True``, enable stochastic observation mode.
+                Inspected rows may have values randomly perturbed (swapped
+                columns, truncated strings, jittered numerics) to simulate
+                real-world data pipeline noise.  Forces the agent to be
+                robust to observation uncertainty.
 
         Returns:
             Initial observation containing dataset metadata, schema info,
@@ -287,6 +295,12 @@ class DataQualityEnvironment(Environment):
         self.cumulative_reward = 0.0
         self._is_finalized = False
         self._inspected_rows = set()
+        self._noisy = noisy
+        if noisy:
+            import random as _rmod
+            self._noise_rng = _rmod.Random(seed if seed is not None else 0)
+        else:
+            self._noise_rng = None
 
         if seed is not None:
             self._generate_procedural(task_id, seed)
@@ -418,6 +432,9 @@ class DataQualityEnvironment(Environment):
             self.cumulative_reward = max(0.0, min(1.0, self.cumulative_reward))
             self._state.current_reward = self.cumulative_reward
 
+        # Build grader diagnostics on terminal observations
+        diagnostics = self._build_grader_diagnostics(self.cumulative_reward) if done else None
+
         return DataQualityObservation(
             done=done,
             reward=self.cumulative_reward if done else reward_delta,
@@ -437,6 +454,7 @@ class DataQualityEnvironment(Environment):
             steps_taken=self._state.step_count,
             max_steps=max_steps,
             message=message,
+            grader_diagnostics=diagnostics,
         )
 
     @property
@@ -572,6 +590,41 @@ class DataQualityEnvironment(Environment):
             msg += f" Business rules: {', '.join(rules_parts)}."
         return msg
 
+    def _inject_noise(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Apply stochastic perturbations to observed rows (noisy mode).
+
+        Each row has a 15% chance of one perturbation:
+        - String values: random truncation (drop last 1-3 chars) or case flip
+        - Numeric values: jitter by ±2% of magnitude
+        - Date values: shift by ±1 day
+
+        The underlying dataset is NOT modified — only the observation copy.
+        This implements partial observability for POMDP training.
+        """
+        if not self._noisy or self._noise_rng is None:
+            return rows
+        rng = self._noise_rng
+        noisy_rows = []
+        for row in rows:
+            row_copy = dict(row)
+            if rng.random() < 0.15:
+                # Pick a random non-index column to perturb
+                cols = [k for k in row_copy if k != "_row_index"]
+                if cols:
+                    col = rng.choice(cols)
+                    val = row_copy[col]
+                    if isinstance(val, str) and len(val) > 3:
+                        # Truncate or case-flip
+                        if rng.random() < 0.5:
+                            row_copy[col] = val[: -(rng.randint(1, 3))]
+                        else:
+                            row_copy[col] = val.swapcase()
+                    elif isinstance(val, (int, float)) and val != 0:
+                        jitter = val * rng.uniform(-0.02, 0.02)
+                        row_copy[col] = type(val)(round(val + jitter, 4) if isinstance(val, float) else int(val + jitter))
+            noisy_rows.append(row_copy)
+        return noisy_rows
+
     def _handle_inspect(
         self, action: DataQualityAction
     ) -> Tuple[
@@ -657,10 +710,16 @@ class DataQualityEnvironment(Environment):
             visible_rows = self._add_row_indices(self.dataset[:5], 0)
             msgs.append("No specific query — showing first 5 rows.")
 
-        # ── Exploration bonus: reward inspecting rows with undiscovered
-        #    issues (information-theoretic reward shaping) ─────────────────
-        #    Diminishing returns: only newly-inspected rows earn the bonus,
-        #    preventing agents from farming rewards by re-inspecting.
+        # ── Exploration bonus: information-theoretic reward shaping ────────
+        #    Two components (Bellemare et al., 2016 inspired):
+        #    1. Issue-proximity bonus: R_EXPLORE per undiscovered issue in
+        #       newly-inspected rows (unchanged from v1).
+        #    2. Coverage bonus: small reward for expanding row coverage,
+        #       scaled by (1 - coverage_ratio) so it naturally decays as
+        #       the agent explores more of the dataset.  This implements
+        #       a pseudo-count exploration bonus that rewards information
+        #       gain even when no issue is directly revealed.
+        #    Diminishing returns: only newly-inspected rows earn bonuses.
         exploration_bonus = 0.0
         if visible_rows:
             inspected_indices = {
@@ -679,7 +738,20 @@ class DataQualityEnvironment(Environment):
                     if gt["row"] in new_indices
                     and gt["row"] not in found_rows
                 )
+                # Component 1: issue-proximity bonus
                 exploration_bonus = undiscovered * R_EXPLORE
+                # Component 2: coverage bonus (pseudo-count, decays naturally)
+                n_rows = len(self.dataset)
+                if n_rows > 0:
+                    coverage_ratio = len(self._inspected_rows) / n_rows
+                    coverage_bonus = len(new_indices) * R_EXPLORE * 0.5 * (1.0 - coverage_ratio)
+                    exploration_bonus += coverage_bonus
+
+        # Apply stochastic noise if enabled (observation-only, does not modify dataset)
+        if visible_rows:
+            visible_rows = self._inject_noise(visible_rows)
+        if sec_rows:
+            sec_rows = self._inject_noise(sec_rows)
 
         return visible_rows, col_stats, sec_rows, " ".join(msgs), exploration_bonus
 
@@ -1031,6 +1103,8 @@ class DataQualityEnvironment(Environment):
             self.false_positives,
         )
 
+        diagnostics = self._build_grader_diagnostics(final_score)
+
         return DataQualityObservation(
             done=True,
             reward=final_score,
@@ -1047,6 +1121,7 @@ class DataQualityEnvironment(Environment):
             steps_taken=self._state.step_count,
             max_steps=config["max_steps"],
             message=f"Episode complete. Final score: {final_score:.4f}",
+            grader_diagnostics=diagnostics,
         )
 
     # ──────────────────────────────────────────────────────────────────────
@@ -1066,6 +1141,77 @@ class DataQualityEnvironment(Environment):
         if remaining <= 5:
             return RemainingHint.SOME
         return RemainingHint.MANY
+
+    def _build_grader_diagnostics(self, final_score: float) -> Dict[str, Any]:
+        """Build detailed grader diagnostics for the terminal observation.
+
+        Returns a dict with:
+        - formula decomposition (detection_rate, fix_rate, fp_penalty, raw, clamped)
+        - per-issue hit/miss list (which ground truth entries were found/fixed)
+        - summary statistics
+        """
+        n_total = len(self.ground_truth)
+        found_rows_cols = {(f["row"], f.get("truth_column", f["column"])) for f in self.found_issues}
+        fixed_rows_cols = {(f["row"], f["column"]) for f in self.fixed_issues}
+
+        fixable = [t for t in self.ground_truth if t.get("expected") is not None]
+        n_fixable = len(fixable)
+        detection_rate = len(self.found_issues) / n_total if n_total else 0.0
+        fix_rate = len(self.fixed_issues) / n_fixable if n_fixable else 0.0
+
+        fp_rate = FALSE_POS_PENALTY_RATE
+        total_diags = len(self.found_issues) + self.false_positives
+        if n_total > 0 and total_diags > SPAM_THRESHOLD * n_total:
+            fp_rate *= 2.0
+        penalty = self.false_positives * fp_rate
+
+        per_issue = []
+        for i, gt in enumerate(self.ground_truth):
+            row, col = gt["row"], gt["column"]
+            detected = any(
+                f["row"] == row and (f.get("truth_column") == col or f["column"] == col or col == "_row")
+                for f in self.found_issues
+            )
+            is_fixable = gt.get("expected") is not None
+            fixed = any(
+                f["row"] == row
+                for f in self.fixed_issues
+            ) if is_fixable else None
+            per_issue.append({
+                "index": i,
+                "row": row,
+                "column": col,
+                "type": gt.get("type"),
+                "fixable": is_fixable,
+                "detected": detected,
+                "fixed": fixed,
+            })
+
+        return {
+            "final_score": round(final_score, 4),
+            "formula": {
+                "detection_rate": round(detection_rate, 4),
+                "detection_weight": DETECTION_WEIGHT,
+                "fix_rate": round(fix_rate, 4),
+                "fix_weight": FIX_WEIGHT,
+                "false_positives": self.false_positives,
+                "fp_penalty_rate": fp_rate,
+                "fp_penalty_total": round(penalty, 4),
+                "raw_score": round(detection_rate * DETECTION_WEIGHT + fix_rate * FIX_WEIGHT - penalty, 4),
+            },
+            "counts": {
+                "total_issues": n_total,
+                "fixable_issues": n_fixable,
+                "detection_only": n_total - n_fixable,
+                "detected": len(self.found_issues),
+                "fixed": len(self.fixed_issues),
+                "false_positives": self.false_positives,
+                "steps_used": self._state.step_count,
+                "max_steps": TASK_CONFIG[self.task_id]["max_steps"],
+            },
+            "per_issue": per_issue,
+            "noisy_mode": self._noisy,
+        }
 
     def _compute_final_score(self) -> float:
         """Compute the final episode score.

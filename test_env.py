@@ -782,13 +782,14 @@ def test_late_step_penalty() -> None:
     for i in range(threshold):
         env.step(DataQualityAction(action_type="inspect", row_indices=[i % 50]))
 
-    # Step at threshold+1: inspect a FRESH row so only late-step penalty applies
+    # Step at threshold+1: inspect a FRESH row.  The reward_delta includes
+    # P_LATE_STEP plus a small coverage exploration bonus for the new row.
     obs = env.step(DataQualityAction(action_type="inspect", row_indices=[threshold]))
     _check(f"late-step penalty applied at step {threshold + 1}",
            obs.reward_delta < 0,
            f"reward_delta={obs.reward_delta}, expected < 0 (P_LATE_STEP={P_LATE_STEP})")
-    _check(f"penalty magnitude = {P_LATE_STEP}",
-           _approx(obs.reward_delta, P_LATE_STEP),
+    _check(f"penalty includes P_LATE_STEP component",
+           obs.reward_delta <= P_LATE_STEP + 0.01,
            f"got {obs.reward_delta}")
 
 
@@ -1410,10 +1411,10 @@ def test_procedural_episode_plays() -> None:
 # ── Phase 3: Task 3 Hardening Tests ──────────────────────────────────────
 
 
-def test_task3_issue_count_29() -> None:
-    """Task 3 now has exactly 29 ground truth issues (26 fixable, 3 detection-only)."""
+def test_task3_issue_count_32() -> None:
+    """Task 3 has exactly 32 ground truth issues (29 fixable, 3 detection-only)."""
     global _CURRENT_SUITE
-    _CURRENT_SUITE = "test_task3_issue_count_29"
+    _CURRENT_SUITE = "test_task3_issue_count_32"
     print(f"\n=== {_CURRENT_SUITE} ===")
 
     env = DataQualityEnvironment()
@@ -1422,8 +1423,8 @@ def test_task3_issue_count_29() -> None:
     total = len(gt)
     fixable = sum(1 for g in gt if "expected" in g)
     detection = total - fixable
-    _check("task3 total issues == 29", total == 29)
-    _check("task3 fixable issues == 26", fixable == 26)
+    _check("task3 total issues == 32", total == 32)
+    _check("task3 fixable issues == 29", fixable == 29)
     _check("task3 detection-only == 3", detection == 3)
 
 
@@ -1566,6 +1567,137 @@ def test_task3_adversarial_clean_rows() -> None:
 # §4  Test Runner
 # ═══════════════════════════════════════════════════════════════════════════
 
+def test_grader_diagnostics() -> None:
+    """Grader diagnostics are populated on finalize with full scoring breakdown."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_grader_diagnostics"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+    gt = env.ground_truth
+
+    # Diagnose one issue to have non-trivial diagnostics
+    issue = gt[0]
+    env.step(DataQualityAction(
+        action_type="diagnose",
+        row_index=issue["row"],
+        column_name=issue["column"],
+        issue_type=issue.get("type", "format_error"),
+    ))
+
+    obs = env.step(DataQualityAction(action_type="finalize"))
+    _check("grader_diagnostics is not None", obs.grader_diagnostics is not None)
+    diag = obs.grader_diagnostics
+    _check("has 'formula' key", "formula" in diag)
+    _check("has 'counts' key", "counts" in diag)
+    _check("has 'per_issue' key", "per_issue" in diag)
+    _check("has 'final_score' key", "final_score" in diag)
+    _check("formula has detection_rate", "detection_rate" in diag["formula"])
+    _check("formula has fix_rate", "fix_rate" in diag["formula"])
+    _check("per_issue length matches ground truth", len(diag["per_issue"]) == len(gt))
+    _check("at least one detected issue", any(p["detected"] for p in diag["per_issue"]))
+
+
+def test_stochastic_observation_mode() -> None:
+    """Stochastic mode perturbs observed values without changing underlying data."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_stochastic_observation_mode"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    obs_clean = env.reset(task_id="task_1_format_fixer", seed=42, noisy=False)
+    clean_rows = obs_clean.visible_rows
+
+    env2 = DataQualityEnvironment()
+    obs_noisy = env2.reset(task_id="task_1_format_fixer", seed=42, noisy=True)
+
+    _check("noisy mode accepted", obs_noisy is not None)
+    _check("noisy mode returns visible_rows", obs_noisy.visible_rows is not None)
+    _check("same number of rows", len(obs_noisy.visible_rows) == len(clean_rows))
+
+    # Underlying datasets should be identical
+    _check("underlying dataset size identical", len(env.dataset) == len(env2.dataset))
+
+    # Inspect multiple batches — at least some should have perturbations
+    # (probabilistic test: with 15% chance per row and many rows, very likely)
+    all_match = True
+    for batch in range(5):
+        start = batch * 10
+        obs_n = env2.step(DataQualityAction(
+            action_type="inspect",
+            row_indices=list(range(start, min(start + 10, 50))),
+        ))
+        obs_c = env.step(DataQualityAction(
+            action_type="inspect",
+            row_indices=list(range(start, min(start + 10, 50))),
+        ))
+        if obs_n.visible_rows != obs_c.visible_rows:
+            all_match = False
+            break
+    # With 15% noise probability and 50 rows, P(all match) ~ 0.85^50 ~ 0.0003
+    _check("noisy mode produces at least some different observations", not all_match)
+
+
+def test_coverage_exploration_bonus() -> None:
+    """Coverage bonus decays as more rows are inspected."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_coverage_exploration_bonus"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    # First batch: should get higher coverage bonus (low coverage ratio)
+    obs1 = env.step(DataQualityAction(action_type="inspect", row_indices=[0, 1, 2, 3, 4]))
+    bonus1 = obs1.reward_delta
+
+    # Second batch: coverage bonus should be lower (higher coverage ratio)
+    obs2 = env.step(DataQualityAction(action_type="inspect", row_indices=[5, 6, 7, 8, 9]))
+    bonus2 = obs2.reward_delta
+
+    _check("first inspection has positive bonus", bonus1 > 0)
+    _check("second inspection has positive bonus", bonus2 > 0)
+    _check("first bonus >= second bonus (coverage decay)", bonus1 >= bonus2,
+           f"bonus1={bonus1:.4f} bonus2={bonus2:.4f}")
+
+
+def test_task1_adversarial_clean_rows() -> None:
+    """Task 1 adversarial clean rows are NOT in ground truth."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task1_adversarial_clean_rows"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+    gt_rows = {g["row"] for g in env.ground_truth}
+
+    # Adversarial rows: 10, 20, 35, 48
+    for adv_row in [10, 20, 35, 48]:
+        _check(f"adversarial row {adv_row} NOT in ground truth", adv_row not in gt_rows)
+
+    # Verify specific adversarial values
+    _check("row 10 has .museum TLD email", ".museum" in str(env.dataset[10].get("email", "")))
+    _check("row 20 has leap year date", env.dataset[20].get("date_of_birth") == "2024-02-29")
+    _check("row 35 has leading-zero zip", env.dataset[35].get("zip_code") == "00501")
+
+
+def test_task2_adversarial_clean_rows() -> None:
+    """Task 2 adversarial clean rows are NOT in ground truth."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_task2_adversarial_clean_rows"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_2_duplicate_detective")
+    gt_rows_cols = {(g["row"], g["column"]) for g in env.ground_truth}
+
+    # Adversarial rows: 15, 45, 75, 100, 80 — none should appear in ground truth
+    for adv_row in [15, 45, 75, 100, 80]:
+        in_gt = any(g["row"] == adv_row for g in env.ground_truth)
+        _check(f"adversarial row {adv_row} NOT in ground truth", not in_gt)
+
+
 _ALL_TESTS = [
     test_reset_all_tasks,
     test_reset_invalid_task_id,
@@ -1613,12 +1745,18 @@ _ALL_TESTS = [
     test_procedural_all_tasks,
     test_procedural_episode_plays,
     # Phase 3: Task 3 hardening tests
-    test_task3_issue_count_29,
+    test_task3_issue_count_32,
     test_task3_null_total_fixable,
     test_task3_cascading_qty_mismatch,
     test_task3_hidden_business_rules,
     test_task3_temporal_consistency,
     test_task3_adversarial_clean_rows,
+    # Phase 4: New feature tests
+    test_grader_diagnostics,
+    test_stochastic_observation_mode,
+    test_coverage_exploration_bonus,
+    test_task1_adversarial_clean_rows,
+    test_task2_adversarial_clean_rows,
 ]
 
 
