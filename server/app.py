@@ -34,13 +34,30 @@ except ImportError:
     from server.data_quality_environment import DataQualityEnvironment  # type: ignore[no-redef]
 
 
+_SCORE_EPS = 0.0001
+
+
+def _clamp_reward(value: Any) -> Any:
+    """Ensure a reward value is strictly in (0, 1)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and value is not None:
+        return max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+    return value
+
+
 def _serialize(obj: Any) -> dict[str, Any]:
-    """Serialize Pydantic models in both v1 and v2 environments."""
+    """Serialize Pydantic models with score clamping safety net."""
     if hasattr(obj, "model_dump"):
-        return obj.model_dump(mode="json")
-    if hasattr(obj, "dict"):
-        return obj.dict()
-    return dict(obj)  # type: ignore[call-overload]
+        data = obj.model_dump(mode="json")
+    elif hasattr(obj, "dict"):
+        data = obj.dict()
+    else:
+        data = dict(obj)  # type: ignore[call-overload]
+    for key in ("reward", "cumulative_reward", "reward_delta"):
+        if key in data and isinstance(data[key], (int, float)) and not isinstance(data[key], bool):
+            data[key] = _clamp_reward(data[key])
+    return data
 
 
 def _manual_handlers(json_response_cls: type[Any]) -> tuple[Callable[..., Any], ...]:

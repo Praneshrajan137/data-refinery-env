@@ -1168,11 +1168,11 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
                 error_str = error_str.replace("\n", " ").replace("\r", "")
                 print(
                     f"[STEP] step={step_num + 1} action={action_str} "
-                    f"reward={reward_delta:.2f} done={str(done).lower()} "
+                    f"reward={reward_delta:.4f} done={str(done).lower()} "
                     f"error={error_str}",
                     flush=True,
                 )
-                rewards_list.append(f"{reward_delta:.2f}")
+                rewards_list.append(f"{reward_delta:.4f}")
                 final_step_count = step_num + 1
 
                 logger.info(
@@ -1192,7 +1192,7 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
     # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
     clamped_score = _safe_clamp(total_reward)
     success = str(clamped_score >= 0.3).lower()
-    rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
+    rewards_str = ",".join(rewards_list) if rewards_list else "0.0001"
     print(
         f"[END] success={success} steps={final_step_count} "
         f"rewards={rewards_str}",

@@ -48,7 +48,7 @@ See Also:
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_serializer, model_validator
 
 try:
     from .compat import Action, Observation, State
@@ -532,22 +532,85 @@ class DataQualityObservation(Observation):
         ),
     )
 
-    # ── Clamp terminal scores to [0, 1] ─────────────────────────────────
+    # ── Clamp ALL scores to strict (0, 1) — exclusive of endpoints ──────
+    # The hackathon Phase 2 validator rejects exactly 0.0 and 1.0 in ANY
+    # reward-like field on ANY observation (not just terminal).
+
+    _SCORE_LO: float = 0.0001
+    _SCORE_HI: float = 0.9999
+
+    @staticmethod
+    def _clamp(value: Any, lo: float = 0.0001, hi: float = 0.9999) -> Any:
+        """Clamp a numeric value to (lo, hi). Non-numeric values pass through."""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            import math
+            v = float(value)
+            if math.isnan(v) or math.isinf(v):
+                return lo
+            return max(lo, min(hi, v))
+        return value
 
     @model_validator(mode="after")
-    def _clamp_terminal_scores(self) -> "DataQualityObservation":
-        """Ensure done=True observations have scores in [0, 1]."""
-        if self.done:
-            if isinstance(self.reward, (int, float)) and self.reward is not None:
-                object.__setattr__(
-                    self, "reward",
-                    max(0.0, min(1.0, float(self.reward))),
-                )
+    def _clamp_all_scores(self) -> "DataQualityObservation":
+        """Ensure ALL observations have every reward field strictly in (0, 1)."""
+        lo = self._SCORE_LO
+        hi = self._SCORE_HI
+        if self.reward is not None and not isinstance(self.reward, bool):
+            object.__setattr__(self, "reward", max(lo, min(hi, float(self.reward))))
+        object.__setattr__(self, "cumulative_reward", max(lo, min(hi, self.cumulative_reward)))
+        object.__setattr__(self, "reward_delta", max(lo, min(hi, self.reward_delta)))
+        if self.grader_diagnostics is not None:
             object.__setattr__(
-                self, "cumulative_reward",
-                max(0.0, min(1.0, self.cumulative_reward)),
+                self, "grader_diagnostics",
+                self._sanitize_diagnostics(self.grader_diagnostics),
             )
         return self
+
+    _STRUCTURAL_INT_KEYS = frozenset({
+        "total_issues", "fixable_issues", "detection_only", "detected",
+        "fixed", "false_positives", "steps_used", "max_steps",
+        "total_rows", "total_columns", "issues_found", "steps_taken",
+        "row", "index", "row_index", "column",
+    })
+
+    @classmethod
+    def _sanitize_diagnostics(cls, diag: Any) -> Any:
+        """Recursively clamp float values in grader_diagnostics to (0.0001, 0.9999)."""
+        if not isinstance(diag, dict):
+            return diag
+        sanitized: Dict[str, Any] = {}
+        for key, value in diag.items():
+            if key in cls._STRUCTURAL_INT_KEYS:
+                sanitized[key] = value
+            elif isinstance(value, bool):
+                sanitized[key] = value
+            elif isinstance(value, float):
+                sanitized[key] = cls._clamp(value)
+            elif isinstance(value, dict):
+                sanitized[key] = cls._sanitize_diagnostics(value)
+            elif isinstance(value, list):
+                sanitized[key] = [
+                    cls._sanitize_diagnostics(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            else:
+                sanitized[key] = value
+        return sanitized
+
+    @model_serializer(mode="wrap")
+    def _serialize_with_clamped_scores(self, handler: Any) -> Dict[str, Any]:
+        """Re-clamp ALL reward fields during serialization as a safety net."""
+        data = handler(self)
+        lo = self._SCORE_LO
+        hi = self._SCORE_HI
+        for key in ("reward", "cumulative_reward", "reward_delta"):
+            if key in data and data[key] is not None and not isinstance(data[key], bool):
+                data[key] = max(lo, min(hi, float(data[key])))
+        if "grader_diagnostics" in data and isinstance(data["grader_diagnostics"], dict):
+            data["grader_diagnostics"] = self._sanitize_diagnostics(data["grader_diagnostics"])
+        return data
 
     # ── custom repr for readable debug logs ───────────────────────────────
 
