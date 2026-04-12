@@ -35,15 +35,46 @@ except ImportError:
 
 
 _SCORE_EPS = 0.0001
+_SCORE_LO = _SCORE_EPS
+_SCORE_HI = 1.0 - _SCORE_EPS
+
+_REWARD_KEYS = frozenset({"reward", "cumulative_reward", "reward_delta"})
 
 
-def _clamp_reward(value: Any) -> Any:
-    """Ensure a reward value is strictly in (0, 1)."""
+def _clamp_score(value: Any) -> Any:
+    """Clamp a numeric value to the strict open interval (SCORE_LO, SCORE_HI).
+
+    Bools pass through unchanged. None is mapped to SCORE_LO.
+    NaN/Inf are mapped to the nearest boundary.
+    """
     if isinstance(value, bool):
         return value
-    if isinstance(value, (int, float)) and value is not None:
-        return max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+    if value is None:
+        return _SCORE_LO
+    if isinstance(value, (int, float)):
+        import math
+        v = float(value)
+        if math.isnan(v) or math.isinf(v):
+            return _SCORE_LO if v != float("inf") else _SCORE_HI
+        return max(_SCORE_LO, min(_SCORE_HI, v))
     return value
+
+
+def _deep_clamp_rewards(obj: Any) -> Any:
+    """Recursively walk a dict/list and clamp all reward-like float fields."""
+    if isinstance(obj, dict):
+        out: dict[str, Any] = {}
+        for k, v in obj.items():
+            if k in _REWARD_KEYS and not isinstance(v, bool):
+                out[k] = _clamp_score(v)
+            elif isinstance(v, (dict, list)):
+                out[k] = _deep_clamp_rewards(v)
+            else:
+                out[k] = v
+        return out
+    if isinstance(obj, list):
+        return [_deep_clamp_rewards(item) for item in obj]
+    return obj
 
 
 def _serialize(obj: Any) -> dict[str, Any]:
@@ -54,10 +85,7 @@ def _serialize(obj: Any) -> dict[str, Any]:
         data = obj.dict()
     else:
         data = dict(obj)  # type: ignore[call-overload]
-    for key in ("reward", "cumulative_reward", "reward_delta"):
-        if key in data and isinstance(data[key], (int, float)) and not isinstance(data[key], bool):
-            data[key] = _clamp_reward(data[key])
-    return data
+    return _deep_clamp_rewards(data)
 
 
 def _manual_handlers(json_response_cls: type[Any]) -> tuple[Callable[..., Any], ...]:
@@ -230,6 +258,46 @@ try:
             DataQualityEnvironment,
             DataQualityAction,
             DataQualityObservation,
+        )
+
+    # ── Monkey-patch serialize_observation in the openenv framework ────
+    # The framework's serialize_observation calls model_dump(exclude=...)
+    # and then reads observation.reward directly.  In some Pydantic v2
+    # builds the model_serializer(mode="wrap") output is re-filtered by
+    # the exclude set, stripping our re-injected reward.  This patch
+    # ensures all reward-like values are clamped at the wire boundary.
+    try:
+        import openenv.core.env_server.http_server as _hs_mod
+
+        _original_serialize_obs = _hs_mod.serialize_observation
+
+        def _clamped_serialize_observation(observation):  # type: ignore[no-untyped-def]
+            result = _original_serialize_obs(observation)
+
+            # 1. Clamp top-level reward (the primary "task score")
+            if "reward" in result:
+                result["reward"] = _clamp_score(result["reward"])
+            else:
+                result["reward"] = _clamp_score(
+                    getattr(observation, "reward", None)
+                )
+
+            # 2. Ensure done is always present
+            if "done" not in result:
+                result["done"] = getattr(observation, "done", False)
+
+            # 3. Deep-clamp all reward-like fields inside the obs dict
+            obs_dict = result.get("observation")
+            if isinstance(obs_dict, dict):
+                result["observation"] = _deep_clamp_rewards(obs_dict)
+
+            return result
+
+        _hs_mod.serialize_observation = _clamped_serialize_observation
+        logger.info("Monkey-patched serialize_observation with reward clamping")
+    except Exception as patch_err:
+        logger.warning(
+            "Could not monkey-patch serialize_observation: %s", patch_err
         )
 
     _app_created = True
