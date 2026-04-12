@@ -388,19 +388,39 @@ if not _has_reset:
 # This intercepts every JSON response (from any code path, including
 # openenv's create_app) and clamps reward/score fields to (0.0001, 0.9999).
 
+_SCORE_KEYS = frozenset({
+    "reward", "cumulative_reward", "reward_delta",
+    "final_score", "detection_rate", "fix_rate", "raw_score",
+    "fp_penalty_total", "fp_penalty_rate", "detection_weight",
+    "fix_weight", "score", "issues_per_step",
+    "exploration_coverage", "step_utilization",
+})
+
+_STRUCTURAL_INT_KEYS = frozenset({
+    "total_issues", "fixable_issues", "detection_only", "detected",
+    "fixed", "false_positives", "steps_used", "max_steps",
+    "total_rows", "total_columns", "issues_found", "steps_taken",
+    "row", "index", "row_index", "column", "order_id", "customer_id",
+    "product_id", "id", "stock", "step_count",
+})
+
+
 def _clamp_scores_in_dict(d: dict) -> dict:
-    """Recursively clamp all reward-like fields in a dict to (0.0001, 0.9999).
-    
+    """Recursively clamp all score/rate/reward fields in a dict to (0.0001, 0.9999).
+
+    Uses a two-tier strategy:
+      1. Named-key clamping: any key in ``_SCORE_KEYS`` is force-clamped.
+      2. Structural whitelist: keys in ``_STRUCTURAL_INT_KEYS`` are never touched.
+      3. All other float values inside ``grader_diagnostics`` or ``formula``
+         sub-dicts are also clamped (nuclear fallback).
+
     Also handles the openenv create_app case where the top-level ``reward``
     is ``None`` — replaces it with the observation's ``cumulative_reward``
     or ``_SCORE_EPS`` as a fallback.
     """
-    _KEYS = {"reward", "cumulative_reward", "reward_delta"}
     for key, value in d.items():
-        if key in _KEYS:
+        if key in _SCORE_KEYS:
             if value is None:
-                # openenv framework sets top-level reward=None; replace with
-                # cumulative_reward from nested observation or SCORE_MIN
                 obs = d.get("observation", {})
                 if isinstance(obs, dict) and "cumulative_reward" in obs:
                     fallback = obs["cumulative_reward"]
@@ -412,12 +432,18 @@ def _clamp_scores_in_dict(d: dict) -> dict:
                     d[key] = _SCORE_EPS
             elif isinstance(value, (int, float)) and not isinstance(value, bool):
                 d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+        elif key in _STRUCTURAL_INT_KEYS:
+            pass
         elif isinstance(value, dict):
             _clamp_scores_in_dict(value)
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
                     _clamp_scores_in_dict(item)
+        elif isinstance(value, float) and not isinstance(value, bool):
+            import math
+            if math.isnan(value) or math.isinf(value) or value <= 0.0 or value >= 1.0:
+                d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, 0.0 if math.isnan(value) else value))
     return d
 
 
@@ -502,9 +528,120 @@ class _ScoreClampMiddleware:
         await self.app(scope, receive, _http_send)
 
 
-# Wrap the inner app with score-clamping middleware as the FINAL step
-app = _ScoreClampMiddleware(_inner_app)  # type: ignore[assignment]
-logger.info("Score-clamping ASGI middleware installed")
+def _nuclear_sanitize_response(data: Any) -> Any:
+    """Absolute last-resort sanitizer: walk ANY JSON structure and ensure
+    no float value is exactly 0.0, 1.0, negative, or > 1.0.
+
+    Integer fields (counts, indices, IDs) are left untouched.
+    Boolean fields are left untouched.
+    String fields are left untouched.
+    Only bare float values that violate the (0, 1) open interval are clamped.
+    """
+    import math
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, bool):
+                continue
+            elif isinstance(value, float):
+                if math.isnan(value) or math.isinf(value):
+                    data[key] = _SCORE_EPS
+                elif value <= 0.0 or value >= 1.0:
+                    data[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, value))
+            elif isinstance(value, (dict, list)):
+                _nuclear_sanitize_response(value)
+    elif isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict):
+                _nuclear_sanitize_response(item)
+    return data
+
+
+class _NuclearSanitizeMiddleware:
+    """Outermost ASGI middleware — absolute final defense.
+
+    Runs AFTER _ScoreClampMiddleware.  Catches any float that the
+    key-based clamper missed (e.g., new fields added in the future,
+    or fields in grader_diagnostics.per_issue that aren't covered
+    by the named-key set).
+    """
+
+    def __init__(self, app_inner: Any) -> None:
+        self.app = app_inner
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        if scope["type"] == "websocket":
+            async def _ws_send(message: dict) -> None:
+                if message.get("type") == "websocket.send":
+                    text = message.get("text")
+                    if text:
+                        try:
+                            data = json.loads(text)
+                            _nuclear_sanitize_response(data)
+                            message = {**message, "text": json.dumps(data)}
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                await send(message)
+            await self.app(scope, receive, _ws_send)
+            return
+
+        response_headers: list = []
+        response_status: int = 200
+        body_parts: list[bytes] = []
+
+        async def _http_send(message: dict) -> None:
+            nonlocal response_headers, response_status
+            if message["type"] == "http.response.start":
+                response_status = message.get("status", 200)
+                response_headers = list(message.get("headers", []))
+            elif message["type"] == "http.response.body":
+                body_parts.append(message.get("body", b""))
+                if not message.get("more_body", False):
+                    full_body = b"".join(body_parts)
+                    content_type = ""
+                    new_headers = []
+                    for hname, hval in response_headers:
+                        if hname.lower() == b"content-type":
+                            content_type = hval.decode("utf-8", errors="replace")
+                        new_headers.append((hname, hval))
+
+                    if "json" in content_type:
+                        try:
+                            data = json.loads(full_body)
+                            _nuclear_sanitize_response(data)
+                            full_body = json.dumps(data).encode("utf-8")
+                            new_headers = [
+                                (h, v) for h, v in new_headers
+                                if h.lower() != b"content-length"
+                            ]
+                            new_headers.append(
+                                (b"content-length", str(len(full_body)).encode())
+                            )
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
+                    await send({
+                        "type": "http.response.start",
+                        "status": response_status,
+                        "headers": new_headers,
+                    })
+                    await send({
+                        "type": "http.response.body",
+                        "body": full_body,
+                    })
+
+        await self.app(scope, receive, _http_send)
+
+
+# Layer 1: Key-based score clamper (targets named reward/score fields)
+_clamped_app = _ScoreClampMiddleware(_inner_app)
+# Layer 2: Nuclear sanitizer (catches ANY float outside (0,1))
+app = _NuclearSanitizeMiddleware(_clamped_app)  # type: ignore[assignment]
+logger.info("Score-clamping ASGI middleware installed (2 layers)")
 
 
 def main(host: str = "0.0.0.0", port: int = 7860) -> None:

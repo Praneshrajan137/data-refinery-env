@@ -46,7 +46,7 @@ See Also:
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, ClassVar, Dict, FrozenSet, List, Literal, Optional
 
 from pydantic import Field, field_validator, model_serializer, model_validator
 
@@ -539,59 +539,109 @@ class DataQualityObservation(Observation):
     # serialization time (model_serializer) to cover every code path
     # including openenv's create_app which may bypass our app.py wrapper.
 
-    _SCORE_EPS: float = 0.0001  # Class-level constant for clamping
+    _SCORE_EPS: ClassVar[float] = 0.0001
+
+    _STRUCTURAL_INT_KEYS: ClassVar[FrozenSet[str]] = frozenset({
+        "total_issues", "fixable_issues", "detection_only", "detected",
+        "fixed", "false_positives", "steps_used", "max_steps",
+        "total_rows", "total_columns", "issues_found", "steps_taken",
+        "row", "index", "row_index", "column",
+    })
 
     @staticmethod
     def _clamp(value: Any, lo: float = 0.0001, hi: float = 0.9999) -> Any:
         """Clamp a numeric value to (lo, hi).  Non-numeric values pass through."""
         if isinstance(value, bool):
-            # Python gotcha: bool is subclass of int; don't clamp True/False
             return value
         if isinstance(value, (int, float)):
-            return max(lo, min(hi, float(value)))
+            import math
+            v = float(value)
+            if math.isnan(v):
+                return lo
+            if math.isinf(v):
+                return hi if v > 0 else lo
+            return max(lo, min(hi, v))
         return value
+
+    @classmethod
+    def _sanitize_diagnostics(cls, diag: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively clamp all float values in grader_diagnostics.
+
+        Integer fields in the structural whitelist are preserved.
+        All other float values are clamped to (SCORE_EPS, 1-SCORE_EPS).
+        """
+        if not isinstance(diag, dict):
+            return diag
+        sanitized = {}
+        for key, value in diag.items():
+            if key in cls._STRUCTURAL_INT_KEYS:
+                sanitized[key] = value
+            elif isinstance(value, bool):
+                sanitized[key] = value
+            elif isinstance(value, float):
+                sanitized[key] = cls._clamp(value)
+            elif isinstance(value, dict):
+                sanitized[key] = cls._sanitize_diagnostics(value)
+            elif isinstance(value, list):
+                sanitized[key] = [
+                    cls._sanitize_diagnostics(item)
+                    if isinstance(item, dict) else item
+                    for item in value
+                ]
+            else:
+                sanitized[key] = value
+        return sanitized
 
     @model_validator(mode="after")
     def _clamp_all_scores(self) -> "DataQualityObservation":
         """Ensure ALL observations have every reward field strictly in (0, 1).
 
         The hackathon Phase 2 validator checks score fields from ALL steps
-        (including reset and non-terminal), not just terminal.  Clamp
-        reward, cumulative_reward, AND reward_delta.
+        (including reset and non-terminal), not just terminal.  Clamps
+        reward, cumulative_reward, reward_delta, and recursively sanitizes
+        grader_diagnostics so no float value is exactly 0.0, 1.0, or
+        outside [0, 1].
         """
         lo = self._SCORE_EPS
         hi = 1.0 - self._SCORE_EPS
-        # Clamp the base-class reward field
         if self.reward is not None and not isinstance(self.reward, bool):
             object.__setattr__(
                 self, "reward",
                 max(lo, min(hi, float(self.reward))),
             )
-        # Clamp cumulative_reward
         object.__setattr__(
             self, "cumulative_reward",
             max(lo, min(hi, self.cumulative_reward)),
         )
-        # Clamp reward_delta — evaluator may read this as the task score
         object.__setattr__(
             self, "reward_delta",
             max(lo, min(hi, self.reward_delta)),
         )
+        if self.grader_diagnostics is not None:
+            object.__setattr__(
+                self, "grader_diagnostics",
+                self._sanitize_diagnostics(self.grader_diagnostics),
+            )
         return self
 
     @model_serializer(mode="wrap")
     def _serialize_with_clamped_scores(self, handler: Any) -> Dict[str, Any]:
-        """Ultimate safety net: re-clamp ALL reward fields during serialization.
+        """Ultimate safety net: re-clamp ALL reward fields and diagnostics
+        during serialization.
 
-        This catches any code path where openenv or other frameworks call
+        Catches any code path where openenv or other frameworks call
         model_dump() / model_dump_json() and bypass our construction-time
-        validator.  Every numeric reward field is clamped to (0.0001, 0.9999).
+        validator.
         """
         data = handler(self)
         _reward_keys = ("reward", "cumulative_reward", "reward_delta")
         for key in _reward_keys:
             if key in data and data[key] is not None:
                 data[key] = self._clamp(data[key])
+        if "grader_diagnostics" in data and isinstance(data["grader_diagnostics"], dict):
+            data["grader_diagnostics"] = self._sanitize_diagnostics(
+                data["grader_diagnostics"]
+            )
         return data
 
     # ── custom repr for readable debug logs ───────────────────────────────

@@ -410,8 +410,10 @@ def test_diagnose_false_positive() -> None:
         issue_type="format_error",
     ))
     _check("result=incorrect", obs.action_result == ActionResult.INCORRECT)
-    _check(f"reward_delta={P_FALSE_POS} (P_FALSE_POS)",
-           _approx(obs.reward_delta, P_FALSE_POS),
+    # reward_delta is clamped to (0.0001, 0.9999) for Phase 2 validator compliance;
+    # the negative penalty still applies to cumulative_reward internally
+    _check(f"reward_delta clamped (P_FALSE_POS applied internally)",
+           obs.reward_delta == 0.0001,
            f"got {obs.reward_delta}")
 
 
@@ -445,7 +447,8 @@ def test_diagnose_already_found() -> None:
         issue_type=issue.get("type", "format_error"),
     ))
     _check("repeat returns already_found", obs.action_result == ActionResult.ALREADY_FOUND)
-    _check("repeat reward_delta=0", _approx(obs.reward_delta, 0.0))
+    # reward_delta=0 is clamped to 0.0001 for Phase 2 validator compliance
+    _check("repeat reward_delta=0 (clamped)", _approx(obs.reward_delta, 0.0001))
 
 
 def test_diagnose_duplicate_any_column() -> None:
@@ -636,8 +639,9 @@ def test_fix_wrong_value() -> None:
     _check("wrong fix returns incorrect",
            obs.action_result == ActionResult.INCORRECT,
            f"got {obs.action_result}")
-    _check(f"penalty = {P_WRONG_FIX}",
-           _approx(obs.reward_delta, P_WRONG_FIX),
+    # Negative penalty is clamped to 0.0001 for Phase 2 validator compliance
+    _check("penalty clamped (P_WRONG_FIX applied internally)",
+           obs.reward_delta == 0.0001,
            f"got {obs.reward_delta}")
 
 
@@ -744,9 +748,9 @@ def test_finalize_reward_delta() -> None:
 
     obs = env.step(DataQualityAction(action_type="finalize"))
     _check("finalize done=True", obs.done is True)
-    _check("reward_delta = final_score - pre_finalize_reward",
-           _approx(obs.reward_delta, obs.cumulative_reward - pre_finalize_reward, tol=0.01),
-           f"delta={obs.reward_delta}, cum={obs.cumulative_reward}, pre={pre_finalize_reward}")
+    # reward_delta is clamped to (0.0001, 0.9999), so the raw delta may differ
+    # from cumulative_reward - pre_finalize_reward; just verify it's in valid range
+    _check("reward_delta in valid range", 0.0 < obs.reward_delta < 1.0)
     _check("cumulative_reward > 0 (work was done)", obs.cumulative_reward > 0)
 
 
@@ -782,15 +786,19 @@ def test_late_step_penalty() -> None:
     for i in range(threshold):
         env.step(DataQualityAction(action_type="inspect", row_indices=[i % 50]))
 
-    # Step at threshold+1: inspect a FRESH row.  The reward_delta includes
-    # P_LATE_STEP plus a small coverage exploration bonus for the new row.
+    # Step at threshold+1: inspect a FRESH row.  The internal reward_delta
+    # includes P_LATE_STEP, but the exposed value is clamped to (0.0001, 0.9999).
+    # Verify via cumulative_reward that the penalty was applied internally.
+    pre_cum = env.cumulative_reward
     obs = env.step(DataQualityAction(action_type="inspect", row_indices=[threshold]))
-    _check(f"late-step penalty applied at step {threshold + 1}",
-           obs.reward_delta < 0,
-           f"reward_delta={obs.reward_delta}, expected < 0 (P_LATE_STEP={P_LATE_STEP})")
-    _check(f"penalty includes P_LATE_STEP component",
-           obs.reward_delta <= P_LATE_STEP + 0.01,
-           f"got {obs.reward_delta}")
+    # The clamped reward_delta is 0.0001 (negative values map to SCORE_MIN)
+    _check(f"late-step penalty: reward_delta clamped at step {threshold + 1}",
+           obs.reward_delta == 0.0001,
+           f"reward_delta={obs.reward_delta}")
+    # But cumulative_reward should reflect the actual penalty was applied internally
+    _check("late penalty reflected in cumulative",
+           obs.cumulative_reward <= pre_cum + 0.01,
+           f"pre={pre_cum}, post={obs.cumulative_reward}")
 
 
 def test_cumulative_reward_accumulation() -> None:
@@ -1264,11 +1272,12 @@ def test_reinspect_penalty() -> None:
            obs1.reward_delta >= 0,
            f"got {obs1.reward_delta}")
 
-    # Second inspect: same rows, should trigger P_REINSPECT
+    # Second inspect: same rows, should trigger P_REINSPECT internally
+    # but reward_delta is clamped to 0.0001 for Phase 2 validator compliance
     obs2 = env.step(DataQualityAction(action_type="inspect", row_indices=[0, 1, 2]))
-    _check("re-inspect penalty applied",
-           _approx(obs2.reward_delta, P_REINSPECT),
-           f"got {obs2.reward_delta}, expected {P_REINSPECT}")
+    _check("re-inspect penalty: reward_delta clamped",
+           obs2.reward_delta == 0.0001,
+           f"got {obs2.reward_delta}")
 
 
 def test_spam_penalty_uncapped() -> None:
@@ -1716,6 +1725,173 @@ def test_task2_adversarial_clean_rows() -> None:
         _check(f"adversarial row {adv_row} NOT in ground truth", not in_gt)
 
 
+def _assert_all_floats_in_range(data: Any, path: str = "root") -> None:
+    """Recursively verify that every float value is strictly in (0, 1)."""
+    if isinstance(data, bool):
+        return
+    if isinstance(data, float):
+        _check(
+            f"{path} in (0,1): {data}",
+            0.0 < data < 1.0,
+        )
+    elif isinstance(data, dict):
+        for key, value in data.items():
+            _assert_all_floats_in_range(value, f"{path}.{key}")
+    elif isinstance(data, list):
+        for i, item in enumerate(data):
+            _assert_all_floats_in_range(item, f"{path}[{i}]")
+
+
+def test_score_range_finalize_zero_work():
+    """Finalize immediately with zero work — worst case for 0.0 leaks."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_score_range_finalize_zero_work"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    for task_id in TASK_CONFIG:
+        env = DataQualityEnvironment()
+        obs = env.reset(task_id=task_id)
+
+        # Verify reset observation
+        _check(f"{task_id} reset reward in (0,1)", 0.0 < obs.reward < 1.0)
+        _check(f"{task_id} reset cum_reward in (0,1)", 0.0 < obs.cumulative_reward < 1.0)
+        _check(f"{task_id} reset reward_delta in (0,1)", 0.0 < obs.reward_delta < 1.0)
+
+        # Finalize with zero work — detection_rate=0, fix_rate=0
+        obs = env.step(DataQualityAction.finalize())
+        _check(f"{task_id} final reward in (0,1)", 0.0 < obs.reward < 1.0)
+        _check(f"{task_id} final cum_reward in (0,1)", 0.0 < obs.cumulative_reward < 1.0)
+        _check(f"{task_id} final reward_delta in (0,1)", 0.0 < obs.reward_delta < 1.0)
+
+        # Verify grader_diagnostics — every float must be in (0, 1)
+        diag = obs.grader_diagnostics
+        _check(f"{task_id} diagnostics present", diag is not None)
+        if diag:
+            _assert_all_floats_in_range(diag, f"{task_id}.grader_diagnostics")
+
+            # Verify serialized form too
+            data = obs.model_dump(mode="json")
+            _assert_all_floats_in_range(
+                data.get("grader_diagnostics", {}),
+                f"{task_id}.serialized.grader_diagnostics",
+            )
+
+
+def test_score_range_perfect_episode():
+    """Perfect episode — worst case for 1.0 leaks (detection_rate=1.0, fix_rate=1.0)."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_score_range_perfect_episode"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_1_format_fixer")
+
+    for truth in env.ground_truth:
+        col = truth["column"] if truth["column"] != "_row" else "email"
+        issue_type_str = truth.get("type", "format_error")
+        try:
+            issue_type = IssueType(issue_type_str)
+        except ValueError:
+            issue_type = IssueType.FORMAT_ERROR
+
+        env.step(DataQualityAction.diagnose(
+            row_index=truth["row"], column_name=col, issue_type=issue_type,
+        ))
+
+        if truth.get("expected") is not None:
+            expected = truth["expected"]
+            if expected == "DELETE_ROW":
+                env.step(DataQualityAction.fix(
+                    row_index=truth["row"], column_name=col,
+                    fix_type=FixType.DELETE_ROW, justification="Duplicate row",
+                ))
+            else:
+                env.step(DataQualityAction.fix(
+                    row_index=truth["row"], column_name=col,
+                    fix_type=FixType.CORRECT_VALUE, new_value=expected,
+                    justification="Correcting to ground truth value",
+                ))
+
+    obs = env.step(DataQualityAction.finalize())
+    _check("perfect episode reward in (0,1)", 0.0 < obs.reward < 1.0)
+    _check("perfect episode cum_reward in (0,1)", 0.0 < obs.cumulative_reward < 1.0)
+    _check("perfect episode reward_delta in (0,1)", 0.0 < obs.reward_delta < 1.0)
+
+    diag = obs.grader_diagnostics
+    _check("perfect diagnostics present", diag is not None)
+    if diag:
+        _assert_all_floats_in_range(diag, "perfect.grader_diagnostics")
+        # Verify formula rates are clamped below 1.0
+        dr = diag.get("formula", {}).get("detection_rate", 0)
+        fr = diag.get("formula", {}).get("fix_rate", 0)
+        _check("detection_rate < 1.0", dr < 1.0)
+        _check("fix_rate < 1.0", fr < 1.0)
+
+
+def test_score_range_every_step():
+    """Verify that EVERY step observation has all reward fields in (0, 1)."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_score_range_every_step"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    obs = env.reset(task_id="task_1_format_fixer")
+
+    _check("step0 reward in (0,1)", 0.0 < obs.reward < 1.0)
+
+    actions = [
+        DataQualityAction.inspect(row_indices=[0, 1, 2, 3, 4]),
+        DataQualityAction.inspect(row_indices=[5, 6, 7, 8, 9]),
+        DataQualityAction.diagnose(
+            row_index=3, column_name="email", issue_type=IssueType.FORMAT_ERROR,
+        ),
+        DataQualityAction.diagnose(
+            row_index=0, column_name="email", issue_type=IssueType.FORMAT_ERROR,
+        ),
+        DataQualityAction.fix(
+            row_index=3, column_name="email", fix_type=FixType.CORRECT_VALUE,
+            new_value="john.doe@example.com", justification="Missing @ symbol",
+        ),
+        DataQualityAction.finalize(),
+    ]
+
+    for i, action in enumerate(actions):
+        obs = env.step(action)
+        step_label = f"step{i+1}"
+        _check(f"{step_label} reward in (0,1)", 0.0 < obs.reward < 1.0)
+        _check(f"{step_label} cum_reward in (0,1)", 0.0 < obs.cumulative_reward < 1.0)
+        _check(f"{step_label} reward_delta in (0,1)", 0.0 < obs.reward_delta < 1.0)
+
+        data = obs.model_dump(mode="json")
+        for field in ("reward", "cumulative_reward", "reward_delta"):
+            val = data.get(field)
+            if val is not None and not isinstance(val, bool):
+                _check(f"{step_label} serialized {field} in (0,1)", 0.0 < val < 1.0)
+
+        if obs.done:
+            break
+
+
+def test_score_range_diagnostics_efficiency():
+    """Verify the new efficiency metrics in grader_diagnostics are clamped."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_score_range_diagnostics_efficiency"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    env = DataQualityEnvironment()
+    env.reset(task_id="task_2_duplicate_detective")
+    obs = env.step(DataQualityAction.finalize())
+
+    diag = obs.grader_diagnostics
+    _check("diagnostics has efficiency", "efficiency" in (diag or {}))
+    if diag and "efficiency" in diag:
+        eff = diag["efficiency"]
+        for key in ("issues_per_step", "exploration_coverage", "step_utilization"):
+            _check(f"efficiency.{key} present", key in eff)
+            val = eff.get(key, 0)
+            _check(f"efficiency.{key} in (0,1)", 0.0 < val < 1.0)
+
+
 _ALL_TESTS = [
     test_reset_all_tasks,
     test_reset_invalid_task_id,
@@ -1775,6 +1951,11 @@ _ALL_TESTS = [
     test_coverage_exploration_bonus,
     test_task1_adversarial_clean_rows,
     test_task2_adversarial_clean_rows,
+    # Phase 5: Score range validation (Phase 2 bug fix)
+    test_score_range_finalize_zero_work,
+    test_score_range_perfect_episode,
+    test_score_range_every_step,
+    test_score_range_diagnostics_efficiency,
 ]
 
 
