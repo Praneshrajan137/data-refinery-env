@@ -968,6 +968,39 @@ def _make_fallback_action(
     return {"action_type": "finalize"}
 
 
+def _format_action_str(action_dict: Dict[str, Any]) -> str:
+    """Format an action dict as a compact string for the [STEP] log line.
+
+    Matches the spec example style: ``inspect([0,1,2])``, ``diagnose(5,'email','format_error')``,
+    ``fix(5,'email','correct_value')``, ``finalize()``.
+    """
+    atype = action_dict.get("action_type", "inspect")
+    if atype == "inspect":
+        parts: List[str] = []
+        if action_dict.get("row_indices"):
+            parts.append(str(action_dict["row_indices"]))
+        if action_dict.get("column_names"):
+            parts.append(str(action_dict["column_names"]))
+        if action_dict.get("related_table"):
+            parts.append(repr(action_dict["related_table"]))
+        return f"inspect({','.join(parts)})" if parts else "inspect()"
+    if atype == "diagnose":
+        return (
+            f"diagnose({action_dict.get('row_index')},"
+            f"'{action_dict.get('column_name')}',"
+            f"'{action_dict.get('issue_type')}')"
+        )
+    if atype == "fix":
+        return (
+            f"fix({action_dict.get('row_index')},"
+            f"'{action_dict.get('column_name')}',"
+            f"'{action_dict.get('fix_type')}')"
+        )
+    if atype == "finalize":
+        return "finalize()"
+    return atype
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # §7  Task Runner — Stateful Multi-Turn Loop
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1130,16 +1163,16 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
                 _issues_found = int(getattr(obs, "issues_found", _issues_found))
 
                 # ── Hackathon-compliant [STEP] line (stdout) ────────
-                action_str = action_dict.get("action_type", "inspect")
+                action_str = _format_action_str(action_dict)
                 error_str = str(getattr(obs, "last_action_error", None) or "null")
                 error_str = error_str.replace("\n", " ").replace("\r", "")
                 print(
                     f"[STEP] step={step_num + 1} action={action_str} "
-                    f"reward={reward_delta:.4f} done={str(done).lower()} "
+                    f"reward={reward_delta:.2f} done={str(done).lower()} "
                     f"error={error_str}",
                     flush=True,
                 )
-                rewards_list.append(f"{reward_delta:.4f}")
+                rewards_list.append(f"{reward_delta:.2f}")
                 final_step_count = step_num + 1
 
                 logger.info(
@@ -1159,7 +1192,7 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
     # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
     clamped_score = _safe_clamp(total_reward)
     success = str(clamped_score >= 0.3).lower()
-    rewards_str = ",".join(rewards_list) if rewards_list else "0.0001"
+    rewards_str = ",".join(rewards_list) if rewards_list else "0.00"
     print(
         f"[END] success={success} steps={final_step_count} "
         f"rewards={rewards_str}",
