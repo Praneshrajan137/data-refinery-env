@@ -389,11 +389,29 @@ if not _has_reset:
 # openenv's create_app) and clamps reward/score fields to (0.0001, 0.9999).
 
 def _clamp_scores_in_dict(d: dict) -> dict:
-    """Recursively clamp all reward-like fields in a dict to (0.0001, 0.9999)."""
+    """Recursively clamp all reward-like fields in a dict to (0.0001, 0.9999).
+    
+    Also handles the openenv create_app case where the top-level ``reward``
+    is ``None`` — replaces it with the observation's ``cumulative_reward``
+    or ``_SCORE_EPS`` as a fallback.
+    """
     _KEYS = {"reward", "cumulative_reward", "reward_delta"}
     for key, value in d.items():
-        if key in _KEYS and isinstance(value, (int, float)) and not isinstance(value, bool):
-            d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+        if key in _KEYS:
+            if value is None:
+                # openenv framework sets top-level reward=None; replace with
+                # cumulative_reward from nested observation or SCORE_MIN
+                obs = d.get("observation", {})
+                if isinstance(obs, dict) and "cumulative_reward" in obs:
+                    fallback = obs["cumulative_reward"]
+                    if isinstance(fallback, (int, float)) and not isinstance(fallback, bool):
+                        d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(fallback)))
+                    else:
+                        d[key] = _SCORE_EPS
+                else:
+                    d[key] = _SCORE_EPS
+            elif isinstance(value, (int, float)) and not isinstance(value, bool):
+                d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
         elif isinstance(value, dict):
             _clamp_scores_in_dict(value)
         elif isinstance(value, list):
