@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any, Callable
 
 logging.basicConfig(
@@ -367,6 +368,67 @@ if not _has_health:
             "status": "healthy",
             "environment": "data_quality_env",
         })
+
+
+# ── ASGI middleware: last-resort score clamping on HTTP JSON responses ───
+_SCORE_KEY_RE = re.compile(r"reward|score", re.IGNORECASE)
+
+
+def _recursive_clamp_json(obj: Any) -> Any:
+    """Recursively clamp float values in score-like keys."""
+    if isinstance(obj, dict):
+        out: dict[str, Any] = {}
+        for k, v in obj.items():
+            if _SCORE_KEY_RE.search(k) and isinstance(v, (int, float)) and not isinstance(v, bool):
+                out[k] = _clamp_score(v)
+            elif isinstance(v, (dict, list)):
+                out[k] = _recursive_clamp_json(v)
+            else:
+                out[k] = v
+        return out
+    if isinstance(obj, list):
+        return [_recursive_clamp_json(item) for item in obj]
+    return obj
+
+
+try:
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request as _Request
+    from starlette.responses import Response as _Response, JSONResponse as _MWJSONResponse
+
+    class _ScoreClampMiddleware(BaseHTTPMiddleware):
+        """Intercept HTTP JSON responses and clamp all score-like floats."""
+
+        async def dispatch(self, request: _Request, call_next: Any) -> _Response:
+            response = await call_next(request)
+            content_type = response.headers.get("content-type", "")
+            if "application/json" not in content_type:
+                return response
+            # Read body
+            body_parts: list[bytes] = []
+            async for chunk in response.body_iterator:  # type: ignore[attr-defined]
+                body_parts.append(chunk if isinstance(chunk, bytes) else chunk.encode())
+            body = b"".join(body_parts)
+            try:
+                data = json.loads(body)
+                clamped = _recursive_clamp_json(data)
+                return _MWJSONResponse(
+                    content=clamped,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                )
+            except (json.JSONDecodeError, TypeError):
+                return _Response(
+                    content=body,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=content_type,
+                )
+
+    app.add_middleware(_ScoreClampMiddleware)  # type: ignore[union-attr]
+    logger.info("ASGI ScoreClampMiddleware installed for HTTP response clamping")
+except Exception as mw_err:
+    logger.warning("Could not install ScoreClampMiddleware: %s", mw_err)
 
 
 def main(host: str = "0.0.0.0", port: int = 7860) -> None:

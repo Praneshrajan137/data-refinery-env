@@ -617,20 +617,11 @@ class DataQualityObservation(Observation):
 
     @model_serializer(mode="wrap")
     def _serialize_with_clamped_scores(self, handler: Any) -> Dict[str, Any]:
-        """Re-clamp ALL reward fields during serialization as a safety net.
-
-        Also re-injects ``reward`` and ``done`` when the framework's
-        ``serialize_observation`` excludes them — the evaluator client
-        reconstructs the observation from this dict and needs both fields.
-        """
+        """Re-clamp ALL reward fields during serialization as a safety net."""
         data = handler(self)
         lo = self._SCORE_LO
         hi = self._SCORE_HI
         _sc = self._safe_clamp_float
-        if "reward" not in data:
-            data["reward"] = _sc(self.reward, lo, hi)
-        if "done" not in data:
-            data["done"] = self.done
         for key in ("reward", "cumulative_reward", "reward_delta"):
             if key in data and data[key] is not None and not isinstance(data[key], bool):
                 data[key] = _sc(data[key], lo, hi)
@@ -639,14 +630,7 @@ class DataQualityObservation(Observation):
         return data
 
     def model_dump(self, **kwargs: Any) -> Dict[str, Any]:
-        """Override model_dump to guarantee clamped reward fields.
-
-        Pydantic v2's ``model_dump(exclude=...)`` may re-apply the
-        ``exclude`` filter *after* the ``model_serializer`` wrapper
-        returns, stripping re-injected ``reward`` and ``done``.  This
-        explicit override ensures clamping happens at the Python level,
-        independent of pydantic-core's Rust serialisation pipeline.
-        """
+        """Override model_dump to guarantee clamped reward fields."""
         data = super().model_dump(**kwargs)
         lo = self._SCORE_LO
         hi = self._SCORE_HI
@@ -655,11 +639,6 @@ class DataQualityObservation(Observation):
         for key in ("reward", "cumulative_reward", "reward_delta"):
             if key in data and data[key] is not None and not isinstance(data[key], bool):
                 data[key] = _sc(data[key], lo, hi)
-
-        if "reward" not in data:
-            data["reward"] = _sc(self.reward, lo, hi)
-        if "done" not in data:
-            data["done"] = self.done
 
         if "grader_diagnostics" in data and isinstance(data["grader_diagnostics"], dict):
             data["grader_diagnostics"] = self._sanitize_diagnostics(data["grader_diagnostics"])
