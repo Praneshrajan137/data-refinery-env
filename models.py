@@ -606,7 +606,9 @@ class DataQualityObservation(Observation):
                 sanitized[key] = cls._sanitize_diagnostics(value)
             elif isinstance(value, list):
                 sanitized[key] = [
-                    cls._sanitize_diagnostics(item) if isinstance(item, dict) else item
+                    cls._sanitize_diagnostics(item) if isinstance(item, dict)
+                    else cls._clamp(item) if isinstance(item, float) and not isinstance(item, bool)
+                    else item
                     for item in value
                 ]
             else:

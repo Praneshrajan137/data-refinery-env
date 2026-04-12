@@ -30,7 +30,7 @@ def test_task(task_id: str) -> float:
     # Finalize immediately (worst case: score should be > 0)
     req2 = urllib.request.Request(
         f"{BASE}/step",
-        data=json.dumps({"action_type": "finalize"}).encode(),
+        data=json.dumps({"action": {"action_type": "finalize"}}).encode(),
         headers={"Content-Type": "application/json"},
         method="POST",
     )

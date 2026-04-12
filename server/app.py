@@ -38,7 +38,10 @@ _SCORE_EPS = 0.0001
 _SCORE_LO = _SCORE_EPS
 _SCORE_HI = 1.0 - _SCORE_EPS
 
-_REWARD_KEYS = frozenset({"reward", "cumulative_reward", "reward_delta"})
+_REWARD_KEYS = frozenset({
+    "reward", "cumulative_reward", "reward_delta",
+    "score", "task_score", "final_score",
+})
 
 
 def _clamp_score(value: Any) -> Any:
@@ -266,38 +269,56 @@ try:
     # builds the model_serializer(mode="wrap") output is re-filtered by
     # the exclude set, stripping our re-injected reward.  This patch
     # ensures all reward-like values are clamped at the wire boundary.
-    try:
-        import openenv.core.env_server.http_server as _hs_mod
+    _patch_applied = False
+    for _mod_path in (
+        "openenv.core.env_server.http_server",
+        "openenv_core.env_server.http_server",
+    ):
+        if _patch_applied:
+            break
+        try:
+            import importlib
+            _hs_mod = importlib.import_module(_mod_path)
 
-        _original_serialize_obs = _hs_mod.serialize_observation
+            _original_serialize_obs = _hs_mod.serialize_observation
 
-        def _clamped_serialize_observation(observation):  # type: ignore[no-untyped-def]
-            result = _original_serialize_obs(observation)
+            def _clamped_serialize_observation(observation):  # type: ignore[no-untyped-def]
+                result = _original_serialize_obs(observation)
 
-            # 1. Clamp top-level reward (the primary "task score")
-            if "reward" in result:
-                result["reward"] = _clamp_score(result["reward"])
-            else:
-                result["reward"] = _clamp_score(
-                    getattr(observation, "reward", None)
-                )
+                # 1. Clamp top-level reward (the primary "task score")
+                if "reward" in result:
+                    result["reward"] = _clamp_score(result["reward"])
+                else:
+                    result["reward"] = _clamp_score(
+                        getattr(observation, "reward", None)
+                    )
 
-            # 2. Ensure done is always present
-            if "done" not in result:
-                result["done"] = getattr(observation, "done", False)
+                # 2. Ensure done is always present
+                if "done" not in result:
+                    result["done"] = getattr(observation, "done", False)
 
-            # 3. Deep-clamp all reward-like fields inside the obs dict
-            obs_dict = result.get("observation")
-            if isinstance(obs_dict, dict):
-                result["observation"] = _deep_clamp_rewards(obs_dict)
+                # 3. Deep-clamp all reward-like fields inside the obs dict
+                obs_dict = result.get("observation")
+                if isinstance(obs_dict, dict):
+                    result["observation"] = _deep_clamp_rewards(obs_dict)
 
-            return result
+                return result
 
-        _hs_mod.serialize_observation = _clamped_serialize_observation
-        logger.info("Monkey-patched serialize_observation with reward clamping")
-    except Exception as patch_err:
-        logger.warning(
-            "Could not monkey-patch serialize_observation: %s", patch_err
+            _hs_mod.serialize_observation = _clamped_serialize_observation
+            _patch_applied = True
+            logger.info(
+                "Monkey-patched serialize_observation via %s with reward clamping",
+                _mod_path,
+            )
+        except Exception as patch_err:
+            logger.warning(
+                "Could not monkey-patch via %s: %s", _mod_path, patch_err
+            )
+
+    if not _patch_applied:
+        logger.error(
+            "CRITICAL: serialize_observation patch failed on ALL import roots — "
+            "scores may leak 0.0/1.0 on the wire"
         )
 
     _app_created = True
