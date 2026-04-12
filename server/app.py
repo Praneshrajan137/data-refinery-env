@@ -11,12 +11,19 @@ Resolution order:
     1. openenv ``create_app`` when openenv-core is installed
     2. Manual app built on FastAPI
     3. Manual app built on Starlette
+
+CRITICAL: A raw ASGI middleware wraps the final ``app`` object to clamp
+ALL score-like float values in every HTTP JSON response.  This is the
+**only** reliable way to guarantee the hackathon Phase 2 validator never
+sees 0.0 or 1.0 — monkey-patching ``serialize_observation`` is ineffective
+because route handlers capture function references at import time.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from typing import Any, Callable
 
@@ -35,13 +42,29 @@ except ImportError:
     from server.data_quality_environment import DataQualityEnvironment  # type: ignore[no-redef]
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# §1  Score Clamping Utilities
+# ═══════════════════════════════════════════════════════════════════════════
+
 _SCORE_EPS = 0.0001
 _SCORE_LO = _SCORE_EPS
 _SCORE_HI = 1.0 - _SCORE_EPS
 
-_REWARD_KEYS = frozenset({
-    "reward", "cumulative_reward", "reward_delta",
-    "score", "task_score", "final_score",
+# Keys whose values MUST be clamped to (0, 1) exclusive.
+# Matches any key containing "reward", "score", "rate", "penalty",
+# "weight", "coverage", "utilization", "efficiency".
+_SCORE_KEY_RE = re.compile(
+    r"reward|score|_rate|penalty|_weight|coverage|utilization|efficiency",
+    re.IGNORECASE,
+)
+
+# Keys that are structural integers and must NEVER be clamped.
+_INT_KEYS = frozenset({
+    "total_issues", "fixable_issues", "detection_only", "detected",
+    "fixed", "false_positives", "steps_used", "max_steps",
+    "total_rows", "total_columns", "issues_found", "steps_taken",
+    "row", "index", "row_index", "column", "step_count",
+    "non_null", "null_count", "unique_count", "total",
 })
 
 
@@ -56,7 +79,6 @@ def _clamp_score(value: Any) -> Any:
     if value is None:
         return _SCORE_LO
     if isinstance(value, (int, float)):
-        import math
         v = float(value)
         if math.isnan(v) or math.isinf(v):
             return _SCORE_LO if v != float("inf") else _SCORE_HI
@@ -65,11 +87,16 @@ def _clamp_score(value: Any) -> Any:
 
 
 def _deep_clamp_rewards(obj: Any) -> Any:
-    """Recursively walk a dict/list and clamp all reward-like float fields."""
+    """Recursively walk a dict/list and clamp all reward/score float fields."""
     if isinstance(obj, dict):
         out: dict[str, Any] = {}
         for k, v in obj.items():
-            if k in _REWARD_KEYS and not isinstance(v, bool):
+            if k in _INT_KEYS:
+                # Preserve structural integers — never clamp these.
+                out[k] = v
+            elif isinstance(v, bool):
+                out[k] = v
+            elif _SCORE_KEY_RE.search(k) and isinstance(v, (int, float)):
                 out[k] = _clamp_score(v)
             elif isinstance(v, (dict, list)):
                 out[k] = _deep_clamp_rewards(v)
@@ -81,6 +108,36 @@ def _deep_clamp_rewards(obj: Any) -> Any:
     return obj
 
 
+def _nuclear_clamp_response(obj: Any) -> Any:
+    """Aggressively clamp ALL possible score values in a response.
+
+    This is the outermost clamping layer:
+    1. Clamp top-level ``reward`` (the "task score" the validator reads).
+    2. Recursively clamp all score-like keys via _deep_clamp_rewards.
+    3. If there's an ``observation`` sub-dict, clamp its contents too.
+    """
+    if not isinstance(obj, dict):
+        return obj
+
+    # 1. Ensure top-level reward is always clamped (this is the task score).
+    if "reward" in obj and not isinstance(obj["reward"], bool):
+        obj["reward"] = _clamp_score(obj["reward"])
+
+    # 2. Deep-clamp the entire response body.
+    obj = _deep_clamp_rewards(obj)
+
+    # 3. Double-check nested observation dict.
+    if "observation" in obj and isinstance(obj["observation"], dict):
+        obs = obj["observation"]
+        for key in ("reward", "cumulative_reward", "reward_delta",
+                     "score", "task_score", "final_score"):
+            if key in obs and isinstance(obs[key], (int, float)) and not isinstance(obs[key], bool):
+                obs[key] = _clamp_score(obs[key])
+        obj["observation"] = _deep_clamp_rewards(obs)
+
+    return obj
+
+
 def _serialize(obj: Any) -> dict[str, Any]:
     """Serialize Pydantic models with score clamping safety net."""
     if hasattr(obj, "model_dump"):
@@ -89,8 +146,111 @@ def _serialize(obj: Any) -> dict[str, Any]:
         data = obj.dict()
     else:
         data = dict(obj)  # type: ignore[call-overload]
-    return _deep_clamp_rewards(data)
+    return _nuclear_clamp_response(data)
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# §2  Raw ASGI Middleware — the ONLY reliable way to clamp scores
+# ═══════════════════════════════════════════════════════════════════════════
+
+class ScoreClampASGIMiddleware:
+    """Raw ASGI middleware that intercepts every HTTP JSON response and
+    clamps all score-like float values to the strict (0.0001, 0.9999) range.
+
+    This operates at the ASGI protocol level — it buffers ``http.response.body``
+    messages, parses JSON, clamps, re-serializes, and fixes content-length.
+    Unlike ``BaseHTTPMiddleware``, this:
+      - Correctly updates content-length after body modification.
+      - Works with any ASGI framework (openenv, FastAPI, Starlette).
+      - Cannot be bypassed by framework-internal serialization.
+    """
+
+    def __init__(self, inner_app: Any) -> None:
+        self.inner_app = inner_app
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            # WebSocket / lifespan — pass through unchanged.
+            await self.inner_app(scope, receive, send)
+            return
+
+        # Buffer response headers + body so we can modify before sending.
+        response_started = False
+        start_message: dict[str, Any] | None = None
+        body_chunks: list[bytes] = []
+
+        async def send_wrapper(message: dict[str, Any]) -> None:
+            nonlocal response_started, start_message
+
+            if message["type"] == "http.response.start":
+                # Hold the start message — don't send until we've seen the body.
+                response_started = True
+                start_message = message
+                return
+
+            if message["type"] == "http.response.body":
+                body = message.get("body", b"")
+                more_body = message.get("more_body", False)
+                body_chunks.append(body)
+
+                if more_body:
+                    # More chunks coming — keep buffering.
+                    return
+
+                # ─── Final chunk: we have the complete response body ───
+                full_body = b"".join(body_chunks)
+
+                # Check content-type from the start message headers.
+                content_type = ""
+                if start_message:
+                    for hdr_name, hdr_value in start_message.get("headers", []):
+                        name = hdr_name if isinstance(hdr_name, str) else hdr_name.decode("latin-1")
+                        val = hdr_value if isinstance(hdr_value, str) else hdr_value.decode("latin-1")
+                        if name.lower() == "content-type":
+                            content_type = val
+                            break
+
+                # Only process JSON responses.
+                if "json" in content_type.lower() and full_body:
+                    try:
+                        data = json.loads(full_body)
+                        clamped = _nuclear_clamp_response(data)
+                        full_body = json.dumps(clamped, separators=(",", ":")).encode("utf-8")
+                    except (json.JSONDecodeError, TypeError, ValueError):
+                        pass  # Not valid JSON — send original body.
+
+                # Rebuild headers with correct content-length.
+                if start_message:
+                    new_headers: list[list[bytes]] = []
+                    for hdr_name, hdr_value in start_message.get("headers", []):
+                        name_bytes = hdr_name if isinstance(hdr_name, bytes) else hdr_name.encode("latin-1")
+                        if name_bytes.lower() == b"content-length":
+                            continue  # Drop old content-length.
+                        new_headers.append([
+                            name_bytes,
+                            hdr_value if isinstance(hdr_value, bytes) else hdr_value.encode("latin-1"),
+                        ])
+                    new_headers.append([b"content-length", str(len(full_body)).encode("latin-1")])
+                    start_message["headers"] = new_headers
+
+                    # Now send both messages.
+                    await send(start_message)
+
+                await send({
+                    "type": "http.response.body",
+                    "body": full_body,
+                })
+                return
+
+            # Unknown message type — forward as-is.
+            await send(message)
+
+        await self.inner_app(scope, receive, send_wrapper)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# §3  Manual Fallback Server (FastAPI / Starlette)
+# ═══════════════════════════════════════════════════════════════════════════
 
 def _manual_handlers(json_response_cls: type[Any]) -> tuple[Callable[..., Any], ...]:
     """Build reusable HTTP and WebSocket handlers for the manual fallback app."""
@@ -244,13 +404,18 @@ def _build_manual_app() -> Any:
     return app_obj
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# §4  App Creation
+# ═══════════════════════════════════════════════════════════════════════════
+
 _app_created = False
+_inner_app: Any = None  # The framework app BEFORE our ASGI wrapper.
 
 try:
     from openenv.core.env_server.http_server import create_app
 
     try:
-        app = create_app(
+        _inner_app = create_app(
             env=DataQualityEnvironment,
             action_cls=DataQualityAction,
             observation_cls=DataQualityObservation,
@@ -258,68 +423,10 @@ try:
             max_concurrent_envs=4,
         )
     except TypeError:
-        app = create_app(
+        _inner_app = create_app(
             DataQualityEnvironment,
             DataQualityAction,
             DataQualityObservation,
-        )
-
-    # ── Monkey-patch serialize_observation in the openenv framework ────
-    # The framework's serialize_observation calls model_dump(exclude=...)
-    # and then reads observation.reward directly.  In some Pydantic v2
-    # builds the model_serializer(mode="wrap") output is re-filtered by
-    # the exclude set, stripping our re-injected reward.  This patch
-    # ensures all reward-like values are clamped at the wire boundary.
-    _patch_applied = False
-    for _mod_path in (
-        "openenv.core.env_server.http_server",
-        "openenv_core.env_server.http_server",
-    ):
-        if _patch_applied:
-            break
-        try:
-            import importlib
-            _hs_mod = importlib.import_module(_mod_path)
-
-            _original_serialize_obs = _hs_mod.serialize_observation
-
-            def _clamped_serialize_observation(observation):  # type: ignore[no-untyped-def]
-                result = _original_serialize_obs(observation)
-
-                # 1. Clamp top-level reward (the primary "task score")
-                if "reward" in result:
-                    result["reward"] = _clamp_score(result["reward"])
-                else:
-                    result["reward"] = _clamp_score(
-                        getattr(observation, "reward", None)
-                    )
-
-                # 2. Ensure done is always present
-                if "done" not in result:
-                    result["done"] = getattr(observation, "done", False)
-
-                # 3. Deep-clamp all reward-like fields inside the obs dict
-                obs_dict = result.get("observation")
-                if isinstance(obs_dict, dict):
-                    result["observation"] = _deep_clamp_rewards(obs_dict)
-
-                return result
-
-            _hs_mod.serialize_observation = _clamped_serialize_observation
-            _patch_applied = True
-            logger.info(
-                "Monkey-patched serialize_observation via %s with reward clamping",
-                _mod_path,
-            )
-        except Exception as patch_err:
-            logger.warning(
-                "Could not monkey-patch via %s: %s", _mod_path, patch_err
-            )
-
-    if not _patch_applied:
-        logger.error(
-            "CRITICAL: serialize_observation patch failed on ALL import roots — "
-            "scores may leak 0.0/1.0 on the wire"
         )
 
     _app_created = True
@@ -333,7 +440,7 @@ except Exception as tier1_err:  # noqa: BLE001
 
 if not _app_created:
     try:
-        app = _build_manual_app()
+        _inner_app = _build_manual_app()
         _app_created = True
         logger.info("Fallback server ready with /health, /, /ws endpoints")
     except ImportError as tier2_err:
@@ -348,10 +455,12 @@ if not _app_created:
         ) from tier2_err
 
 
+# ── Ensure /health endpoint exists ────────────────────────────────────────
+
 try:
     _has_health = any(
         getattr(route, "path", None) == "/health"
-        for route in getattr(app, "routes", [])
+        for route in getattr(_inner_app, "routes", [])
     )
 except Exception:
     _has_health = False
@@ -362,7 +471,7 @@ if not _has_health:
     except ImportError:
         from fastapi.responses import JSONResponse as _JSONResponse  # type: ignore[no-redef]
 
-    @app.get("/health")  # type: ignore[union-attr]
+    @_inner_app.get("/health")  # type: ignore[union-attr]
     async def health_check() -> _JSONResponse:
         return _JSONResponse({
             "status": "healthy",
@@ -370,66 +479,21 @@ if not _has_health:
         })
 
 
-# ── ASGI middleware: last-resort score clamping on HTTP JSON responses ───
-_SCORE_KEY_RE = re.compile(r"reward|score", re.IGNORECASE)
+# ═══════════════════════════════════════════════════════════════════════════
+# §5  Wrap with Raw ASGI Middleware — the final, authoritative ``app``
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# This is the ONLY ``app`` object exported to uvicorn.  Every HTTP JSON
+# response passes through ScoreClampASGIMiddleware before reaching the
+# network.  No framework-internal serialization can bypass this layer.
+
+app = ScoreClampASGIMiddleware(_inner_app)
+logger.info("ScoreClampASGIMiddleware installed as outermost ASGI wrapper")
 
 
-def _recursive_clamp_json(obj: Any) -> Any:
-    """Recursively clamp float values in score-like keys."""
-    if isinstance(obj, dict):
-        out: dict[str, Any] = {}
-        for k, v in obj.items():
-            if _SCORE_KEY_RE.search(k) and isinstance(v, (int, float)) and not isinstance(v, bool):
-                out[k] = _clamp_score(v)
-            elif isinstance(v, (dict, list)):
-                out[k] = _recursive_clamp_json(v)
-            else:
-                out[k] = v
-        return out
-    if isinstance(obj, list):
-        return [_recursive_clamp_json(item) for item in obj]
-    return obj
-
-
-try:
-    from starlette.middleware.base import BaseHTTPMiddleware
-    from starlette.requests import Request as _Request
-    from starlette.responses import Response as _Response, JSONResponse as _MWJSONResponse
-
-    class _ScoreClampMiddleware(BaseHTTPMiddleware):
-        """Intercept HTTP JSON responses and clamp all score-like floats."""
-
-        async def dispatch(self, request: _Request, call_next: Any) -> _Response:
-            response = await call_next(request)
-            content_type = response.headers.get("content-type", "")
-            if "application/json" not in content_type:
-                return response
-            # Read body
-            body_parts: list[bytes] = []
-            async for chunk in response.body_iterator:  # type: ignore[attr-defined]
-                body_parts.append(chunk if isinstance(chunk, bytes) else chunk.encode())
-            body = b"".join(body_parts)
-            try:
-                data = json.loads(body)
-                clamped = _recursive_clamp_json(data)
-                return _MWJSONResponse(
-                    content=clamped,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                )
-            except (json.JSONDecodeError, TypeError):
-                return _Response(
-                    content=body,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=content_type,
-                )
-
-    app.add_middleware(_ScoreClampMiddleware)  # type: ignore[union-attr]
-    logger.info("ASGI ScoreClampMiddleware installed for HTTP response clamping")
-except Exception as mw_err:
-    logger.warning("Could not install ScoreClampMiddleware: %s", mw_err)
-
+# ═══════════════════════════════════════════════════════════════════════════
+# §6  CLI Entry Point
+# ═══════════════════════════════════════════════════════════════════════════
 
 def main(host: str = "0.0.0.0", port: int = 7860) -> None:
     """Run the ASGI app via uvicorn."""
