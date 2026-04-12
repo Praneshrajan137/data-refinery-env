@@ -533,16 +533,18 @@ class DataQualityObservation(Observation):
     )
 
     # ── Clamp ALL scores to (0, 1) — strictly exclusive ─────────────────
-    # Hackathon validator rejects exactly 0.0 and 1.0 in ANY reward field.
+    # Hackathon validator rejects exactly 0.0 and 1.0 in the `reward` field.
+    # `reward_delta` is a per-step delta and CAN be negative — not clamped.
 
     _SCORE_EPS: float = 0.0001  # Class-level constant for clamping
 
     @model_validator(mode="after")
     def _clamp_all_scores(self) -> "DataQualityObservation":
-        """Ensure ALL observations have reward/scores strictly in (0, 1).
+        """Ensure ALL observations have reward strictly in (0, 1).
 
-        The hackathon Phase 2 validator may check reward values from
-        ANY step (including reset and non-terminal), not just terminal.
+        The hackathon Phase 2 validator checks the `reward` field from
+        ALL steps (including reset and non-terminal), not just terminal.
+        reward_delta is an internal per-step signal and is not clamped.
         """
         lo = self._SCORE_EPS
         hi = 1.0 - self._SCORE_EPS
@@ -554,10 +556,6 @@ class DataQualityObservation(Observation):
         object.__setattr__(
             self, "cumulative_reward",
             max(lo, min(hi, self.cumulative_reward)),
-        )
-        object.__setattr__(
-            self, "reward_delta",
-            max(lo, min(hi, self.reward_delta)),
         )
         return self
 

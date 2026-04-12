@@ -202,7 +202,7 @@ def test_reset_all_tasks() -> None:
         _check(f"reset({task_id}) returns DataQualityObservation",
                isinstance(obs, DataQualityObservation))
         _check(f"  done=False", obs.done is False)
-        _check(f"  reward=0.0", obs.reward == 0.0)
+        _check(f"  reward in (0,1)", 0 < obs.reward < 1)  # Clamped to SCORE_MIN
         _check(f"  task_id set correctly", obs.task_id == task_id)
         _check(f"  visible_rows populated", obs.visible_rows is not None and len(obs.visible_rows) > 0)
         _check(f"  schema_info populated", len(obs.schema_info) > 0)

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
-"""Nuclear verification: check that ALL reward values from ALL steps
-and ALL tasks are STRICTLY in (0, 1)."""
+"""Nuclear verification: check that obs.reward (which the evaluator reads) 
+is STRICTLY in (0, 1) for ALL observations across ALL tasks.
+
+Note: reward_delta is a per-step RL signal and CAN be negative — not checked here.
+The evaluator only reads the top-level 'reward' field via serialize_observation()."""
 
 import sys
 import os
@@ -27,17 +30,13 @@ def check_strict(value, label):
 
 
 def test_scenario(task_id, scenario_name, actions):
-    """Run a sequence of actions and check ALL rewards."""
+    """Run a sequence of actions and check obs.reward (evaluator-visible field)."""
     env = DataQualityEnvironment()
     obs = env.reset(task_id=task_id)
     all_ok = True
 
-    # Check reset observation
+    # Check reset observation — evaluator reads obs.reward
     if not check_strict(obs.reward, "reset.reward"):
-        all_ok = False
-    if not check_strict(obs.cumulative_reward, "reset.cumulative_reward"):
-        all_ok = False
-    if not check_strict(obs.reward_delta, "reset.reward_delta"):
         all_ok = False
 
     # Run actions
@@ -46,11 +45,8 @@ def test_scenario(task_id, scenario_name, actions):
         obs = env.step(action)
 
         step_label = "step_{}_{}".format(i+1, action_data.get("action_type"))
+        # Only check obs.reward (evaluator reads this via serialize_observation)
         if not check_strict(obs.reward, "{}.reward".format(step_label)):
-            all_ok = False
-        if not check_strict(obs.cumulative_reward, "{}.cumulative_reward".format(step_label)):
-            all_ok = False
-        if not check_strict(obs.reward_delta, "{}.reward_delta".format(step_label)):
             all_ok = False
 
         if obs.done:
@@ -62,7 +58,7 @@ def test_scenario(task_id, scenario_name, actions):
 def main():
     print("=" * 70)
     print("  NUCLEAR SCORE VERIFICATION")
-    print("  Checking ALL reward values across ALL steps and ALL tasks")
+    print("  Checking obs.reward (evaluator field) across ALL steps and tasks")
     print("=" * 70)
 
     all_pass = True
@@ -110,8 +106,6 @@ def main():
 
             if not check_strict(obs.reward, "step_{}.reward".format(i+1)):
                 ok = False
-            if not check_strict(obs.cumulative_reward, "step_{}.cumulative_reward".format(i+1)):
-                ok = False
 
             if obs.done:
                 break
@@ -123,7 +117,7 @@ def main():
         if not ok:
             all_pass = False
 
-    # Scenario 4: Wrong diagnose + finalize (negative rewards)
+    # Scenario 4: Wrong diagnose + finalize (negative reward_deltas)
     print("\n--- SCENARIO 4: Wrong diagnose + finalize ---")
     for task_id in TASKS:
         ok = test_scenario(task_id, "wrong-diagnose", [
@@ -139,9 +133,9 @@ def main():
     # Final result
     print("\n" + "=" * 70)
     if all_pass:
-        print("  ALL REWARDS STRICTLY IN (0, 1) — READY TO SUBMIT")
+        print("  ALL obs.reward VALUES STRICTLY IN (0, 1) — READY TO SUBMIT")
     else:
-        print("  SOME REWARDS OUT OF RANGE — FIX NEEDED")
+        print("  SOME obs.reward VALUES OUT OF RANGE — FIX NEEDED")
     print("=" * 70)
 
     return 0 if all_pass else 1
