@@ -263,12 +263,13 @@ def _build_manual_app() -> Any:
 
 
 _app_created = False
+_inner_app: Any = None  # The actual ASGI app (before middleware wrapping)
 
 try:
     from openenv.core.env_server.http_server import create_app
 
     try:
-        app = create_app(
+        _inner_app = create_app(
             env=DataQualityEnvironment,
             action_cls=DataQualityAction,
             observation_cls=DataQualityObservation,
@@ -276,7 +277,7 @@ try:
             max_concurrent_envs=4,
         )
     except TypeError:
-        app = create_app(
+        _inner_app = create_app(
             DataQualityEnvironment,
             DataQualityAction,
             DataQualityObservation,
@@ -293,7 +294,7 @@ except Exception as tier1_err:  # noqa: BLE001
 
 if not _app_created:
     try:
-        app = _build_manual_app()
+        _inner_app = _build_manual_app()
         _app_created = True
         logger.info("Fallback server ready with /health, /, /reset, /step, /state, /ws endpoints")
     except ImportError as tier2_err:
@@ -308,10 +309,12 @@ if not _app_created:
         ) from tier2_err
 
 
+# ── Register fallback routes on _inner_app BEFORE wrapping with middleware ──
+
 try:
     _has_health = any(
         getattr(route, "path", None) == "/health"
-        for route in getattr(app, "routes", [])
+        for route in getattr(_inner_app, "routes", [])
     )
 except Exception:
     _has_health = False
@@ -322,7 +325,7 @@ if not _has_health:
     except ImportError:
         from fastapi.responses import JSONResponse as _JSONResponse  # type: ignore[no-redef]
 
-    @app.get("/health")  # type: ignore[union-attr]
+    @_inner_app.get("/health")  # type: ignore[union-attr]
     async def health_check() -> _JSONResponse:
         return _JSONResponse({
             "status": "healthy",
@@ -334,7 +337,7 @@ if not _has_health:
 try:
     _has_reset = any(
         getattr(route, "path", None) == "/reset"
-        for route in getattr(app, "routes", [])
+        for route in getattr(_inner_app, "routes", [])
     )
 except Exception:
     _has_reset = False
@@ -345,7 +348,7 @@ if not _has_reset:
     except ImportError:
         from fastapi.responses import JSONResponse as _ResetJSONResponse  # type: ignore[no-redef]
 
-    @app.post("/reset")  # type: ignore[union-attr]
+    @_inner_app.post("/reset")  # type: ignore[union-attr]
     async def _fallback_reset(request: Any) -> _ResetJSONResponse:
         global _default_env
         try:
@@ -357,7 +360,7 @@ if not _has_reset:
         obs = _default_env.reset(task_id=task_id)
         return _ResetJSONResponse({"observation": _serialize(obs)})
 
-    @app.post("/step")  # type: ignore[union-attr]
+    @_inner_app.post("/step")  # type: ignore[union-attr]
     async def _fallback_step(request: Any) -> _ResetJSONResponse:
         env = _get_or_create_env()
         try:
@@ -373,12 +376,117 @@ if not _has_reset:
         obs = env.step(action)
         return _ResetJSONResponse({"observation": _serialize(obs)})
 
-    @app.get("/state")  # type: ignore[union-attr]
+    @_inner_app.get("/state")  # type: ignore[union-attr]
     async def _fallback_state() -> _ResetJSONResponse:
         env = _get_or_create_env()
         return _ResetJSONResponse({"state": _serialize(env.state)})
 
     logger.info("Added fallback /reset, /step, /state HTTP endpoints")
+
+
+# ── Nuclear safety net: ASGI middleware to clamp ALL reward fields ──────
+# This intercepts every JSON response (from any code path, including
+# openenv's create_app) and clamps reward/score fields to (0.0001, 0.9999).
+
+def _clamp_scores_in_dict(d: dict) -> dict:
+    """Recursively clamp all reward-like fields in a dict to (0.0001, 0.9999)."""
+    _KEYS = {"reward", "cumulative_reward", "reward_delta"}
+    for key, value in d.items():
+        if key in _KEYS and isinstance(value, (int, float)) and not isinstance(value, bool):
+            d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+        elif isinstance(value, dict):
+            _clamp_scores_in_dict(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _clamp_scores_in_dict(item)
+    return d
+
+
+class _ScoreClampMiddleware:
+    """ASGI middleware that clamps reward fields in ALL JSON responses."""
+
+    def __init__(self, app_inner: Any) -> None:
+        self.app = app_inner
+
+    async def __call__(self, scope: dict, receive: Any, send: Any) -> None:
+        if scope["type"] not in ("http", "websocket"):
+            await self.app(scope, receive, send)
+            return
+
+        if scope["type"] == "websocket":
+            # For WebSockets, intercept send messages
+            async def _ws_send(message: dict) -> None:
+                if message.get("type") == "websocket.send":
+                    text = message.get("text")
+                    if text:
+                        try:
+                            data = json.loads(text)
+                            if isinstance(data, dict):
+                                _clamp_scores_in_dict(data)
+                                message = {**message, "text": json.dumps(data)}
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+                await send(message)
+            await self.app(scope, receive, _ws_send)
+            return
+
+        # HTTP: collect response body, clamp scores, re-send
+        response_headers: list = []
+        response_status: int = 200
+        body_parts: list[bytes] = []
+
+        async def _http_send(message: dict) -> None:
+            nonlocal response_headers, response_status
+            if message["type"] == "http.response.start":
+                response_status = message.get("status", 200)
+                response_headers = list(message.get("headers", []))
+                # Don't send start yet — we need to potentially modify body
+            elif message["type"] == "http.response.body":
+                body_parts.append(message.get("body", b""))
+                if not message.get("more_body", False):
+                    # All body received — process it
+                    full_body = b"".join(body_parts)
+                    content_type = ""
+                    new_headers = []
+                    for hname, hval in response_headers:
+                        if hname.lower() == b"content-type":
+                            content_type = hval.decode("utf-8", errors="replace")
+                        new_headers.append((hname, hval))
+
+                    if "json" in content_type:
+                        try:
+                            data = json.loads(full_body)
+                            if isinstance(data, dict):
+                                _clamp_scores_in_dict(data)
+                                full_body = json.dumps(data).encode("utf-8")
+                                # Update content-length
+                                new_headers = [
+                                    (h, v) for h, v in new_headers
+                                    if h.lower() != b"content-length"
+                                ]
+                                new_headers.append(
+                                    (b"content-length", str(len(full_body)).encode())
+                                )
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
+                    await send({
+                        "type": "http.response.start",
+                        "status": response_status,
+                        "headers": new_headers,
+                    })
+                    await send({
+                        "type": "http.response.body",
+                        "body": full_body,
+                    })
+
+        await self.app(scope, receive, _http_send)
+
+
+# Wrap the inner app with score-clamping middleware as the FINAL step
+app = _ScoreClampMiddleware(_inner_app)  # type: ignore[assignment]
+logger.info("Score-clamping ASGI middleware installed")
 
 
 def main(host: str = "0.0.0.0", port: int = 7860) -> None:

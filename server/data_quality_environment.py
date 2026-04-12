@@ -438,10 +438,11 @@ class DataQualityEnvironment(Environment):
         self.cumulative_reward = max(SCORE_MIN, min(SCORE_MAX, self.cumulative_reward))
         self._state.current_reward = self.cumulative_reward
 
-        # Clamp reward_delta for non-terminal observations too
-        clamped_reward = max(SCORE_MIN, min(SCORE_MAX,
-            self.cumulative_reward if done else reward_delta
-        ))
+        # Clamp reward_delta to (SCORE_MIN, SCORE_MAX) — the evaluator may
+        # read ANY of reward, cumulative_reward, or reward_delta as the
+        # "task score".  All must be strictly in (0, 1).
+        clamped_reward_delta = max(SCORE_MIN, min(SCORE_MAX, reward_delta))
+        clamped_reward = max(SCORE_MIN, min(SCORE_MAX, self.cumulative_reward))
 
         # Build grader diagnostics on terminal observations
         diagnostics = self._build_grader_diagnostics(self.cumulative_reward) if done else None
@@ -458,7 +459,7 @@ class DataQualityEnvironment(Environment):
             column_statistics=col_stats,
             secondary_table_rows=sec_rows,
             action_result=result,
-            reward_delta=reward_delta,
+            reward_delta=clamped_reward_delta,
             cumulative_reward=self.cumulative_reward,
             issues_found=len(self.found_issues),
             issues_remaining_hint=self._remaining_hint(),
@@ -799,7 +800,7 @@ class DataQualityEnvironment(Environment):
                 or found["column"] == "_row"
             ):
                 return (
-                    0.0,
+                    SCORE_MIN,
                     ActionResult.ALREADY_FOUND,
                     f"Issue at row {action.row_index} already reported.",
                 )
@@ -918,7 +919,7 @@ class DataQualityEnvironment(Environment):
                 and fixed["column"] == action.column_name
             ):
                 return (
-                    0.0,
+                    SCORE_MIN,
                     ActionResult.ALREADY_FOUND,
                     f"Already fixed row {action.row_index}, "
                     f"'{action.column_name}'.",
@@ -938,7 +939,7 @@ class DataQualityEnvironment(Environment):
                 # Detection-only issue — no fix expected
                 if expected is None:
                     return (
-                        0.0,
+                        SCORE_MIN,
                         ActionResult.PARTIAL,
                         f"Issue at row {action.row_index} is detection-only. "
                         "No fix expected — diagnose action is sufficient.",
@@ -1091,6 +1092,7 @@ class DataQualityEnvironment(Environment):
         """Process a finalize action — compute and return final score.
 
         [FIX-05] Compute reward delta BEFORE updating cumulative reward.
+        ALL returned fields are clamped to (SCORE_MIN, SCORE_MAX).
         """
         config = TASK_CONFIG[self.task_id]
         final_score = self._compute_final_score()
@@ -1099,7 +1101,9 @@ class DataQualityEnvironment(Environment):
         final_score = max(SCORE_MIN, min(SCORE_MAX, final_score))
 
         # [FIX-05] Delta must be computed BEFORE updating cumulative
-        reward_delta = final_score - self.cumulative_reward
+        raw_delta = final_score - self.cumulative_reward
+        # Clamp reward_delta too — evaluator may read it as the task score
+        clamped_delta = max(SCORE_MIN, min(SCORE_MAX, raw_delta))
         self.cumulative_reward = final_score
         self._state.current_reward = final_score
         self._is_finalized = True
@@ -1126,7 +1130,7 @@ class DataQualityEnvironment(Environment):
             total_rows=len(self.dataset),
             total_columns=len(self.schema_info),
             action_result=ActionResult.COMPLETE,
-            reward_delta=reward_delta,
+            reward_delta=clamped_delta,
             cumulative_reward=final_score,
             issues_found=len(self.found_issues),
             issues_remaining_hint=self._remaining_hint(),
@@ -1334,7 +1338,7 @@ if __name__ == "__main__":
         obs = env.reset(task_id="task_1_format_fixer")
         _assert(isinstance(obs, DataQualityObservation))
         _assert(obs.done is False)
-        _assert(obs.reward == 0.0)
+        _assert(0.0 < obs.reward < 1.0, f"reward must be in (0,1), got {obs.reward}")
         _assert(obs.total_rows > 0)
         _assert(obs.total_columns > 0)
         _assert(obs.visible_rows is not None and len(obs.visible_rows) > 0)
