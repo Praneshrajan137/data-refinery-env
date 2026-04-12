@@ -34,13 +34,30 @@ except ImportError:
     from server.data_quality_environment import DataQualityEnvironment  # type: ignore[no-redef]
 
 
+_SCORE_EPS = 0.0001  # Hackathon validator requires scores strictly in (0, 1)
+
+
+def _clamp_reward(value: Any) -> Any:
+    """Ensure a reward value is strictly in (0, 1)."""
+    if isinstance(value, (int, float)) and value is not None:
+        return max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
+    return value
+
+
 def _serialize(obj: Any) -> dict[str, Any]:
-    """Serialize Pydantic models in both v1 and v2 environments."""
+    """Serialize Pydantic models with score clamping safety net."""
     if hasattr(obj, "model_dump"):
-        return obj.model_dump(mode="json")
-    if hasattr(obj, "dict"):
-        return obj.dict()
-    return dict(obj)  # type: ignore[call-overload]
+        data = obj.model_dump(mode="json")
+    elif hasattr(obj, "dict"):
+        data = obj.dict()
+    else:
+        data = dict(obj)  # type: ignore[call-overload]
+    # Belt-and-suspenders: clamp reward fields in the serialized output.
+    # The hackathon validator rejects 0.0 and 1.0 in ANY reward field.
+    for key in ("reward", "cumulative_reward", "reward_delta"):
+        if key in data and isinstance(data[key], (int, float)):
+            data[key] = _clamp_reward(data[key])
+    return data
 
 
 _default_env: DataQualityEnvironment | None = None

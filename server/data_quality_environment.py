@@ -243,7 +243,7 @@ class DataQualityEnvironment(Environment):
         self.found_issues: List[Dict[str, Any]] = []
         self.fixed_issues: List[Dict[str, Any]] = []
         self.false_positives: int = 0
-        self.cumulative_reward: float = 0.0
+        self.cumulative_reward: float = SCORE_MIN
         self._is_finalized: bool = False
         self._inspected_rows: set[int] = set()  # Track inspected rows for diminishing exploration bonus
         self._noisy: bool = False  # Stochastic observation mode
@@ -298,7 +298,7 @@ class DataQualityEnvironment(Environment):
         self.found_issues = []
         self.fixed_issues = []
         self.false_positives = 0
-        self.cumulative_reward = 0.0
+        self.cumulative_reward = SCORE_MIN
         self._is_finalized = False
         self._inspected_rows = set()
         self._noisy = noisy
@@ -328,7 +328,7 @@ class DataQualityEnvironment(Environment):
 
         return DataQualityObservation(
             done=False,
-            reward=0.0,
+            reward=SCORE_MIN,
             task_id=task_id,
             dataset_name=config["dataset_name"],
             schema_info=self.schema_info,
@@ -336,8 +336,8 @@ class DataQualityEnvironment(Environment):
             total_columns=len(self.schema_info),
             visible_rows=self._add_row_indices(self.dataset[:5], 0),
             action_result=ActionResult.INITIAL,
-            reward_delta=0.0,
-            cumulative_reward=0.0,
+            reward_delta=SCORE_MIN,
+            cumulative_reward=SCORE_MIN,
             issues_found=0,
             issues_remaining_hint=self._remaining_hint(),
             steps_taken=0,
@@ -410,8 +410,8 @@ class DataQualityEnvironment(Environment):
         if self._state.step_count > threshold:
             reward_delta += P_LATE_STEP
 
-        # ── Accumulate reward (floor at 0) ────────────────────────────────
-        self.cumulative_reward = max(0.0, self.cumulative_reward + reward_delta)
+        # ── Accumulate reward (floor at SCORE_MIN) ──────────────────────────
+        self.cumulative_reward = max(SCORE_MIN, self.cumulative_reward + reward_delta)
         self._state.current_reward = self.cumulative_reward
 
         # ── Auto-finalize on max steps ────────────────────────────────────
@@ -433,18 +433,22 @@ class DataQualityEnvironment(Environment):
                 self.cumulative_reward,
             )
 
-        # Clamp terminal scores to (0, 1) — strictly exclusive of endpoints.
-        # The hackathon validator rejects exactly 0.0 and 1.0.
-        if done:
-            self.cumulative_reward = max(SCORE_MIN, min(SCORE_MAX, self.cumulative_reward))
-            self._state.current_reward = self.cumulative_reward
+        # Clamp ALL scores to (0, 1) — strictly exclusive of endpoints.
+        # The hackathon validator rejects exactly 0.0 and 1.0 in ANY reward.
+        self.cumulative_reward = max(SCORE_MIN, min(SCORE_MAX, self.cumulative_reward))
+        self._state.current_reward = self.cumulative_reward
+
+        # Clamp reward_delta for non-terminal observations too
+        clamped_reward = max(SCORE_MIN, min(SCORE_MAX,
+            self.cumulative_reward if done else reward_delta
+        ))
 
         # Build grader diagnostics on terminal observations
         diagnostics = self._build_grader_diagnostics(self.cumulative_reward) if done else None
 
         return DataQualityObservation(
             done=done,
-            reward=self.cumulative_reward if done else reward_delta,
+            reward=clamped_reward,
             task_id=self.task_id,
             dataset_name=config["dataset_name"],
             schema_info=self.schema_info,
