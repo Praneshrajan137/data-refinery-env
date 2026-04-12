@@ -404,15 +404,23 @@ _STRUCTURAL_INT_KEYS = frozenset({
     "product_id", "id", "stock", "step_count",
 })
 
+_DATA_SUBTREE_KEYS = frozenset({
+    "visible_rows", "column_statistics", "secondary_table_rows",
+    "schema_info", "per_issue", "business_rules", "sample_values",
+    "metadata", "dataset",
+})
+
 
 def _clamp_scores_in_dict(d: dict) -> dict:
     """Recursively clamp all score/rate/reward fields in a dict to (0.0001, 0.9999).
 
-    Uses a two-tier strategy:
+    Strategy:
       1. Named-key clamping: any key in ``_SCORE_KEYS`` is force-clamped.
       2. Structural whitelist: keys in ``_STRUCTURAL_INT_KEYS`` are never touched.
-      3. All other float values inside ``grader_diagnostics`` or ``formula``
-         sub-dicts are also clamped (nuclear fallback).
+      3. Data subtrees (``_DATA_SUBTREE_KEYS``) are skipped entirely — these
+         contain dataset values (prices, quantities, dates) that must NOT
+         be clamped or the agent receives corrupted data.
+      4. Only recurses into dicts/lists that are NOT data subtrees.
 
     Also handles the openenv create_app case where the top-level ``reward``
     is ``None`` — replaces it with the observation's ``cumulative_reward``
@@ -434,16 +442,14 @@ def _clamp_scores_in_dict(d: dict) -> dict:
                 d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, float(value)))
         elif key in _STRUCTURAL_INT_KEYS:
             pass
+        elif key in _DATA_SUBTREE_KEYS:
+            pass
         elif isinstance(value, dict):
             _clamp_scores_in_dict(value)
         elif isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
                     _clamp_scores_in_dict(item)
-        elif isinstance(value, float) and not isinstance(value, bool):
-            import math
-            if math.isnan(value) or math.isinf(value) or value <= 0.0 or value >= 1.0:
-                d[key] = max(_SCORE_EPS, min(1.0 - _SCORE_EPS, 0.0 if math.isnan(value) else value))
     return d
 
 
@@ -529,19 +535,23 @@ class _ScoreClampMiddleware:
 
 
 def _nuclear_sanitize_response(data: Any) -> Any:
-    """Absolute last-resort sanitizer: walk ANY JSON structure and ensure
-    no float value is exactly 0.0, 1.0, negative, or > 1.0.
+    """Absolute last-resort sanitizer for score/reward structures.
 
-    Integer fields (counts, indices, IDs) are left untouched.
-    Boolean fields are left untouched.
-    String fields are left untouched.
-    Only bare float values that violate the (0, 1) open interval are clamped.
+    Walks JSON dicts and clamps any float value that is exactly 0.0,
+    exactly 1.0, negative, or > 1.0 — but ONLY in score-related
+    subtrees.  Data subtrees (visible_rows, column_statistics, etc.)
+    are skipped entirely to avoid corrupting dataset values that the
+    agent needs for reasoning.
     """
     import math
 
     if isinstance(data, dict):
         for key, value in data.items():
+            if key in _DATA_SUBTREE_KEYS:
+                continue
             if isinstance(value, bool):
+                continue
+            elif key in _STRUCTURAL_INT_KEYS:
                 continue
             elif isinstance(value, float):
                 if math.isnan(value) or math.isinf(value):
