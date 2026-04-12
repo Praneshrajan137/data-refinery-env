@@ -1595,7 +1595,12 @@ def test_task3_adversarial_clean_rows() -> None:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def test_grader_diagnostics() -> None:
-    """Grader diagnostics are populated on finalize with full scoring breakdown."""
+    """Grader diagnostics are NOT included in the observation response.
+
+    The diagnostics logic is retained internally for logging but is not
+    exposed in the observation to avoid leaking extra float fields that
+    could trip the Phase 2 validator.
+    """
     global _CURRENT_SUITE
     _CURRENT_SUITE = "test_grader_diagnostics"
     print(f"\n=== {_CURRENT_SUITE} ===")
@@ -1604,7 +1609,6 @@ def test_grader_diagnostics() -> None:
     env.reset(task_id="task_1_format_fixer")
     gt = env.ground_truth
 
-    # Diagnose one issue to have non-trivial diagnostics
     issue = gt[0]
     env.step(DataQualityAction(
         action_type="diagnose",
@@ -1614,16 +1618,7 @@ def test_grader_diagnostics() -> None:
     ))
 
     obs = env.step(DataQualityAction(action_type="finalize"))
-    _check("grader_diagnostics is not None", obs.grader_diagnostics is not None)
-    diag = obs.grader_diagnostics
-    _check("has 'formula' key", "formula" in diag)
-    _check("has 'counts' key", "counts" in diag)
-    _check("has 'per_issue' key", "per_issue" in diag)
-    _check("has 'final_score' key", "final_score" in diag)
-    _check("formula has detection_rate", "detection_rate" in diag["formula"])
-    _check("formula has fix_rate", "fix_rate" in diag["formula"])
-    _check("per_issue length matches ground truth", len(diag["per_issue"]) == len(gt))
-    _check("at least one detected issue", any(p["detected"] for p in diag["per_issue"]))
+    _check("grader_diagnostics is None (not exposed)", obs.grader_diagnostics is None)
 
 
 def test_stochastic_observation_mode() -> None:
@@ -1873,7 +1868,7 @@ def test_score_range_every_step():
 
 
 def test_score_range_diagnostics_efficiency():
-    """Verify the new efficiency metrics in grader_diagnostics are clamped."""
+    """Grader diagnostics are no longer exposed; verify finalize still works."""
     global _CURRENT_SUITE
     _CURRENT_SUITE = "test_score_range_diagnostics_efficiency"
     print(f"\n=== {_CURRENT_SUITE} ===")
@@ -1882,14 +1877,9 @@ def test_score_range_diagnostics_efficiency():
     env.reset(task_id="task_2_duplicate_detective")
     obs = env.step(DataQualityAction.finalize())
 
-    diag = obs.grader_diagnostics
-    _check("diagnostics has efficiency", "efficiency" in (diag or {}))
-    if diag and "efficiency" in diag:
-        eff = diag["efficiency"]
-        for key in ("issues_per_step", "exploration_coverage", "step_utilization"):
-            _check(f"efficiency.{key} present", key in eff)
-            val = eff.get(key, 0)
-            _check(f"efficiency.{key} in (0,1)", 0.0 < val < 1.0)
+    _check("grader_diagnostics is None", obs.grader_diagnostics is None)
+    _check("done is True", obs.done is True)
+    _check("cumulative_reward in [0,1]", 0.0 <= obs.cumulative_reward <= 1.0)
 
 
 _ALL_TESTS = [

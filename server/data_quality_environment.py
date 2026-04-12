@@ -444,9 +444,6 @@ class DataQualityEnvironment(Environment):
         clamped_reward_delta = max(SCORE_MIN, min(SCORE_MAX, reward_delta))
         clamped_reward = max(SCORE_MIN, min(SCORE_MAX, self.cumulative_reward))
 
-        # Build grader diagnostics on terminal observations
-        diagnostics = self._build_grader_diagnostics(self.cumulative_reward) if done else None
-
         return DataQualityObservation(
             done=done,
             reward=clamped_reward,
@@ -466,7 +463,6 @@ class DataQualityEnvironment(Environment):
             steps_taken=self._state.step_count,
             max_steps=max_steps,
             message=message,
-            grader_diagnostics=diagnostics,
         )
 
     @property
@@ -1119,8 +1115,6 @@ class DataQualityEnvironment(Environment):
             self.false_positives,
         )
 
-        diagnostics = self._build_grader_diagnostics(final_score)
-
         return DataQualityObservation(
             done=True,
             reward=final_score,
@@ -1137,7 +1131,6 @@ class DataQualityEnvironment(Environment):
             steps_taken=self._state.step_count,
             max_steps=config["max_steps"],
             message=f"Episode complete. Final score: {final_score:.4f}",
-            grader_diagnostics=diagnostics,
         )
 
     # ──────────────────────────────────────────────────────────────────────
