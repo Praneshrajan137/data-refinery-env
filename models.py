@@ -552,15 +552,29 @@ class DataQualityObservation(Observation):
             return max(lo, min(hi, v))
         return value
 
+    @staticmethod
+    def _safe_clamp_float(value: Any, lo: float = 0.0001, hi: float = 0.9999) -> float:
+        """Clamp a numeric value to (lo, hi), handling NaN/Inf/None safely."""
+        import math
+        if value is None or isinstance(value, bool):
+            return lo
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return lo
+        if math.isnan(v) or math.isinf(v):
+            return lo
+        return max(lo, min(hi, v))
+
     @model_validator(mode="after")
     def _clamp_all_scores(self) -> "DataQualityObservation":
         """Ensure ALL observations have every reward field strictly in (0, 1)."""
         lo = self._SCORE_LO
         hi = self._SCORE_HI
-        if self.reward is not None and not isinstance(self.reward, bool):
-            object.__setattr__(self, "reward", max(lo, min(hi, float(self.reward))))
-        object.__setattr__(self, "cumulative_reward", max(lo, min(hi, self.cumulative_reward)))
-        object.__setattr__(self, "reward_delta", max(lo, min(hi, self.reward_delta)))
+        _sc = self._safe_clamp_float
+        object.__setattr__(self, "reward", _sc(self.reward, lo, hi))
+        object.__setattr__(self, "cumulative_reward", _sc(self.cumulative_reward, lo, hi))
+        object.__setattr__(self, "reward_delta", _sc(self.reward_delta, lo, hi))
         if self.grader_diagnostics is not None:
             object.__setattr__(
                 self, "grader_diagnostics",
@@ -601,13 +615,23 @@ class DataQualityObservation(Observation):
 
     @model_serializer(mode="wrap")
     def _serialize_with_clamped_scores(self, handler: Any) -> Dict[str, Any]:
-        """Re-clamp ALL reward fields during serialization as a safety net."""
+        """Re-clamp ALL reward fields during serialization as a safety net.
+
+        Also re-injects ``reward`` and ``done`` when the framework's
+        ``serialize_observation`` excludes them — the evaluator client
+        reconstructs the observation from this dict and needs both fields.
+        """
         data = handler(self)
         lo = self._SCORE_LO
         hi = self._SCORE_HI
+        _sc = self._safe_clamp_float
+        if "reward" not in data:
+            data["reward"] = _sc(self.reward, lo, hi)
+        if "done" not in data:
+            data["done"] = self.done
         for key in ("reward", "cumulative_reward", "reward_delta"):
             if key in data and data[key] is not None and not isinstance(data[key], bool):
-                data[key] = max(lo, min(hi, float(data[key])))
+                data[key] = _sc(data[key], lo, hi)
         if "grader_diagnostics" in data and isinstance(data["grader_diagnostics"], dict):
             data["grader_diagnostics"] = self._sanitize_diagnostics(data["grader_diagnostics"])
         return data

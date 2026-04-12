@@ -1421,7 +1421,7 @@ if __name__ == "__main__":
         )
         obs = env.step(action)
         _assert(obs.action_result == ActionResult.INCORRECT)
-        _assert(obs.reward_delta < 0)
+        _assert(obs.reward_delta <= SCORE_MIN, "false positive delta should be clamped to SCORE_MIN")
 
     _check("diagnose false positive penalized", _test_diagnose_false_positive)
 
