@@ -1758,18 +1758,7 @@ def test_score_range_finalize_zero_work():
         _check(f"{task_id} final cum_reward in (0,1)", 0.0 < obs.cumulative_reward < 1.0)
         _check(f"{task_id} final reward_delta in (0,1)", 0.0 < obs.reward_delta < 1.0)
 
-        # Verify grader_diagnostics — every float must be in (0, 1)
-        diag = obs.grader_diagnostics
-        _check(f"{task_id} diagnostics present", diag is not None)
-        if diag:
-            _assert_all_floats_in_range(diag, f"{task_id}.grader_diagnostics")
-
-            # Verify serialized form too
-            data = obs.model_dump(mode="json")
-            _assert_all_floats_in_range(
-                data.get("grader_diagnostics", {}),
-                f"{task_id}.serialized.grader_diagnostics",
-            )
+        _check(f"{task_id} diagnostics not exposed", obs.grader_diagnostics is None)
 
 
 def test_score_range_perfect_episode():
@@ -1812,15 +1801,7 @@ def test_score_range_perfect_episode():
     _check("perfect episode cum_reward in (0,1)", 0.0 < obs.cumulative_reward < 1.0)
     _check("perfect episode reward_delta in (0,1)", 0.0 < obs.reward_delta < 1.0)
 
-    diag = obs.grader_diagnostics
-    _check("perfect diagnostics present", diag is not None)
-    if diag:
-        _assert_all_floats_in_range(diag, "perfect.grader_diagnostics")
-        # Verify formula rates are clamped below 1.0
-        dr = diag.get("formula", {}).get("detection_rate", 0)
-        fr = diag.get("formula", {}).get("fix_rate", 0)
-        _check("detection_rate < 1.0", dr < 1.0)
-        _check("fix_rate < 1.0", fr < 1.0)
+    _check("perfect diagnostics not exposed", obs.grader_diagnostics is None)
 
 
 def test_score_range_every_step():
