@@ -20,6 +20,8 @@ retained for CI/Linux environments.
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import re
@@ -218,6 +220,65 @@ def check_test_suite() -> None:
         _fail("Test suite TIMEOUT (>120s)")
     except Exception as exc:
         _fail(f"Test suite error: {exc}")
+
+
+def check_inference_output_contract() -> None:
+    """Step 3b: Verify inference.py emits validator-safe structured stdout."""
+    _section("Step 3b: inference.py Output Contract")
+
+    try:
+        import inference as inference_module
+    except Exception as exc:
+        _fail(f"inference.py import error: {exc}")
+        return
+
+    try:
+        start_line = inference_module._start_log_line(
+            "task_1_format_fixer", "data_quality_env", "test-model"
+        )
+        step_line = inference_module._step_log_line(
+            1, "finalize()", 0.0001, True, None
+        )
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            inference_module.log_end(True, 1, 0.0001, [0.0001])
+        end_line = out.getvalue().strip()
+
+        if re.fullmatch(r"\[START\] task=\S+ env=\S+ model=.+", start_line):
+            _pass("inference [START] format")
+        else:
+            _fail(f"inference [START] format invalid: {start_line}")
+
+        expected_step = (
+            "[STEP] step=1 action=finalize() "
+            "reward=0.0001 done=true error=null"
+        )
+        if step_line == expected_step:
+            _pass("inference [STEP] format")
+        else:
+            _fail(f"inference [STEP] format invalid: {step_line}")
+
+        expected_end = (
+            "[END] success=true steps=1 score=0.0001 rewards=0.0001"
+        )
+        if end_line == expected_end:
+            _pass("inference [END] format")
+        else:
+            _fail(f"inference [END] format invalid: {end_line}")
+
+        match = re.search(r"\bscore=([0-9]*\.?[0-9]+)\b", end_line)
+        if not match:
+            _fail("inference [END] missing score field")
+        else:
+            score = float(match.group(1))
+            if 0.0 < score < 1.0:
+                _pass("inference [END] score strictly in (0,1)")
+            else:
+                _fail(f"inference [END] score out of range: {score}")
+
+    except Exception as exc:
+        _fail(f"inference output contract error: {exc}")
 
 
 def check_dataset_integrity() -> None:
@@ -601,6 +662,7 @@ def main() -> int:
     check_required_files()
     check_python_imports()
     check_test_suite()
+    check_inference_output_contract()
     check_dataset_integrity()
     check_openenv_validate()
     check_docker_build(skip=skip_docker)

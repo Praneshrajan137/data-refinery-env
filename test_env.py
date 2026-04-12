@@ -39,6 +39,8 @@ Bug fixes from review:
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import sys
 import time
@@ -105,6 +107,11 @@ except ImportError:
         SPAM_THRESHOLD,
         TASK_CONFIG,
     )
+
+try:
+    from . import inference as inference_module
+except ImportError:
+    import inference as inference_module  # type: ignore[no-redef]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1863,6 +1870,174 @@ def test_score_range_diagnostics_efficiency():
     _check("cumulative_reward in [0,1]", 0.0 <= obs.cumulative_reward <= 1.0)
 
 
+def test_inference_end_line_includes_explicit_score() -> None:
+    """[END] line must expose an explicit score without rounding out of range."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_inference_end_line_includes_explicit_score"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    line = inference_module._end_log_line(True, 3, 0.0001, [0.15, 0.0001, 0.3333])
+
+    _check("line starts with [END]", line.startswith("[END] "))
+    _check("score field present", " score=" in line)
+    _check("score appears before rewards", line.index(" score=") < line.index(" rewards="))
+    _check("score preserves open-interval precision", "score=0.0001" in line, line)
+    _check("reward trace preserves four decimals", line.endswith("rewards=0.1500,0.0001,0.3333"), line)
+    _check("success is lowercase", "success=true" in line, line)
+
+
+def test_inference_run_task_stdout_contract() -> None:
+    """run_task() must emit parser-friendly [START]/[STEP]/[END] lines."""
+    global _CURRENT_SUITE
+    _CURRENT_SUITE = "test_inference_run_task_stdout_contract"
+    print(f"\n=== {_CURRENT_SUITE} ===")
+
+    class FakeObservation:
+        def __init__(
+            self,
+            *,
+            total_rows: int = 10,
+            reward_delta: float = 0.0001,
+            cumulative_reward: float = 0.0001,
+            done: bool = False,
+            issues_remaining_hint: str = "many",
+            issues_found: int = 0,
+            last_action_error: Optional[str] = None,
+        ) -> None:
+            self.total_rows = total_rows
+            self.reward_delta = reward_delta
+            self.cumulative_reward = cumulative_reward
+            self.done = done
+            self.issues_remaining_hint = issues_remaining_hint
+            self.issues_found = issues_found
+            self.last_action_error = last_action_error
+
+    class FakeResult:
+        def __init__(self, observation: FakeObservation) -> None:
+            self.observation = observation
+            self.done = observation.done
+
+    def _run_case(
+        *,
+        llm_response: str,
+        fallback_action: Dict[str, Any],
+        step_behavior: Callable[[Any], FakeResult],
+        deadline: float = 0.0,
+    ) -> tuple[float, List[str]]:
+        class FakeClient:
+            def __init__(self, base_url: str = "") -> None:
+                self.base_url = base_url
+
+            def sync(self) -> "FakeClient":
+                return self
+
+            def __enter__(self) -> "FakeClient":
+                return self
+
+            def __exit__(self, *args: Any) -> None:
+                return None
+
+            def reset(self, task_id: str) -> FakeResult:
+                return FakeResult(FakeObservation())
+
+            def step(self, action: Any) -> FakeResult:
+                return step_behavior(action)
+
+        old_client = inference_module.DataQualityEnv
+        old_call_llm = inference_module._call_llm
+        old_obs_to_context = inference_module._obs_to_context
+        old_truncate = inference_module._truncate_messages
+        old_fallback = inference_module._make_fallback_action
+
+        out = io.StringIO()
+        try:
+            inference_module.DataQualityEnv = FakeClient
+            inference_module._call_llm = lambda messages: llm_response
+            inference_module._obs_to_context = lambda *args, **kwargs: "ctx"
+            inference_module._truncate_messages = lambda messages, max_tokens: messages
+            inference_module._make_fallback_action = lambda *args, **kwargs: dict(fallback_action)
+            with contextlib.redirect_stdout(out):
+                score = inference_module.run_task("task_1_format_fixer", deadline=deadline)
+        finally:
+            inference_module.DataQualityEnv = old_client
+            inference_module._call_llm = old_call_llm
+            inference_module._obs_to_context = old_obs_to_context
+            inference_module._truncate_messages = old_truncate
+            inference_module._make_fallback_action = old_fallback
+
+        return score, [line for line in out.getvalue().splitlines() if line.startswith("[")]
+
+    def _extract_score(lines: List[str]) -> Optional[float]:
+        for line in lines:
+            if line.startswith("[END] "):
+                for token in line.split():
+                    if token.startswith("score="):
+                        try:
+                            return float(token.split("=", 1)[1])
+                        except ValueError:
+                            return None
+        return None
+
+    normal_score, normal_lines = _run_case(
+        llm_response='{"action_type":"finalize"}',
+        fallback_action={"action_type": "finalize"},
+        step_behavior=lambda action: FakeResult(
+            FakeObservation(done=True, reward_delta=0.4321, cumulative_reward=0.4321)
+        ),
+    )
+    _check("normal case emits [START]", any(line.startswith("[START] ") for line in normal_lines), str(normal_lines))
+    _check("normal case emits [STEP]", any(line.startswith("[STEP] ") for line in normal_lines), str(normal_lines))
+    _check("normal case emits [END]", any(line.startswith("[END] ") for line in normal_lines), str(normal_lines))
+    _check("normal [END] includes explicit score", any(" score=0.4321 " in line for line in normal_lines), str(normal_lines))
+    _check("normal [STEP] uses validator field order",
+           any(line == "[STEP] step=1 action=finalize() reward=0.4321 done=true error=null" for line in normal_lines),
+           str(normal_lines))
+    normal_end_score = _extract_score(normal_lines)
+    _check("normal parsed score in (0,1)", normal_end_score is not None and 0.0 < normal_end_score < 1.0, str(normal_lines))
+    _check("normal run_task returns same score", _approx(normal_score, 0.4321), str(normal_score))
+
+    fallback_score, fallback_lines = _run_case(
+        llm_response="",
+        fallback_action={"action_type": "finalize"},
+        step_behavior=lambda action: FakeResult(
+            FakeObservation(done=True, reward_delta=0.0001, cumulative_reward=0.0001)
+        ),
+    )
+    fallback_end_score = _extract_score(fallback_lines)
+    _check("fallback [END] keeps score above zero",
+           any(" score=0.0001 " in line for line in fallback_lines), str(fallback_lines))
+    _check("fallback parsed score in (0,1)", fallback_end_score is not None and 0.0 < fallback_end_score < 1.0, str(fallback_lines))
+    _check("fallback run_task returns clamped score", _approx(fallback_score, 0.0001), str(fallback_score))
+
+    exception_score, exception_lines = _run_case(
+        llm_response='{"action_type":"finalize"}',
+        fallback_action={"action_type": "finalize"},
+        step_behavior=lambda action: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    exception_end_score = _extract_score(exception_lines)
+    _check("exception case still emits [END]", any(line.startswith("[END] ") for line in exception_lines), str(exception_lines))
+    _check("exception case emits safe score",
+           any(" score=0.0001 " in line for line in exception_lines), str(exception_lines))
+    _check("exception parsed score in (0,1)", exception_end_score is not None and 0.0 < exception_end_score < 1.0, str(exception_lines))
+    _check("exception run_task returns clamped score", _approx(exception_score, 0.0001), str(exception_score))
+
+    deadline_score, deadline_lines = _run_case(
+        llm_response='{"action_type":"finalize"}',
+        fallback_action={"action_type": "finalize"},
+        step_behavior=lambda action: FakeResult(
+            FakeObservation(done=True, reward_delta=0.9999, cumulative_reward=0.9999)
+        ),
+        deadline=time.time() - 1.0,
+    )
+    deadline_end_score = _extract_score(deadline_lines)
+    _check("deadline case emits [END]", any(line.startswith("[END] ") for line in deadline_lines), str(deadline_lines))
+    _check("deadline case uses zero-step safe score",
+           any(line == "[END] success=false steps=0 score=0.0001 rewards=0.0001" for line in deadline_lines),
+           str(deadline_lines))
+    _check("deadline parsed score in (0,1)", deadline_end_score is not None and 0.0 < deadline_end_score < 1.0, str(deadline_lines))
+    _check("deadline run_task returns clamped score", _approx(deadline_score, 0.0001), str(deadline_score))
+
+
 _ALL_TESTS = [
     test_reset_all_tasks,
     test_reset_invalid_task_id,
@@ -1927,6 +2102,8 @@ _ALL_TESTS = [
     test_score_range_perfect_episode,
     test_score_range_every_step,
     test_score_range_diagnostics_efficiency,
+    test_inference_end_line_includes_explicit_score,
+    test_inference_run_task_stdout_contract,
 ]
 
 

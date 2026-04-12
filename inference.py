@@ -185,6 +185,73 @@ def _safe_clamp(value: Any, lo: float = 0.0001, hi: float = 0.9999) -> float:
         return lo
     return max(lo, min(hi, v))
 
+
+def _format_score(value: Any) -> str:
+    """Format score-like values with enough precision to preserve (0, 1) bounds."""
+    return f"{_safe_clamp(value):.4f}"
+
+
+def _format_bool(value: Any) -> str:
+    """Render booleans using the lowercase form expected by the validator."""
+    return str(bool(value)).lower()
+
+
+def _format_rewards_csv(rewards: List[Any]) -> str:
+    """Render the per-step reward trace as a comma-separated list of clamped floats."""
+    if not rewards:
+        return _format_score(0.0001)
+    return ",".join(_format_score(reward) for reward in rewards)
+
+
+def _start_log_line(task: str, env: str, model: str) -> str:
+    """Build the structured [START] line consumed by the evaluator."""
+    return f"[START] task={task} env={env} model={model}"
+
+
+def _step_log_line(
+    step: int,
+    action: str,
+    reward: Any,
+    done: bool,
+    error: Optional[str] = None,
+) -> str:
+    """Build the structured [STEP] line consumed by the evaluator."""
+    error_val = error if error else "null"
+    error_val = str(error_val).replace("\n", " ").replace("\r", "")
+    return (
+        f"[STEP] step={step} action={action} reward={_format_score(reward)} "
+        f"done={_format_bool(done)} error={error_val}"
+    )
+
+
+def _end_log_line(success: bool, steps: int, score: Any, rewards: List[Any]) -> str:
+    """Build the structured [END] line with an explicit task score field."""
+    return (
+        f"[END] success={_format_bool(success)} steps={steps} "
+        f"score={_format_score(score)} rewards={_format_rewards_csv(rewards)}"
+    )
+
+
+def log_start(task: str, env: str, model: str) -> None:
+    """Emit the validator-facing [START] line."""
+    print(_start_log_line(task, env, model), flush=True)
+
+
+def log_step(
+    step: int,
+    action: str,
+    reward: Any,
+    done: bool,
+    error: Optional[str] = None,
+) -> None:
+    """Emit the validator-facing [STEP] line."""
+    print(_step_log_line(step, action, reward, done, error), flush=True)
+
+
+def log_end(success: bool, steps: int, score: Any, rewards: List[Any]) -> None:
+    """Emit the validator-facing [END] line."""
+    print(_end_log_line(success, steps, score, rewards), flush=True)
+
 MAX_STEPS: Dict[str, int] = {
     "task_1_format_fixer": 30,
     "task_2_duplicate_detective": 50,
@@ -1034,11 +1101,11 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
     inspected_rows: Set[int] = set()
 
     # ── Per-step reward accumulator for [END] line ────────────────────
-    rewards_list: List[str] = []
+    rewards_list: List[float] = []
     final_step_count: int = 0
 
     # ── Hackathon-compliant [START] line (stdout) ─────────────────────
-    print(f"[START] task={task_id} env=data_quality_env model={MODEL_NAME}", flush=True)
+    log_start(task_id, "data_quality_env", MODEL_NAME)
     logger.info("Episode starting: task=%s max_steps=%d model=%s", task_id, max_steps, MODEL_NAME)
 
     try:
@@ -1153,8 +1220,8 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
                     done = getattr(obs, "done", False)
                 if isinstance(done, property):
                     done = False
-                reward_delta = float(getattr(obs, "reward_delta", 0.0))
-                total_reward = float(getattr(obs, "cumulative_reward", 0.0))
+                reward_delta = _safe_clamp(getattr(obs, "reward_delta", 0.0))
+                total_reward = _safe_clamp(getattr(obs, "cumulative_reward", 0.0))
 
                 # ── Track adaptive state ──────────────────────────────
                 hint = getattr(obs, "issues_remaining_hint", None)
@@ -1164,15 +1231,9 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
 
                 # ── Hackathon-compliant [STEP] line (stdout) ────────
                 action_str = _format_action_str(action_dict)
-                error_str = str(getattr(obs, "last_action_error", None) or "null")
-                error_str = error_str.replace("\n", " ").replace("\r", "")
-                print(
-                    f"[STEP] step={step_num + 1} action={action_str} "
-                    f"reward={reward_delta:.4f} done={str(done).lower()} "
-                    f"error={error_str}",
-                    flush=True,
-                )
-                rewards_list.append(f"{reward_delta:.4f}")
+                error_str = getattr(obs, "last_action_error", None)
+                log_step(step_num + 1, action_str, reward_delta, bool(done), error_str)
+                rewards_list.append(reward_delta)
                 final_step_count = step_num + 1
 
                 logger.info(
@@ -1190,16 +1251,11 @@ def run_task(task_id: str, deadline: float = 0.0) -> float:
         traceback.print_exc(file=sys.stderr)
 
     # ── Hackathon-compliant [END] line (stdout) — ALWAYS printed ─────
-    clamped_score = _safe_clamp(total_reward)
-    success = str(clamped_score >= 0.3).lower()
-    rewards_str = ",".join(rewards_list) if rewards_list else "0.0001"
-    print(
-        f"[END] success={success} steps={final_step_count} "
-        f"rewards={rewards_str}",
-        flush=True,
-    )
-    logger.info("Episode finished: task=%s final_reward=%.4f", task_id, clamped_score)
-    return clamped_score
+    task_score = _safe_clamp(total_reward)
+    success = task_score >= 0.3
+    log_end(success, final_step_count, task_score, rewards_list)
+    logger.info("Episode finished: task=%s final_reward=%.4f", task_id, task_score)
+    return task_score
 
 
 # ═══════════════════════════════════════════════════════════════════════════
