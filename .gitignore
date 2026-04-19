@@ -1,54 +1,16 @@
-# ──────────────────────────────────────────────────────────────
-# Data Quality Environment — .gitignore
-# ──────────────────────────────────────────────────────────────
-
-# Python bytecode & caches
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-
-# Distribution / packaging
-*.egg-info/
-*.egg
-dist/
-build/
-wheels/
-
-# Virtual environments
+*.pyc
 .venv/
-venv/
-ENV/
-
-# Testing & coverage
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-
-# Type checking
-.mypy_cache/
-.pytype/
-
-# IDE & editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.project
-.settings/
-
-# OS artifacts
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Project-specific artifacts
-compat_output.txt
-
-# Environment files (never commit secrets)
 .env
-.env.local
-.env.*.local
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+build/
+dist/
+*.egg-info/
+.DS_Store
+.coverage
+.ipynb_checkpoints/
+prompt.md
+compat_output.txt

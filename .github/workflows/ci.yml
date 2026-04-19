@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint
+        run: make lint
+      - name: Type-check
+        run: make type
+      - name: Test
+        run: make test
+
+  regression-gate:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Existing regression suite MUST NOT break
+        run: pytest tests/regression/ -x -v
+
+  test-map-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Validate test_map.json schema and mapped paths
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          mapping = json.loads(Path("test_map.json").read_text(encoding="utf-8"))
+          errors = []
+
+          for source_file, entry in mapping.items():
+              if source_file.startswith("_"):
+                  continue
+              if not isinstance(entry, dict):
+                  errors.append(f"{source_file}: expected object, got {type(entry).__name__}")
+                  continue
+              for key, value in entry.items():
+                  if not isinstance(value, list):
+                      errors.append(
+                          f"{source_file}.{key}: expected list[str], got {type(value).__name__}"
+                      )
+                      continue
+                  for test_path in value:
+                      if not isinstance(test_path, str):
+                          errors.append(
+                              f"{source_file}.{key}: expected list[str], found {type(test_path).__name__}"
+                          )
+                      elif not Path(test_path).exists():
+                          errors.append(f"{source_file}.{key}: missing path {test_path}")
+
+          if errors:
+              raise SystemExit("\n".join(errors))
+
+          mapped_files = [name for name in mapping if not name.startswith("_")]
+          print(f"Validated test_map.json for {len(mapped_files)} mapped source file(s).")
+          PY
