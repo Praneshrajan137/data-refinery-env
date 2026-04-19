@@ -64,7 +64,7 @@ willing to review this PR without wincing?" If not, raise the bar.
 
 ## Style
 
-- Python 3.11+. Use modern syntax (`dict | None` not `Optional[Dict]`).
+- Python 3.11 / 3.12 (`requires-python = ">=3.11,<3.13"`). Use modern syntax (`dict | None` not `Optional[Dict]`).
 - `ruff` for linting AND formatting (`ruff format`). `mypy --strict` for types.
 - Prefer dataclasses or Pydantic BaseModel over dicts for structured data.
 - Prefer composition over inheritance. Small classes, single responsibility.

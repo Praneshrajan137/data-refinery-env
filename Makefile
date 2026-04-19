@@ -1,3 +1,9 @@
+# Use Git Bash on Windows so Unix commands (rm, find, &&) work in recipes.
+# The 8.3 short-path avoids GNU Make's space-in-path limitation.
+ifeq ($(OS),Windows_NT)
+SHELL := C:/PROGRA~1/Git/bin/bash.exe
+endif
+
 .PHONY: help setup setup-all lint format type test test-mapped coverage bench bench-free mutation clean
 
 help:

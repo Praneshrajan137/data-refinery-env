@@ -25,7 +25,7 @@ Workflow:
     and stop.
 
 Hard rules:
-- NEVER modify tests/regression/ - those 389 assertions are frozen.
+- NEVER modify tests/regression/ - the regression smoke test is the baseline; do not weaken it.
 - NEVER implement before the failing test exists.
 - NEVER combine two tasks in one iteration.
 - If any check fails, stop, report the failure clearly, and leave the worktree

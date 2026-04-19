@@ -5,6 +5,7 @@ Usage:
     python scripts/test_mapped.py <source_file> --bench
     python scripts/test_mapped.py <source_file> --validate
 """
+
 from __future__ import annotations
 
 import json

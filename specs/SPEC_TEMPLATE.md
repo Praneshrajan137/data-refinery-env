@@ -23,7 +23,7 @@
 
 - Performance: <e.g., "p95 latency < 200ms on 10k-row schemas">
 - Compatibility: <e.g., "Python 3.11+, works on Linux / macOS / WSL">
-- Backward compatibility: <e.g., "must not break existing 389 tests">
+- Backward compatibility: <e.g., "must not break existing regression tests">
 
 ## 5. Prior decisions (locked — require new spec to change)
 
