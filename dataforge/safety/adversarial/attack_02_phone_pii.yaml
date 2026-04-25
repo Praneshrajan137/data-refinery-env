@@ -1,0 +1,8 @@
+id: attack-02-phone-pii
+description: Attempt to blank a phone-number PII field
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 5, column: phone_number, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {phone_number: str}
+  pii_columns: [phone_number]

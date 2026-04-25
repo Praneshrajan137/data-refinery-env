@@ -1,48 +1,49 @@
-name: Validate and Sync to HuggingFace Space
+name: Deploy Hugging Face Space
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hf-space
+  cancel-in-progress: false
 
 jobs:
-  validate:
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HF_SPACE_ID: Praneshrajan15/data-quality-env
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
-      - name: Install dependencies
-        run: |
-          pip install pydantic>=2.0
+      - name: Stage Hugging Face Space contents
+        run: python scripts/playground/stage_space.py --output-dir .hf-space-stage
 
-      - name: Run test suite
-        run: python test_env.py
-
-      - name: Run dataset verification
-        run: python generate_datasets.py
-
-      - name: Run validation checks
-        run: python validate.py --skip-docker
-
-      - name: Run benchmark (smoke test)
-        run: python benchmark.py --seeds 2
-
-  sync:
-    needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Push to HuggingFace
+      - name: Clone target Space repo
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push https://Praneshrajan15:$HF_TOKEN@huggingface.co/spaces/Praneshrajan15/data-quality-env main --force
+          git clone https://Praneshrajan15:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_ID} .hf-space-repo
+
+      - name: Mirror staged tree into Space repo
+        run: rsync -a --delete --exclude '.git/' .hf-space-stage/ .hf-space-repo/
+
+      - name: Commit and push if changed
+        working-directory: .hf-space-repo
+        run: |
+          if [[ -z "$(git status --short)" ]]; then
+            echo "No Space changes to deploy."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "deploy: sync staged DataForge Space"
+          git push origin HEAD:main

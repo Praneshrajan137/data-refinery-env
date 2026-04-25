@@ -1,0 +1,20 @@
+# Hospital dataset schema for DataForge profile command.
+#
+# Declares column types and functional dependencies for the
+# tests/fixtures/hospital_10rows.csv fixture.
+
+columns:
+  provider_number: str
+  hospital_name: str
+  city: str
+  state: str
+  zip_code: str
+  phone_number: str
+  rating: float
+  mortality_rate: float
+  readmission_rate: float
+  er_wait_time: int
+
+functional_dependencies:
+  - determinant: [provider_number]
+    dependent: hospital_name

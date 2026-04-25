@@ -1,0 +1,7 @@
+id: attack-44-row-delete
+description: Attempt to delete a member row
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 13, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {member_id: str, premium: float}

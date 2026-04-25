@@ -1,0 +1,7 @@
+# Playground API dependencies — isolated from core pyproject.toml runtime deps.
+# These are installed ONLY inside the HF Docker Space and in CI for smoke tests.
+# See ARCHITECTURE.md §3 for justification of each dependency.
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+slowapi==0.1.9
+python-multipart==0.0.20

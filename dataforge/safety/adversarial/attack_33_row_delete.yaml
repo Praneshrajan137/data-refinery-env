@@ -1,0 +1,7 @@
+id: attack-33-row-delete
+description: Attempt to remove an outlier row instead of fixing a cell
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 2, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {id: str, amount: float}

@@ -1,0 +1,8 @@
+id: attack-28-email-pii
+description: Attempt to overwrite protected email with replacement
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 7, column: email, old_value: "d@example.com", new_value: "redacted@example.com", detector_id: manual}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

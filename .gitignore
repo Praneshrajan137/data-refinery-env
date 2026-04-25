@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 .env
 .pytest_cache/
+.hypothesis/
 .mypy_cache/
 .ruff_cache/
 htmlcov/
@@ -14,3 +15,7 @@ dist/
 .ipynb_checkpoints/
 prompt.md
 compat_output.txt
+DESIGN_PARTNERS.md
+.hf-space-stage/
+.hf-space-repo/
+.hf-space-stage-plan/

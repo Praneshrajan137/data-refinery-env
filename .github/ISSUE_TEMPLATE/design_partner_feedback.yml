@@ -1,0 +1,43 @@
+name: Design Partner Feedback
+description: Share your experience using DataForge against your own data.
+title: "[Feedback] "
+labels: ["design-partner", "feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for trying DataForge! Your feedback directly shapes the
+        product. Please be as specific as possible.
+
+  - type: textarea
+    id: experience
+    attributes:
+      label: What surprised me / what confused me / what I expected
+      description: |
+        Please write one paragraph about what happened when you tried
+        DataForge on your data.
+      placeholder: |
+        I ran `dataforge profile my_data.csv` and was surprised that...
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot or output
+      description: |
+        Paste a screenshot or the terminal output. Drag-and-drop images
+        work in this field.
+      placeholder: Paste screenshot or terminal output here.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: attribution
+    attributes:
+      label: Attribution
+      description: |
+        May we list your handle in CONTRIBUTORS.md as a design partner?
+      options:
+        - label: "Yes, you may attribute this feedback to my GitHub handle."
+          required: false

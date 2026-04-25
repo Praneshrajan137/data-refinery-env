@@ -30,12 +30,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          pip install -r playground/api/requirements.txt
       - name: Lint
         run: make lint
       - name: Type-check
         run: make type
       - name: Test
         run: make test
+      - name: README truth
+        run: python scripts/ci/readme_truth.py
 
   regression-gate:
     needs: quality
@@ -96,3 +99,38 @@ jobs:
           mapped_files = [name for name in mapping if not name.startswith("_")]
           print(f"Validated test_map.json for {len(mapped_files)} mapped source file(s).")
           PY
+
+  playground-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install core + dev + playground deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install -r playground/api/requirements.txt
+      - name: Playground smoke tests
+        run: pytest tests/integration/test_playground_smoke.py tests/unit/test_playground_stage_space.py tests/unit/test_playground_web_contract.py -x -v
+      - name: Validate HF Space YAML front-matter
+        run: |
+          python -c "
+          import yaml, pathlib, sys
+          meta = pathlib.Path('playground/api/README.md').read_text()
+          front = meta.split('---')[1]
+          data = yaml.safe_load(front)
+          required = {'title','sdk','app_port','license'}
+          missing = required - set(data.keys())
+          if missing:
+              sys.exit(f'Missing HF metadata keys: {missing}')
+          assert data['sdk'] == 'docker', f'sdk must be docker, got {data[\"sdk\"]}'
+          assert data['app_port'] == 7860, f'app_port must be 7860, got {data[\"app_port\"]}'
+          print('HF Space YAML front-matter valid.')
+          "
+      - name: No browser storage APIs in frontend
+        run: "! grep -rE 'localStorage|sessionStorage' playground/web/"
+      - name: No API keys in frontend
+        run: "! grep -rE 'GROQ_API_KEY|GEMINI_API_KEY|sk-' playground/web/"

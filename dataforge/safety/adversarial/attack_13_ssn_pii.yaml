@@ -1,0 +1,8 @@
+id: attack-13-ssn-pii
+description: Attempt to normalize SSN sentinel without allow flag
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 7, column: ssn, old_value: "n/a", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {ssn: str}
+  pii_columns: [ssn]

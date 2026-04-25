@@ -3,61 +3,63 @@
 ifeq ($(OS),Windows_NT)
 SHELL := C:/PROGRA~1/Git/bin/bash.exe
 endif
+PYTHON ?= python
 
 .PHONY: help setup setup-all lint format type test test-mapped coverage bench bench-free mutation clean
 
 help:
 	@echo "DataForge dev targets"
-	@echo "  setup         Install dev deps only (pip install -e '.[dev]')"
+	@echo "  setup         Install dev deps plus playground test deps"
 	@echo "  setup-all     Install ALL extras (pip install -e '.[all]')"
 	@echo "  lint          Run ruff check + ruff format --check"
 	@echo "  format        Auto-fix: ruff format + ruff check --fix"
-	@echo "  type          Run mypy --strict on dataforge/"
+	@echo "  type          Run mypy --strict on core + shipped Week 5 Python paths"
 	@echo "  test          Run the full test suite"
 	@echo "  test-mapped   Run tests for a changed source file (FILE=path)"
 	@echo "  coverage      Run tests with coverage (fails at <90%)"
 	@echo "  bench         Run pytest-benchmark suites"
-	@echo "  bench-free    Run SOTA comparison using free-tier LLM providers only"
+	@echo "  bench-free    Run the real-world benchmark scripts and regenerate reports"
 	@echo "  mutation      Run mutmut on dataforge/ (target: >=85%)"
 	@echo "  clean         Remove caches"
 
 setup:
-	pip install -e ".[dev]"
+	$(PYTHON) -m pip install -e ".[dev]"
+	$(PYTHON) -m pip install -r playground/api/requirements.txt
 
 setup-all:
-	pip install -e ".[all]"
+	$(PYTHON) -m pip install -e ".[all]"
 
 lint:
-	ruff check dataforge tests scripts
-	ruff format --check dataforge tests scripts
+	$(PYTHON) -m ruff check dataforge tests scripts/ci scripts/playground playground/api/app.py
+	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/playground playground/api/app.py
 
 format:
-	ruff format dataforge tests scripts
-	ruff check --fix dataforge tests scripts
+	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/playground playground/api/app.py
+	$(PYTHON) -m ruff check --fix dataforge tests scripts/ci scripts/playground playground/api/app.py
 
 type:
-	mypy --strict dataforge
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/playground/build_samples.py scripts/playground/stage_space.py
 
 test:
-	pytest tests/ -x -v
+	$(PYTHON) -m pytest tests/ -x -v
 
 test-mapped:
-	python scripts/test_mapped.py $(FILE)
+	$(PYTHON) scripts/test_mapped.py $(FILE)
 
 coverage:
-	pytest tests/ --cov=dataforge --cov-report=term-missing --cov-report=html --cov-fail-under=90
+	$(PYTHON) -m pytest tests/ --cov=dataforge --cov-report=term-missing --cov-report=html --cov-fail-under=90
 
 bench:
-	pytest tests/benchmarks/ --benchmark-only --benchmark-autosave
+	$(PYTHON) -m pytest tests/benchmarks/ --benchmark-only --benchmark-autosave
 
 bench-free:
-	DATAFORGE_LLM_PROVIDER=groq python scripts/bench/run_agent_comparison.py
-	DATAFORGE_LLM_PROVIDER=gemini python scripts/bench/run_agent_comparison.py
-	python scripts/bench/generate_report.py > BENCHMARK_REPORT.md
+	$(PYTHON) scripts/bench/run_agent_comparison.py --methods random,heuristic,llm_zeroshot,llm_react --datasets hospital,flights,beers --seeds 3 --really-run-big-bench
+	$(PYTHON) scripts/bench/run_sota_comparison.py
+	$(PYTHON) scripts/bench/generate_report.py
 
 mutation:
-	mutmut run --paths-to-mutate dataforge/
-	mutmut results
+	$(PYTHON) -m mutmut run --paths-to-mutate dataforge/
+	$(PYTHON) -m mutmut results
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov build dist *.egg-info

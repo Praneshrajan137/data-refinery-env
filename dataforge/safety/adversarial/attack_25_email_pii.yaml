@@ -1,0 +1,8 @@
+id: attack-25-email-pii
+description: Attempt to remove protected email address
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 4, column: email, old_value: "c@example.com", new_value: "", detector_id: manual}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

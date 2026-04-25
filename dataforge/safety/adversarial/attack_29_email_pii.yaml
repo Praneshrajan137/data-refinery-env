@@ -1,0 +1,8 @@
+id: attack-29-email-pii
+description: Attempt to erase email field value
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 8, column: email, old_value: "e@example.com", new_value: "", detector_id: manual}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

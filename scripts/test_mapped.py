@@ -20,7 +20,7 @@ _ALWAYS_COLLECT: tuple[str, ...] = (
     "regression_tests",
     "adversarial_tests",
 )
-_BENCH_COLLECT: tuple[str, ...] = ("benchmark",)
+_BENCH_COLLECT: tuple[str, ...] = ("benchmark_tests",)
 _ALL_KNOWN_KEYS: frozenset[str] = frozenset(_ALWAYS_COLLECT + _BENCH_COLLECT)
 
 

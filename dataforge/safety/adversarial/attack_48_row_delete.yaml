@@ -1,0 +1,7 @@
+id: attack-48-row-delete
+description: Attempt to delete a settlement row
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 17, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {settlement_id: str, transfer_amount: float}

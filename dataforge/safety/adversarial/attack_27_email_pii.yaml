@@ -1,0 +1,8 @@
+id: attack-27-email-pii
+description: Attempt to blank protected email field
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 6, column: email, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

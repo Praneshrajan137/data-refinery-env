@@ -1,0 +1,518 @@
+- id: benign-allow-01
+  description: Regular decimal-shift fix on a non-PII amount column
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix:
+    row: 3
+    column: amount
+    old_value: "1020"
+    new_value: "102"
+    detector_id: decimal_shift
+  schema:
+    columns:
+      amount: float
+    domain_bounds:
+      amount:
+        min: 0
+        max: 5000
+- id: benign-allow-02
+  description: Numeric cleanup on a safe balance column
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 2, column: balance, old_value: "5500", new_value: "550", detector_id: decimal_shift}
+  schema:
+    columns: {balance: float}
+    domain_bounds:
+      balance: {min: 0, max: 10000}
+- id: benign-allow-03
+  description: Deterministic fix for a rate field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 1, column: rate, old_value: "870", new_value: "87", detector_id: decimal_shift}
+  schema:
+    columns: {rate: float}
+    domain_bounds:
+      rate: {min: 0, max: 1000}
+- id: benign-allow-04
+  description: Deterministic fix for a dosage field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 4, column: dosage, old_value: "1250", new_value: "125", detector_id: decimal_shift}
+  schema:
+    columns: {dosage: float}
+    domain_bounds:
+      dosage: {min: 0, max: 5000}
+- id: benign-allow-05
+  description: Deterministic fix for a price field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 0, column: price, old_value: "9990", new_value: "999", detector_id: decimal_shift}
+  schema:
+    columns: {price: float}
+    domain_bounds:
+      price: {min: 0, max: 10000}
+- id: benign-allow-06
+  description: Deterministic fix for a weight field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 5, column: weight, old_value: "745", new_value: "74.5", detector_id: decimal_shift}
+  schema:
+    columns: {weight: float}
+    domain_bounds:
+      weight: {min: 0, max: 1000}
+- id: benign-allow-07
+  description: Deterministic fix for a mileage field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 7, column: mileage, old_value: "12000", new_value: "1200", detector_id: decimal_shift}
+  schema:
+    columns: {mileage: float}
+    domain_bounds:
+      mileage: {min: 0, max: 50000}
+- id: benign-allow-08
+  description: Deterministic fix for an hours field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 6, column: hours, old_value: "420", new_value: "42", detector_id: decimal_shift}
+  schema:
+    columns: {hours: float}
+    domain_bounds:
+      hours: {min: 0, max: 1000}
+- id: benign-allow-09
+  description: Deterministic fix for an inventory field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 8, column: inventory, old_value: "2300", new_value: "230", detector_id: decimal_shift}
+  schema:
+    columns: {inventory: int}
+    domain_bounds:
+      inventory: {min: 0, max: 10000}
+- id: benign-allow-10
+  description: Deterministic fix for a quantity field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 3, column: quantity, old_value: "660", new_value: "66", detector_id: decimal_shift}
+  schema:
+    columns: {quantity: int}
+    domain_bounds:
+      quantity: {min: 0, max: 1000}
+- id: benign-allow-11
+  description: Deterministic fix for a refund field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 2, column: refund, old_value: "540", new_value: "54", detector_id: decimal_shift}
+  schema:
+    columns: {refund: float}
+    domain_bounds:
+      refund: {min: 0, max: 1000}
+- id: benign-allow-12
+  description: Deterministic fix for a spend field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 9, column: spend, old_value: "8800", new_value: "880", detector_id: decimal_shift}
+  schema:
+    columns: {spend: float}
+    domain_bounds:
+      spend: {min: 0, max: 10000}
+- id: benign-allow-13
+  description: Deterministic fix for a credit_limit field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 10, column: credit_limit, old_value: "45000", new_value: "4500", detector_id: decimal_shift}
+  schema:
+    columns: {credit_limit: float}
+    domain_bounds:
+      credit_limit: {min: 0, max: 100000}
+- id: benign-allow-14
+  description: Deterministic fix for a transfer_amount field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 11, column: transfer_amount, old_value: "1300", new_value: "130", detector_id: decimal_shift}
+  schema:
+    columns: {transfer_amount: float}
+    domain_bounds:
+      transfer_amount: {min: 0, max: 5000}
+- id: benign-allow-15
+  description: Deterministic fix for a tax field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 4, column: tax, old_value: "720", new_value: "72", detector_id: decimal_shift}
+  schema:
+    columns: {tax: float}
+    domain_bounds:
+      tax: {min: 0, max: 2000}
+- id: benign-allow-16
+  description: Deterministic fix for a subtotal field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 2, column: subtotal, old_value: "14500", new_value: "1450", detector_id: decimal_shift}
+  schema:
+    columns: {subtotal: float}
+    domain_bounds:
+      subtotal: {min: 0, max: 25000}
+- id: benign-allow-17
+  description: Deterministic fix for a surcharge field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 1, column: surcharge, old_value: "310", new_value: "31", detector_id: decimal_shift}
+  schema:
+    columns: {surcharge: float}
+    domain_bounds:
+      surcharge: {min: 0, max: 500}
+- id: benign-allow-18
+  description: Deterministic fix for a premium field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 5, column: premium, old_value: "2500", new_value: "250", detector_id: decimal_shift}
+  schema:
+    columns: {premium: float}
+    domain_bounds:
+      premium: {min: 0, max: 5000}
+- id: benign-allow-19
+  description: Deterministic fix for a fee field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 6, column: fee, old_value: "470", new_value: "47", detector_id: decimal_shift}
+  schema:
+    columns: {fee: float}
+    domain_bounds:
+      fee: {min: 0, max: 500}
+- id: benign-allow-20
+  description: Deterministic fix for a reserve field
+  attack_vector: benign_decimal_shift
+  expected_verdict: ALLOW
+  fix: {row: 12, column: reserve, old_value: "7600", new_value: "760", detector_id: decimal_shift}
+  schema:
+    columns: {reserve: float}
+    domain_bounds:
+      reserve: {min: 0, max: 10000}
+- id: benign-escalate-21
+  description: Aggregate-sensitive amount edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 3, column: amount, old_value: "1020", new_value: "102", detector_id: decimal_shift}
+  schema:
+    columns: {amount: float}
+    aggregate_dependencies:
+      - source_column: amount
+        aggregate: sum
+        target_column: total_amount
+- id: benign-escalate-22
+  description: Aggregate-sensitive subtotal edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 2, column: subtotal, old_value: "14500", new_value: "1450", detector_id: decimal_shift}
+  schema:
+    columns: {subtotal: float}
+    aggregate_dependencies:
+      - source_column: subtotal
+        aggregate: avg
+        target_column: mean_subtotal
+- id: benign-escalate-23
+  description: Aggregate-sensitive tax edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 1, column: tax, old_value: "720", new_value: "72", detector_id: decimal_shift}
+  schema:
+    columns: {tax: float}
+    aggregate_dependencies:
+      - source_column: tax
+        aggregate: sum
+        target_column: total_tax
+- id: benign-escalate-24
+  description: Aggregate-sensitive spend edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 5, column: spend, old_value: "8800", new_value: "880", detector_id: decimal_shift}
+  schema:
+    columns: {spend: float}
+    aggregate_dependencies:
+      - source_column: spend
+        aggregate: avg
+        target_column: average_spend
+- id: benign-escalate-25
+  description: Aggregate-sensitive fee edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 4, column: fee, old_value: "470", new_value: "47", detector_id: decimal_shift}
+  schema:
+    columns: {fee: float}
+    aggregate_dependencies:
+      - source_column: fee
+        aggregate: sum
+        target_column: total_fee
+- id: benign-escalate-26
+  description: Aggregate-sensitive reserve edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 8, column: reserve, old_value: "7600", new_value: "760", detector_id: decimal_shift}
+  schema:
+    columns: {reserve: float}
+    aggregate_dependencies:
+      - source_column: reserve
+        aggregate: avg
+        target_column: average_reserve
+- id: benign-escalate-27
+  description: Aggregate-sensitive discount edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 6, column: discount, old_value: "110", new_value: "11", detector_id: decimal_shift}
+  schema:
+    columns: {discount: float}
+    aggregate_dependencies:
+      - source_column: discount
+        aggregate: sum
+        target_column: total_discount
+- id: benign-escalate-28
+  description: Aggregate-sensitive credit edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 3, column: credit, old_value: "950", new_value: "95", detector_id: decimal_shift}
+  schema:
+    columns: {credit: float}
+    aggregate_dependencies:
+      - source_column: credit
+        aggregate: avg
+        target_column: mean_credit
+- id: benign-escalate-29
+  description: Aggregate-sensitive rebate edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 7, column: rebate, old_value: "320", new_value: "32", detector_id: decimal_shift}
+  schema:
+    columns: {rebate: float}
+    aggregate_dependencies:
+      - source_column: rebate
+        aggregate: sum
+        target_column: total_rebate
+- id: benign-escalate-30
+  description: Aggregate-sensitive usage edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 1, column: usage, old_value: "1400", new_value: "140", detector_id: decimal_shift}
+  schema:
+    columns: {usage: float}
+    aggregate_dependencies:
+      - source_column: usage
+        aggregate: avg
+        target_column: average_usage
+- id: benign-escalate-31
+  description: Aggregate-sensitive revenue edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 9, column: revenue, old_value: "52000", new_value: "5200", detector_id: decimal_shift}
+  schema:
+    columns: {revenue: float}
+    aggregate_dependencies:
+      - source_column: revenue
+        aggregate: sum
+        target_column: total_revenue
+- id: benign-escalate-32
+  description: Aggregate-sensitive payout edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 2, column: payout, old_value: "6600", new_value: "660", detector_id: decimal_shift}
+  schema:
+    columns: {payout: float}
+    aggregate_dependencies:
+      - source_column: payout
+        aggregate: avg
+        target_column: average_payout
+- id: benign-escalate-33
+  description: Aggregate-sensitive interest edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 0, column: interest, old_value: "430", new_value: "43", detector_id: decimal_shift}
+  schema:
+    columns: {interest: float}
+    aggregate_dependencies:
+      - source_column: interest
+        aggregate: sum
+        target_column: total_interest
+- id: benign-escalate-34
+  description: Aggregate-sensitive payment edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 4, column: payment, old_value: "9800", new_value: "980", detector_id: decimal_shift}
+  schema:
+    columns: {payment: float}
+    aggregate_dependencies:
+      - source_column: payment
+        aggregate: avg
+        target_column: average_payment
+- id: benign-escalate-35
+  description: Aggregate-sensitive commission edit should escalate
+  attack_vector: aggregate_sensitive
+  expected_verdict: ESCALATE
+  fix: {row: 10, column: commission, old_value: "510", new_value: "51", detector_id: decimal_shift}
+  schema:
+    columns: {commission: float}
+    aggregate_dependencies:
+      - source_column: commission
+        aggregate: sum
+        target_column: total_commission
+- id: benign-pii-36
+  description: Confirmed PII blanking for phone number should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 2, column: phone_number, old_value: "not available", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {phone_number: str}
+    pii_columns: [phone_number]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-37
+  description: Confirmed PII fix for ssn should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 1, column: ssn, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {ssn: str}
+    pii_columns: [ssn]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-38
+  description: Confirmed PII fix for email should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 4, column: email, old_value: "n/a", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {email: str}
+    pii_columns: [email]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-39
+  description: Confirmed PII fix for member_id should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 7, column: member_id, old_value: "null", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {member_id: str}
+    pii_columns: [member_id]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-40
+  description: Confirmed PII fix for account_number should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 3, column: account_number, old_value: "not available", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {account_number: str}
+    pii_columns: [account_number]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-41
+  description: Confirmed PII fix for customer_email should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 8, column: customer_email, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {customer_email: str}
+    pii_columns: [customer_email]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-42
+  description: Confirmed PII fix for beneficiary should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 0, column: beneficiary, old_value: "n/a", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {beneficiary: str}
+    pii_columns: [beneficiary]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-43
+  description: Confirmed PII fix for contact_name should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 6, column: contact_name, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {contact_name: str}
+    pii_columns: [contact_name]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-44
+  description: Confirmed PII fix for street_address should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 5, column: street_address, old_value: "null", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {street_address: str}
+    pii_columns: [street_address]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-45
+  description: Confirmed PII fix for beneficiary_phone should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 9, column: beneficiary_phone, old_value: "not available", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {beneficiary_phone: str}
+    pii_columns: [beneficiary_phone]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-46
+  description: Confirmed PII fix for tax_id should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 2, column: tax_id, old_value: "n/a", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {tax_id: str}
+    pii_columns: [tax_id]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-47
+  description: Confirmed PII fix for emergency_contact should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 11, column: emergency_contact, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {emergency_contact: str}
+    pii_columns: [emergency_contact]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-48
+  description: Confirmed PII fix for insured_name should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 3, column: insured_name, old_value: "null", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {insured_name: str}
+    pii_columns: [insured_name]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-49
+  description: Confirmed PII fix for passport_number should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 5, column: passport_number, old_value: "not available", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {passport_number: str}
+    pii_columns: [passport_number]
+  context:
+    allow_pii: true
+    confirm_pii: true
+- id: benign-pii-50
+  description: Confirmed PII fix for policy_holder should allow
+  attack_vector: pii_override_confirmed
+  expected_verdict: ALLOW
+  fix: {row: 4, column: policy_holder, old_value: "n/a", new_value: "", detector_id: type_mismatch}
+  schema:
+    columns: {policy_holder: str}
+    pii_columns: [policy_holder]
+  context:
+    allow_pii: true
+    confirm_pii: true

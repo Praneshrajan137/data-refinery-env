@@ -1,0 +1,7 @@
+id: attack-50-row-delete
+description: Attempt to delete a final row from the dataset
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 19, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {id: str, amount: float}

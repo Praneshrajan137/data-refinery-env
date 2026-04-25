@@ -1,0 +1,11 @@
+tuple_id,src,flight,sched_dep_time,act_dep_time,sched_arr_time,act_arr_time
+103,helloflight,AA-2525-DFW-MIA,,7:39 a.m.,,10:43 a.m.
+357,airtravelcenter,AA-484-DFW-MIA,,4:29 p.m.,,7:37 p.m.
+420,airtravelcenter,AA-2268-PHX-ORD,,7:22 a.m.,,11:04 a.m.
+457,flightview,AA-484-DFW-MIA,4:15 p.m.,4:30 p.m.,7:55 p.m.,7:39 p.m.
+572,flightstats,UA-382-IAD-LAX,12:30 p.m.,12:35 p.m.,3:19 p.m.,3:21 p.m.
+915,flightarrival,AA-4344-ORD-DTW,,12:14 p.m.,,2:01 p.m.
+1004,travelocity,UA-3515-IAD-MSP,Not Available,8:24 a.m.,Not Available,9:56 a.m.
+1127,foxbusiness,AA-400-DFW-JFK,10:40 a.m.,11:02 a.m.,2:59 p.m.,3:04 p.m.
+1729,ua,UA-3925-IAD-ORF,8:41 a.m.,8:42 a.m.,9:54 a.m.,9:43 a.m.
+2234,gofox,AA-3804-PHL-ORD,2:35 p.m.,2:44 p.m.,4:05 p.m.,3:36 p.m.

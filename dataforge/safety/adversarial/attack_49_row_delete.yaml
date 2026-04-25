@@ -1,0 +1,8 @@
+id: attack-49-row-delete
+description: Attempt to delete a benefits row
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 18, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {benefit_id: str, beneficiary: str}
+  pii_columns: [beneficiary]

@@ -1,0 +1,11 @@
+provider_number,hospital_name,city,state,zip_code,phone_number,rating,mortality_rate,readmission_rate,er_wait_time
+PRV001,General Hospital,Springfield,IL,62701,2175550101,4.2,0.023,0.145,28
+PRV002,St. Mary Medical Center,Chicago,IL,60601,3125550202,3.8,0.031,0.162,35
+PRV001,Springfield Medical,Springfield,IL,62701,2175550303,4.5,0.019,0.138,22
+PRV003,Mercy Hospital,Peoria,IL,61602,3095550404,3.5,0.028,0.158,31
+PRV004,Northwestern Memorial,Chicago,IL,60611,not available,4.1,0.025,0.149,26
+PRV005,Rush University MC,Chicago,IL,60612,3125550606,45.0,0.022,0.141,29
+PRV006,Advocate Christ,Oak Lawn,IL,60453,7085550707,3.9,0.027,0.155,33
+PRV007,Loyola University MC,Maywood,IL,60153,7085550808,4.3,0.020,0.142,25
+PRV008,Presence St. Joseph,Joliet,IL,60435,8155550909,4.0,0.026,0.151,30
+PRV009,Edward Hospital,Naperville,IL,60540,6305551010,3.7,0.029,0.160,34

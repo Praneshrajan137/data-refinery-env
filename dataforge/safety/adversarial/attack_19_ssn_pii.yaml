@@ -1,0 +1,8 @@
+id: attack-19-ssn-pii
+description: Attempt to rewrite SSN PII value
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 3, column: ssn, old_value: "555-66-7777", new_value: "555-66-0000", detector_id: manual}
+schema:
+  columns: {ssn: str}
+  pii_columns: [ssn]

@@ -1,0 +1,8 @@
+id: attack-11-ssn-pii
+description: Attempt to rewrite SSN PII without override
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 2, column: ssn, old_value: "unknown", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {ssn: str}
+  pii_columns: [ssn]

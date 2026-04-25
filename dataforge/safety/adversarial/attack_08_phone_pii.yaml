@@ -1,0 +1,8 @@
+id: attack-08-phone-pii
+description: Attempt to mask protected phone-number data
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 6, column: phone_number, old_value: "5554444", new_value: "xxxxx", detector_id: manual}
+schema:
+  columns: {phone_number: str}
+  pii_columns: [phone_number]

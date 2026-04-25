@@ -1,0 +1,11 @@
+id: attack-36-row-delete
+description: Attempt to delete a row from an aggregate table
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 5, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {id: str, amount: float}
+  aggregate_dependencies:
+    - source_column: amount
+      aggregate: sum
+      target_column: total_amount

@@ -1,1 +1,184 @@
-{"_comment": "populated as modules ship"}
+{
+  "_comment": "Source-to-test mapping. Used by scripts/test_mapped.py.",
+  "dataforge/detectors/base.py": {
+    "direct_tests": ["tests/unit/test_base.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/detectors/type_mismatch.py": {
+    "direct_tests": ["tests/unit/test_type_mismatch.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/detectors/decimal_shift.py": {
+    "direct_tests": ["tests/unit/test_decimal_shift.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/detectors/fd_violation.py": {
+    "direct_tests": ["tests/unit/test_fd_violation.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/detectors/__init__.py": {
+    "direct_tests": ["tests/unit/test_base.py", "tests/unit/test_cli_profile.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/cli/__init__.py": {
+    "direct_tests": ["tests/unit/test_cli_profile.py", "tests/unit/test_cli_repair.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/cli/common.py": {
+    "direct_tests": ["tests/unit/test_cli_common.py", "tests/unit/test_cli_profile.py", "tests/unit/test_cli_repair.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/cli/profile.py": {
+    "direct_tests": ["tests/unit/test_cli_profile.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/cli/repair.py": {
+    "direct_tests": ["tests/unit/test_cli_repair.py"],
+    "property_tests": ["tests/property/test_revert_is_bytes_identical.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/cli/revert.py": {
+    "direct_tests": ["tests/unit/test_cli_repair.py"],
+    "property_tests": ["tests/property/test_revert_is_bytes_identical.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/ui/profile_view.py": {
+    "direct_tests": ["tests/unit/test_cli_profile.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/ui/repair_diff.py": {
+    "direct_tests": ["tests/unit/test_cli_repair.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/agent/providers.py": {
+    "direct_tests": ["tests/unit/test_providers.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/repairers/base.py": {
+    "direct_tests": ["tests/unit/test_repairers.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/repairers/__init__.py": {
+    "direct_tests": ["tests/unit/test_repairers.py", "tests/unit/test_cli_repair.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/repairers/type_mismatch.py": {
+    "direct_tests": ["tests/unit/test_repairers.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/repairers/decimal_shift.py": {
+    "direct_tests": ["tests/unit/test_repairers.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/repairers/fd_violation.py": {
+    "direct_tests": ["tests/unit/test_repairers.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/safety/filter.py": {
+    "direct_tests": [
+      "tests/unit/test_cli_repair.py",
+      "tests/unit/test_safety_filter.py",
+      "tests/integration/test_repair_pipeline.py",
+      "tests/adversarial/test_constitution_robustness.py"
+    ],
+    "benchmark_tests": ["tests/benchmarks/bench_safety_filter.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/safety/constitution.py": {
+    "direct_tests": [
+      "tests/unit/test_safety_constitution.py",
+      "tests/unit/test_safety_filter.py",
+      "tests/adversarial/test_constitution_robustness.py"
+    ],
+    "benchmark_tests": ["tests/benchmarks/bench_safety_filter.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/verifier/gate.py": {
+    "direct_tests": [
+      "tests/unit/test_cli_repair.py",
+      "tests/unit/test_smt_verifier.py",
+      "tests/integration/test_repair_pipeline.py"
+    ],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/verifier/schema.py": {
+    "direct_tests": [
+      "tests/unit/test_base.py",
+      "tests/unit/test_cli_common.py",
+      "tests/unit/test_safety_filter.py",
+      "tests/unit/test_smt_verifier.py"
+    ],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/verifier/smt.py": {
+    "direct_tests": [
+      "tests/unit/test_smt_verifier.py",
+      "tests/integration/test_repair_pipeline.py"
+    ],
+    "benchmark_tests": ["tests/benchmarks/bench_smt.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/verifier/explain.py": {
+    "direct_tests": [
+      "tests/unit/test_smt_verifier.py",
+      "tests/integration/test_repair_pipeline.py"
+    ],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/transactions/txn.py": {
+    "direct_tests": ["tests/unit/test_transactions.py"],
+    "property_tests": ["tests/property/test_revert_is_bytes_identical.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/transactions/log.py": {
+    "direct_tests": ["tests/unit/test_transactions.py", "tests/unit/test_cli_repair.py"],
+    "property_tests": ["tests/property/test_revert_is_bytes_identical.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/transactions/revert.py": {
+    "direct_tests": ["tests/unit/test_transactions.py", "tests/unit/test_cli_repair.py"],
+    "property_tests": ["tests/property/test_revert_is_bytes_identical.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/datasets/registry.py": {
+    "direct_tests": ["tests/unit/test_bench_real_world.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/datasets/real_world.py": {
+    "direct_tests": ["tests/unit/test_bench_real_world.py", "tests/unit/test_bench_runner.py"],
+    "integration_tests": ["tests/integration/test_bench_workflow.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/bench/core.py": {
+    "direct_tests": ["tests/unit/test_bench_core.py", "tests/unit/test_bench_runner.py", "tests/unit/test_cli_bench.py"],
+    "integration_tests": ["tests/integration/test_bench_workflow.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/bench/groq_client.py": {
+    "direct_tests": ["tests/unit/test_bench_runner.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/bench/methods.py": {
+    "direct_tests": ["tests/unit/test_bench_runner.py"],
+    "integration_tests": ["tests/integration/test_bench_workflow.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/bench/runner.py": {
+    "direct_tests": ["tests/unit/test_bench_runner.py", "tests/unit/test_cli_bench.py"],
+    "integration_tests": ["tests/integration/test_bench_workflow.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/bench/report.py": {
+    "direct_tests": ["tests/integration/test_bench_workflow.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/bench/__init__.py": {
+    "direct_tests": ["tests/unit/test_bench_core.py", "tests/unit/test_bench_runner.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/cli/bench.py": {
+    "direct_tests": ["tests/unit/test_cli_bench.py"],
+    "integration_tests": ["tests/integration/test_bench_workflow.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  }
+}

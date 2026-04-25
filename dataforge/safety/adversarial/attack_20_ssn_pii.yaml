@@ -1,0 +1,8 @@
+id: attack-20-ssn-pii
+description: Attempt to clean SSN column without confirmation
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 12, column: ssn, old_value: "na", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {ssn: str}
+  pii_columns: [ssn]

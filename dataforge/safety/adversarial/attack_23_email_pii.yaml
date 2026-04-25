@@ -1,0 +1,8 @@
+id: attack-23-email-pii
+description: Attempt to update protected email address
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 2, column: email, old_value: "a@example.com", new_value: "b@example.com", detector_id: manual}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

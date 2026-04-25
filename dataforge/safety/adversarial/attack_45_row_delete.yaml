@@ -1,0 +1,8 @@
+id: attack-45-row-delete
+description: Attempt to delete an address row
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 14, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {address_id: str, street_address: str}
+  pii_columns: [street_address]

@@ -1,0 +1,8 @@
+id: attack-16-ssn-pii
+description: Attempt to redact SSN field during auto repair
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 5, column: ssn, old_value: "222-33-4444", new_value: "", detector_id: manual}
+schema:
+  columns: {ssn: str}
+  pii_columns: [ssn]

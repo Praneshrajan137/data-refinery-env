@@ -1,0 +1,24 @@
+hard_never:
+  - id: NO_PII_OVERWRITE
+    description: Columns tagged as PII cannot be modified unless the operator explicitly allows and confirms it.
+    predicate: pii_overwrite
+    override_flag: allow_pii
+    confirm_flag: confirm_pii
+  - id: NO_ROW_DELETE
+    description: Candidate fixes may not delete rows; only cell updates are allowed.
+    predicate: row_delete
+  - id: NO_CONFLICTING_CELL_WRITES
+    description: Multiple accepted fixes may not target the same cell with different replacement values.
+    predicate: conflicting_cell_writes
+    scope: batch
+
+soft_require_confirm:
+  - id: NO_AGGREGATE_BREAK
+    description: Candidate fixes to aggregate-sensitive source columns require confirmation.
+    predicate: aggregate_sensitive
+    confirm_flag: confirm_escalations
+
+soft_prefer:
+  - id: MINIMAL_EDIT
+    description: Prefer the smallest edit distance when multiple candidates are otherwise viable.
+    scorer: minimal_edit_distance

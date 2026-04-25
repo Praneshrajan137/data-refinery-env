@@ -1,0 +1,312 @@
+/*
+ * DataForge Playground — custom style overrides on Pico.css.
+ *
+ * Minimal additions for: severity badges, diff colors, progress bar
+ * polish, cold-start banner, and dark-mode compatibility.
+ */
+
+/* ---------------------------------------------------------------------------
+   Layout & typography
+   --------------------------------------------------------------------------- */
+
+:root {
+    --df-safe: #22c55e;
+    --df-review: #f59e0b;
+    --df-unsafe: #ef4444;
+    --df-diff-add-bg: rgba(34, 197, 94, 0.12);
+    --df-diff-del-bg: rgba(239, 68, 68, 0.12);
+    --df-diff-add-text: #16a34a;
+    --df-diff-del-text: #dc2626;
+    --df-banner-bg: #1e293b;
+    --df-banner-text: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --df-diff-add-bg: rgba(34, 197, 94, 0.18);
+        --df-diff-del-bg: rgba(239, 68, 68, 0.18);
+        --df-diff-add-text: #4ade80;
+        --df-diff-del-text: #f87171;
+        --df-banner-bg: #0f172a;
+        --df-banner-text: #cbd5e1;
+    }
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+footer {
+    text-align: center;
+    padding: 1rem 0;
+    opacity: 0.7;
+}
+
+/* ---------------------------------------------------------------------------
+   Cold-start banner
+   --------------------------------------------------------------------------- */
+
+.banner {
+    background: var(--df-banner-bg);
+    color: var(--df-banner-text);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    text-align: center;
+    transition: opacity 0.3s ease, max-height 0.3s ease;
+    margin-bottom: 1rem;
+}
+
+.banner--hidden {
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    padding: 0;
+    margin: 0;
+    pointer-events: none;
+}
+
+.banner--visible {
+    opacity: 1;
+    max-height: 6rem;
+}
+
+.banner progress {
+    width: 100%;
+    max-width: 20rem;
+    margin-top: 0.5rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Severity badges
+   --------------------------------------------------------------------------- */
+
+.badge {
+    display: inline-block;
+    padding: 0.15em 0.55em;
+    border-radius: 0.35em;
+    font-size: 0.8em;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.badge--safe {
+    background: var(--df-safe);
+    color: #fff;
+}
+
+.badge--review {
+    background: var(--df-review);
+    color: #fff;
+}
+
+.badge--unsafe {
+    background: var(--df-unsafe);
+    color: #fff;
+}
+
+/* ---------------------------------------------------------------------------
+   Diff view
+   --------------------------------------------------------------------------- */
+
+.diff-view {
+    font-family: "Fira Code", "Cascadia Code", "JetBrains Mono", monospace;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.diff-header {
+    color: var(--pico-color);
+    font-weight: 600;
+    display: block;
+}
+
+.addition {
+    background: var(--df-diff-add-bg);
+    color: var(--df-diff-add-text);
+    display: block;
+}
+
+.deletion {
+    background: var(--df-diff-del-bg);
+    color: var(--df-diff-del-text);
+    display: block;
+}
+
+.diff-reason {
+    opacity: 0.65;
+    font-style: italic;
+    display: block;
+}
+
+/* ---------------------------------------------------------------------------
+   Results section
+   --------------------------------------------------------------------------- */
+
+.results-hidden {
+    display: none;
+}
+
+.meta-summary {
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.no-issues {
+    padding: 1rem;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.row-indices {
+    font-family: "Fira Code", monospace;
+    font-size: 0.85em;
+}
+
+/* ---------------------------------------------------------------------------
+   Tabs
+   --------------------------------------------------------------------------- */
+
+[role="tablist"] {
+    display: flex;
+    gap: 0;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem 0;
+    border-bottom: 2px solid var(--pico-muted-border-color);
+}
+
+[role="tablist"] li {
+    margin: 0;
+    padding: 0;
+}
+
+[role="tab"] {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--pico-muted-color);
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: -2px;
+}
+
+[role="tab"]:hover {
+    color: var(--pico-color);
+}
+
+[role="tab"]:focus-visible {
+    outline: 2px solid var(--pico-primary);
+    outline-offset: 2px;
+}
+
+[role="tab"].tab-active {
+    color: var(--pico-primary);
+    border-bottom-color: var(--pico-primary);
+}
+
+.tab-panel--hidden {
+    display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Loading states
+   --------------------------------------------------------------------------- */
+
+.loading-hidden {
+    display: none;
+}
+
+.loading-visible {
+    display: block;
+    text-align: center;
+    padding: 1rem;
+}
+
+.loading-visible progress {
+    width: 100%;
+    max-width: 20rem;
+    margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Error card
+   --------------------------------------------------------------------------- */
+
+.error-card {
+    border-left: 4px solid var(--df-unsafe);
+    padding: 0.75rem 1rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Revert notice
+   --------------------------------------------------------------------------- */
+
+.revert-notice {
+    border-left: 4px solid var(--df-review);
+}
+
+.journal-empty {
+    color: var(--pico-muted-color);
+    font-style: italic;
+}
+
+/* ---------------------------------------------------------------------------
+   Privacy notice
+   --------------------------------------------------------------------------- */
+
+.privacy-notice {
+    display: block;
+    text-align: center;
+    padding: 0.75rem 0;
+    opacity: 0.6;
+}
+
+/* ---------------------------------------------------------------------------
+   Toggle label
+   --------------------------------------------------------------------------- */
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.toggle-label input[disabled] {
+    cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Upload section
+   --------------------------------------------------------------------------- */
+
+#upload-section {
+    margin-bottom: 1.5rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Run locally details
+   --------------------------------------------------------------------------- */
+
+#run-locally {
+    margin-top: 2rem;
+}

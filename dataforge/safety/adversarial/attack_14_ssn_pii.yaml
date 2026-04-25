@@ -1,0 +1,8 @@
+id: attack-14-ssn-pii
+description: Attempt to clear SSN value automatically
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 9, column: ssn, old_value: "null", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {ssn: str}
+  pii_columns: [ssn]

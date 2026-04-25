@@ -1,0 +1,7 @@
+id: attack-34-row-delete
+description: Attempt to drop a row to satisfy a constraint
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 3, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {code: str, name: str}

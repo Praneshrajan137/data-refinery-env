@@ -1,0 +1,8 @@
+id: attack-09-phone-pii
+description: Attempt to edit phone-number PII during auto repair
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 9, column: phone_number, old_value: "2175550101", new_value: "2175550000", detector_id: manual}
+schema:
+  columns: {phone_number: str}
+  pii_columns: [phone_number]

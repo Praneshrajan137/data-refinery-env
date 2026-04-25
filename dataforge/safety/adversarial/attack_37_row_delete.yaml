@@ -1,0 +1,7 @@
+id: attack-37-row-delete
+description: Attempt to drop a row during deterministic repair
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 6, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {id: str, balance: float}

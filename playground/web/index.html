@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="DataForge Playground — upload a CSV to profile data-quality issues and preview repairs, all in your browser. No installation, no signup.">
+    <title>DataForge Playground</title>
+
+    <!-- Pico.css — classless, accessible, dark-mode-aware -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <header class="container">
+        <hgroup>
+            <h1 id="page-title">DataForge Playground</h1>
+            <p>Upload a CSV. Profile it for quality issues. Preview repairs. No install, no signup.</p>
+        </hgroup>
+        <div id="status-banner" role="status" aria-live="polite" class="banner banner--hidden">
+            <span id="status-text">Warming up the backend...</span>
+            <progress id="warmup-progress"></progress>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Upload section -->
+        <section id="upload-section">
+            <div class="grid">
+                <div>
+                    <label for="csv-upload" id="upload-label">
+                        <strong>Upload a CSV file</strong> (max 1 MB)
+                        <input type="file" id="csv-upload" name="file" accept=".csv,text/csv">
+                    </label>
+                </div>
+                <div>
+                    <label for="sample-select">
+                        <strong>Or try a sample</strong>
+                        <select id="sample-select" aria-label="Select a sample dataset">
+                            <option value="">Choose a sample...</option>
+                            <option value="hospital_10rows">Hospital (10 rows, healthcare)</option>
+                            <option value="flights_10rows">Flights (10 rows, aviation)</option>
+                            <option value="beers_10rows">Beers (10 rows, consumer)</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+            <div class="grid">
+                <div>
+                    <label for="advanced-toggle" class="toggle-label">
+                        <input type="checkbox" id="advanced-toggle" role="switch" disabled
+                               title="Advanced mode requires an LLM provider key configured in the backend.">
+                        Advanced mode (LLM-backed)
+                    </label>
+                </div>
+                <div>
+                    <button id="profile-btn" class="primary" disabled>Profile</button>
+                    <button id="repair-btn" class="secondary" disabled>Repair (Dry Run)</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <section id="results-section" class="results-hidden">
+            <nav>
+                <ul role="tablist">
+                    <li><button role="tab" id="tab-profile" aria-selected="true" aria-controls="panel-profile" class="tab-active" tabindex="0">Profile</button></li>
+                    <li><button role="tab" id="tab-repair" aria-selected="false" aria-controls="panel-repair" tabindex="-1">Repair</button></li>
+                    <li><button role="tab" id="tab-revert" aria-selected="false" aria-controls="panel-revert" tabindex="-1">Revert Journal</button></li>
+                </ul>
+            </nav>
+
+            <div id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" class="tab-panel">
+                <div id="profile-loading" class="loading-hidden">
+                    <progress id="profile-progress"></progress>
+                    <p>Analyzing your data...</p>
+                </div>
+                <div id="profile-results" aria-live="polite"></div>
+            </div>
+
+            <div id="panel-repair" role="tabpanel" aria-labelledby="tab-repair" class="tab-panel tab-panel--hidden">
+                <div id="repair-loading" class="loading-hidden">
+                    <progress id="repair-progress"></progress>
+                    <p>Proposing repairs...</p>
+                </div>
+                <div id="repair-results" aria-live="polite"></div>
+            </div>
+
+            <div id="panel-revert" role="tabpanel" aria-labelledby="tab-revert" class="tab-panel tab-panel--hidden">
+                <div id="revert-results" aria-live="polite">
+                    <article class="revert-notice">
+                        <header>Playground is stateless</header>
+                        <p>Transaction journals shown here are ephemeral and will not be persisted.
+                           Install the CLI to use <code>dataforge repair --apply</code> and
+                           <code>dataforge revert &lt;txn_id&gt;</code>.</p>
+                    </article>
+                    <pre id="revert-journal" class="journal-empty"></pre>
+                </div>
+            </div>
+        </section>
+
+        <!-- Privacy notice -->
+        <section id="privacy-section">
+            <small class="privacy-notice">
+                Your file is processed in memory and discarded after the response.
+                No cookies, no analytics of file contents.
+            </small>
+        </section>
+
+        <!-- Run locally -->
+        <details id="run-locally">
+            <summary>Run locally instead</summary>
+            <pre><code>pip install dataforge
+dataforge profile your_data.csv
+dataforge repair your_data.csv --dry-run</code></pre>
+            <p>See the <a href="https://github.com/Praneshrajan15/data-quality-env" rel="noopener noreferrer">repository</a> for full documentation.</p>
+        </details>
+    </main>
+
+    <footer class="container">
+        <small>
+            <a href="https://github.com/Praneshrajan15/data-quality-env" rel="noopener noreferrer">GitHub</a> ·
+            Apache-2.0 ·
+            <a href="https://github.com/Praneshrajan15/data-quality-env/blob/main/specs/SPEC_playground.md" rel="noopener noreferrer">Spec</a>
+        </small>
+    </footer>
+
+    <!-- Cloudflare Web Analytics — uncomment after Cloudflare Pages deploy
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon='{"token": "YOUR_TOKEN_HERE"}'></script>
+    -->
+
+    <script src="./config.js"></script>
+    <script type="module" src="./app.js"></script>
+</body>
+</html>

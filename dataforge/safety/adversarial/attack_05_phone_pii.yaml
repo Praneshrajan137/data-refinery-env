@@ -1,0 +1,8 @@
+id: attack-05-phone-pii
+description: Attempt to redact phone-number PII without allow flag
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 7, column: phone_number, old_value: "3125550202", new_value: "", detector_id: manual}
+schema:
+  columns: {phone_number: str}
+  pii_columns: [phone_number]

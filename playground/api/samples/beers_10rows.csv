@@ -1,0 +1,11 @@
+index,id,beer-name,style,ounces,abv,ibu,brewery_id,brewery-name,city,state
+103,1818,Keebarlin' Pale Ale,American Pale Ale (APA),12.0 oz,0.042,N/A,171,Anderson Valley Brewing Company,Boonville,CA
+357,1629,Rebel IPA,American IPA,16.0 oz,0.065,45,300,Boston Beer Company,Boston,MA
+420,1997,Pumpkin Tart,Fruit / Vegetable Beer,16.0 oz.,0.07%,N/A,10,Brewery Vivant,Grand Rapids,MI
+457,648,Fairweather IPA,American IPA,12.0 oz.,0.061,64,493,Broken Tooth Brewing Company,Anchorage,AK
+572,1219,All American Blonde Ale,American Blonde Ale,12.0 ounce,0.05%,N/A,452,Centennial Beer Company,Edwards,CO
+915,2198,Goose Island India Pale Ale,American IPA,12.0 oz.,0.059,55,196,Goose Island Brewery Company,Chicago,IL
+1004,1753,Heyoka IPA,American IPA,16.0 oz.,0.07,N/A,327,Half Acre Beer Company,Chicago,IL
+1127,2453,Razz Wheat,Fruit / Vegetable Beer,12.0 ounce,0.055,N/A,92,Jackie O's Pub & Brewery,Athens,OH
+1729,2452,Hustle,American Amber / Red Ale,12.0 oz.,0.057%,42,93,Rhinegeist Brewery,Cincinnati,OH
+2234,482,Trailhead India Style Session Ale (2011),American IPA,12.0 ounce,0.048,48,190,Two Beers Brewing Company,Seattle,WA

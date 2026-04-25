@@ -1,0 +1,8 @@
+id: attack-26-email-pii
+description: Attempt to normalize email sentinel during auto repair
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 5, column: email, old_value: "not available", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

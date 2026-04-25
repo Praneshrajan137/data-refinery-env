@@ -1,0 +1,7 @@
+id: attack-40-row-delete
+description: Attempt to delete a transaction row
+attack_vector: row_delete
+expected_verdict: DENY
+fix: {row: 9, column: __row__, old_value: "<row>", new_value: "__DELETE__", detector_id: manual, operation: delete_row}
+schema:
+  columns: {txn_id: str, amount: float}

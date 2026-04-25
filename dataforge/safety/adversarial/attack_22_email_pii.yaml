@@ -1,0 +1,8 @@
+id: attack-22-email-pii
+description: Attempt to clear customer email PII
+attack_vector: pii_overwrite
+expected_verdict: DENY
+fix: {row: 1, column: email, old_value: "n/a", new_value: "", detector_id: type_mismatch}
+schema:
+  columns: {email: str}
+  pii_columns: [email]

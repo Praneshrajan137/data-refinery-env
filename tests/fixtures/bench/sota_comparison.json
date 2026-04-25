@@ -1,0 +1,25 @@
+{
+  "source": {
+    "title": "BClean: A Bayesian Data Cleaning System",
+    "table": "Table 4",
+    "url": "https://szudseg.cn/assets/papers/vldb2024-qin.pdf"
+  },
+  "rows": [
+    {
+      "method": "HoloClean",
+      "dataset": "hospital",
+      "precision": 1.0,
+      "recall": 0.456,
+      "f1": 0.626,
+      "note": "Citation-only literature result."
+    },
+    {
+      "method": "Raha+Baran",
+      "dataset": "hospital",
+      "precision": 0.971,
+      "recall": 0.585,
+      "f1": 0.73,
+      "note": "Citation-only literature result."
+    }
+  ]
+}
