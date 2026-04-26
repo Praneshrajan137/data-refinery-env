@@ -73,15 +73,19 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dataforge*"]
+include = ["dataforge*", "data_quality_env*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+extend-exclude = [".hf-space-repo", ".hf-space-stage", ".hf-space-stage-plan"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PIE", "RET", "SIM"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"data_quality_env/**/*.py" = ["B007", "B027", "E402", "E731", "F401", "F541", "F841", "I001", "N", "RET", "SIM", "UP"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -97,9 +101,16 @@ warn_unused_ignores = true
 disallow_untyped_defs = true
 explicit_package_bases = true
 exclude = [
+    "^\\.hf-space-repo/",
+    "^\\.hf-space-stage/",
+    "^\\.hf-space-stage-plan/",
     "^[^/]*\\.py$",          # loose root-level scripts (hackathon legacy)
-    "^(server|training|playground|benchmark_results|datasets)/",
+    "^(training|playground|benchmark_results|datasets)/",
 ]
+
+[[tool.mypy.overrides]]
+module = ["data_quality_env.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"

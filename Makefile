@@ -2,8 +2,14 @@
 # The 8.3 short-path avoids GNU Make's space-in-path limitation.
 ifeq ($(OS),Windows_NT)
 SHELL := C:/PROGRA~1/Git/bin/bash.exe
+VENV_PYTHON := .venv/Scripts/python.exe
+else
+VENV_PYTHON := .venv/bin/python
 endif
-PYTHON ?= python
+
+ifndef PYTHON
+PYTHON := $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),python)
+endif
 
 .PHONY: help setup setup-all lint format type test test-mapped coverage bench bench-free mutation clean
 
@@ -30,15 +36,15 @@ setup-all:
 	$(PYTHON) -m pip install -e ".[all]"
 
 lint:
-	$(PYTHON) -m ruff check dataforge tests scripts/ci scripts/playground playground/api/app.py
-	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/playground playground/api/app.py
+	$(PYTHON) -m ruff check dataforge data_quality_env tests scripts/ci scripts/playground playground/api/app.py
+	$(PYTHON) -m ruff format --check dataforge data_quality_env tests scripts/ci scripts/playground playground/api/app.py
 
 format:
-	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/playground playground/api/app.py
-	$(PYTHON) -m ruff check --fix dataforge tests scripts/ci scripts/playground playground/api/app.py
+	$(PYTHON) -m ruff format dataforge data_quality_env tests scripts/ci scripts/playground playground/api/app.py
+	$(PYTHON) -m ruff check --fix dataforge data_quality_env tests scripts/ci scripts/playground playground/api/app.py
 
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/playground/build_samples.py scripts/playground/stage_space.py
+	$(PYTHON) -m mypy --strict dataforge data_quality_env playground/api/app.py scripts/ci/readme_truth.py scripts/playground/build_samples.py scripts/playground/stage_space.py
 
 test:
 	$(PYTHON) -m pytest tests/ -x -v

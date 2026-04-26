@@ -1,0 +1,9 @@
+# Server dependencies — aligned with pyproject.toml
+# This file exists for Dockerfile compatibility (pip install -r requirements.txt)
+# and must stay in sync with [project.dependencies] + [project.optional-dependencies.server]
+
+openenv-core[core]>=0.2.2
+pydantic>=2.0.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
+openai>=1.0

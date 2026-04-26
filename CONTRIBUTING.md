@@ -32,6 +32,7 @@ explains the process and standards.
 - Python 3.11 / 3.12 (`requires-python = ">=3.11,<3.13"`). Use modern syntax (`dict | None`, not `Optional[Dict]`).
 - Type hints on every parameter and return value. `mypy --strict` must pass.
 - Google-style docstrings with one-line summary, Args, Returns, Raises.
+- `dataforge/` is the canonical product package. `data_quality_env/` is a compatibility package; never reintroduce a repo-root `__init__.py` or make the repository root importable.
 - No `print()` in library code — use `logging`. CLI output uses `rich`.
 - No global mutable state. No silent catch-all exceptions.
 - No TODO/FIXME in merged code. Open an issue instead.

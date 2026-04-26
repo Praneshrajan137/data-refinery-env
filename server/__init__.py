@@ -1,13 +1,3 @@
-# Copyright (c) 2026 Data Quality Environment Project
-# SPDX-License-Identifier: MIT
+"""Compatibility shim for the legacy top-level server package."""
 
-"""Data Quality Environment — server package.
-
-Exports the ``DataQualityEnvironment`` class for use by ``app.py``
-and external consumers.  The old scaffold echo environment has been
-superseded by the real implementation in ``data_quality_environment.py``.
-"""
-
-from .data_quality_environment import DataQualityEnvironment
-
-__all__ = ["DataQualityEnvironment"]
+from data_quality_env.server import *  # noqa: F401,F403
