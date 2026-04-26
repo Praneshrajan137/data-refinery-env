@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 from typing import Any
 
 from typer.testing import CliRunner
@@ -13,6 +14,10 @@ from dataforge.cli import app
 bench_module = importlib.import_module("dataforge.cli.bench")
 
 runner = CliRunner()
+
+
+def _strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
 
 def _stub_output() -> BenchmarkRunOutput:
@@ -57,10 +62,13 @@ class TestBenchCommand:
 
     def test_bench_help_registered(self) -> None:
         result = runner.invoke(app, ["bench", "--help"])
+        output = _strip_ansi(result.output)
 
         assert result.exit_code == 0
-        assert "--methods" in result.output
-        assert "--datasets" in result.output
+        assert "Usage:" in output
+        assert "root bench [OPTIONS]" in output
+        assert "Comma-separated benchmark methods." in output
+        assert "Comma-separated benchmark datasets." in output
 
     def test_bench_uses_expected_defaults(self, monkeypatch: Any) -> None:
         captured: dict[str, Any] = {}
@@ -75,5 +83,32 @@ class TestBenchCommand:
 
         assert result.exit_code == 0
         assert captured["methods"] == ["heuristic", "llm_zeroshot"]
+        assert captured["datasets"] == ["hospital"]
+        assert captured["seeds"] == 3
+
+    def test_bench_accepts_documented_long_options(self, monkeypatch: Any) -> None:
+        captured: dict[str, Any] = {}
+
+        def _fake_run_agent_comparison(**kwargs: Any) -> BenchmarkRunOutput:
+            captured.update(kwargs)
+            return _stub_output()
+
+        monkeypatch.setattr(bench_module, "run_agent_comparison", _fake_run_agent_comparison)
+
+        result = runner.invoke(
+            app,
+            [
+                "bench",
+                "--methods",
+                "heuristic",
+                "--datasets",
+                "hospital",
+                "--seeds",
+                "3",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert captured["methods"] == ["heuristic"]
         assert captured["datasets"] == ["hospital"]
         assert captured["seeds"] == 3
