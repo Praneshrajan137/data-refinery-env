@@ -9,12 +9,13 @@ atomic mutation -> byte-identical revert.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -108,10 +109,62 @@ class CandidateFix(BaseModel):
         )
 
 
-class VerifiedFix(CandidateFix):
-    """A candidate that passed safety and SMT verification."""
+RootCauseCategory = Literal[
+    "data_entry_error",
+    "decimal_shift",
+    "sentinel_null_encoding",
+    "fd_conflict",
+    "domain_violation",
+    "duplicate_key_violation",
+    "referential_break",
+    "unknown",
+]
+
+
+class RootCause(BaseModel):
+    """Public diagnosis attached to an issue before repair is applied."""
+
+    row: int = Field(ge=0)
+    column: str = Field(min_length=1)
+    issue_type: str = Field(min_length=1)
+    category: RootCauseCategory
+    confidence: float = Field(ge=0.0, le=1.0)
+    reason: str = Field(min_length=1)
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+
+class CandidateRepair(CandidateFix):
+    """Public repair candidate with verifier context."""
 
     verifier_reason: str = Field(min_length=1)
+
+
+class VerifiedFix(CandidateRepair):
+    """A candidate that passed safety and SMT verification."""
+
+
+ProofStatus = Literal[
+    "accepted",
+    "rejected",
+    "unknown",
+    "denied",
+    "escalated",
+    "attempted_not_fixed",
+    "not_run",
+]
+
+
+class ProofObligation(BaseModel):
+    """Verifier/safety obligation emitted for a repair attempt."""
+
+    obligation_id: str = Field(min_length=1)
+    verifier: Literal["smt", "sql", "safety", "repairer"]
+    status: ProofStatus
+    reason: str = Field(min_length=1)
+    unsat_core: tuple[str, ...] = Field(default_factory=tuple)
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
 
 
 class RepairFailure(BaseModel):
@@ -160,8 +213,14 @@ class RepairReceipt(BaseModel):
     safety_verdict: str = Field(default="allow", min_length=1)
     verifier_verdict: str = Field(default="not_run", min_length=1)
     candidate_provenance: list[str] = Field(default_factory=list)
+    root_causes: list[RootCause] = Field(default_factory=list)
+    candidate_repairs: list[CandidateRepair] = Field(default_factory=list)
+    proof_obligations: list[ProofObligation] = Field(default_factory=list)
     accepted_constraint_ids: list[str] = Field(default_factory=list)
     constraints_artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    patch_plan_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    revert_command: str | None = None
+    limitations: list[str] = Field(default_factory=list)
     abstentions: list[str] = Field(default_factory=list)
     failure_reasons: list[str] = Field(default_factory=list)
     issues_count: int = Field(ge=0)
@@ -565,6 +624,22 @@ def _verified_fixes(
     ]
 
 
+def _candidate_repairs(attempt_groups: list[list[RepairAttempt]]) -> list[CandidateRepair]:
+    """Build public candidate payloads for every emitted repair proposal."""
+    candidates: list[CandidateRepair] = []
+    for attempts in attempt_groups:
+        for attempt in attempts:
+            if attempt.fix is None:
+                continue
+            candidates.append(
+                CandidateRepair(
+                    **CandidateFix.from_proposed(attempt.fix).model_dump(),
+                    verifier_reason=attempt.reason,
+                )
+            )
+    return candidates
+
+
 def _failed_attempts(attempt_groups: list[list[RepairAttempt]]) -> list[RepairFailure]:
     """Return failures for issue groups whose final status was not accepted."""
     return [
@@ -572,6 +647,139 @@ def _failed_attempts(attempt_groups: list[list[RepairAttempt]]) -> list[RepairFa
         for attempts in attempt_groups
         if attempts and attempts[-1].status != "accepted"
     ]
+
+
+def _root_cause_category(issue: Issue, attempts: list[RepairAttempt]) -> RootCauseCategory:
+    """Classify the likely repair cause from deterministic issue evidence."""
+    del attempts
+    issue_type = issue.issue_type.lower()
+    actual = str(issue.actual or "").strip().lower()
+    expected = str(issue.expected or "").strip().lower()
+    sentinel_values = {"", "na", "n/a", "null", "none", "nan", "nil", "-", "unknown"}
+
+    if issue_type == "decimal_shift":
+        return "decimal_shift"
+    if issue_type in {"fd_violation", "functional_dependency"} or "fd" in issue_type:
+        return "fd_conflict"
+    if "domain" in issue_type or "accepted" in issue_type or "regex" in issue_type:
+        return "domain_violation"
+    if "duplicate" in issue_type or "unique" in issue_type or "key" in issue_type:
+        return "duplicate_key_violation"
+    if "relationship" in issue_type or "referential" in issue_type:
+        return "referential_break"
+    if actual in sentinel_values or expected in sentinel_values:
+        return "sentinel_null_encoding"
+    if issue_type in {"type_mismatch", "outlier"}:
+        return "data_entry_error"
+    return "unknown"
+
+
+def _root_causes(
+    issues: list[Issue],
+    attempt_groups: list[list[RepairAttempt]],
+) -> list[RootCause]:
+    """Create one public root-cause diagnosis per detected issue."""
+    diagnoses: list[RootCause] = []
+    for issue, attempts in zip(issues, attempt_groups, strict=False):
+        category = _root_cause_category(issue, attempts)
+        final_reason = attempts[-1].reason if attempts else issue.reason
+        diagnoses.append(
+            RootCause(
+                row=issue.row,
+                column=issue.column,
+                issue_type=issue.issue_type,
+                category=category,
+                confidence=issue.confidence,
+                reason=final_reason if category == "unknown" else issue.reason,
+            )
+        )
+    return diagnoses
+
+
+def _proof_obligations(attempt_groups: list[list[RepairAttempt]]) -> list[ProofObligation]:
+    """Expose every safety/verifier obligation evaluated during repair."""
+    obligations: list[ProofObligation] = []
+    for attempts in attempt_groups:
+        for attempt in attempts:
+            issue = attempt.issue
+            if attempt.status in {"denied", "escalated"}:
+                verifier: Literal["smt", "sql", "safety", "repairer"] = "safety"
+            elif attempt.status == "attempted_not_fixed" and attempt.fix is None:
+                verifier = "repairer"
+            else:
+                verifier = "smt"
+            status: ProofStatus = (
+                cast(ProofStatus, attempt.status)
+                if attempt.status
+                in {
+                    "accepted",
+                    "rejected",
+                    "unknown",
+                    "denied",
+                    "escalated",
+                    "attempted_not_fixed",
+                }
+                else "not_run"
+            )
+            obligations.append(
+                ProofObligation(
+                    obligation_id=(
+                        f"{verifier}::{issue.issue_type}::{issue.row}::"
+                        f"{issue.column}::attempt::{attempt.attempt_number}"
+                    ),
+                    verifier=verifier,
+                    status=status,
+                    reason=attempt.reason,
+                    unsat_core=tuple(attempt.unsat_core),
+                )
+            )
+    return obligations
+
+
+def _receipt_limitations(
+    request: RepairPipelineRequest,
+    failures: list[RepairFailure],
+    batch_safety: SafetyResult,
+    txn_id: str | None,
+) -> list[str]:
+    """Describe honest limits for the exact receipt payload."""
+    limitations: list[str] = []
+    if request.mode == "dry_run":
+        limitations.append("Dry run only; no source data was mutated.")
+    if txn_id is None:
+        limitations.append("No reversible transaction id exists for this run.")
+    if failures:
+        limitations.append("Some issues abstained or failed repair; see failure_reasons.")
+    if batch_safety.verdict != SafetyVerdict.ALLOW:
+        limitations.append(batch_safety.reason)
+    if request.allow_llm:
+        limitations.append(
+            "LLM-originated candidates remain subordinate to safety and verifier gates."
+        )
+    return limitations
+
+
+def _patch_plan_sha256(source_sha256: str, fixes: list[ProposedFix]) -> str | None:
+    """Return a stable hash for the ordered local patch plan."""
+    if not fixes:
+        return None
+    payload = {
+        "source_sha256": source_sha256,
+        "fixes": [
+            {
+                "row": fix.fix.row,
+                "column": fix.fix.column,
+                "old_value": fix.fix.old_value,
+                "new_value": fix.fix.new_value,
+                "operation": fix.fix.operation,
+                "detector_id": fix.fix.detector_id,
+                "provenance": fix.provenance,
+            }
+            for fix in fixes
+        ],
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _receipt_verifier_verdict(
@@ -617,7 +825,10 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
         )
 
     with repair_stage_span("dataforge.repair.safety.batch", fixes_count=len(accepted_fixes)):
-        batch_safety = SafetyFilter().evaluate_batch(accepted_fixes)
+        batch_safety = SafetyFilter().evaluate_batch(
+            accepted_fixes,
+            SafetyContext(confirm_escalations=request.confirm_escalations),
+        )
     failures = _failed_attempts(attempt_groups)
     transaction: RepairTransaction | None = None
     txn_id: str | None = None
@@ -651,6 +862,12 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
         # minimal receipt is intentionally enough for API callers.
         transaction = None
 
+    verified_fixes = _verified_fixes(accepted_fixes, attempt_groups)
+    candidate_repairs = _candidate_repairs(attempt_groups)
+    proof_obligations = _proof_obligations(attempt_groups)
+    root_causes = _root_causes(issues, attempt_groups)
+    limitations = _receipt_limitations(request, failures, batch_safety, txn_id)
+    patch_plan_sha256 = _patch_plan_sha256(source_sha256, accepted_fixes)
     receipt = RepairReceipt(
         mode=request.mode,
         applied=applied,
@@ -664,8 +881,14 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
         safety_verdict=batch_safety.verdict.value,
         verifier_verdict=_receipt_verifier_verdict(accepted_fixes, failures),
         candidate_provenance=sorted({fix.provenance for fix in accepted_fixes}),
+        root_causes=root_causes,
+        candidate_repairs=candidate_repairs,
+        proof_obligations=proof_obligations,
         accepted_constraint_ids=accepted_constraint_ids,
         constraints_artifact_sha256=request.constraints_artifact_sha256,
+        patch_plan_sha256=patch_plan_sha256,
+        revert_command=f"dataforge15 revert {txn_id}" if txn_id is not None else None,
+        limitations=limitations,
         abstentions=[failure.reason for failure in failures],
         failure_reasons=[failure.reason for failure in failures],
         issues_count=len(issues),
@@ -675,7 +898,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     return RepairPipelineResult(
         receipt=receipt,
         issues=issues,
-        fixes=_verified_fixes(accepted_fixes, attempt_groups),
+        fixes=verified_fixes,
         failures=failures,
         transaction=transaction,
     )

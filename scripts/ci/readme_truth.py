@@ -15,9 +15,13 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 README = PROJECT_ROOT / "README.md"
 CONTRIBUTORS = PROJECT_ROOT / "CONTRIBUTORS.md"
+CLAIM_LEDGER = PROJECT_ROOT / "docs" / "claims.yaml"
+CLAIM_LEDGER_STATUSES = frozenset({"shipped", "beta", "experimental", "roadmap"})
 RELEASE_TRUTH_DOCS = [
     README,
     PROJECT_ROOT / "META_CONTEXT.md",
@@ -151,6 +155,68 @@ UNSHIPPED_INTEGRATION_QUALIFIERS = (
     "until",
     "once",
 )
+
+
+def load_claim_ledger(path: Path = CLAIM_LEDGER) -> list[dict[str, str]]:
+    """Load the public claim ledger entries."""
+    raw_payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(raw_payload, dict):
+        return []
+    raw_entries = raw_payload.get("claims", [])
+    if not isinstance(raw_entries, list):
+        return []
+    entries: list[dict[str, str]] = []
+    for raw_entry in raw_entries:
+        if not isinstance(raw_entry, dict):
+            continue
+        entry = {
+            "claim": str(raw_entry.get("claim", "")).strip(),
+            "status": str(raw_entry.get("status", "")).strip(),
+            "evidence": str(raw_entry.get("evidence", "")).strip(),
+        }
+        entries.append(entry)
+    return entries
+
+
+def check_claim_ledger(path: Path = CLAIM_LEDGER) -> list[str]:
+    """Verify every public claim has closed-vocabulary status and evidence."""
+    errors: list[str] = []
+    try:
+        display_path = path.relative_to(PROJECT_ROOT)
+    except ValueError:
+        display_path = path
+    if not path.exists():
+        return [f"{display_path} is missing."]
+
+    try:
+        raw_payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        return [f"{display_path} is not valid YAML: {exc}"]
+
+    if not isinstance(raw_payload, dict):
+        return [f"{display_path} must be a YAML mapping."]
+    raw_entries = raw_payload.get("claims")
+    if not isinstance(raw_entries, list):
+        return [f"{display_path} must contain a claims list."]
+
+    seen_claims: set[str] = set()
+    for index, raw_entry in enumerate(raw_entries, start=1):
+        if not isinstance(raw_entry, dict):
+            errors.append(f"claim ledger entry {index} must be a mapping.")
+            continue
+        claim = str(raw_entry.get("claim", "")).strip()
+        status = str(raw_entry.get("status", "")).strip()
+        evidence = str(raw_entry.get("evidence", "")).strip()
+        if not claim:
+            errors.append(f"claim ledger entry {index} is missing claim.")
+        elif claim in seen_claims:
+            errors.append(f"claim ledger entry {index} duplicates claim '{claim}'.")
+        seen_claims.add(claim)
+        if status not in CLAIM_LEDGER_STATUSES:
+            errors.append(f"claim ledger entry {index} has unknown status '{status}'.")
+        if not evidence:
+            errors.append(f"claim ledger entry {index} is missing evidence.")
+    return errors
 
 
 def extract_subcommands_from_readme(text: str) -> set[str]:
@@ -437,6 +503,7 @@ def main() -> None:
     errors.extend(check_public_claim_boundaries(PUBLIC_CLAIM_TRUTH_DOCS))
     errors.extend(check_custom_domain_claims(CUSTOM_DOMAIN_TRUTH_DOCS))
     errors.extend(check_unshipped_integration_claims(PUBLIC_CLAIM_TRUTH_DOCS))
+    errors.extend(check_claim_ledger())
 
     if errors:
         print("README truth check FAILED:", file=sys.stderr)

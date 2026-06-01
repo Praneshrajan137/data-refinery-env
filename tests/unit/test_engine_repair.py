@@ -13,7 +13,10 @@ from pydantic import ValidationError
 from dataforge.detectors.base import Issue, Schema, Severity
 from dataforge.engine.repair import (
     CandidateFix,
+    CandidateRepair,
+    ProofObligation,
     RepairPipelineRequest,
+    RootCause,
     TransactionApplyError,
     _lock_path_for,
     apply_transaction,
@@ -162,6 +165,50 @@ def test_candidate_fix_is_strict() -> None:
         )
 
 
+def test_oss_v1_contract_models_are_strict() -> None:
+    root_cause = RootCause(
+        row=3,
+        column="amount",
+        issue_type="decimal_shift",
+        category="decimal_shift",
+        confidence=0.9,
+        reason="power-of-ten anomaly",
+    )
+    candidate = CandidateRepair(
+        row=3,
+        column="amount",
+        old_value="1020",
+        new_value="102",
+        detector_id="decimal_shift",
+        reason="repair",
+        confidence=0.9,
+        provenance="deterministic",
+        verifier_reason="accepted",
+    )
+    proof = ProofObligation(
+        obligation_id="smt::decimal_shift::3::amount",
+        verifier="smt",
+        status="accepted",
+        reason="accepted",
+    )
+
+    assert root_cause.category == "decimal_shift"
+    assert candidate.verifier_reason == "accepted"
+    assert proof.status == "accepted"
+
+    with pytest.raises(ValidationError):
+        RootCause.model_validate(
+            {
+                "row": "3",
+                "column": "amount",
+                "issue_type": "decimal_shift",
+                "category": "decimal_shift",
+                "confidence": 0.9,
+                "reason": "bad row type",
+            }
+        )
+
+
 def test_run_repair_pipeline_dry_run_returns_ephemeral_receipt(tmp_path: Path) -> None:
     csv_path = tmp_path / "amounts.csv"
     _write_repairable_csv(csv_path)
@@ -181,6 +228,14 @@ def test_run_repair_pipeline_dry_run_returns_ephemeral_receipt(tmp_path: Path) -
     assert re.fullmatch(r"txn-\d{4}-\d{2}-\d{2}-[0-9a-f]{6}", result.transaction.txn_id)
     assert result.fixes
     assert csv_path.read_bytes() == original
+    assert result.receipt.root_causes
+    assert result.receipt.candidate_repairs
+    assert result.receipt.proof_obligations
+    assert result.receipt.patch_plan_sha256 is not None
+    assert result.receipt.revert_command == f"dataforge15 revert {result.transaction.txn_id}"
+    assert result.receipt.limitations
+    assert result.receipt.root_causes[0].category == "decimal_shift"
+    assert result.receipt.proof_obligations[0].status == "accepted"
 
 
 def test_repair_pipeline_uses_only_accepted_constraints(tmp_path: Path) -> None:

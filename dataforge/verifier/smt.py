@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -17,6 +18,7 @@ from z3 import (  # type: ignore[import-untyped]
     Int,
     IntSort,
     IntVal,
+    Or,
     RealSort,
     RealVal,
     Solver,
@@ -131,6 +133,51 @@ class SchemaToSMT:
                 reason=str(exc),
             )
 
+        for column_name in sorted(
+            schema_column
+            for schema_column in (
+                set(self._schema.not_null_columns)
+                | set(self._schema.primary_key_columns)
+                | set(self._schema.unique_columns)
+                | {rule.column for rule in self._schema.accepted_values}
+                | {rule.column for rule in self._schema.regex_constraints}
+            )
+            if schema_column == column
+        ):
+            if column_name in self._schema.not_null_columns:
+                self._track_not_null(solver, encodings[column_name], proposed_fix)
+            if column_name in self._schema.primary_key_columns:
+                self._track_not_null(
+                    solver,
+                    encodings[column_name],
+                    proposed_fix,
+                    label_prefix="primary_key_not_null",
+                )
+                self._track_unique(
+                    solver,
+                    encodings[column_name],
+                    proposed_fix,
+                    label_prefix="primary_key_unique",
+                )
+            if column_name in self._schema.unique_columns:
+                self._track_unique(solver, encodings[column_name], proposed_fix)
+            for rule in self._schema.accepted_values_for(column_name):
+                try:
+                    self._track_accepted_values(
+                        solver,
+                        encodings[column_name],
+                        proposed_fix,
+                        rule.values,
+                    )
+                except ValueError as exc:
+                    return VerificationResult(
+                        verdict=VerificationVerdict.UNKNOWN,
+                        reason=str(exc),
+                    )
+            regex_result = self._check_regex_constraints(column_name, proposed_fix)
+            if regex_result is not None:
+                return regex_result
+
         for bound in self._schema.domain_bounds_for(column):
             self._track_domain_bound(solver, encodings[column], proposed_fix, bound)
 
@@ -232,6 +279,87 @@ class SchemaToSMT:
             )
             formula = row_expr <= threshold if bound.inclusive_max else row_expr < threshold
             solver.assert_and_track(formula, label)
+
+    def _track_not_null(
+        self,
+        solver: Solver,
+        encoding: _ColumnEncoding,
+        proposed_fix: ProposedFix,
+        *,
+        label_prefix: str = "not_null",
+    ) -> None:
+        """Track a non-empty value constraint for the candidate cell."""
+        if encoding.column_type not in {"str", "string"}:
+            return
+        label = Bool(f"{label_prefix}::{encoding.name}::row::{proposed_fix.fix.row}")
+        row_expr = encoding.function(IntVal(proposed_fix.fix.row))
+        empty_value = encoding.value_factory("")
+        solver.assert_and_track(row_expr != empty_value, label)
+
+    def _track_unique(
+        self,
+        solver: Solver,
+        encoding: _ColumnEncoding,
+        proposed_fix: ProposedFix,
+        *,
+        label_prefix: str = "unique",
+    ) -> None:
+        """Track that the candidate value is unique across all other rows."""
+        other_rows = [
+            encoding.function(IntVal(index)) != encoding.function(IntVal(proposed_fix.fix.row))
+            for index in range(row_count(self._df))
+            if index != proposed_fix.fix.row
+        ]
+        if not other_rows:
+            return
+        label = Bool(f"{label_prefix}::{encoding.name}::row::{proposed_fix.fix.row}")
+        solver.assert_and_track(And(*other_rows), label)
+
+    def _track_accepted_values(
+        self,
+        solver: Solver,
+        encoding: _ColumnEncoding,
+        proposed_fix: ProposedFix,
+        values: tuple[str, ...],
+    ) -> None:
+        """Track that the candidate value belongs to a closed allowed set."""
+        if not values:
+            return
+        row_expr = encoding.function(IntVal(proposed_fix.fix.row))
+        try:
+            allowed = [row_expr == encoding.value_factory(value) for value in values]
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Could not encode accepted values for column '{encoding.name}' "
+                f"as type '{encoding.column_type}'."
+            ) from exc
+        label = Bool(f"accepted_values::{encoding.name}::row::{proposed_fix.fix.row}")
+        solver.assert_and_track(Or(*allowed), label)
+
+    def _check_regex_constraints(
+        self,
+        column: str,
+        proposed_fix: ProposedFix,
+    ) -> VerificationResult | None:
+        """Conservatively evaluate declared regex constraints before solver check."""
+        if column != proposed_fix.fix.column:
+            return None
+        for rule in self._schema.regex_constraints_for(column):
+            try:
+                matches = re.fullmatch(rule.pattern, proposed_fix.fix.new_value) is not None
+            except re.error as exc:
+                return VerificationResult(
+                    verdict=VerificationVerdict.UNKNOWN,
+                    reason=f"Invalid regex constraint for column '{column}': {exc}",
+                )
+            if not matches:
+                label = f"regex::{column}::row::{proposed_fix.fix.row}"
+                return VerificationResult(
+                    verdict=VerificationVerdict.REJECT,
+                    reason=explain_unsat_core((label,), self._schema),
+                    unsat_core=(label,),
+                )
+        return None
 
     def _track_fd_constraint(
         self,

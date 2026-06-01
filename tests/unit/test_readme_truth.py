@@ -24,6 +24,32 @@ def test_release_subcommand_claims_are_checked() -> None:
     assert claimed <= registered
 
 
+def test_claim_ledger_exists_and_records_cloud_apply_as_roadmap() -> None:
+    """Public claims should have an explicit shipped/beta/experimental/roadmap ledger."""
+    entries = readme_truth.load_claim_ledger()
+
+    assert entries
+    assert all(entry["status"] in readme_truth.CLAIM_LEDGER_STATUSES for entry in entries)
+    assert any(
+        entry["claim"] == "credentialed_cloud_warehouse_apply" and entry["status"] == "roadmap"
+        for entry in entries
+    )
+
+
+def test_claim_ledger_rejects_unknown_status(tmp_path: Path) -> None:
+    """Claim status values are intentionally closed vocabulary."""
+    ledger = tmp_path / "claims.yaml"
+    ledger.write_text(
+        "claims:\n  - claim: impossible\n    status: almost\n    evidence: none\n",
+        encoding="utf-8",
+    )
+
+    errors = readme_truth.check_claim_ledger(ledger)
+
+    assert errors
+    assert "unknown status" in errors[0]
+
+
 def test_unqualified_design_partner_claim_fails_when_gate_not_met(tmp_path: Path) -> None:
     """Customer validation prose must be qualified while the evidence gate is unmet."""
     claim_path = tmp_path / "claim.md"

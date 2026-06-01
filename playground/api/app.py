@@ -317,6 +317,42 @@ class RepairFailureView(BaseModel):
     unsat_core: list[str] = Field(default_factory=list)
 
 
+class RootCauseView(BaseModel):
+    """Issue diagnosis carried in the public repair receipt."""
+
+    row: int
+    column: str
+    issue_type: str
+    category: str
+    confidence: float
+    reason: str
+
+
+class CandidateRepairView(BaseModel):
+    """Candidate repair carried in the public repair receipt."""
+
+    row: int
+    column: str
+    old_value: str
+    new_value: str
+    detector_id: str
+    operation: str
+    reason: str
+    confidence: float
+    provenance: str
+    verifier_reason: str
+
+
+class ProofObligationView(BaseModel):
+    """Proof or safety obligation carried in the public repair receipt."""
+
+    obligation_id: str
+    verifier: str
+    status: str
+    reason: str
+    unsat_core: list[str] = Field(default_factory=list)
+
+
 class RepairJournalView(BaseModel):
     """Redacted dry-run transaction journal."""
 
@@ -346,8 +382,14 @@ class RepairReceiptView(BaseModel):
     issues_count: int
     fixes_count: int
     candidate_provenance: list[str]
+    root_causes: list[RootCauseView] = Field(default_factory=list)
+    candidate_repairs: list[CandidateRepairView] = Field(default_factory=list)
+    proof_obligations: list[ProofObligationView] = Field(default_factory=list)
     accepted_constraint_ids: list[str]
     constraints_artifact_sha256: str | None = None
+    patch_plan_sha256: str | None = None
+    revert_command: str | None = None
+    limitations: list[str] = Field(default_factory=list)
     reason: str
 
 
@@ -983,8 +1025,26 @@ def _receipt_view(receipt: Any) -> RepairReceiptView:
         issues_count=receipt.issues_count,
         fixes_count=receipt.fixes_count,
         candidate_provenance=list(receipt.candidate_provenance),
+        root_causes=[
+            RootCauseView(**root_cause.model_dump()) for root_cause in receipt.root_causes
+        ],
+        candidate_repairs=[
+            CandidateRepairView(**candidate.model_dump()) for candidate in receipt.candidate_repairs
+        ],
+        proof_obligations=[
+            ProofObligationView(
+                **{
+                    **obligation.model_dump(),
+                    "unsat_core": list(obligation.unsat_core),
+                }
+            )
+            for obligation in receipt.proof_obligations
+        ],
         accepted_constraint_ids=list(receipt.accepted_constraint_ids),
         constraints_artifact_sha256=receipt.constraints_artifact_sha256,
+        patch_plan_sha256=receipt.patch_plan_sha256,
+        revert_command=receipt.revert_command,
+        limitations=list(receipt.limitations),
         reason=receipt.reason,
     )
 

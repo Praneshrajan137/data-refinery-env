@@ -190,6 +190,10 @@ def test_analyze_hospital_returns_proof_loop_payload(client: TestClient) -> None
     assert body["txn_journal"]["applied"] is False
     assert body["receipt"]["contract_version"] == "repair_contract_v2"
     assert body["receipt"]["source_sha256"] == body["source"]["sha256"]
+    assert "root_causes" in body["receipt"]
+    assert "candidate_repairs" in body["receipt"]
+    assert "proof_obligations" in body["receipt"]
+    assert "limitations" in body["receipt"]
     assert (
         body["apply_handoff"]["dry_run_command"]
         == "dataforge15 repair path/to/hospital_10rows.csv --dry-run"

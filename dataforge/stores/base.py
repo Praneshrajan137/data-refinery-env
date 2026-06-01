@@ -63,7 +63,9 @@ class TableStore(Protocol):
     ) -> PatchPlan:
         """Build a reversible patch plan for verified fixes."""
 
-    def apply_patch_plan(self, plan: PatchPlan, *, state_root: Path | None = None) -> StoreApplyReceipt:
+    def apply_patch_plan(
+        self, plan: PatchPlan, *, state_root: Path | None = None
+    ) -> StoreApplyReceipt:
         """Apply a patch plan through the backend transaction mechanism."""
 
 

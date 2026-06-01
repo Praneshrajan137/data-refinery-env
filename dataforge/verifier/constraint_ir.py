@@ -68,6 +68,78 @@ def constraint_ir_from_schema(schema: Schema | None) -> tuple[ConstraintIR, ...]
                 repair_supported=True,
             )
         )
+    for column in sorted(schema.not_null_columns):
+        constraints.append(
+            ConstraintIR(
+                constraint_id=f"not_null::{column}",
+                kind="not_null",
+                columns=(column,),
+                expression=f"{column} IS NOT NULL",
+                verifier="smt",
+                repair_supported=True,
+            )
+        )
+    for column in sorted(schema.unique_columns):
+        constraints.append(
+            ConstraintIR(
+                constraint_id=f"unique::{column}",
+                kind="unique",
+                columns=(column,),
+                expression=f"{column} must be unique",
+                verifier="smt",
+                repair_supported=True,
+            )
+        )
+    for column in sorted(schema.primary_key_columns):
+        constraints.append(
+            ConstraintIR(
+                constraint_id=f"primary_key::{column}",
+                kind="unique",
+                columns=(column,),
+                expression=f"{column} must be not null and unique",
+                verifier="smt",
+                repair_supported=False,
+            )
+        )
+    for accepted_rule in schema.accepted_values:
+        constraints.append(
+            ConstraintIR(
+                constraint_id=f"accepted_values::{accepted_rule.column}",
+                kind="accepted_values",
+                columns=(accepted_rule.column,),
+                expression=", ".join(accepted_rule.values),
+                verifier="smt",
+                repair_supported=True,
+            )
+        )
+    for regex_rule in schema.regex_constraints:
+        constraints.append(
+            ConstraintIR(
+                constraint_id=f"regex::{regex_rule.column}",
+                kind="regex",
+                columns=(regex_rule.column,),
+                expression=regex_rule.pattern,
+                verifier="smt",
+                repair_supported=True,
+            )
+        )
+    for relationship_rule in schema.relationships:
+        constraints.append(
+            ConstraintIR(
+                constraint_id=(
+                    f"relationship::{relationship_rule.column}->"
+                    f"{relationship_rule.reference}.{relationship_rule.reference_column}"
+                ),
+                kind="referential",
+                columns=(relationship_rule.column,),
+                expression=(
+                    f"{relationship_rule.column} references "
+                    f"{relationship_rule.reference}({relationship_rule.reference_column})"
+                ),
+                verifier="sql",
+                repair_supported=False,
+            )
+        )
     for fd in schema.functional_dependencies:
         determinant = "+".join(fd.determinant)
         constraints.append(

@@ -40,7 +40,9 @@ class DuckDBStore(TableStore):
         self.database_path = database_path.resolve()
         self.relation = ensure_safe_relation(relation)
         self.row_identity_columns = row_identity_columns
-        self.target = target or f"warehouse://duckdb?database={self.database_path}&relation={relation}"
+        self.target = (
+            target or f"warehouse://duckdb?database={self.database_path}&relation={relation}"
+        )
 
     def _connect(self, *, read_only: bool) -> Any:
         try:
@@ -54,7 +56,9 @@ class DuckDBStore(TableStore):
         with self._connect(read_only=True) as connection:
             cursor = connection.execute(f"SELECT * FROM {self.relation}")
             columns = [str(item[0]) for item in cursor.description]
-            return Table(columns, (dict(zip(columns, row, strict=True)) for row in cursor.fetchall()))
+            return Table(
+                columns, (dict(zip(columns, row, strict=True)) for row in cursor.fetchall())
+            )
 
     def _identity_for_row(self, table: TableLike, row: int) -> RowIdentity:
         columns = column_names(table)
@@ -125,9 +129,7 @@ class DuckDBStore(TableStore):
                     f"UPDATE {self.relation} SET {quote_identifier(fix.column)} = "
                     f"{sql_literal(fix.old_value)} WHERE {new_where}"
                 )
-                verification_sql = (
-                    f"SELECT COUNT(*) FROM {self.relation} WHERE {new_where}",
-                )
+                verification_sql = (f"SELECT COUNT(*) FROM {self.relation} WHERE {new_where}",)
             operations.append(
                 PatchOperation.from_cell_fix(
                     fix,
@@ -170,7 +172,10 @@ class DuckDBStore(TableStore):
         cursor = connection.execute(f"SELECT * FROM {self.relation}{order_by}")
         columns = [str(item[0]) for item in cursor.description]
         return [
-            {column: "" if value is None else str(value) for column, value in zip(columns, row, strict=True)}
+            {
+                column: "" if value is None else str(value)
+                for column, value in zip(columns, row, strict=True)
+            }
             for row in cursor.fetchall()
         ]
 
@@ -241,7 +246,9 @@ class DuckDBStore(TableStore):
                 connection.execute("BEGIN TRANSACTION")
                 for sql in plan.preflight_probes:
                     if self._execute_scalar_int(connection, sql) != 1:
-                        raise TableStoreError(f"Preflight probe did not match exactly one row: {sql}")
+                        raise TableStoreError(
+                            f"Preflight probe did not match exactly one row: {sql}"
+                        )
                 for sql in plan.forward_sql:
                     connection.execute(sql)
                 for sql in plan.verification_queries:

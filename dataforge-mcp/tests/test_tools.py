@@ -114,6 +114,11 @@ class TestDataForgeMcpTools:
         assert receipt.applied is False
         assert receipt.txn_id is None
         assert receipt.fixes_count >= 1
+        assert receipt.root_causes
+        assert receipt.candidate_repairs
+        assert receipt.proof_obligations
+        assert receipt.patch_plan_sha256 is not None
+        assert receipt.limitations
         assert csv_path.read_bytes() == original
 
     def test_apply_requires_explicit_enablement(self, tmp_path: Path) -> None:

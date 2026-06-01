@@ -158,9 +158,7 @@ class PatchPlan(BaseModel):
             forward_sql=tuple(sql for op in operations if (sql := op.forward_sql)),
             rollback_sql=tuple(sql for op in operations if (sql := op.rollback_sql)),
             preflight_probes=tuple(sql for op in operations if (sql := op.precondition_sql)),
-            verification_queries=tuple(
-                query for op in operations for query in op.verification_sql
-            ),
+            verification_queries=tuple(query for op in operations for query in op.verification_sql),
             touched_constraints=touched_constraints,
             smt_obligations=smt_obligations,
             cost_estimate=CostEstimate(rows_scanned=rows_scanned, rows_written=len(operations)),

@@ -7,6 +7,9 @@ hard_never:
   - id: NO_ROW_DELETE
     description: Candidate fixes may not delete rows; only cell updates are allowed.
     predicate: row_delete
+  - id: NO_PRIMARY_KEY_EDIT
+    description: Candidate fixes may not edit declared primary-key columns.
+    predicate: primary_key_edit
   - id: NO_CONFLICTING_CELL_WRITES
     description: Multiple accepted fixes may not target the same cell with different replacement values.
     predicate: conflicting_cell_writes
@@ -16,6 +19,19 @@ soft_require_confirm:
   - id: NO_AGGREGATE_BREAK
     description: Candidate fixes to aggregate-sensitive source columns require confirmation.
     predicate: aggregate_sensitive
+    confirm_flag: confirm_escalations
+  - id: NO_UNCONFIRMED_LLM_WRITE
+    description: Live LLM-originated candidate values require explicit confirmation before verification.
+    predicate: llm_live_candidate
+    confirm_flag: confirm_escalations
+  - id: NO_PROMPT_INJECTION_TEXT
+    description: Candidate values containing prompt-injection text require explicit review.
+    predicate: prompt_injection_text
+    confirm_flag: confirm_escalations
+  - id: NO_HIGH_VOLUME_AUTO_APPLY
+    description: Batches touching more than 100 distinct rows require explicit review.
+    predicate: high_volume_batch
+    scope: batch
     confirm_flag: confirm_escalations
 
 soft_prefer:

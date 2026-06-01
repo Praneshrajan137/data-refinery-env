@@ -24,6 +24,10 @@ class TestConstitutionParsing:
         assert {
             "NO_PII_OVERWRITE",
             "NO_ROW_DELETE",
+            "NO_PRIMARY_KEY_EDIT",
+            "NO_UNCONFIRMED_LLM_WRITE",
+            "NO_PROMPT_INJECTION_TEXT",
+            "NO_HIGH_VOLUME_AUTO_APPLY",
             "NO_AGGREGATE_BREAK",
             "MINIMAL_EDIT",
             "NO_CONFLICTING_CELL_WRITES",

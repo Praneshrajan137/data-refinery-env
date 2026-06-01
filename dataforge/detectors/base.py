@@ -9,19 +9,25 @@ from pydantic import BaseModel, Field
 
 from dataforge.table import TableLike
 from dataforge.verifier.schema import (
+    AcceptedValues,
     AggregateDependency,
     DomainBound,
     FunctionalDependency,
+    RegexConstraint,
+    RelationshipConstraint,
     Schema,
 )
 
 __all__ = [
     "AggregateDependency",
+    "AcceptedValues",
     "Detector",
     "DomainBound",
     "FunctionalDependency",
     "Issue",
     "IssueTypeLiteral",
+    "RegexConstraint",
+    "RelationshipConstraint",
     "Schema",
     "Severity",
 ]

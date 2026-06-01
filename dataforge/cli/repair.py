@@ -132,7 +132,7 @@ def _resolve_escalation(
 
     confirmed = typer.confirm(
         f"Candidate fix for row {candidate.fix.row}, column '{candidate.fix.column}' "
-        "touches an aggregate-sensitive column. Confirm this edit?",
+        f"requires confirmation ({', '.join(safety_result.rule_ids)}). Confirm this edit?",
         default=False,
     )
     if confirmed:

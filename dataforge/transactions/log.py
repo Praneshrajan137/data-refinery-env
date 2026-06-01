@@ -587,9 +587,7 @@ def verify_transaction_log(
                 transaction.post_sha256 is not None
                 and sha256_file(source_path) != transaction.post_sha256
             ):
-                revert_errors.append(
-                    "Source file no longer matches the recorded post-state hash."
-                )
+                revert_errors.append("Source file no longer matches the recorded post-state hash.")
         if not snapshot_path.exists():
             revert_errors.append(f"Source snapshot not found: {snapshot_path}")
         if revert_errors:

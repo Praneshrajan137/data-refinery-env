@@ -70,6 +70,16 @@ def _row_delete(
     return proposed_fix.fix.operation == "delete_row"
 
 
+def _primary_key_edit(
+    proposed_fix: ProposedFix,
+    schema: Schema | None,
+    context: SafetyContext,
+) -> bool:
+    """Return whether a fix edits a declared primary-key column."""
+    del context
+    return schema is not None and proposed_fix.fix.column in schema.primary_key_columns
+
+
 def _aggregate_sensitive(
     proposed_fix: ProposedFix,
     schema: Schema | None,
@@ -78,6 +88,36 @@ def _aggregate_sensitive(
     """Return whether a fix edits a column used as an aggregate source."""
     del context
     return schema is not None and bool(schema.aggregate_dependencies_for(proposed_fix.fix.column))
+
+
+def _llm_live_candidate(
+    proposed_fix: ProposedFix,
+    schema: Schema | None,
+    context: SafetyContext,
+) -> bool:
+    """Return whether a candidate came from a live LLM generation."""
+    del schema, context
+    return proposed_fix.provenance.strip().lower() in {"llm", "llm_live", "live_llm"}
+
+
+def _prompt_injection_text(
+    proposed_fix: ProposedFix,
+    schema: Schema | None,
+    context: SafetyContext,
+) -> bool:
+    """Return whether a candidate writes text that resembles prompt injection."""
+    del schema, context
+    value = proposed_fix.fix.new_value.strip().lower()
+    indicators = (
+        "ignore previous instructions",
+        "ignore all previous instructions",
+        "system prompt",
+        "developer message",
+        "you are chatgpt",
+        "reveal your instructions",
+        "<script",
+    )
+    return any(indicator in value for indicator in indicators)
 
 
 def _conflicting_cell_writes(fixes: list[ProposedFix]) -> bool:
@@ -90,6 +130,11 @@ def _conflicting_cell_writes(fixes: list[ProposedFix]) -> bool:
             return True
         seen[key] = fix.fix.new_value
     return False
+
+
+def _high_volume_batch(fixes: list[ProposedFix]) -> bool:
+    """Return whether a repair batch touches too many distinct rows for auto-apply."""
+    return len({fix.fix.row for fix in fixes}) > 100
 
 
 def _minimal_edit_distance(
@@ -105,10 +150,14 @@ def _minimal_edit_distance(
 _SINGLE_PREDICATES: dict[str, SinglePredicate] = {
     "pii_overwrite": _pii_overwrite,
     "row_delete": _row_delete,
+    "primary_key_edit": _primary_key_edit,
     "aggregate_sensitive": _aggregate_sensitive,
+    "llm_live_candidate": _llm_live_candidate,
+    "prompt_injection_text": _prompt_injection_text,
 }
 _BATCH_PREDICATES: dict[str, BatchPredicate] = {
     "conflicting_cell_writes": _conflicting_cell_writes,
+    "high_volume_batch": _high_volume_batch,
 }
 _SCORERS: dict[str, PreferenceScorer] = {
     "minimal_edit_distance": _minimal_edit_distance,
@@ -135,6 +184,7 @@ class CompiledBatchRule:
     description: str
     tier: RuleTier
     predicate: BatchPredicate
+    confirm_flag: str | None = None
 
 
 @dataclass(frozen=True)
@@ -200,6 +250,7 @@ def _build_batch_rule(payload: dict[str, object], tier: RuleTier) -> CompiledBat
         description=description,
         tier=tier,
         predicate=predicate,
+        confirm_flag=str(payload["confirm_flag"]) if payload.get("confirm_flag") else None,
     )
 
 

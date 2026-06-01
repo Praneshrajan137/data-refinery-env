@@ -122,7 +122,11 @@ def revert(
         )
         raise typer.Exit(code=0)
 
-    title = "Table Store Revert Complete" if transaction.source_kind == "table_store" else "Revert Complete"
+    title = (
+        "Table Store Revert Complete"
+        if transaction.source_kind == "table_store"
+        else "Revert Complete"
+    )
     Console().print(
         Panel(
             (

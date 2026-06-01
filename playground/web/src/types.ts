@@ -135,6 +135,36 @@ export interface RepairFailure {
   unsat_core: string[];
 }
 
+export interface RootCause {
+  row: number;
+  column: string;
+  issue_type: string;
+  category: string;
+  confidence: number;
+  reason: string;
+}
+
+export interface CandidateRepair {
+  row: number;
+  column: string;
+  old_value: string;
+  new_value: string;
+  detector_id: string;
+  operation: string;
+  reason: string;
+  confidence: number;
+  provenance: string;
+  verifier_reason: string;
+}
+
+export interface ProofObligation {
+  obligation_id: string;
+  verifier: string;
+  status: string;
+  reason: string;
+  unsat_core: string[];
+}
+
 export interface RepairJournal {
   txn_id: string;
   created_at: string;
@@ -160,8 +190,14 @@ export interface RepairReceipt {
   issues_count: number;
   fixes_count: number;
   candidate_provenance: string[];
+  root_causes: RootCause[];
+  candidate_repairs: CandidateRepair[];
+  proof_obligations: ProofObligation[];
   accepted_constraint_ids: string[];
   constraints_artifact_sha256?: string | null;
+  patch_plan_sha256?: string | null;
+  revert_command?: string | null;
+  limitations: string[];
   reason: string;
 }
 

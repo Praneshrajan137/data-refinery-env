@@ -15,13 +15,17 @@ if TYPE_CHECKING:
     from dataforge.detectors import Issue, Schema, Severity, run_all_detectors
     from dataforge.engine.repair import (
         CandidateFix,
+        CandidateRepair,
+        ProofObligation,
         RepairFailure,
         RepairPipelineRequest,
         RepairPipelineResult,
         RepairReceipt,
+        RootCause,
         VerifiedFix,
         run_repair_pipeline,
     )
+    from dataforge.integrations.dbt import schema_from_dbt_artifacts, schema_from_dbt_manifest
     from dataforge.repair_contract import CONTRACT_VERSION
     from dataforge.repairers import ProposedFix
     from dataforge.safety import SafetyContext, SafetyFilter, SafetyResult, SafetyVerdict
@@ -65,6 +69,7 @@ if TYPE_CHECKING:
 __all__ = [
     "CONTRACT_VERSION",
     "CandidateFix",
+    "CandidateRepair",
     "CellFix",
     "ConstraintCandidate",
     "ConstraintReviewArtifact",
@@ -74,11 +79,13 @@ __all__ = [
     "Issue",
     "PatchPlan",
     "ProposedFix",
+    "ProofObligation",
     "RepairFailure",
     "RepairPipelineRequest",
     "RepairPipelineResult",
     "RepairReceipt",
     "RepairTransaction",
+    "RootCause",
     "ReviewedConstraintCandidate",
     "SMTVerifier",
     "SafetyContext",
@@ -108,6 +115,8 @@ __all__ = [
     "run_all_detectors",
     "run_repair_pipeline",
     "schema_from_mapping",
+    "schema_from_dbt_artifacts",
+    "schema_from_dbt_manifest",
     "infer_schema",
     "is_table_store_uri",
     "run_table_store_repair",
@@ -120,6 +129,7 @@ __version__ = "0.1.0rc1"
 _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "CONTRACT_VERSION": ("dataforge.repair_contract", "CONTRACT_VERSION"),
     "CandidateFix": ("dataforge.engine.repair", "CandidateFix"),
+    "CandidateRepair": ("dataforge.engine.repair", "CandidateRepair"),
     "CellFix": ("dataforge.transactions.txn", "CellFix"),
     "ConstraintCandidate": ("dataforge.schema_inference", "ConstraintCandidate"),
     "ConstraintReviewArtifact": ("dataforge.schema_inference", "ConstraintReviewArtifact"),
@@ -128,12 +138,14 @@ _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "DuckDBStore": ("dataforge.stores", "DuckDBStore"),
     "Issue": ("dataforge.detectors", "Issue"),
     "ProposedFix": ("dataforge.repairers", "ProposedFix"),
+    "ProofObligation": ("dataforge.engine.repair", "ProofObligation"),
     "PatchPlan": ("dataforge.stores", "PatchPlan"),
     "RepairFailure": ("dataforge.engine.repair", "RepairFailure"),
     "RepairPipelineRequest": ("dataforge.engine.repair", "RepairPipelineRequest"),
     "RepairPipelineResult": ("dataforge.engine.repair", "RepairPipelineResult"),
     "RepairReceipt": ("dataforge.engine.repair", "RepairReceipt"),
     "RepairTransaction": ("dataforge.transactions.txn", "RepairTransaction"),
+    "RootCause": ("dataforge.engine.repair", "RootCause"),
     "ReviewedConstraintCandidate": ("dataforge.schema_inference", "ReviewedConstraintCandidate"),
     "SMTVerifier": ("dataforge.verifier", "SMTVerifier"),
     "SafetyContext": ("dataforge.safety", "SafetyContext"),
@@ -171,6 +183,8 @@ _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "run_all_detectors": ("dataforge.detectors", "run_all_detectors"),
     "run_repair_pipeline": ("dataforge.engine.repair", "run_repair_pipeline"),
     "schema_from_mapping": ("dataforge.cli.common", "schema_from_mapping"),
+    "schema_from_dbt_artifacts": ("dataforge.integrations.dbt", "schema_from_dbt_artifacts"),
+    "schema_from_dbt_manifest": ("dataforge.integrations.dbt", "schema_from_dbt_manifest"),
     "infer_schema": ("dataforge.schema_inference", "infer_schema"),
     "is_table_store_uri": ("dataforge.stores", "is_table_store_uri"),
     "run_table_store_repair": ("dataforge.stores", "run_table_store_repair"),

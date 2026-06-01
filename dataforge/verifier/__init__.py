@@ -6,9 +6,12 @@ from typing import Any
 
 __all__ = [
     "AggregateDependency",
+    "AcceptedValues",
     "ConstraintIR",
     "DomainBound",
     "FunctionalDependency",
+    "RegexConstraint",
+    "RelationshipConstraint",
     "SMTVerifier",
     "Schema",
     "SchemaToSMT",
@@ -21,7 +24,15 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     """Lazily expose verifier symbols without import-time cycles."""
-    if name in {"AggregateDependency", "DomainBound", "FunctionalDependency", "Schema"}:
+    if name in {
+        "AcceptedValues",
+        "AggregateDependency",
+        "DomainBound",
+        "FunctionalDependency",
+        "RegexConstraint",
+        "RelationshipConstraint",
+        "Schema",
+    }:
         from dataforge.verifier import schema as schema_module
 
         return getattr(schema_module, name)

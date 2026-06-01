@@ -86,13 +86,24 @@ class TxnReceipt(BaseModel):
     """Structured receipt returned by the repair tool."""
 
     path: str
+    schema_version: Literal["repair_receipt_v1"] = "repair_receipt_v1"
     mode: Literal["dry_run", "apply"]
     contract_version: str = CONTRACT_VERSION
     applied: bool
     txn_id: str | None
     reversible: bool
+    source_sha256: str
+    post_sha256: str | None = None
+    safety_verdict: str
+    verifier_verdict: str
+    patch_plan_sha256: str | None = None
+    revert_command: str | None = None
     allowed_columns: list[str]
     valid_rows: list[int]
+    root_causes: list[dict[str, Any]] = Field(default_factory=list)
+    candidate_repairs: list[dict[str, Any]] = Field(default_factory=list)
+    proof_obligations: list[dict[str, Any]] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
     issues_count: int
     fixes_count: int
     reason: str
@@ -340,9 +351,19 @@ def dataforge_apply_repairs(path: str, mode: Literal["dry_run", "apply"]) -> Txn
         mode=mode,
         applied=receipt.applied,
         txn_id=receipt.txn_id,
-        reversible=True,
+        reversible=receipt.reversible,
+        source_sha256=receipt.source_sha256,
+        post_sha256=receipt.post_sha256,
+        safety_verdict=receipt.safety_verdict,
+        verifier_verdict=receipt.verifier_verdict,
+        patch_plan_sha256=receipt.patch_plan_sha256,
+        revert_command=receipt.revert_command,
         allowed_columns=receipt.allowed_columns,
         valid_rows=receipt.valid_rows,
+        root_causes=[item.model_dump() for item in receipt.root_causes],
+        candidate_repairs=[item.model_dump() for item in receipt.candidate_repairs],
+        proof_obligations=[item.model_dump() for item in receipt.proof_obligations],
+        limitations=receipt.limitations,
         issues_count=receipt.issues_count,
         fixes_count=receipt.fixes_count,
         reason=receipt.reason,
