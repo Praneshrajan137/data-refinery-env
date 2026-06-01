@@ -1,4 +1,4 @@
-"""Canonical local release gate for DataForge15.
+"""Canonical local release gate for DataForge.
 
 The release gate is intentionally heavier than the release doctor: it proves a
 fresh user can install the built wheel from a local wheelhouse and run the core
@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "release_gate_report_v1"
-PACKAGE_NAME = "dataforge15"
-CLI_NAMES = ("dataforge15", "dataforge")
+PACKAGE_NAME = "dataforge"
+CLI_NAMES = ("dataforge", "dataforge15")
 REQUIRED_WHEEL_MEMBERS = frozenset(
     {
         "dataforge/py.typed",
@@ -81,7 +81,7 @@ ALLOWED_SDIST_TOP_LEVEL = {
     "pyproject.toml",
     "setup.cfg",
     "dataforge",
-    "dataforge15.egg-info",
+    "dataforge.egg-info",
 }
 ALLOWED_SDIST_EGG_INFO = {
     "PKG-INFO",
@@ -152,7 +152,7 @@ class ReleaseGateStep:
 
 @dataclass(frozen=True)
 class ReleaseGateReport:
-    """Machine-readable proof emitted by ``dataforge15 release gate``."""
+    """Machine-readable proof emitted by ``dataforge release gate``."""
 
     ok: bool
     steps: list[ReleaseGateStep]
@@ -171,7 +171,7 @@ class ReleaseGateError(RuntimeError):
 
 
 def _project_root() -> Path:
-    """Return the repository root for the DataForge15 package."""
+    """Return the repository root for the DataForge package."""
     return Path(__file__).resolve().parents[2]
 
 
@@ -310,7 +310,7 @@ def _audit_wheel_contents(wheel_path: Path) -> ReleaseGateStep:
             errors.append(f"Rejected bytecode file: {member}")
         if not (
             member.startswith("dataforge/")
-            or (member.startswith("dataforge15-") and ".dist-info/" in member)
+            or (member.startswith(f"{PACKAGE_NAME}-") and ".dist-info/" in member)
         ):
             errors.append(f"Unexpected top-level wheel member: {member}")
 
@@ -325,7 +325,7 @@ def _audit_wheel_contents(wheel_path: Path) -> ReleaseGateStep:
     return ReleaseGateStep(
         name="wheel_contents_audit",
         ok=not errors,
-        detail="wheel contains only the allowed DataForge15 package surface"
+        detail="wheel contains only the allowed DataForge package surface"
         if not errors
         else "wheel contents audit failed",
         metadata={**metadata, "errors": errors},
@@ -361,7 +361,7 @@ def _audit_sdist_contents(sdist_path: Path) -> ReleaseGateStep:
             errors.append(f"Rejected generated or notebook file: {member}")
         if top_level not in ALLOWED_SDIST_TOP_LEVEL:
             errors.append(f"Unexpected top-level sdist member: {member}")
-        if member.startswith("dataforge15.egg-info/"):
+        if member.startswith(f"{PACKAGE_NAME}.egg-info/"):
             egg_info_name = member.split("/", 1)[1]
             if egg_info_name not in ALLOWED_SDIST_EGG_INFO:
                 errors.append(f"Unexpected egg-info member: {member}")
@@ -377,7 +377,7 @@ def _audit_sdist_contents(sdist_path: Path) -> ReleaseGateStep:
     return ReleaseGateStep(
         name="sdist_contents_audit",
         ok=not errors,
-        detail="sdist contains only the allowed DataForge15 core source surface"
+        detail="sdist contains only the allowed DataForge core source surface"
         if not errors
         else "sdist contents audit failed",
         metadata={**metadata, "errors": errors},
@@ -533,8 +533,8 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
             return ReleaseGateReport(ok=False, steps=steps, artifact_sha256=artifact_hashes)
 
         try:
-            wheel_path = _find_single_artifact(dist_dir, "dataforge15-*.whl")
-            sdist_path = _find_single_artifact(dist_dir, "dataforge15-*.tar.gz")
+            wheel_path = _find_single_artifact(dist_dir, f"{PACKAGE_NAME}-*.whl")
+            sdist_path = _find_single_artifact(dist_dir, f"{PACKAGE_NAME}-*.tar.gz")
         except ReleaseGateError as exc:
             steps.append(
                 ReleaseGateStep(
@@ -573,8 +573,8 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
             return ReleaseGateReport(ok=False, steps=steps, artifact_sha256=artifact_hashes)
 
         venv_python = _python_in_venv(venv_path)
-        dataforge15 = _script_in_venv(venv_path, "dataforge15")
         dataforge = _script_in_venv(venv_path, "dataforge")
+        dataforge15 = _script_in_venv(venv_path, "dataforge15")
         step, _result = _run_command(
             "offline_wheel_install",
             [
@@ -613,7 +613,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
         if not _append_step(steps, step):
             return ReleaseGateReport(ok=False, steps=steps, artifact_sha256=artifact_hashes)
 
-        for cli_name, cli_path in (("dataforge15", dataforge15), ("dataforge", dataforge)):
+        for cli_name, cli_path in (("dataforge", dataforge), ("dataforge15", dataforge15)):
             step, _result = _run_command(
                 f"{cli_name}_cli_alias",
                 [cli_path, "--version"],
@@ -625,7 +625,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
 
         step, _result = _run_command(
             "installed_release_doctor_core",
-            [dataforge15, "release", "doctor", "--core", "--json"],
+            [dataforge, "release", "doctor", "--core", "--json"],
             cwd=temp_root,
             timeout_seconds=60,
         )
@@ -638,7 +638,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
         step, _result = _run_command(
             "packaged_fixture_alias_profile",
             [
-                dataforge15,
+                dataforge,
                 "profile",
                 "fixtures/hospital_10rows.csv",
                 "--schema",
@@ -658,12 +658,12 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
         lifecycle_commands: list[tuple[str, list[str | os.PathLike[str]]]] = [
             (
                 "smoke_profile",
-                [dataforge15, "profile", source_path, "--schema", schema_path, "--json"],
+                [dataforge, "profile", source_path, "--schema", schema_path, "--json"],
             ),
             (
                 "smoke_profile_constraints_artifact",
                 [
-                    dataforge15,
+                    dataforge,
                     "profile",
                     source_path,
                     "--constraints-out",
@@ -673,12 +673,12 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
             ),
             (
                 "smoke_constraints_review_no_tui",
-                [dataforge15, "constraints", "review", constraints_path, "--no-tui", "--json"],
+                [dataforge, "constraints", "review", constraints_path, "--no-tui", "--json"],
             ),
             (
                 "smoke_repair_dry_run",
                 [
-                    dataforge15,
+                    dataforge,
                     "repair",
                     source_path,
                     "--schema",
@@ -689,7 +689,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
             ),
             (
                 "smoke_watch_once",
-                [dataforge15, "watch", source_path, "--schema", schema_path, "--once", "--json"],
+                [dataforge, "watch", source_path, "--schema", schema_path, "--once", "--json"],
             ),
         ]
         for name, command in lifecycle_commands:
@@ -700,7 +700,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
         step, warehouse_dry_run_result = _run_command(
             "smoke_warehouse_cloud_dry_run",
             [
-                dataforge15,
+                dataforge,
                 "repair",
                 "warehouse://snowflake?relation=PUBLIC.HOSPITALS&row_id=id",
                 "--dry-run",
@@ -716,7 +716,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
 
         step, apply_result = _run_command(
             "smoke_repair_apply",
-            [dataforge15, "repair", source_path, "--schema", schema_path, "--apply", "--json"],
+            [dataforge, "repair", source_path, "--schema", schema_path, "--apply", "--json"],
             cwd=temp_root,
             timeout_seconds=30,
         )
@@ -737,7 +737,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
             return ReleaseGateReport(ok=False, steps=steps, artifact_sha256=artifact_hashes)
 
         audit_command: list[str | os.PathLike[str]] = [
-            dataforge15,
+            dataforge,
             "audit",
             txn_id,
             "--search-root",
@@ -762,7 +762,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
 
         step, revert_result = _run_command(
             "smoke_revert",
-            [dataforge15, "revert", txn_id, "--search-root", smoke_dir, "--json"],
+            [dataforge, "revert", txn_id, "--search-root", smoke_dir, "--json"],
             cwd=temp_root,
             timeout_seconds=30,
         )

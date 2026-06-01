@@ -53,7 +53,7 @@ def test_claim_ledger_rejects_unknown_status(tmp_path: Path) -> None:
 def test_unqualified_design_partner_claim_fails_when_gate_not_met(tmp_path: Path) -> None:
     """Customer validation prose must be qualified while the evidence gate is unmet."""
     claim_path = tmp_path / "claim.md"
-    claim_path.write_text("DataForge15 has design partners and pilot users.\n", encoding="utf-8")
+    claim_path.write_text("DataForge has design partners and pilot users.\n", encoding="utf-8")
 
     errors = readme_truth.check_design_partner_claims([claim_path])
 
@@ -65,7 +65,7 @@ def test_explicitly_unmet_design_partner_claim_is_allowed(tmp_path: Path) -> Non
     """Honest not-met wording should not fail the truth checker."""
     claim_path = tmp_path / "claim.md"
     claim_path.write_text(
-        "DataForge15 does not claim design-partner or customer validation evidence yet.\n",
+        "DataForge does not claim design-partner or customer validation evidence yet.\n",
         encoding="utf-8",
     )
 
@@ -75,7 +75,7 @@ def test_explicitly_unmet_design_partner_claim_is_allowed(tmp_path: Path) -> Non
 def test_unqualified_benchmark_claim_outside_generated_block_fails(tmp_path: Path) -> None:
     """Public metric claims must live in generated benchmark evidence blocks."""
     claim_path = tmp_path / "claim.md"
-    claim_path.write_text("DataForge15 reaches F1 0.99 on Hospital.\n", encoding="utf-8")
+    claim_path.write_text("DataForge reaches F1 0.99 on Hospital.\n", encoding="utf-8")
 
     errors = readme_truth.check_public_claim_boundaries([claim_path])
 
@@ -95,10 +95,10 @@ def test_generated_benchmark_claim_block_is_allowed(tmp_path: Path) -> None:
 
 
 def test_workers_dev_playground_url_is_checked_but_custom_domain_is_not() -> None:
-    """The live URL checker follows Workers/HF surfaces, not future branding."""
+    """The lightweight URL checker avoids DNS-sensitive dataforge.dev probes."""
     text = (
         "Try https://dataforge.praneshrajan15.workers.dev/playground now.\n"
-        "Future optional custom domain: https://dataforge.dev/playground.\n"
+        "Mandatory domain gate, not yet live: https://dataforge.dev/playground.\n"
         "Backend: https://Praneshrajan15-dataforge-playground.hf.space.\n"
     )
 
@@ -110,21 +110,35 @@ def test_workers_dev_playground_url_is_checked_but_custom_domain_is_not() -> Non
 
 
 def test_unqualified_custom_domain_claim_fails(tmp_path: Path) -> None:
-    """dataforge.dev must never be presented as a current release surface."""
+    """dataforge.dev must not be presented as current without evidence."""
     claim_path = tmp_path / "claim.md"
     claim_path.write_text("Live playground: https://dataforge.dev/playground\n", encoding="utf-8")
 
     errors = readme_truth.check_custom_domain_claims([claim_path])
 
     assert errors
-    assert "future optional custom domain" in errors[0]
+    assert "without release evidence" in errors[0]
 
 
-def test_future_optional_custom_domain_claim_is_allowed(tmp_path: Path) -> None:
-    """Future-only custom-domain wording is honest and should not be release-blocking."""
+def test_optional_custom_domain_claim_fails(tmp_path: Path) -> None:
+    """Optional custom-domain wording is forbidden by the full original vision."""
     claim_path = tmp_path / "claim.md"
     claim_path.write_text(
         "Future optional custom domain, not a release target: https://dataforge.dev/playground\n",
+        encoding="utf-8",
+    )
+
+    errors = readme_truth.check_custom_domain_claims([claim_path])
+
+    assert errors
+    assert "optional" in errors[0]
+
+
+def test_mandatory_unmet_custom_domain_gate_is_allowed(tmp_path: Path) -> None:
+    """Mandatory blocked-domain wording is honest while DNS is external."""
+    claim_path = tmp_path / "claim.md"
+    claim_path.write_text(
+        "Mandatory hard gate, not yet live: https://dataforge.dev/playground\n",
         encoding="utf-8",
     )
 

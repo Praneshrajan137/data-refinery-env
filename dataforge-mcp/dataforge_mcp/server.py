@@ -1,4 +1,4 @@
-"""Executable MCP server for DataForge15."""
+"""Executable MCP server for DataForge."""
 
 from __future__ import annotations
 
@@ -20,11 +20,11 @@ TransportLiteral = Literal["stdio", "streamable-http"]
 
 
 def create_server(*, host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
-    """Create a FastMCP server with all DataForge15 tools registered."""
+    """Create a FastMCP server with all DataForge tools registered."""
     mcp = FastMCP(
-        "DataForge15",
+        "DataForge",
         instructions=(
-            "DataForge15 profiles CSVs, detects data-quality issues, proposes "
+            "DataForge profiles CSVs, detects data-quality issues, proposes "
             "verified repairs, applies reversible transactions, and reverts them."
         ),
         host=host,
@@ -48,7 +48,7 @@ def serve(
     enable_apply: bool = False,
     allowed_roots: list[str] | None = None,
 ) -> None:
-    """Run the DataForge15 MCP server."""
+    """Run the DataForge MCP server."""
     configure_mcp_security(enable_apply=enable_apply, allowed_roots=allowed_roots)
     server = create_server(host=host, port=port)
     server.run(transport=transport)
@@ -56,7 +56,7 @@ def serve(
 
 def _build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser for the console script."""
-    parser = argparse.ArgumentParser(prog="dataforge15-mcp")
+    parser = argparse.ArgumentParser(prog="dataforge-mcp")
     subparsers = parser.add_subparsers(dest="command")
     serve_parser = subparsers.add_parser("serve", help="Start the MCP server.")
     serve_parser.add_argument(
@@ -82,7 +82,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Console entry point for ``dataforge15-mcp``."""
+    """Console entry point for ``dataforge-mcp``."""
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command is None:

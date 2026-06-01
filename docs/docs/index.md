@@ -1,25 +1,26 @@
-# DataForge15
+# DataForge
 
-DataForge15 is the official release name for the DataForge codebase. It is a
+DataForge is the official release name for the DataForge codebase. It is a
 CLI-first toolkit for finding and repairing data-quality issues in tabular
 files. It profiles CSVs, proposes deterministic repairs, checks
 changes through safety and verification gates, and records applied fixes in a
 reversible transaction log.
 
-The planned PyPI distribution is `dataforge15`, but it is not published yet.
-Install from this source checkout for now. The 0.1 line intentionally keeps the
-Python import namespace as `dataforge`.
+The final PyPI distribution is `dataforge`, but the name is currently occupied
+by an unrelated project. Install from this source checkout for now. PyPI/TestPyPI
+ownership or maintainer cooperation is a hard release gate before `pip install
+dataforge` can point at this project.
 
-The 0.1.0rc1 release candidate is an alpha meant for local CSV profiling, repair
+The current checkout is an alpha meant for local CSV profiling, repair
 experiments, benchmarks, and training/evaluation research. It is not a
 warehouse-native service, it does not make production model-quality claims, and
 it does not claim design-partner or customer validation evidence yet.
 
-## What ships in 0.1.0rc1
+## What ships locally
 
-- `dataforge15 profile`, `dataforge15 repair`, `dataforge15 revert`,
-  `dataforge15 watch`, `dataforge15 audit`, `dataforge15 bench`, and
-  `dataforge15 constraints review`.
+- `dataforge profile`, `dataforge repair`, `dataforge revert`,
+  `dataforge watch`, `dataforge audit`, `dataforge bench`, and
+  `dataforge constraints review`.
 - Detector families for type mismatches, decimal shifts, and functional
   dependency violations.
 - Reviewable `constraint_review_v1` artifacts with explicit accept/reject
@@ -34,8 +35,9 @@ it does not claim design-partner or customer validation evidence yet.
 
 The current verified public playground is
 `https://dataforge.praneshrajan15.workers.dev/playground`; the API backend is
-`https://Praneshrajan15-dataforge-playground.hf.space`. A `dataforge.dev`
-custom domain is future optional branding, not a 0.1 release target.
+`https://Praneshrajan15-dataforge-playground.hf.space`. The mandatory
+`https://dataforge.dev/playground` domain gate is not yet live in committed
+release evidence.
 
 ## Benchmark Evidence
 

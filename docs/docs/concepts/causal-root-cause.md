@@ -12,7 +12,7 @@ flowchart LR
 ```
 
 If errors appear in all four columns, the minimal root is usually `quantity`.
-DataForge15 combines functional-dependency priors, causal discovery fallbacks, and
+DataForge combines functional-dependency priors, causal discovery fallbacks, and
 explicit error evidence to compute this minimal root set.
 
 ## Current scope

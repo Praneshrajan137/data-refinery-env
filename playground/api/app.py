@@ -370,6 +370,7 @@ class RepairReceiptView(BaseModel):
     """Stable repair receipt surfaced to browser clients."""
 
     schema_version: str
+    receipt_version: str
     contract_version: str
     mode: str
     applied: bool
@@ -1013,6 +1014,7 @@ def _receipt_view(receipt: Any) -> RepairReceiptView:
     """Format the engine repair receipt for browser clients."""
     return RepairReceiptView(
         schema_version=receipt.schema_version,
+        receipt_version=receipt.receipt_version,
         contract_version=receipt.contract_version,
         mode=receipt.mode,
         applied=receipt.applied,
@@ -1192,20 +1194,18 @@ def _risk_summary(
 def _apply_handoff(source_name: str, receipt: RepairReceiptView) -> ApplyHandoff:
     """Build a local CLI handoff without enabling hosted mutation."""
     source_ref = f"path/to/{source_name}"
-    dry_run_command = f"dataforge15 repair {source_ref} --dry-run"
-    apply_command = f"dataforge15 repair {source_ref} --apply"
+    dry_run_command = f"dataforge repair {source_ref} --dry-run"
+    apply_command = f"dataforge repair {source_ref} --apply"
     if receipt.accepted_constraint_ids:
-        dry_run_command = (
-            f"dataforge15 repair {source_ref} --constraints constraints.json --dry-run"
-        )
-        apply_command = f"dataforge15 repair {source_ref} --constraints constraints.json --apply"
+        dry_run_command = f"dataforge repair {source_ref} --constraints constraints.json --dry-run"
+        apply_command = f"dataforge repair {source_ref} --constraints constraints.json --apply"
     txn_ref = receipt.txn_id or "<txn-id>"
     return ApplyHandoff(
         source_name=source_name,
         dry_run_command=dry_run_command,
         apply_command=apply_command,
-        audit_command=f"dataforge15 audit {txn_ref}",
-        revert_command=f"dataforge15 revert {txn_ref}",
+        audit_command=f"dataforge audit {txn_ref}",
+        revert_command=f"dataforge revert {txn_ref}",
         note=(
             "The hosted playground never mutates uploads. Apply and byte-for-byte revert "
             "are local CLI transaction workflows."

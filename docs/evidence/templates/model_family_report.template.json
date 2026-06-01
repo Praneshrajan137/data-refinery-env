@@ -1,0 +1,13 @@
+{
+  "schema_version": "dataforge_model_family_report_v1",
+  "models": [
+    {
+      "repo_id": "Praneshrajan15/DataForge-0.5B-SFT",
+      "verifier_passed": true,
+      "dataset_repo": "",
+      "training_run_url": "",
+      "eval_report_path": "",
+      "limitations_documented": true
+    }
+  ]
+}

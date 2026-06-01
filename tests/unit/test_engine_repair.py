@@ -224,6 +224,7 @@ def test_run_repair_pipeline_dry_run_returns_ephemeral_receipt(tmp_path: Path) -
     )
 
     assert result.receipt.applied is False
+    assert result.receipt.receipt_version == "repair_receipt_v1"
     assert result.transaction is not None
     assert re.fullmatch(r"txn-\d{4}-\d{2}-\d{2}-[0-9a-f]{6}", result.transaction.txn_id)
     assert result.fixes
@@ -232,7 +233,7 @@ def test_run_repair_pipeline_dry_run_returns_ephemeral_receipt(tmp_path: Path) -
     assert result.receipt.candidate_repairs
     assert result.receipt.proof_obligations
     assert result.receipt.patch_plan_sha256 is not None
-    assert result.receipt.revert_command == f"dataforge15 revert {result.transaction.txn_id}"
+    assert result.receipt.revert_command == f"dataforge revert {result.transaction.txn_id}"
     assert result.receipt.limitations
     assert result.receipt.root_causes[0].category == "decimal_shift"
     assert result.receipt.proof_obligations[0].status == "accepted"

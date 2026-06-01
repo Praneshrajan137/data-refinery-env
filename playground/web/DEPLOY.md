@@ -58,8 +58,8 @@ assets are long-cacheable.
 npx wrangler@4.94.0 deploy --config wrangler.toml
 ```
 
-The default config deploys to the enabled Worker URL:
-`https://dataforge.praneshrajan15.workers.dev/playground`.
+The default config deploys to the mandatory production route:
+`https://dataforge.dev/playground`.
 `wrangler.toml` includes a `[build]` command, so `npx wrangler deploy` creates
 `playground/web/dist` before Wrangler checks the static assets directory.
 
@@ -69,17 +69,17 @@ The default config deploys to the enabled Worker URL:
 python scripts/playground/verify_frontend_deploy.py
 python scripts/playground/monitor_playground.py --json
 node scripts/playground/audit_live_playground.mjs --json
-dataforge15 release playground-check --json
+dataforge release playground-check --json
 ```
 
 The verifier checks that:
 
-- `https://dataforge.praneshrajan15.workers.dev/playground` serves the built React shell and hashed assets.
+- `https://dataforge.dev/playground` serves the built React shell and hashed assets.
 - `config.js` contains the Hugging Face backend URL and is uncached.
 - The backend root returns API metadata instead of stale frontend HTML.
 - `/api/health` exposes `status`, `advanced_available`, and `max_upload_bytes`.
 - Backend CORS allows the exact deployed frontend origin.
-- The release checklist also rejects broad `workers.dev` CORS, runs a sample
+- The release checklist also rejects broad wildcard CORS, runs a sample
   profile/repair smoke flow, and confirms the local release doctor passes.
 
 ## Quality Gates
@@ -107,8 +107,6 @@ secret only if an external alert target is desired.
 - No API keys are embedded in the frontend; provider keys stay in Hugging Face
   Space secrets.
 - In production, `DATAFORGE_PLAYGROUND_ORIGINS` must contain the exact
-  Cloudflare frontend origin. The backend does not allow broad `workers.dev`
-  wildcards.
-- Future custom domains are optional launch polish; add them only as exact
-  comma-separated CORS origins after their Cloudflare route is independently
-  verified.
+  `https://dataforge.dev` origin. The backend does not allow broad wildcards.
+- `https://dataforge.dev/playground` is not optional launch polish; it is the
+  release-blocking production domain for the full original vision.

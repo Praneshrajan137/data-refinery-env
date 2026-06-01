@@ -1,7 +1,11 @@
 # Safety
 
-DataForge15 is designed for conservative repair. A repair is acceptable only when
+DataForge is designed for conservative repair. A repair is acceptable only when
 it is explainable, narrowly scoped, and reversible.
+
+The repository-level `THREAT_MODEL.md` is release-blocking for 0.1. It covers
+the CLI, playground, MCP, optional LLM fallback, model artifacts, and
+supply-chain workflow.
 
 ## Public safety guarantees
 

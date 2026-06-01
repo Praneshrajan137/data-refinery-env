@@ -178,6 +178,7 @@ export interface RepairJournal {
 
 export interface RepairReceipt {
   schema_version: string;
+  receipt_version: string;
   contract_version: string;
   mode: string;
   applied: boolean;

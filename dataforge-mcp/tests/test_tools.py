@@ -111,6 +111,7 @@ class TestDataForgeMcpTools:
 
         receipt = dataforge_apply_repairs(str(csv_path), "dry_run")
 
+        assert receipt.receipt_version == "repair_receipt_v1"
         assert receipt.applied is False
         assert receipt.txn_id is None
         assert receipt.fixes_count >= 1

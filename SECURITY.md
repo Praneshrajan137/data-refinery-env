@@ -18,7 +18,7 @@ We aim to acknowledge reports within 48 hours and patch critical issues within
 ## In Scope
 
 - `dataforge/` CLI and library code
-- `dataforge-mcp/` local MCP server source package, published as `dataforge15-mcp`
+- `dataforge-mcp/` local MCP server source package, published as `dataforge-mcp`
 - `playground/api/` backend
 - safety filter and SMT verifier
 - transaction hash-chain integrity, audit verification, and revert behavior
@@ -28,13 +28,13 @@ We aim to acknowledge reports within 48 hours and patch critical issues within
 
 New transaction logs are tamper-evident local hash chains. Audit verification
 detects local JSONL payload edits, event reordering, and broken replay before a
-v2 transaction is reverted. DataForge15 does not claim external non-repudiation
+v2 transaction is reverted. DataForge does not claim external non-repudiation
 unless a deployment separately anchors the transaction head hash in a trusted
 system.
 
 ## Out Of Scope
 
-- Third-party dependencies, except where DataForge15 configuration makes an issue
+- Third-party dependencies, except where DataForge configuration makes an issue
   exploitable
 - Static playground frontend issues that do not expose secrets or user data
 - Generated local cache or staging directories
@@ -47,5 +47,5 @@ system.
 
 ## Disclosure
 
-DataForge15 follows coordinated disclosure. Reporters are credited in the
+DataForge follows coordinated disclosure. Reporters are credited in the
 `CHANGELOG.md` entry for the fix unless anonymity is requested.

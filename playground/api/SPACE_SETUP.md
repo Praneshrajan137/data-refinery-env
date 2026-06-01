@@ -29,7 +29,7 @@ From the monorepo root:
 python scripts/playground/stage_space.py --output-dir .hf-space-stage
 python scripts/playground/deploy_space.py \
   --repo-id Praneshrajan15/dataforge-playground \
-  --origins https://dataforge.praneshrajan15.workers.dev
+  --origins https://dataforge.dev
 ```
 
 `stage_space.py` is the authoritative layout builder. The deploy script uses
@@ -52,7 +52,7 @@ The deploy script sets:
 
 - `DATAFORGE_PLAYGROUND_ORIGINS`
   Required in production. Set this to the exact Cloudflare frontend origin.
-  Example: `https://dataforge.praneshrajan15.workers.dev`
+  Example: `https://dataforge.dev`
 - `GROQ_API_KEY` or `GEMINI_API_KEY`
   Optional. If present in the local environment, the deploy script syncs it as
   a Space secret and advanced mode becomes available.

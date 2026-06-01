@@ -28,7 +28,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Canonical dataforge15 release gate
+      - name: Canonical dataforge release gate
         run: python -m dataforge.release.gate --json
 
       - name: Build MCP smoke wheels
@@ -39,7 +39,7 @@ jobs:
       - name: Installed MCP stdio smoke
         run: |
           python -m venv .release-smoke
-          timeout 60 .release-smoke/bin/python -m pip install --find-links dist dataforge15-mcp
+          timeout 60 .release-smoke/bin/python -m pip install --find-links dist dataforge-mcp
           .release-smoke/bin/python - <<'PY'
           import asyncio
           import json
@@ -59,7 +59,7 @@ jobs:
           )
           env = os.environ.copy()
           env["DATAFORGE_MCP_ALLOWED_ROOTS"] = str(workspace)
-          command = str(Path(sys.executable).with_name("dataforge15-mcp"))
+          command = str(Path(sys.executable).with_name("dataforge-mcp"))
 
           async def main() -> None:
               params = StdioServerParameters(command=command, args=["serve"], env=env)

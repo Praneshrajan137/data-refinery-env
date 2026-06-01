@@ -1,0 +1,299 @@
+{
+  "dataset": {
+    "files": [
+      ".gitattributes",
+      "MODEL_CARD_TEMPLATE.md",
+      "README.md",
+      "expert_v1.jsonl",
+      "expert_v2.jsonl",
+      "expert_v3.jsonl",
+      "expert_v4.jsonl",
+      "reports/sft_release_v2_after_kaggle.json",
+      "reports/sft_release_v2_after_kaggle_summary.json",
+      "sft_05b.yaml",
+      "sft_05b_v2.yaml",
+      "sft_05b_v3.yaml",
+      "sft_05b_v4.yaml",
+      "split_manifest.json",
+      "split_manifest_v2.json",
+      "split_manifest_v3.json",
+      "split_manifest_v4.json"
+    ],
+    "repo_id": "Praneshrajan15/dataforge-sft-trajectories",
+    "repo_type": "dataset",
+    "sha": "94e2dd556d4f1260c5123d93ca6bf4f9da9b160a"
+  },
+  "dataset_readme_checked": true,
+  "dataset_records": 2058,
+  "dataset_sha_metric_checked": true,
+  "eval_diagnostics_checked": false,
+  "metrics": {
+    "base_eval": {
+      "dataset_f1": {
+        "beers": 0.0061,
+        "flights": 0.0,
+        "hospital": 0.0099
+      },
+      "failure_taxonomy": {
+        "missed_repair": 553,
+        "overrepair": 158,
+        "schema_case_error": 113,
+        "wrong_cell": 40,
+        "wrong_value": 60
+      },
+      "macro_f1": 0.0053,
+      "mean_f1": 0.0054,
+      "parse_success_rate": 1.0,
+      "promotion_slice": "deterministic_normalization",
+      "schema_case_error_count": 113,
+      "slice_scores": {
+        "deterministic_normalization": {
+          "dataset_f1": {
+            "beers": 0.0
+          },
+          "false_repair_count": 73,
+          "false_repair_rate": 1.0,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0,
+          "mean_f1": 0.0,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 29,
+          "tasks": 20
+        },
+        "external_reference_required": {
+          "dataset_f1": {
+            "beers": 0.0154,
+            "flights": 0.0,
+            "hospital": 0.0125
+          },
+          "false_repair_count": 252,
+          "false_repair_rate": 0.9882,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0093,
+          "mean_f1": 0.0081,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 70,
+          "tasks": 66
+        },
+        "not_inferable_from_prompt": {
+          "dataset_f1": {
+            "flights": 0.0,
+            "hospital": 0.0
+          },
+          "false_repair_count": 46,
+          "false_repair_rate": 1.0,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0,
+          "mean_f1": 0.0,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 14,
+          "tasks": 14
+        }
+      }
+    },
+    "base_f1": 0.0,
+    "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "config_sha256": "5a6d8ea6531da6d1cb2f594e22b7e63ecf190c1db271af5ad143ca0319271ee8",
+    "dataset_records": 2058,
+    "dataset_repo": "Praneshrajan15/dataforge-sft-trajectories",
+    "dataset_sha": "94e2dd556d4f1260c5123d93ca6bf4f9da9b160a",
+    "evaluation_chunk_width": 4,
+    "evaluation_max_new_tokens": 1024,
+    "heldout_examples": 100,
+    "heldout_leakage_detected": false,
+    "kaggle_hours": 1.147,
+    "model_license": "apache-2.0",
+    "model_name": "DataForge-0.5B-SFT",
+    "parse_success_rate": 1.0,
+    "promotion_slice": "deterministic_normalization",
+    "prompt_contract_drift": false,
+    "quality_gate_failures": [],
+    "quality_milestone": true,
+    "release_status": "quality_improved_verified",
+    "repo_id": "Praneshrajan15/DataForge-0.5B-SFT",
+    "schema_case_error_count": 0,
+    "sft_eval": {
+      "dataset_f1": {
+        "beers": 0.0107,
+        "flights": 0.0126,
+        "hospital": 0.0084
+      },
+      "failure_taxonomy": {
+        "missed_repair": 519,
+        "overrepair": 249,
+        "schema_case_error": 16,
+        "truncated_json": 1,
+        "wrong_cell": 3,
+        "wrong_value": 92
+      },
+      "macro_f1": 0.0106,
+      "mean_f1": 0.0106,
+      "parse_success_rate": 0.99,
+      "promotion_slice": "deterministic_normalization",
+      "schema_case_error_count": 16,
+      "slice_scores": {
+        "deterministic_normalization": {
+          "dataset_f1": {
+            "beers": 0.0077
+          },
+          "false_repair_count": 74,
+          "false_repair_rate": 0.9867,
+          "finish_rate": 0.05,
+          "macro_f1": 0.0077,
+          "mean_f1": 0.0077,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 0,
+          "tasks": 20
+        },
+        "external_reference_required": {
+          "dataset_f1": {
+            "beers": 0.0154,
+            "flights": 0.016,
+            "hospital": 0.0106
+          },
+          "false_repair_count": 233,
+          "false_repair_rate": 0.9831,
+          "finish_rate": 0.0758,
+          "macro_f1": 0.014,
+          "mean_f1": 0.0137,
+          "parse_success_rate": 0.9848,
+          "schema_case_error_count": 8,
+          "tasks": 66
+        },
+        "not_inferable_from_prompt": {
+          "dataset_f1": {
+            "flights": 0.0,
+            "hospital": 0.0
+          },
+          "false_repair_count": 53,
+          "false_repair_rate": 1.0,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0,
+          "mean_f1": 0.0,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 8,
+          "tasks": 14
+        }
+      }
+    },
+    "sft_f1": 0.0077,
+    "slice_scores": {
+      "base": {
+        "deterministic_normalization": {
+          "dataset_f1": {
+            "beers": 0.0
+          },
+          "false_repair_count": 73,
+          "false_repair_rate": 1.0,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0,
+          "mean_f1": 0.0,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 29,
+          "tasks": 20
+        },
+        "external_reference_required": {
+          "dataset_f1": {
+            "beers": 0.0154,
+            "flights": 0.0,
+            "hospital": 0.0125
+          },
+          "false_repair_count": 252,
+          "false_repair_rate": 0.9882,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0093,
+          "mean_f1": 0.0081,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 70,
+          "tasks": 66
+        },
+        "not_inferable_from_prompt": {
+          "dataset_f1": {
+            "flights": 0.0,
+            "hospital": 0.0
+          },
+          "false_repair_count": 46,
+          "false_repair_rate": 1.0,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0,
+          "mean_f1": 0.0,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 14,
+          "tasks": 14
+        }
+      },
+      "sft": {
+        "deterministic_normalization": {
+          "dataset_f1": {
+            "beers": 0.0077
+          },
+          "false_repair_count": 74,
+          "false_repair_rate": 0.9867,
+          "finish_rate": 0.05,
+          "macro_f1": 0.0077,
+          "mean_f1": 0.0077,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 0,
+          "tasks": 20
+        },
+        "external_reference_required": {
+          "dataset_f1": {
+            "beers": 0.0154,
+            "flights": 0.016,
+            "hospital": 0.0106
+          },
+          "false_repair_count": 233,
+          "false_repair_rate": 0.9831,
+          "finish_rate": 0.0758,
+          "macro_f1": 0.014,
+          "mean_f1": 0.0137,
+          "parse_success_rate": 0.9848,
+          "schema_case_error_count": 8,
+          "tasks": 66
+        },
+        "not_inferable_from_prompt": {
+          "dataset_f1": {
+            "flights": 0.0,
+            "hospital": 0.0
+          },
+          "false_repair_count": 53,
+          "false_repair_rate": 1.0,
+          "finish_rate": 0.0,
+          "macro_f1": 0.0,
+          "mean_f1": 0.0,
+          "parse_success_rate": 1.0,
+          "schema_case_error_count": 8,
+          "tasks": 14
+        }
+      }
+    },
+    "split_manifest_sha256": "1fd0853f7ca6d0b39dcfcb6edd9a31791eaecebf05712786ea1fda6809d04e2a",
+    "teacher_model": "clean-diff-v1",
+    "training_examples": 1958,
+    "trajectory_filename": "expert_v4.jsonl",
+    "trajectory_sha256": "11032d48db0b5b5cf1c7b3faa7041f82bdc3115543ec51b8518c682309c8686a"
+  },
+  "model": {
+    "files": [
+      ".gitattributes",
+      "README.md",
+      "chat_template.jinja",
+      "config.json",
+      "eval_diagnostics.json",
+      "generation_config.json",
+      "model.safetensors",
+      "tokenizer.json",
+      "tokenizer_config.json",
+      "training_metrics.json"
+    ],
+    "repo_id": "Praneshrajan15/DataForge-0.5B-SFT",
+    "repo_type": "model",
+    "sha": "138565856aba1d89c7a2d17a595392bc979141b0"
+  },
+  "model_readme_checked": true,
+  "quality_gate_failures": [],
+  "quality_milestone": true,
+  "release_status": "quality_improved_verified",
+  "split_manifest_filename": "split_manifest_v4.json",
+  "trajectory_filename": "expert_v4.jsonl"
+}

@@ -39,7 +39,7 @@ else:
         from openenv.core.env_server import create_app
     except ImportError as exc:  # pragma: no cover - exercised only without openenv extra
         raise RuntimeError(
-            "The OpenEnv adapter requires the openenv extra: pip install 'dataforge15[openenv]'."
+            "The OpenEnv adapter requires the openenv extra: pip install 'dataforge[openenv]'."
         ) from exc
 
 

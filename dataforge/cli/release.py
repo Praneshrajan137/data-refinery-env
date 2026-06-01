@@ -9,6 +9,15 @@ from typing import Annotated
 import typer
 
 from dataforge.release.doctor import DEFAULT_KAGGLE_CREDENTIALS, run_doctor
+from dataforge.release.full_vision import (
+    DEFAULT_BACKEND_URL as FULL_VISION_BACKEND_URL,
+)
+from dataforge.release.full_vision import (
+    DEFAULT_FRONTEND_URL as FULL_VISION_FRONTEND_URL,
+)
+from dataforge.release.full_vision import (
+    run_full_vision_gate,
+)
 from dataforge.release.gate import run_release_gate
 
 release_app = typer.Typer(help="Release verification utilities.", no_args_is_help=True)
@@ -80,6 +89,45 @@ def gate(
     raise typer.Exit(code=0 if report.ok else 1)
 
 
+@release_app.command(name="full-vision")
+def full_vision(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Print machine-readable JSON."),
+    ] = False,
+    evidence_root: Annotated[
+        Path | None,
+        typer.Option("--evidence-root", help="Directory containing external proof manifests."),
+    ] = None,
+    frontend_url: Annotated[
+        str,
+        typer.Option("--frontend-url", help="Mandatory dataforge.dev Playground URL."),
+    ] = FULL_VISION_FRONTEND_URL,
+    backend_url: Annotated[
+        str,
+        typer.Option("--backend-url", help="Hugging Face Playground backend URL."),
+    ] = FULL_VISION_BACKEND_URL,
+    expected_git_sha: Annotated[
+        str | None,
+        typer.Option("--expected-git-sha", help="Release git SHA expected in backend health."),
+    ] = None,
+) -> None:
+    """Verify the external gates for the full original DataForge vision."""
+    report = run_full_vision_gate(
+        evidence_root=evidence_root,
+        frontend_url=frontend_url,
+        backend_url=backend_url,
+        expected_git_sha=expected_git_sha,
+    )
+    if json_output:
+        typer.echo(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+    else:
+        for check in report.checks:
+            status = "ok" if check.ok else "fail"
+            typer.echo(f"{status:4} {check.name}: {check.detail}")
+    raise typer.Exit(code=0 if report.ok else 1)
+
+
 @release_app.command(name="playground-check")
 def playground_check(
     json_output: Annotated[
@@ -89,7 +137,7 @@ def playground_check(
     frontend_url: Annotated[
         str,
         typer.Option("--frontend-url", help="Cloudflare Playground frontend URL."),
-    ] = "https://dataforge.praneshrajan15.workers.dev/playground",
+    ] = "https://dataforge.dev/playground",
     backend_url: Annotated[
         str,
         typer.Option("--backend-url", help="Hugging Face Playground backend URL."),

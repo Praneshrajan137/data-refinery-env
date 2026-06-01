@@ -24,8 +24,7 @@ async def complete(messages: list[Message], *, model: str, temperature: float) -
         from dataforge.agent.providers import complete as provider_complete
     except ImportError as exc:
         raise RuntimeError(
-            "LLM-backed FD repair requires the provider extra: "
-            "pip install 'dataforge15[providers]'."
+            "LLM-backed FD repair requires the provider extra: pip install 'dataforge[providers]'."
         ) from exc
     return await provider_complete(messages, model=model, temperature=temperature)
 

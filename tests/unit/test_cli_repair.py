@@ -188,6 +188,8 @@ class TestRepairCommand:
         result = runner.invoke(app, ["repair", str(csv_path), "--dry-run", "--json"])
 
         assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["receipt"]["receipt_version"] == "repair_receipt_v1"
         assert '"mode": "dry_run"' in result.output
         assert '"fixes_count": 1' in result.output
 

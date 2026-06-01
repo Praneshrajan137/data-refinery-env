@@ -87,6 +87,7 @@ class TxnReceipt(BaseModel):
 
     path: str
     schema_version: Literal["repair_receipt_v1"] = "repair_receipt_v1"
+    receipt_version: Literal["repair_receipt_v1"] = "repair_receipt_v1"
     mode: Literal["dry_run", "apply"]
     contract_version: str = CONTRACT_VERSION
     applied: bool

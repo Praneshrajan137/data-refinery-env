@@ -17,7 +17,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from stage_space import stage_space  # noqa: E402
 
 DEFAULT_REPO_ID = "Praneshrajan15/dataforge-playground"
-DEFAULT_FRONTEND_ORIGIN = "https://dataforge.praneshrajan15.workers.dev"
+DEFAULT_FRONTEND_ORIGIN = "https://dataforge.dev"
 
 
 def deploy_space(

@@ -13,8 +13,8 @@ import httpx
 from dataforge.release.doctor import run_doctor
 
 DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
-DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
-NEGATIVE_CORS_ORIGIN = "https://dataforge.unconfigured-workers-dev.workers.dev"
+DEFAULT_FRONTEND_URL = "https://dataforge.dev/playground"
+NEGATIVE_CORS_ORIGIN = "https://untrusted-dataforge.example"
 REQUIRED_HEALTH_KEYS = {"status", "advanced_available", "max_upload_bytes"}
 ENHANCED_HEALTH_KEYS = {
     "service",

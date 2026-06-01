@@ -124,7 +124,7 @@ __all__ = [
     "verify_transaction_log",
 ]
 
-__version__ = "0.1.0rc1"
+__version__ = "0.1.0"
 
 _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "CONTRACT_VERSION": ("dataforge.repair_contract", "CONTRACT_VERSION"),

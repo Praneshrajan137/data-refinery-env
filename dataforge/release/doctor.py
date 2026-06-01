@@ -232,14 +232,14 @@ def _check_package_boundary() -> DoctorCheck:
     pyproject_path = _project_root() / "pyproject.toml"
     if not pyproject_path.exists():
         try:
-            distribution = importlib_metadata.distribution("dataforge15")
+            distribution = importlib_metadata.distribution("dataforge")
             top_level = distribution.read_text("top_level.txt") or ""
         except importlib_metadata.PackageNotFoundError as exc:
             return DoctorCheck(
                 "core_package_boundary",
                 False,
                 f"Could not read installed package metadata: {exc}",
-                {"distribution": "dataforge15"},
+                {"distribution": "dataforge"},
             )
         top_level_packages = sorted(line.strip() for line in top_level.splitlines() if line.strip())
         expected_top_level = ["dataforge"]

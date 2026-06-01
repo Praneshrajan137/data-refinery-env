@@ -188,6 +188,7 @@ def test_analyze_hospital_returns_proof_loop_payload(client: TestClient) -> None
     assert "verification" in body
     assert "txn_journal" in body
     assert body["txn_journal"]["applied"] is False
+    assert body["receipt"]["receipt_version"] == "repair_receipt_v1"
     assert body["receipt"]["contract_version"] == "repair_contract_v2"
     assert body["receipt"]["source_sha256"] == body["source"]["sha256"]
     assert "root_causes" in body["receipt"]
@@ -196,7 +197,7 @@ def test_analyze_hospital_returns_proof_loop_payload(client: TestClient) -> None
     assert "limitations" in body["receipt"]
     assert (
         body["apply_handoff"]["dry_run_command"]
-        == "dataforge15 repair path/to/hospital_10rows.csv --dry-run"
+        == "dataforge repair path/to/hospital_10rows.csv --dry-run"
     )
     assert body["limitations"]
 

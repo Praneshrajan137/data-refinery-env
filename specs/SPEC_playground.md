@@ -2,7 +2,7 @@
 
 > Status: Reviewed
 > Owner: @Praneshrajan15
-> Last updated: 2026-05-26
+> Last updated: 2026-06-01
 
 ## 1. Purpose (2 sentences)
 
@@ -14,26 +14,26 @@ served as an API-only Hugging Face Docker Space.
 
 ## 2. Outcomes (measurable, binary pass/fail)
 
-- [ ] `GET /api/health` returns `status`, `advanced_available`, and `max_upload_bytes`.
-- [ ] `GET /` returns stable API service metadata and never tries to serve a SPA.
-- [ ] `POST /api/analyze` on `hospital_10rows.csv` returns source facts, schema inference, categorical risk, issues, verified repairs, verification evidence, dry-run journal, receipt, apply handoff, and limitations within 5 s warm.
-- [ ] `POST /api/analyze` keeps inferred constraints pending by default and uses only submitted accepted constraint IDs for repair semantics.
-- [ ] Unknown accepted constraint IDs return 400 `application/problem+json` with `error="unknown_constraint_id"`.
-- [ ] `POST /api/profile` and `POST /api/repair?dry_run=true` remain compatibility routes backed by the shared analyzer/serializer contracts.
-- [ ] API errors use RFC 9457 `application/problem+json` while preserving stable error codes as extension members.
-- [ ] OpenAPI snapshots under `specs/openapi/` match the generated Playground and OpenEnv schemas.
-- [ ] `advanced=true` is rejected with 400 when no provider key is configured and accepted when one is present.
-- [ ] Uploaded CSV files larger than 1 MiB are rejected with 413; valid near-limit CSVs are not rejected only because of multipart overhead.
-- [ ] Production CORS allows only exact origins from `DATAFORGE_PLAYGROUND_ORIGINS`; localhost is regex-allowed only when `DATAFORGE_PLAYGROUND_DEV=1`.
-- [ ] Rate limiting returns 429 on the 11th POST within a minute from one client.
-- [ ] The frontend uses relative assets plus `config.js` and never assumes HF static hosting.
-- [ ] No browser storage APIs or frontend API keys appear under `playground/web/`.
-- [ ] The frontend primary action is Analyze; result tabs are Risk, Repairs, and Receipt.
-- [ ] Constraint selections are per-run memory only and are never persisted to browser storage.
-- [ ] The authoritative HF deploy path uses `scripts/playground/stage_space.py`, not subtree push.
-- [ ] The frontend imports the generated DataForge color system, passes
+- [x] `GET /api/health` returns `status`, `advanced_available`, and `max_upload_bytes`.
+- [x] `GET /` returns stable API service metadata and never tries to serve a SPA.
+- [x] `POST /api/analyze` on `hospital_10rows.csv` returns source facts, schema inference, categorical risk, issues, verified repairs, verification evidence, dry-run journal, receipt, apply handoff, and limitations within 5 s warm.
+- [x] `POST /api/analyze` keeps inferred constraints pending by default and uses only submitted accepted constraint IDs for repair semantics.
+- [x] Unknown accepted constraint IDs return 400 `application/problem+json` with `error="unknown_constraint_id"`.
+- [x] `POST /api/profile` and `POST /api/repair?dry_run=true` remain compatibility routes backed by the shared analyzer/serializer contracts.
+- [x] API errors use RFC 9457 `application/problem+json` while preserving stable error codes as extension members.
+- [x] OpenAPI snapshots under `specs/openapi/` match the generated Playground and OpenEnv schemas.
+- [x] `advanced=true` is rejected with 400 when no provider key is configured and accepted when one is present.
+- [x] Uploaded CSV files larger than 1 MiB are rejected with 413; valid near-limit CSVs are not rejected only because of multipart overhead.
+- [x] Production CORS allows only exact origins from `DATAFORGE_PLAYGROUND_ORIGINS`; localhost is regex-allowed only when `DATAFORGE_PLAYGROUND_DEV=1`.
+- [x] Rate limiting returns 429 on the 11th POST within a minute from one client.
+- [x] The frontend uses relative assets plus `config.js` and never assumes HF static hosting.
+- [x] No browser storage APIs or frontend API keys appear under `playground/web/`.
+- [x] The frontend primary action is Analyze; result tabs are Risk, Repairs, and Receipt.
+- [x] Constraint selections are per-run memory only and are never persisted to browser storage.
+- [x] The authoritative HF deploy path uses `scripts/playground/stage_space.py`, not subtree push.
+- [x] The frontend imports the generated DataForge color system, passes
   `npm run colors:check`, and contains no hand-authored raw hex colors.
-- [ ] Light and dark playground schemes preserve WCAG 2.2 contrast gates:
+- [x] Light and dark playground schemes preserve WCAG 2.2 contrast gates:
   primary text 7:1, secondary text 4.5:1, and non-text affordances 3:1.
 
 ## 3. Scope
@@ -143,12 +143,18 @@ served as an API-only Hugging Face Docker Space.
 
 ## 8. Acceptance gate (ALL must be TRUE to mark SPEC complete)
 
-- [ ] All Section 2 outcomes are met.
-- [ ] All Section 6 tasks have "passes".
-- [ ] Playground smoke and contract tests are green.
-- [ ] No test in `tests/regression/` fails.
-- [ ] The HF staging script output matches Docker COPY sources.
-- [ ] Docs describe the authoritative deploy flows and do not overclaim a live deployment.
+- [x] All Section 2 outcomes are met.
+- [x] All Section 6 tasks have "passes".
+- [x] Playground smoke and contract tests are green.
+- [x] No test in `tests/regression/` fails.
+- [x] The HF staging script output matches Docker COPY sources.
+- [x] Docs describe the authoritative deploy flows and do not overclaim a live deployment.
+
+Evidence: `tests/integration/test_playground_smoke.py`,
+`tests/unit/test_playground_stage_space.py`,
+`tests/unit/test_playground_web_contract.py`,
+`tests/regression/test_env.py`, `npm --prefix playground/web run colors:check`,
+and `scripts/ci/openapi_contract.py --check`.
 
 ## Appendix A - Toy cases (write the FIRST failing tests from these)
 

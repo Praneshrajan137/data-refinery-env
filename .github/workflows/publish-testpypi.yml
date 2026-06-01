@@ -1,9 +1,9 @@
-name: Publish dataforge15 to TestPyPI
+name: Publish dataforge to TestPyPI
 
 on:
   push:
     tags:
-      - "v*-rc*"
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -28,15 +28,16 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
 
-      - name: Require release-candidate version
+      - name: Refuse local/dev versions
         run: |
           python - <<'PY'
           import tomllib
           from pathlib import Path
 
           version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
-          if "rc" not in version:
-              raise SystemExit(f"TestPyPI rehearsal requires an rc version, found {version!r}.")
+          forbidden = (".dev", "+")
+          if any(marker in version for marker in forbidden):
+              raise SystemExit(f"TestPyPI rehearsal requires release-like metadata, found {version!r}.")
           PY
 
       - name: Canonical release gate
@@ -65,7 +66,7 @@ jobs:
             python -m pip install \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              dataforge15==0.1.0rc1 && break
+              dataforge==0.1.0 && break
             if [ "$attempt" = "5" ]; then
               exit 1
             fi
@@ -77,7 +78,7 @@ jobs:
           set -euo pipefail
           workdir="$(mktemp -d)"
           cd "$workdir"
-          dataforge15 --version
+          dataforge --version
           cat > fd.csv <<'CSV'
           code,name
           A,Alpha
@@ -91,7 +92,7 @@ jobs:
           D,Delta
           E,Echo
           CSV
-          dataforge15 profile fd.csv --constraints-out constraints.json --json
+          dataforge profile fd.csv --constraints-out constraints.json --json
           fd_id="$(python - <<'PY'
           import json
           from pathlib import Path
@@ -110,6 +111,6 @@ jobs:
               raise SystemExit("No code -> name FD candidate found.")
           PY
           )"
-          dataforge15 constraints review constraints.json --accept "$fd_id" --no-tui --json
-          dataforge15 repair fd.csv --constraints constraints.json --dry-run --json
-          dataforge15 release doctor --core --json
+          dataforge constraints review constraints.json --accept "$fd_id" --no-tui --json
+          dataforge repair fd.csv --constraints constraints.json --dry-run --json
+          dataforge release doctor --core --json

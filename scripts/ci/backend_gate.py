@@ -1,4 +1,4 @@
-"""Canonical backend release-quality gate for DataForge15."""
+"""Canonical backend release-quality gate for DataForge."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ MYPY_PATHS = [
     "playground/api/app.py",
     "scripts/ci/readme_truth.py",
     "scripts/ci/benchmark_truth.py",
+    "scripts/ci/full_vision_external_gate.py",
     "scripts/ci/openapi_contract.py",
     "scripts/ci/backend_gate.py",
     "scripts/playground/build_samples.py",
@@ -80,9 +81,11 @@ def _clean_package_artifacts() -> None:
     for path in [
         PROJECT_ROOT / "build",
         PROJECT_ROOT / "dist",
+        PROJECT_ROOT / "dataforge.egg-info",
         PROJECT_ROOT / "dataforge15.egg-info",
         PROJECT_ROOT / "dataforge-mcp" / "build",
         PROJECT_ROOT / "dataforge-mcp" / "dist",
+        PROJECT_ROOT / "dataforge-mcp" / "dataforge_mcp.egg-info",
         PROJECT_ROOT / "dataforge-mcp" / "dataforge15_mcp.egg-info",
     ]:
         if path.exists():
@@ -222,21 +225,21 @@ def main() -> int:
     build_optional = not (args.require_optional or os.environ.get("DATAFORGE_REQUIRE_BUILD"))
     checks.append(
         _run(
-            "dataforge15 package build",
+            "dataforge package build",
             [PYTHON, "-m", "build", "--sdist", "--wheel"],
             optional=build_optional,
         )
     )
     checks.append(
         _run(
-            "dataforge15-mcp package build",
+            "dataforge-mcp package build",
             [PYTHON, "-m", "build", "--sdist", "--wheel", "dataforge-mcp"],
             optional=build_optional,
         )
     )
     checks.append(
         _run(
-            "dataforge15 release gate",
+            "dataforge release gate",
             [PYTHON, "-m", "dataforge.release.gate"],
             timeout_seconds=360,
         )

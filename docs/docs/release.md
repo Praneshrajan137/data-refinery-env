@@ -1,26 +1,88 @@
 # Release
 
-## 0.1.0rc1 TestPyPI Rehearsal
+## Release Standard
+
+DataForge is release-ready only when the local source tree, public contracts,
+and external evidence tell the same story: CLI-first CSV/DuckDB repair, only
+when `pip install dataforge` works from PyPI, mandatory `https://dataforge.dev/playground`
+serves the production playground, MCP tools keep apply disabled by default,
+OpenEnv/eval support is usable, dbt-duckdb proof exists, design-partner
+evidence exists, and every published model-quality claim has verifier evidence.
+
+Required local gate:
+
+```bash
+python scripts/ci/backend_gate.py --require-optional
+python -m dataforge.release.gate --json
+```
+
+The optional backend-gate checks become mandatory before release: dependency
+audit, SBOM generation, and package builds must succeed. The repository threat
+model must be reviewed before tagging.
+
+## Public Contracts
+
+The following machine-readable shapes are treated as public 0.1 contracts:
+
+- CLI `--json` outputs for `profile`, `constraints review`, `repair`, `audit`,
+  `revert`, `watch`, `bench`, and `release`.
+- Repair receipts with `schema_version`, `receipt_version`,
+  `contract_version`, source hashes, accepted constraint IDs, candidate
+  repairs, proof obligations, root causes, limitations, and revert command.
+- Playground OpenAPI snapshots under `specs/openapi/`.
+- MCP tool schemas and Pydantic result models.
+- Evaluation and benchmark JSON schemas.
+
+Any intentional public-contract change must update tests, docs, OpenAPI
+snapshots, and the changelog in the same change.
+
+## TestPyPI Rehearsal
 
 Status: pending maintainer configuration and TestPyPI run.
 
 Required trusted-publisher setup before tagging:
 
-- TestPyPI pending publisher for project `dataforge15`, workflow
+- TestPyPI pending publisher for project `dataforge`, workflow
   `publish-testpypi.yml`, environment `testpypi`.
-- PyPI pending publisher for project `dataforge15`, workflow
+- PyPI pending publisher for project `dataforge`, workflow
   `publish-dataforge.yml`, environment `pypi`.
 - GitHub environment approval rules for both `testpypi` and `pypi`.
 
-RC evidence to record after the workflow passes:
+Evidence to record after the workflow passes:
 
-- Git SHA and tag: `v0.1.0-rc1`.
+- Git SHA and tag.
 - Wheel and sdist filenames plus SHA-256 hashes.
 - TestPyPI project URL.
-- Installed-package smoke output for `dataforge15 --version`, `profile`,
+- Installed-package smoke output for `dataforge --version`, `profile`,
   `profile --constraints-out`, `constraints review --accept ... --no-tui`,
   `repair --constraints --dry-run --json`, and
   `release doctor --core --json`.
 
-Real PyPI remains blocked until the RC evidence above is complete and ownership
-is verified. The real PyPI workflow refuses pre-release package metadata.
+Real PyPI remains blocked until the TestPyPI evidence above is complete and
+ownership is verified. The real PyPI workflow refuses pre-release package
+metadata.
+
+## Package Matrix
+
+- `dataforge`: core CLI/library distribution. Publish to TestPyPI first,
+  then real PyPI only after fresh-install smoke evidence is recorded.
+- `dataforge-mcp`: nested MCP distribution. Publish only after MCP Inspector
+  smoke covers list tools, profile, detect, verify, dry-run apply, blocked
+  apply by default, enabled apply inside an allowed root, and revert.
+- `dataforge-evals`, `dataforge-agent-patterns`, and `dataforge-dbt`:
+  sibling packages must pass their own clean virtualenv tests and TestPyPI
+  fresh-install smoke before any real PyPI publication.
+
+## External Gates
+
+These gates cannot be completed by local source edits alone:
+
+- PyPI/TestPyPI trusted-publisher ownership for every package.
+- Cloudflare and Hugging Face deployed playground verification.
+- Mandatory `dataforge.dev/playground` DNS, TLS, Cloudflare routing, and monitoring.
+- Design-partner evidence from real users.
+- Model-card and verifier evidence for any trained-model quality claim.
+
+The command `dataforge release full-vision --json` is the mandatory external
+completion gate. It is expected to fail until every item above is backed by
+public state or committed evidence.

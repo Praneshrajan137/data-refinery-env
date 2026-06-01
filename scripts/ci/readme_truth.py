@@ -1,9 +1,9 @@
 """CI check: verify README claims match shipped code.
 
-Asserts that every `dataforge15 <subcommand>` or compatibility
-`dataforge <subcommand>` shown in the root README resolves to a registered
-Typer command. Also checks that the playground
-URL (once added) returns HTTP 200.
+Asserts that every public `dataforge <subcommand>` shown in the root README
+resolves to a registered Typer command. It also guards the full-vision claim
+boundary: `dataforge.dev` must be treated as a mandatory external gate, never
+as optional branding.
 
 Usage:
     python scripts/ci/readme_truth.py
@@ -46,15 +46,20 @@ CUSTOM_DOMAIN_TRUTH_DOCS = sorted(
     set(RELEASE_TRUTH_DOCS + DESIGN_PARTNER_TRUTH_DOCS + PUBLIC_CLAIM_TRUTH_DOCS)
 )
 UNPUBLISHED_DISTS = (
-    "dataforge15",
-    "dataforge15-dbt",
-    "dataforge15-evals",
-    "dataforge15-mcp",
-    "dataforge15-agent-patterns",
+    "dataforge",
+    "dataforge-dbt",
+    "dataforge-evals",
+    "dataforge-mcp",
+    "dataforge-agent-patterns",
 )
 PUBLISHED_QUALIFIERS = (
     "after publication",
     "after pypi publication",
+    "after pypi ownership",
+    "after package ownership",
+    "blocked until",
+    "before",
+    "only when",
     "once published",
     "when published",
 )
@@ -125,18 +130,22 @@ CUSTOM_DOMAIN_PATTERN = re.compile(
     r"(?:https?://(?:www\.)?dataforge\.dev(?:/[^\s)]*)?|\bdataforge\.dev\b)"
 )
 CUSTOM_DOMAIN_QUALIFIERS = (
-    "future",
-    "optional",
-    "deferred",
-    "later",
-    "planned",
+    "mandatory",
+    "required",
+    "release-blocking",
+    "release blocking",
+    "hard gate",
+    "blocked",
     "not ",
     "not yet",
+    "only when",
+    "until",
+)
+CUSTOM_DOMAIN_FORBIDDEN_QUALIFIERS = (
+    "optional",
     "out of scope",
-    "not a release",
-    "after",
-    "branding",
-    "custom domain",
+    "nice to have",
+    "future optional",
 )
 UNSHIPPED_INTEGRATION_PATTERNS = (
     re.compile(r"\bdataforge-airbyte\b", re.IGNORECASE),
@@ -220,13 +229,13 @@ def check_claim_ledger(path: Path = CLAIM_LEDGER) -> list[str]:
 
 
 def extract_subcommands_from_readme(text: str) -> set[str]:
-    """Find all DataForge15 CLI subcommand references in the README."""
+    """Find all DataForge CLI subcommand references in the README."""
     pattern = re.compile(r"\bdataforge(?:15)?\s+([a-z][a-z0-9_-]*)")
     return {m.group(1) for m in pattern.finditer(text)}
 
 
 def extract_release_subcommands_from_readme(text: str) -> set[str]:
-    """Find all nested ``dataforge15 release <command>`` references."""
+    """Find all nested ``dataforge release <command>`` references."""
     pattern = re.compile(r"\bdataforge(?:15)?\s+release\s+([a-z][a-z0-9_-]*)")
     return {m.group(1) for m in pattern.finditer(text)}
 
@@ -322,7 +331,7 @@ def check_unpublished_install_claims(paths: list[Path]) -> list[str]:
                 continue
             errors.append(
                 f"{path.relative_to(PROJECT_ROOT)}:{line_number} has an unqualified "
-                "PyPI install claim for an unpublished DataForge15 package."
+                "PyPI install claim for an unpublished DataForge package."
             )
     return errors
 
@@ -406,7 +415,7 @@ def check_public_claim_boundaries(paths: list[Path]) -> list[str]:
 
 
 def check_custom_domain_claims(paths: list[Path]) -> list[str]:
-    """Reject unqualified claims that dataforge.dev is live or release-blocking."""
+    """Reject optional dataforge.dev language and unqualified live-domain claims."""
     errors: list[str] = []
     for path in paths:
         if not path.exists():
@@ -422,11 +431,17 @@ def check_custom_domain_claims(paths: list[Path]) -> list[str]:
             previous_line = lines[index - 1] if index > 0 else ""
             next_line = lines[index + 1] if index + 1 < len(lines) else ""
             context = f"{previous_line}\n{line}\n{next_line}".lower()
+            if any(qualifier in context for qualifier in CUSTOM_DOMAIN_FORBIDDEN_QUALIFIERS):
+                errors.append(
+                    f"{display_path}:{index + 1} treats dataforge.dev as optional. "
+                    "The full original vision makes dataforge.dev/playground mandatory."
+                )
+                continue
             if any(qualifier in context for qualifier in CUSTOM_DOMAIN_QUALIFIERS):
                 continue
             errors.append(
                 f"{display_path}:{index + 1} presents dataforge.dev as a current live "
-                "surface. It must be described only as a future optional custom domain."
+                "surface without release evidence or a mandatory-gate qualifier."
             )
     return errors
 

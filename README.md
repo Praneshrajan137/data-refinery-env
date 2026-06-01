@@ -1,29 +1,32 @@
-# DataForge15
+# DataForge
 
-DataForge15 is the official release name for the DataForge codebase, a
-CLI-first data-quality repair toolkit for tabular data. It
+DataForge is a CLI-first data-quality repair toolkit for tabular data. It
 detects common CSV issues, proposes deterministic repairs, checks proposed
 changes through safety and verification gates, and records applied changes in a
 reversible transaction log.
 
-The planned PyPI distribution is `dataforge15`, but it is not published yet.
-The Python import namespace remains `dataforge` for the 0.1 line to avoid
-unnecessary churn. Use the source install below for now; after PyPI publication,
-the install name will be `dataforge15` and the import will be `import dataforge`.
-The first release-candidate package version is `0.1.0rc1`, intended for a
-TestPyPI rehearsal under the git tag `v0.1.0-rc1`.
+The final public PyPI distribution is `dataforge`, and the import namespace is
+`dataforge`. `dataforge15` is only a temporary staging alias retained for local
+compatibility; it is not the final public product name. The `dataforge` name is
+currently occupied by an unrelated PyPI/TestPyPI project, so package ownership
+or maintainer cooperation is a hard release gate before `pip install dataforge`
+can truthfully point at this project.
 
 The current repository is an alpha implementation. It also contains the
 OpenEnv-compatible training environment, the SFT warmup workflow, a local MCP
 server package, and playground/demo sources. Warehouse integrations and
 production model-quality claims remain future work.
 
+Before any public release, review `THREAT_MODEL.md` and `docs/docs/release.md`.
+They define the security, supply-chain, and evidence gates that separate the
+current alpha from the full original DataForge vision.
+
 ## Current Status
 
 Shipped in the current worktree:
 
-- `dataforge15 profile`, `dataforge15 repair`, `dataforge15 revert`,
-  `dataforge15 watch`, `dataforge15 audit`, and `dataforge15 bench`
+- `dataforge profile`, `dataforge repair`, `dataforge revert`,
+  `dataforge watch`, `dataforge audit`, and `dataforge bench`
 - Three detector families: `type_mismatch`, `decimal_shift`, `fd_violation`
 - Reviewable schema inference in `profile --json`, including inferred column
   types, domains, regex candidates, uniqueness, and FD candidates
@@ -38,7 +41,7 @@ Shipped in the current worktree:
 - OpenEnv-compatible HTTP environment with eight typed actions, including
   read-only `ROOT_CAUSE`
 - Causal root-cause analyzer for cascading data-quality errors
-- Standalone `dataforge15-mcp` package exposing DataForge15 tools over MCP
+- Standalone `dataforge-mcp` package exposing DataForge tools over MCP
 - Week 9 SFT oracle trajectory workflow, readiness gate, Kaggle notebook, and
   release verifier
 - Separate Gradio model-demo Space source for the published 0.5B SFT smoke
@@ -46,9 +49,12 @@ Shipped in the current worktree:
 
 Not shipped yet:
 
+- final PyPI/TestPyPI ownership for `dataforge`
+- published `dataforge`, `dataforge-mcp`, `dataforge-evals`, `dataforge-dbt`,
+  and `dataforge-agent-patterns` packages
+- mandatory `https://dataforge.dev/playground` DNS/TLS/Cloudflare route
 - warehouse-native or external adapter packages
 - credentialed Snowflake, BigQuery, or Databricks apply/revert conformance
-- a hosted product domain
 - design-partner, pilot-user, or customer validation evidence is not yet claimed
 - A production-quality trained model family
 - Autonomous repair in the playground or model demo
@@ -57,26 +63,26 @@ Not shipped yet:
 
 ```bash
 python -m pip install -e ".[dev]"
-dataforge15 profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml
-dataforge15 profile fixtures/hospital_10rows.csv --constraints-out constraints.json
-dataforge15 constraints review constraints.json
-dataforge15 repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
-dataforge15 repair fixtures/hospital_10rows.csv --constraints constraints.json --dry-run
-dataforge15 watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
-dataforge15 bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2
+dataforge profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml
+dataforge profile fixtures/hospital_10rows.csv --constraints-out constraints.json
+dataforge constraints review constraints.json
+dataforge repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
+dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --dry-run
+dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
+dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2
 ```
 
-`dataforge` remains a temporary CLI compatibility alias for the first
-DataForge15 release.
+`dataforge15` remains a temporary staging compatibility alias, but public docs
+and release evidence must use `dataforge`.
 
 To apply repairs, use `--apply`. Applied repairs write a transaction journal and
 source snapshot before mutating the CSV, so they can be reverted:
 
 ```bash
-dataforge15 repair path/to/file.csv --schema path/to/schema.yaml --apply
-dataforge15 audit <txn-id>
-dataforge15 revert <txn-id>
-dataforge15 revert <txn-id> --search-root path/to --json
+dataforge repair path/to/file.csv --schema path/to/schema.yaml --apply
+dataforge audit <txn-id>
+dataforge revert <txn-id>
+dataforge revert <txn-id> --search-root path/to --json
 ```
 
 Warehouse targets use `warehouse://` URIs and always emit a `patch_plan_v1`
@@ -85,8 +91,8 @@ warehouse adapters are dry-run-only boundaries until credentialed apply,
 audit, and rollback suites are enabled:
 
 ```bash
-dataforge15 repair "warehouse://duckdb?database=dev.duckdb&relation=main.model&row_id=id" --dry-run --json
-dataforge15 repair "warehouse://snowflake?relation=PUBLIC.MODEL&row_id=ID" --dry-run --json
+dataforge repair "warehouse://duckdb?database=dev.duckdb&relation=main.model&row_id=id" --dry-run --json
+dataforge repair "warehouse://snowflake?relation=PUBLIC.MODEL&row_id=ID" --dry-run --json
 ```
 
 DuckDB `--apply` requires a stable row identity, records the patch plan in the
@@ -94,7 +100,7 @@ transaction journal, and can be reverted through the same `audit` and `revert`
 commands. Snowflake, BigQuery, and Databricks apply are intentionally refused
 until their conformance gates prove reversible transactions.
 
-New transaction logs are local tamper-evident hash chains. `dataforge15 audit`
+New transaction logs are local tamper-evident hash chains. `dataforge audit`
 verifies the chain head, event order, replayability, and revert prerequisites;
 legacy v1 logs remain replayable but are reported as unverified because they do
 not contain event hashes.
@@ -119,16 +125,13 @@ bundle only after the readiness gate passes:
 
 ```powershell
 $env:HF_TOKEN="..."
-.\.venv\Scripts\python.exe scripts\data\build_oracle_sft_trajectories.py --push-to-hub --hf-dataset-repo Praneshrajan15/dataforge15-sft-trajectories
+.\.venv\Scripts\python.exe scripts\data\build_oracle_sft_trajectories.py --push-to-hub --hf-dataset-repo Praneshrajan15/dataforge-sft-trajectories
 ```
 
-The current historical smoke checkpoint still uses the old DataForge artifact
-name:
+The current public smoke checkpoint is
 `Praneshrajan15/DataForge-0.5B-SFT`, with trajectories at
-`Praneshrajan15/dataforge-sft-trajectories`. New public artifacts should use
-DataForge15 names, for example `DataForge15-0.5B-SFT` and
-`dataforge15-sft-trajectories`. The historical checkpoint proves the dataset,
-Kaggle training, merge, evaluation, and Hub upload path; it is not a
+`Praneshrajan15/dataforge-sft-trajectories`. It proves the dataset, Kaggle
+training, merge, evaluation, and Hub upload path; it is not a production
 model-quality claim. Verify release artifacts before citing them:
 
 ```powershell
@@ -162,13 +165,13 @@ After GRPO eval evidence exists:
 ## MCP Server
 
 The nested `dataforge-mcp/` source directory builds the standalone
-`dataforge15-mcp` distribution. It is not published yet, so install it from
+`dataforge-mcp` distribution. It is not published yet, so install it from
 source while release ownership is pending:
 
 ```bash
 cd dataforge-mcp
 python -m pip install -e ".[dev]"
-dataforge15-mcp serve
+dataforge-mcp serve
 ```
 
 Tools: `dataforge_profile`, `dataforge_detect_errors`,
@@ -179,9 +182,8 @@ Streamable HTTP is available for local experiments.
 
 ## Playground And Model Demo
 
-- `playground/api/` is the API backend for the CSV playground. New public Space
-  deployments should use `dataforge15-playground`; older `dataforge-playground`
-  deployments are historical.
+- `playground/api/` is the API backend for the CSV playground. Public Space
+  deployments use `dataforge-playground`.
 - `playground/web/` is the static browser UI deployed through Cloudflare
   Workers Static Assets. Its primary workflow is `POST /api/analyze`: upload a
   CSV, review categorical risk and pending inferred constraints, inspect
@@ -190,8 +192,8 @@ Streamable HTTP is available for local experiments.
 - The current verified public playground URL is
   `https://dataforge.praneshrajan15.workers.dev/playground`, backed by
   `https://Praneshrajan15-dataforge-playground.hf.space`.
-- `https://dataforge.dev/playground` is a future optional custom domain, not a
-  release-readiness target.
+- `https://dataforge.dev/playground` is a mandatory hard gate for the full
+  original vision and is not yet live in this checkout's verified evidence.
 - `playground-model/` is a separate Gradio Space demo for the published
   `DataForge-0.5B-SFT` smoke checkpoint. It accepts small CSV snippets and is
   intentionally limited to demo use.
@@ -234,24 +236,29 @@ Every inferred candidate starts as `pending`; repair ignores pending and
 rejected candidates. In v1, only accepted `column_type`, `domain_bound`, and
 `functional_dependency` candidates affect repair. Accepted regex and uniqueness
 candidates remain review evidence until verifier support is added. Use
-`dataforge15 constraints review constraints.json` for the Textual review UI, or
+`dataforge constraints review constraints.json` for the Textual review UI, or
 use deterministic CI flags such as `--accept cnd-... --no-tui --json`.
 
 `make backend-gate` is the release-quality backend check: lint, format, strict
 mypy, root tests, MCP tests, README truth, benchmark truth, OpenAPI snapshot
 drift, secret scan, dependency audit availability, SBOM generation
-availability, and package build availability for both `dataforge15` and
-`dataforge15-mcp`. The gate covers the core `dataforge` distribution and
+availability, and package build availability for both `dataforge` and
+`dataforge-mcp`. The gate covers the core `dataforge` distribution and
 release surfaces; the historical
 `data_quality_env` namespace remains source-tree regression coverage, not part
-of the `dataforge15` wheel or source distribution.
+of the `dataforge` wheel or source distribution.
+
+Before release, run `scripts/ci/backend_gate.py --require-optional` so
+dependency audit, SBOM generation, and package builds are hard failures rather
+than availability checks.
 
 Release doctor scopes:
 
 ```bash
-dataforge15 release doctor --core --json
-dataforge15 release doctor --maintainer-deploy --json
-dataforge15 release gate --json
+dataforge release doctor --core --json
+dataforge release doctor --maintainer-deploy --json
+dataforge release gate --json
+dataforge release full-vision --json
 ```
 
 `--core` is the default OSS release check. `--maintainer-deploy` additionally
@@ -263,11 +270,12 @@ with `pip --no-index --find-links`, then runs profile, repair dry-run, apply,
 constraint review, audit, revert, and post-revert audit from outside the source
 checkout.
 
-Release-candidate publishing is TestPyPI-only. Configure pending trusted
-publishers for `dataforge15` on TestPyPI and PyPI before tagging, then use
-`v0.1.0-rc1` for the TestPyPI rehearsal. The real PyPI workflow refuses
-pre-release metadata and should only run after ownership and trusted publishing
-are verified.
+Configure pending trusted publishers for `dataforge` on TestPyPI and PyPI
+before tagging. The real PyPI workflow refuses pre-release metadata and should
+only run after package-name ownership, trusted publishing, attestations, and
+fresh-install evidence are verified. `dataforge release full-vision --json`
+is expected to fail until PyPI ownership, `dataforge.dev`, dbt-duckdb,
+not yet met design-partner evidence, and model-family evidence are real.
 
 Windows setup:
 
@@ -291,11 +299,11 @@ Provider keys belong in a root `.env` file, which is gitignored and loaded with
 - `OPENROUTER_API_KEY`
 - `HF_TOKEN`
 
-## When DataForge15 Is The Wrong Tool
+## When DataForge Is The Wrong Tool
 
-Do not use DataForge15 for streaming data, very large warehouse tables, regulated
+Do not use DataForge for streaming data, very large warehouse tables, regulated
 workflows where every fix must be human-authored, strict low-latency SLAs, or
-teams already well served by maintained Great Expectations/dbt suites. DataForge15
+teams already well served by maintained Great Expectations/dbt suites. DataForge
 is currently best suited to local CSV profiling, repair experiments, benchmark
 runs, and training/evaluation research.
 

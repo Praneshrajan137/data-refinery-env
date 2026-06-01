@@ -123,6 +123,7 @@ function analyzePayload(accepted = false) {
     },
     receipt: {
       schema_version: "repair_receipt_v1",
+      receipt_version: "repair_receipt_v1",
       contract_version: "repair_contract_v2",
       mode: "dry_run",
       applied: false,
@@ -171,20 +172,20 @@ function analyzePayload(accepted = false) {
       accepted_constraint_ids: accepted ? ["cnd-state-fd"] : [],
       constraints_artifact_sha256: accepted ? "b".repeat(64) : null,
       patch_plan_sha256: "c".repeat(64),
-      revert_command: "dataforge15 revert txn-demo",
+      revert_command: "dataforge revert txn-demo",
       limitations: ["Dry run only; no source data was mutated."],
       reason: "Dry run completed without mutating the source file.",
     },
     apply_handoff: {
       source_name: "hospital_10rows.csv",
       dry_run_command: accepted
-        ? "dataforge15 repair path/to/hospital_10rows.csv --constraints constraints.json --dry-run"
-        : "dataforge15 repair path/to/hospital_10rows.csv --dry-run",
+        ? "dataforge repair path/to/hospital_10rows.csv --constraints constraints.json --dry-run"
+        : "dataforge repair path/to/hospital_10rows.csv --dry-run",
       apply_command: accepted
-        ? "dataforge15 repair path/to/hospital_10rows.csv --constraints constraints.json --apply"
-        : "dataforge15 repair path/to/hospital_10rows.csv --apply",
-      audit_command: "dataforge15 audit txn-demo",
-      revert_command: "dataforge15 revert txn-demo",
+        ? "dataforge repair path/to/hospital_10rows.csv --constraints constraints.json --apply"
+        : "dataforge repair path/to/hospital_10rows.csv --apply",
+      audit_command: "dataforge audit txn-demo",
+      revert_command: "dataforge revert txn-demo",
       note: "The hosted playground never mutates uploads.",
     },
     limitations: [

@@ -48,7 +48,11 @@ def summarize_failures(diagnostics: dict[str, Any], *, section: str = "sft") -> 
             column = str(repair.get("column", ""))
             predicted_columns[column] += 1
             target_rows = sample.get("target_rows", [])
-            allowed = set(target_rows[0]) - {"_row"} if target_rows and isinstance(target_rows[0], dict) else set()
+            allowed = (
+                set(target_rows[0]) - {"_row"}
+                if target_rows and isinstance(target_rows[0], dict)
+                else set()
+            )
             if column not in allowed and column.lower() in {item.lower() for item in allowed}:
                 schema_case_columns[column] += 1
         briefs.append(

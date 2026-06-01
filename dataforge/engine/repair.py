@@ -200,6 +200,7 @@ class RepairReceipt(BaseModel):
     """Stable receipt for a dry-run or applied repair pipeline run."""
 
     schema_version: Literal["repair_receipt_v1"] = "repair_receipt_v1"
+    receipt_version: Literal["repair_receipt_v1"] = "repair_receipt_v1"
     contract_version: str = CONTRACT_VERSION
     mode: RepairMode
     applied: bool
@@ -887,7 +888,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
         accepted_constraint_ids=accepted_constraint_ids,
         constraints_artifact_sha256=request.constraints_artifact_sha256,
         patch_plan_sha256=patch_plan_sha256,
-        revert_command=f"dataforge15 revert {txn_id}" if txn_id is not None else None,
+        revert_command=f"dataforge revert {txn_id}" if txn_id is not None else None,
         limitations=limitations,
         abstentions=[failure.reason for failure in failures],
         failure_reasons=[failure.reason for failure in failures],

@@ -3,6 +3,10 @@ main = "./playground/web/worker.js"
 compatibility_date = "2026-04-27"
 workers_dev = true
 
+[[routes]]
+pattern = "dataforge.dev/playground*"
+zone_name = "dataforge.dev"
+
 [build]
 command = "npm --prefix playground/web install && npm --prefix playground/web run build"
 

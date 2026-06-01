@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
-    frontend_origin = "https://dataforge.praneshrajan15.workers.dev"
+    frontend_origin = "https://dataforge.dev"
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url).rstrip("/")
@@ -107,7 +107,7 @@ def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
                     "repairs": [],
                     "verification": {"safety_verdict": "allow"},
                     "receipt": {"contract_version": "repair_contract_v2"},
-                    "apply_handoff": {"dry_run_command": "dataforge15 repair path --dry-run"},
+                    "apply_handoff": {"dry_run_command": "dataforge repair path --dry-run"},
                     "meta": {"contract_version": "repair_contract_v2"},
                 },
             )

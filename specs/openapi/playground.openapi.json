@@ -158,6 +158,65 @@
         "title": "Body_repair_api_repair_post",
         "type": "object"
       },
+      "CandidateRepairView": {
+        "description": "Candidate repair carried in the public repair receipt.",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "detector_id": {
+            "title": "Detector Id",
+            "type": "string"
+          },
+          "new_value": {
+            "title": "New Value",
+            "type": "string"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "type": "string"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "provenance": {
+            "title": "Provenance",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "verifier_reason": {
+            "title": "Verifier Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "old_value",
+          "new_value",
+          "detector_id",
+          "operation",
+          "reason",
+          "confidence",
+          "provenance",
+          "verifier_reason"
+        ],
+        "title": "CandidateRepairView",
+        "type": "object"
+      },
       "ConstraintCandidateView": {
         "description": "Reviewable inferred constraint shown in the proof loop.",
         "properties": {
@@ -570,6 +629,42 @@
         "title": "ProfileResponse",
         "type": "object"
       },
+      "ProofObligationView": {
+        "description": "Proof or safety obligation carried in the public repair receipt.",
+        "properties": {
+          "obligation_id": {
+            "title": "Obligation Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "unsat_core": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unsat Core",
+            "type": "array"
+          },
+          "verifier": {
+            "title": "Verifier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "obligation_id",
+          "verifier",
+          "status",
+          "reason"
+        ],
+        "title": "ProofObligationView",
+        "type": "object"
+      },
       "RepairFailureView": {
         "description": "Issue-level repair attempt that did not produce a verified fix.",
         "properties": {
@@ -693,6 +788,13 @@
             "title": "Candidate Provenance",
             "type": "array"
           },
+          "candidate_repairs": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateRepairView"
+            },
+            "title": "Candidate Repairs",
+            "type": "array"
+          },
           "constraints_artifact_sha256": {
             "anyOf": [
               {
@@ -716,9 +818,27 @@
             "title": "Issues Count",
             "type": "integer"
           },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
           "mode": {
             "title": "Mode",
             "type": "string"
+          },
+          "patch_plan_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patch Plan Sha256"
           },
           "post_sha256": {
             "anyOf": [
@@ -731,13 +851,42 @@
             ],
             "title": "Post Sha256"
           },
+          "proof_obligations": {
+            "items": {
+              "$ref": "#/components/schemas/ProofObligationView"
+            },
+            "title": "Proof Obligations",
+            "type": "array"
+          },
           "reason": {
             "title": "Reason",
+            "type": "string"
+          },
+          "receipt_version": {
+            "title": "Receipt Version",
             "type": "string"
           },
           "reversible": {
             "title": "Reversible",
             "type": "boolean"
+          },
+          "revert_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revert Command"
+          },
+          "root_causes": {
+            "items": {
+              "$ref": "#/components/schemas/RootCauseView"
+            },
+            "title": "Root Causes",
+            "type": "array"
           },
           "safety_verdict": {
             "title": "Safety Verdict",
@@ -770,6 +919,7 @@
         },
         "required": [
           "schema_version",
+          "receipt_version",
           "contract_version",
           "mode",
           "applied",
@@ -898,6 +1048,45 @@
           "reasons"
         ],
         "title": "RiskSummary",
+        "type": "object"
+      },
+      "RootCauseView": {
+        "description": "Issue diagnosis carried in the public repair receipt.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "issue_type",
+          "category",
+          "confidence",
+          "reason"
+        ],
+        "title": "RootCauseView",
         "type": "object"
       },
       "RootResponse": {

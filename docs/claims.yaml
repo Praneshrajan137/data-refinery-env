@@ -11,6 +11,9 @@ claims:
   - claim: mcp_integration
     status: beta
     evidence: MCP stdio tests expose dry-run repair receipts and keep apply behind explicit tool enablement.
+  - claim: public_repair_receipt_contract
+    status: beta
+    evidence: CLI, playground, and MCP repair receipts expose schema_version, receipt_version, contract_version, source hashes, candidate repairs, proof obligations, root causes, limitations, and revert metadata.
   - claim: smt_verified_supported_constraints
     status: beta
     evidence: Unit tests cover type, domain, functional dependency, not-null, unique, accepted-values, and regex verifier outcomes.
@@ -29,3 +32,12 @@ claims:
   - claim: design_partner_validation
     status: roadmap
     evidence: CONTRIBUTORS.md marks the design-partner gate as not met.
+  - claim: final_dataforge_pypi_name
+    status: roadmap
+    evidence: The full-vision gate requires PyPI/TestPyPI ownership for dataforge; current public indexes are not yet controlled by this project.
+  - claim: dataforge_dev_playground
+    status: roadmap
+    evidence: The full-vision gate requires https://dataforge.dev/playground DNS, TLS, Cloudflare routing, and live repair-flow evidence.
+  - claim: trained_model_family
+    status: roadmap
+    evidence: Only the 0.5B SFT smoke artifact has public verifier evidence; GRPO, GiGPO, and larger-family quality claims remain blocked.

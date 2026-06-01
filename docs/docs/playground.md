@@ -1,6 +1,6 @@
 # Playground
 
-The DataForge15 playground is the browser proof loop for the core product
+The DataForge playground is the browser proof loop for the core product
 promise: upload messy CSV data, understand risk, review inferred assumptions,
 inspect verified repair proposals, and leave with an auditable apply handoff.
 It is built for quick practitioner review, not account management or production
@@ -68,6 +68,11 @@ The response includes:
 - `apply_handoff`
 - `limitations`
 
+The repair receipt includes `receipt_version`, `contract_version`, source and
+post-state hashes, accepted constraint IDs, candidate repairs, proof
+obligations, root causes, limitations, and the local revert command when a
+dry-run transaction was created.
+
 Unknown accepted constraint IDs return `400 application/problem+json` with
 `error="unknown_constraint_id"`.
 
@@ -87,7 +92,7 @@ Unknown accepted constraint IDs return `400 application/problem+json` with
 The separate Gradio Space for the historical
 [DataForge-0.5B-SFT](https://huggingface.co/Praneshrajan15/DataForge-0.5B-SFT)
 checkpoint is intentionally labeled as experimental. New public model and Space
-artifacts should use DataForge15 names. The demo can propose repairs for short
+artifacts should use DataForge names. The demo can propose repairs for short
 CSV snippets, but it does not apply fixes, does not produce verified transaction
 evidence, and should not be cited as the authoritative product workflow.
 
@@ -95,7 +100,7 @@ evidence, and should not be cited as the authoritative product workflow.
 
 Follow `playground/web/DEPLOY.md` for Cloudflare deployment and
 `playground/api/SPACE_SETUP.md` for the Hugging Face backend. A release is not
-ready until verification confirms that Cloudflare serves the React app, the
-Hugging Face root serves API metadata, `/api/health` matches the capability
-contract, `/api/analyze` returns proof-loop evidence, and CORS allows only the
-intended frontend origin.
+ready until verification confirms that `https://dataforge.dev/playground`
+serves the React app, the Hugging Face root serves API metadata, `/api/health`
+matches the capability contract, `/api/analyze` returns proof-loop evidence,
+and CORS allows only the intended frontend origin.

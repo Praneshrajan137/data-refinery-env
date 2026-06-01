@@ -20,16 +20,16 @@ def test_pypi_workflow_refuses_prerelease_versions() -> None:
 
 
 def test_testpypi_workflow_uses_trusted_publishing_and_installed_smoke() -> None:
-    """The RC workflow publishes only to TestPyPI and smokes the installed artifact."""
+    """The TestPyPI workflow publishes only to TestPyPI and smokes the artifact."""
     workflow = (PROJECT_ROOT / ".github" / "workflows" / "publish-testpypi.yml").read_text(
         encoding="utf-8"
     )
 
-    assert 'tags:\n      - "v*-rc*"' in workflow
+    assert 'tags:\n      - "v*"' in workflow
     assert "environment: testpypi" in workflow
     assert "id-token: write" in workflow
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
     assert "--extra-index-url https://pypi.org/simple/" in workflow
-    assert "dataforge15==0.1.0rc1" in workflow
-    assert "dataforge15 constraints review constraints.json --accept" in workflow
-    assert "dataforge15 release doctor --core --json" in workflow
+    assert "dataforge==0.1.0" in workflow
+    assert "dataforge constraints review constraints.json --accept" in workflow
+    assert "dataforge release doctor --core --json" in workflow

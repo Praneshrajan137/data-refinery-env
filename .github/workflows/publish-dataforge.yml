@@ -1,4 +1,4 @@
-name: Publish dataforge15
+name: Publish dataforge
 
 on:
   push:
