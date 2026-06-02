@@ -53,10 +53,13 @@ const requiredTokens = [
   "--df-stage-failed-line",
   "--df-confidence-high-bg",
   "--df-confidence-high-text",
+  "--df-confidence-high-line",
   "--df-confidence-medium-bg",
   "--df-confidence-medium-text",
+  "--df-confidence-medium-line",
   "--df-confidence-low-bg",
   "--df-confidence-low-text",
+  "--df-confidence-low-line",
   "--df-proof-bg",
   "--df-proof-text",
   "--df-proof-line",
@@ -152,26 +155,20 @@ function auditContrast(system) {
   }
 }
 
-function auditInstitutionalPalette(system) {
-  const actionPalettes = new Set(
-    Object.values(system.semantic.light)
-      .concat(Object.values(system.semantic.dark))
-      .filter((token) => token.palette.startsWith("brand-"))
-      .map((token) => token.palette.split("-")[0]),
-  );
-  if (!actionPalettes.has("brand")) {
-    fail("Apex action tokens must map to the sovereign brand palette.");
-  }
-
+function auditMineralPalette(system) {
   for (const theme of ["light", "dark"]) {
-    for (const tokenName of ["--df-action-bg", "--df-action-bg-hover", "--df-action-border"]) {
+    for (const tokenName of ["--df-action-bg", "--df-action-bg-hover"]) {
       const palette = system.semantic[theme][tokenName]?.palette ?? "";
-      if (!palette.startsWith("brand-")) {
-        fail(`${theme} ${tokenName} must use the brand palette, not ${palette}.`);
+      if (!palette.startsWith("neutral-") && !palette.startsWith("brand-")) {
+        fail(`${theme} ${tokenName} must use graphite or vermilion command materials, not ${palette}.`);
       }
-      if (/^(success|safe|forge)-/.test(palette)) {
-        fail(`${theme} ${tokenName} must not use green/teal success or forge palettes.`);
+      if (/^(data|success|safe|forge)-/.test(palette)) {
+        fail(`${theme} ${tokenName} must not use blue/teal/green evidence or success palettes.`);
       }
+    }
+    const borderPalette = system.semantic[theme]["--df-action-border"]?.palette ?? "";
+    if (!borderPalette.startsWith("brand-")) {
+      fail(`${theme} --df-action-border must use restrained vermilion signal, not ${borderPalette}.`);
     }
     const successBg = system.semantic[theme]["--df-status-safe-bg"]?.palette ?? "";
     const successText = system.semantic[theme]["--df-status-safe-text"]?.palette ?? "";
@@ -181,13 +178,16 @@ function auditInstitutionalPalette(system) {
   }
 
   if ("forge" in system.seeds || "safe" in system.seeds || "review" in system.seeds) {
-    fail("Legacy forge/safe/review seed names are not allowed in the institutional palette.");
+    fail("Legacy forge/safe/review seed names are not allowed in the Mineral Intelligence palette.");
   }
   if (system.seeds.success.c > 0.04) {
-    fail("Success verdigris must remain low-chroma and reserved for verified outcomes.");
+    fail("Proof viridian must remain low-chroma and reserved for verified outcomes.");
   }
-  if (system.seeds.brand.h < 235 || system.seeds.brand.h > 260) {
-    fail("Primary action brand hue must stay in the sovereign blue range.");
+  if (system.seeds.brand.h >= 190 && system.seeds.brand.h <= 270) {
+    fail("Primary brand hue must not be blue-led.");
+  }
+  if (system.seeds.brand.h < 20 || system.seeds.brand.h > 55) {
+    fail("Primary brand hue must stay in the restrained vermilion executive range.");
   }
 }
 
@@ -271,7 +271,7 @@ const css = readFileSync(cssPath, "utf8");
 
 auditGeneratedFiles(system, css);
 auditContrast(system);
-auditInstitutionalPalette(system);
+auditMineralPalette(system);
 auditApexBackgroundDiscipline(system);
 auditPackage();
 auditRawHexUsage();

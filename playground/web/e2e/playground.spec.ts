@@ -301,35 +301,37 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   context,
 }) => {
   await context.grantPermissions(["clipboard-write"]);
-  await page.goto("/");
+  await page.goto("/playground/run");
 
-  await expect(page.getByRole("banner", { name: "DataForge command bar" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "DataForge mission bar" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Proof-and-repair workbench" })).toBeVisible();
   await expect(page.getByText("Stateless dry run")).toBeVisible();
   await page.getByRole("button", { name: /Hospital/ }).click();
   await expect(page.getByRole("heading", { name: "Current CSV" })).toBeVisible();
   await expect(page.getByText("1020")).toBeVisible();
 
-  await page.getByRole("button", { name: "Analyze" }).click();
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
   await expect(page.getByRole("cell", { name: "fd_violation" })).toBeVisible();
-  const riskPanel = page.locator("#panel-risk");
-  await expect(riskPanel.getByRole("heading", { name: "Constraint review" })).toBeVisible();
+  await expect(page).toHaveURL(/\/playground\/evidence$/);
+  await expect(page.getByRole("heading", { name: "Constraint review" })).toBeVisible();
 
-  await riskPanel.getByRole("checkbox", { name: /functional_dependency constraint cnd-state-fd/ }).check();
-  await page.getByRole("button", { name: "Rerun with accepted constraints" }).click();
-  await expect(riskPanel.getByRole("cell", { name: "accepted" })).toBeVisible();
+  await page.locator('.product-nav a[href="/playground/atlas"]').click();
+  const reviewQueue = page.getByLabel("Human review queue");
+  await reviewQueue.getByRole("checkbox", { name: /functional_dependency constraint cnd-state-fd/ }).check();
+  await reviewQueue.getByRole("button", { name: "Rerun with accepted constraints" }).click();
+  await expect(page).toHaveURL(/\/playground\/evidence$/);
+  await expect(page.getByRole("cell", { name: "accepted" })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Repairs" }).click();
-  const repairsPanel = page.locator("#panel-repairs");
+  await page.locator('.product-nav a[href="/playground/repairs"]').click();
+  const repairsPanel = page.locator(".repairs-lens");
   await expect(repairsPanel.getByText("Tenfold outlier")).toBeVisible();
   await expect(repairsPanel.getByText("All proposed fixes passed the SMT verifier.")).toBeVisible();
   await expect(repairsPanel.getByText("Attempted but not fixed")).toBeVisible();
 
-  const repairsTab = page.getByRole("tab", { name: "Repairs" });
-  await repairsTab.focus();
-  await repairsTab.press("ArrowRight");
-  await expect(page.getByText("txn-demo", { exact: true })).toBeVisible();
-  const receiptPanel = page.locator("#panel-receipt");
-  await expect(receiptPanel.getByText("Accepted constraints")).toBeVisible();
+  await page.locator('.product-nav a[href="/playground/receipt"]').click();
+  const receiptPanel = page.locator(".receipt-lens");
+  await expect(receiptPanel.getByText("txn-demo", { exact: true })).toBeVisible();
+  await expect(receiptPanel.getByLabel("Repair receipt summary").getByText("Accepted constraints")).toBeVisible();
   await expect(receiptPanel).toContainText("constraints.json");
 
   await page.getByRole("button", { name: "Copy" }).click();
@@ -344,14 +346,14 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
 });
 
 test("uploaded CSV path validates and analyzes without samples", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/playground/run");
 
   await page
     .locator("#csv-upload")
     .setInputFiles({ name: "upload.csv", mimeType: "text/csv", buffer: Buffer.from(sampleCsv) });
 
-  await expect(page.getByText("upload.csv")).toBeVisible();
-  await page.getByRole("button", { name: "Analyze" }).click();
+  await expect(page.getByLabel("Dataset intake").getByText("upload.csv", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
   await expect(page.getByRole("cell", { name: "decimal_shift" })).toBeVisible();
 });
 
@@ -364,7 +366,7 @@ test("failed upload keeps the last valid dataset and shows a copy fallback", asy
       },
     });
   });
-  await page.goto("/");
+  await page.goto("/playground/run");
 
   await page
     .locator("#csv-upload")
@@ -379,14 +381,15 @@ test("failed upload keeps the last valid dataset and shows a copy fallback", asy
   await expect(page.getByRole("alert")).toContainText("Dataset validation failed");
   await expect(page.getByText("1020")).toBeVisible();
 
-  await page.getByRole("button", { name: "Analyze" }).click();
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
+  await page.locator('.product-nav a[href="/playground/receipt"]').click();
   await page.getByRole("button", { name: "Copy" }).click();
   await expect(page.getByRole("button", { name: "Copy failed" })).toBeVisible();
-  await expect(page.getByLabel("Copyable repair evidence")).toHaveValue(/transaction_journal/);
+  await expect(page.locator(".copy-fallback").getByLabel("Copyable repair evidence")).toHaveValue(/transaction_journal/);
 });
 
 test("client rejects files above the health capability limit", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/playground/run");
 
   await page.locator("#csv-upload").setInputFiles({
     name: "big.csv",
@@ -397,24 +400,29 @@ test("client rejects files above the health capability limit", async ({ page }) 
   await expect(page.getByRole("alert")).toContainText("larger than the hosted playground limit");
 });
 
-test("tabs support arrow-key navigation", async ({ page }) => {
-  await page.goto("/");
+test("product routes support direct load, navigation, and browser history", async ({ page }) => {
+  for (const path of ["/playground/", "/playground/run", "/playground/atlas", "/playground/evidence", "/playground/repairs", "/playground/receipt", "/playground/system"]) {
+    await page.goto(path);
+    await expect(page.getByLabel("DataForge product navigation")).toBeVisible();
+  }
 
-  const riskTab = page.getByRole("tab", { name: "Risk" });
-  await riskTab.focus();
-  await riskTab.press("ArrowRight");
-
-  await expect(page.getByRole("tab", { name: "Repairs" })).toHaveAttribute("aria-selected", "true");
+  await page.goto("/playground/");
+  await page.locator('.product-nav a[href="/playground/run"]').click();
+  await expect(page).toHaveURL(/\/playground\/run$/);
+  await page.locator('.product-nav a[href="/playground/system"]').click();
+  await expect(page).toHaveURL(/\/playground\/system$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/playground\/run$/);
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`premium institutional console supports the full sample flow in ${colorScheme} mode`, async ({
+  test(`DataForge multi-page product supports the full sample flow in ${colorScheme} mode`, async ({
     page,
     context,
   }) => {
     await context.grantPermissions(["clipboard-write"]);
     await page.emulateMedia({ colorScheme });
-    await page.goto("/");
+    await page.goto("/playground/run");
 
     const rootTokens = await page.evaluate(() => {
       const styles = getComputedStyle(document.documentElement);
@@ -431,19 +439,24 @@ for (const colorScheme of ["light", "dark"] as const) {
     expect(rootTokens.text).not.toEqual("");
     expect(rootTokens.action).not.toEqual("");
     expect(rootTokens.action).not.toEqual(rootTokens.success);
+    expect(rootTokens.action).not.toContain("0, 0");
     expect(rootTokens.agent).not.toEqual("");
     expect(rootTokens.stage).not.toEqual("");
-    await expect(page.getByRole("banner", { name: "DataForge command bar" })).toBeVisible();
-    await expect(page.getByText("Agentic repair supervision cockpit")).toBeVisible();
+    await expect(page.getByRole("region", { name: "DataForge mission bar" })).toBeVisible();
+    await expect(page.getByText("Proof-and-repair workbench")).toBeVisible();
     await expect(page.getByText("Stateless dry run")).toBeVisible();
 
     await page.getByRole("button", { name: /Hospital/ }).click();
-    await page.getByRole("button", { name: "Analyze" }).click();
+    await page.getByRole("button", { name: "Analyze", exact: true }).click();
     await expect(page.getByText("unsafe", { exact: true })).toBeVisible();
 
-    await page.getByRole("tab", { name: "Repairs" }).click();
-    await expect(page.getByText("Tenfold outlier")).toBeVisible();
-    await expect(page.getByText("Verified dry-run evidence")).toBeVisible();
+    await page.locator('.product-nav a[href="/playground/atlas"]').click();
+    await expect(page.getByRole("heading", { name: "Live agent workflow" })).toBeVisible();
+
+    await page.locator('.product-nav a[href="/playground/repairs"]').click();
+    const repairsPanel = page.locator(".repairs-lens");
+    await expect(repairsPanel.getByText("Tenfold outlier")).toBeVisible();
+    await expect(repairsPanel.getByText("Verified dry-run evidence")).toBeVisible();
 
     const layout = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
@@ -451,8 +464,8 @@ for (const colorScheme of ["light", "dark"] as const) {
     }));
     expect(layout.scrollWidth).toBeLessThanOrEqual(layout.innerWidth + 1);
 
-    await page.getByRole("tab", { name: "Receipt" }).click();
-    await expect(page.getByText("txn-demo", { exact: true })).toBeVisible();
+    await page.locator('.product-nav a[href="/playground/receipt"]').click();
+    await expect(page.locator(".receipt-lens").getByText("txn-demo", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Copy" }).click();
     await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();

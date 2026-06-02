@@ -34,7 +34,7 @@ def test_config_js_exposes_backend_url_contract() -> None:
 
 
 def test_frontend_stays_storage_free_and_capability_aware() -> None:
-    """The frontend remains storage-free and consumes health capability metadata."""
+    """The frontend remains storage-free, route-aware, and consumes capability metadata."""
     body = "\n".join(
         path.read_text(encoding="utf-8") for path in SRC_DIR.rglob("*") if path.is_file()
     )
@@ -44,8 +44,10 @@ def test_frontend_stays_storage_free_and_capability_aware() -> None:
     assert "workflow_event_v1" in body
     assert "analyzeStream" in body
     assert "AbortController" in body
-    assert "ArrowRight" in body
-    assert "ArrowLeft" in body
+    assert "PRODUCT_ROUTES" in body
+    assert "routeFromPathname" in body
+    assert "pushState" in body
+    assert "popstate" in body
 
 
 def test_frontend_has_typed_vite_quality_gates() -> None:
@@ -108,8 +110,8 @@ def test_frontend_uses_generated_color_system_contract() -> None:
         assert token in generated_json["semantic"]["dark"]
 
 
-def test_apex_color_system_keeps_green_out_of_primary_action() -> None:
-    """Primary action is sovereign-blue-led; green is low-chroma and status-only."""
+def test_apex_color_system_keeps_green_and_blue_out_of_primary_action() -> None:
+    """Primary action is Mineral Intelligence-led; blue and green stay out of the identity."""
     generated_json = json.loads(COLOR_JSON_PATH.read_text(encoding="utf-8"))
 
     assert "brand" in generated_json["seeds"]
@@ -117,13 +119,15 @@ def test_apex_color_system_keeps_green_out_of_primary_action() -> None:
     assert "forge" not in generated_json["seeds"]
     assert "safe" not in generated_json["seeds"]
     assert generated_json["seeds"]["success"]["c"] <= 0.04
-    assert 235 <= generated_json["seeds"]["brand"]["h"] <= 260
+    assert 20 <= generated_json["seeds"]["brand"]["h"] <= 55
+    assert not 190 <= generated_json["seeds"]["brand"]["h"] <= 270
 
     for theme in ("light", "dark"):
         semantic = generated_json["semantic"][theme]
-        for token in ("--df-action-bg", "--df-action-bg-hover", "--df-action-border"):
-            assert semantic[token]["palette"].startswith("brand-")
-            assert not semantic[token]["palette"].startswith(("success-", "safe-", "forge-"))
+        for token in ("--df-action-bg", "--df-action-bg-hover"):
+            assert semantic[token]["palette"].startswith(("neutral-", "brand-"))
+            assert not semantic[token]["palette"].startswith(("data-", "success-", "safe-", "forge-"))
+        assert semantic["--df-action-border"]["palette"].startswith("brand-")
         assert semantic["--df-status-safe-bg"]["palette"].startswith("neutral-")
         assert semantic["--df-status-safe-text"]["palette"].startswith("success-")
 

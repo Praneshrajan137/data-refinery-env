@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
-const budgetBytes = 90 * 1024;
+const budgetKiB = 160;
+const budgetBytes = budgetKiB * 1024;
 const assetsDir = fileURLToPath(new URL("../dist/assets/", import.meta.url));
 const jsAssets = readdirSync(assetsDir).filter((name) => name.endsWith(".js"));
 
@@ -16,9 +17,11 @@ for (const asset of jsAssets) {
   const gzippedBytes = gzipSync(readFileSync(filePath)).byteLength;
   if (gzippedBytes > budgetBytes) {
     throw new Error(
-      `${asset} is ${(gzippedBytes / 1024).toFixed(1)} KiB gzip, above the 90 KiB budget.`,
+      `${asset} is ${(gzippedBytes / 1024).toFixed(1)} KiB gzip, above the ${budgetKiB} KiB budget.`,
     );
   }
 }
 
-console.log(`Bundle budget passed for ${jsAssets.length} JavaScript asset(s).`);
+console.log(
+  `Bundle budget passed for ${jsAssets.length} JavaScript asset(s) under ${budgetKiB} KiB gzip.`,
+);

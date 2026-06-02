@@ -19,514 +19,514 @@
   ],
   "seeds": {
     "neutral": {
-      "l": 0.64,
-      "c": 0.012,
-      "h": 255,
-      "meaning": "graphite-platinum product structure"
+      "l": 0.63,
+      "c": 0.006,
+      "h": 92,
+      "meaning": "porcelain graphite and cool mineral gray"
     },
     "brand": {
-      "l": 0.56,
-      "c": 0.105,
-      "h": 250,
-      "meaning": "sovereign blue command signal"
+      "l": 0.55,
+      "c": 0.084,
+      "h": 38,
+      "meaning": "restrained vermilion executive signal"
     },
     "data": {
-      "l": 0.58,
-      "c": 0.052,
-      "h": 218,
-      "meaning": "forensic steel evidence"
+      "l": 0.56,
+      "c": 0.044,
+      "h": 188,
+      "meaning": "desaturated teal-steel evidence"
     },
     "agent": {
       "l": 0.55,
-      "c": 0.058,
-      "h": 286,
-      "meaning": "restrained amethyst orchestration"
+      "c": 0.06,
+      "h": 298,
+      "meaning": "muted ultraviolet agent cognition"
     },
     "success": {
-      "l": 0.56,
-      "c": 0.034,
-      "h": 155,
-      "meaning": "proof verdigris verification"
+      "l": 0.55,
+      "c": 0.038,
+      "h": 152,
+      "meaning": "low-chroma viridian proof"
     },
     "warning": {
-      "l": 0.68,
-      "c": 0.065,
-      "h": 82,
-      "meaning": "antique amber uncertainty"
+      "l": 0.67,
+      "c": 0.07,
+      "h": 78,
+      "meaning": "antique brass review"
     },
     "danger": {
-      "l": 0.55,
-      "c": 0.078,
-      "h": 28,
-      "meaning": "oxide red risk"
+      "l": 0.53,
+      "c": 0.086,
+      "h": 18,
+      "meaning": "deep carmine hematite risk"
     }
   },
   "palettes": {
     "neutral": {
       "0": {
-        "oklch": "oklch(0 0 255)",
+        "oklch": "oklch(0 0 92)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.012 255)",
-        "hex": "#020306",
-        "p3": "color(display-p3 0.0085 0.01324 0.02326)"
+        "oklch": "oklch(0.1 0.006 92)",
+        "hex": "#040302",
+        "p3": "color(display-p3 0.01436 0.01296 0.00873)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.012 255)",
-        "hex": "#12161b",
-        "p3": "color(display-p3 0.07515 0.08723 0.10596)"
+        "oklch": "oklch(0.2 0.006 92)",
+        "hex": "#171613",
+        "p3": "color(display-p3 0.08928 0.08628 0.07565)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.012 255)",
-        "hex": "#2a2e34",
-        "p3": "color(display-p3 0.16722 0.18064 0.20133)"
+        "oklch": "oklch(0.3 0.006 92)",
+        "hex": "#2f2e2a",
+        "p3": "color(display-p3 0.18275 0.17946 0.16772)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.012 255)",
-        "hex": "#43484e",
-        "p3": "color(display-p3 0.26775 0.28219 0.30442)"
+        "oklch": "oklch(0.4 0.006 92)",
+        "hex": "#494844",
+        "p3": "color(display-p3 0.28438 0.28086 0.26826)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.012 255)",
-        "hex": "#5f646a",
-        "p3": "color(display-p3 0.37501 0.3903 0.4138)"
+        "oklch": "oklch(0.5 0.006 92)",
+        "hex": "#64635f",
+        "p3": "color(display-p3 0.39257 0.38886 0.37553)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.012 255)",
-        "hex": "#7b8187",
-        "p3": "color(display-p3 0.48794 0.50395 0.52855)"
+        "oklch": "oklch(0.6 0.006 92)",
+        "hex": "#81807c",
+        "p3": "color(display-p3 0.50629 0.50242 0.48848)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.012 255)",
-        "hex": "#9a9fa6",
-        "p3": "color(display-p3 0.60579 0.62244 0.64801)"
+        "oklch": "oklch(0.7 0.006 92)",
+        "hex": "#a09e9a",
+        "p3": "color(display-p3 0.62485 0.62082 0.60634)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.012 255)",
-        "hex": "#b9bec6",
-        "p3": "color(display-p3 0.72801 0.74523 0.77167)"
+        "oklch": "oklch(0.8 0.006 92)",
+        "hex": "#bfbeb9",
+        "p3": "color(display-p3 0.7477 0.74355 0.72857)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.012 255)",
-        "hex": "#d9dfe6",
-        "p3": "color(display-p3 0.85418 0.87192 0.89915)"
+        "oklch": "oklch(0.9 0.006 92)",
+        "hex": "#dfdeda",
+        "p3": "color(display-p3 0.87445 0.87017 0.85475)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.012 255)",
-        "hex": "#e9eff7",
-        "p3": "color(display-p3 0.91863 0.93661 0.96422)"
+        "oklch": "oklch(0.95 0.006 92)",
+        "hex": "#f0eeea",
+        "p3": "color(display-p3 0.93917 0.93484 0.91921)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.012 255)",
-        "hex": "#f4f9ff",
-        "p3": "color(display-p3 0.95969 0.9756 1)"
+        "oklch": "oklch(0.98 0.006 92)",
+        "hex": "#faf8f4",
+        "p3": "color(display-p3 0.97842 0.97405 0.9583)"
       },
       "100": {
-        "oklch": "oklch(1 0 255)",
+        "oklch": "oklch(1 0 92)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
     },
     "brand": {
       "0": {
-        "oklch": "oklch(0 0 250)",
+        "oklch": "oklch(0 0 38)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.105 250)",
-        "hex": "#00030b",
-        "p3": "color(display-p3 0 0.01228 0.05225)"
+        "oklch": "oklch(0.1 0.084 38)",
+        "hex": "#0b0100",
+        "p3": "color(display-p3 0.03894 0.00357 0)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.105 250)",
-        "hex": "#00172e",
-        "p3": "color(display-p3 0 0.08313 0.20007)"
+        "oklch": "oklch(0.2 0.084 38)",
+        "hex": "#2d0700",
+        "p3": "color(display-p3 0.16844 0.0286 0)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.105 250)",
-        "hex": "#002f56",
-        "p3": "color(display-p3 0.01151 0.17571 0.36056)"
+        "oklch": "oklch(0.3 0.084 38)",
+        "hex": "#4f1b09",
+        "p3": "color(display-p3 0.28657 0.11771 0.05765)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.105 250)",
-        "hex": "#0c4a7d",
-        "p3": "color(display-p3 0.12886 0.28376 0.47649)"
+        "oklch": "oklch(0.4 0.084 38)",
+        "hex": "#6d3624",
+        "p3": "color(display-p3 0.39972 0.22161 0.15817)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.105 250)",
-        "hex": "#2e669c",
-        "p3": "color(display-p3 0.23822 0.39608 0.59671)"
+        "oklch": "oklch(0.5 0.084 38)",
+        "hex": "#8c513f",
+        "p3": "color(display-p3 0.51733 0.32996 0.26238)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.105 250)",
-        "hex": "#4c84bc",
-        "p3": "color(display-p3 0.34996 0.5128 0.72088)"
+        "oklch": "oklch(0.6 0.084 38)",
+        "hex": "#ac6e5b",
+        "p3": "color(display-p3 0.63904 0.44315 0.37183)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.105 250)",
-        "hex": "#6aa3dd",
-        "p3": "color(display-p3 0.46564 0.63368 0.84868)"
+        "oklch": "oklch(0.7 0.084 38)",
+        "hex": "#cc8c78",
+        "p3": "color(display-p3 0.76456 0.56089 0.48625)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.105 250)",
-        "hex": "#89c3ff",
-        "p3": "color(display-p3 0.58537 0.75843 0.97985)"
+        "oklch": "oklch(0.8 0.084 38)",
+        "hex": "#eeab97",
+        "p3": "color(display-p3 0.89359 0.68282 0.60521)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.105 250)",
-        "hex": "#c6e1ff",
-        "p3": "color(display-p3 0.78807 0.88125 1)"
+        "oklch": "oklch(0.9 0.084 38)",
+        "hex": "#ffd3c5",
+        "p3": "color(display-p3 1 0.82042 0.75375)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.105 250)",
-        "hex": "#e2f0ff",
-        "p3": "color(display-p3 0.89445 0.94092 1)"
+        "oklch": "oklch(0.95 0.084 38)",
+        "hex": "#ffe9e2",
+        "p3": "color(display-p3 1 0.91168 0.87859)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.105 250)",
-        "hex": "#f4f9ff",
-        "p3": "color(display-p3 0.95786 0.97642 1)"
+        "oklch": "oklch(0.98 0.084 38)",
+        "hex": "#fff6f4",
+        "p3": "color(display-p3 1 0.96495 0.95178)"
       },
       "100": {
-        "oklch": "oklch(1 0 250)",
+        "oklch": "oklch(1 0 38)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
     },
     "data": {
       "0": {
-        "oklch": "oklch(0 0 218)",
+        "oklch": "oklch(0 0 188)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.052 218)",
-        "hex": "#000406",
-        "p3": "color(display-p3 0 0.01662 0.02741)"
+        "oklch": "oklch(0.1 0.044 188)",
+        "hex": "#000504",
+        "p3": "color(display-p3 0 0.01843 0.01646)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.052 218)",
-        "hex": "#001a21",
-        "p3": "color(display-p3 0 0.10169 0.13803)"
+        "oklch": "oklch(0.2 0.044 188)",
+        "hex": "#001b19",
+        "p3": "color(display-p3 0.00594 0.10741 0.10015)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.052 218)",
-        "hex": "#03343f",
-        "p3": "color(display-p3 0.07666 0.1997 0.24228)"
+        "oklch": "oklch(0.3 0.044 188)",
+        "hex": "#0d3532",
+        "p3": "color(display-p3 0.09717 0.20405 0.19482)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.052 218)",
-        "hex": "#234e5a",
-        "p3": "color(display-p3 0.18042 0.30384 0.3487)"
+        "oklch": "oklch(0.4 0.044 188)",
+        "hex": "#294f4c",
+        "p3": "color(display-p3 0.19852 0.308 0.29737)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.052 218)",
-        "hex": "#3f6b77",
-        "p3": "color(display-p3 0.28712 0.41396 0.46083)"
+        "oklch": "oklch(0.5 0.044 188)",
+        "hex": "#456c68",
+        "p3": "color(display-p3 0.30479 0.41803 0.40631)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.052 218)",
-        "hex": "#5c8895",
-        "p3": "color(display-p3 0.39856 0.52927 0.57794)"
+        "oklch": "oklch(0.6 0.044 188)",
+        "hex": "#628985",
+        "p3": "color(display-p3 0.41625 0.53329 0.52069)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.052 218)",
-        "hex": "#7aa7b4",
-        "p3": "color(display-p3 0.51464 0.64917 0.69947)"
+        "oklch": "oklch(0.7 0.044 188)",
+        "hex": "#80a8a3",
+        "p3": "color(display-p3 0.53251 0.65317 0.63982)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.052 218)",
-        "hex": "#99c6d4",
-        "p3": "color(display-p3 0.63502 0.7732 0.82498)"
+        "oklch": "oklch(0.8 0.044 188)",
+        "hex": "#9ec7c3",
+        "p3": "color(display-p3 0.65315 0.7772 0.76319)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.052 218)",
-        "hex": "#b8e7f5",
-        "p3": "color(display-p3 0.75936 0.90099 0.95414)"
+        "oklch": "oklch(0.9 0.044 188)",
+        "hex": "#bee8e3",
+        "p3": "color(display-p3 0.77777 0.905 0.8904)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.052 218)",
-        "hex": "#d4f5ff",
-        "p3": "color(display-p3 0.85045 0.95913 1)"
+        "oklch": "oklch(0.95 0.044 188)",
+        "hex": "#cef9f4",
+        "p3": "color(display-p3 0.84148 0.97021 0.95535)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.052 218)",
-        "hex": "#eefbff",
-        "p3": "color(display-p3 0.94101 0.98386 1)"
+        "oklch": "oklch(0.98 0.044 188)",
+        "hex": "#e5fffc",
+        "p3": "color(display-p3 0.90708 1 0.98889)"
       },
       "100": {
-        "oklch": "oklch(1 0 218)",
+        "oklch": "oklch(1 0 188)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
     },
     "agent": {
       "0": {
-        "oklch": "oklch(0 0 286)",
+        "oklch": "oklch(0 0 298)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.058 286)",
-        "hex": "#040015",
-        "p3": "color(display-p3 0.01136 0.00048 0.0789)"
+        "oklch": "oklch(0.1 0.06 298)",
+        "hex": "#050012",
+        "p3": "color(display-p3 0.01765 0 0.06951)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.058 286)",
-        "hex": "#15112f",
-        "p3": "color(display-p3 0.07798 0.06539 0.17565)"
+        "oklch": "oklch(0.2 0.06 298)",
+        "hex": "#1a0e2d",
+        "p3": "color(display-p3 0.09447 0.05778 0.17011)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.058 286)",
-        "hex": "#2c2949",
-        "p3": "color(display-p3 0.16888 0.16078 0.27935)"
+        "oklch": "oklch(0.3 0.06 298)",
+        "hex": "#322748",
+        "p3": "color(display-p3 0.18759 0.15282 0.27323)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.058 286)",
-        "hex": "#454366",
-        "p3": "color(display-p3 0.26881 0.26282 0.389)"
+        "oklch": "oklch(0.4 0.06 298)",
+        "hex": "#4c4064",
+        "p3": "color(display-p3 0.2891 0.25438 0.38239)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.058 286)",
-        "hex": "#605f83",
-        "p3": "color(display-p3 0.3757 0.37098 0.50382)"
+        "oklch": "oklch(0.5 0.06 298)",
+        "hex": "#675c81",
+        "p3": "color(display-p3 0.39725 0.3621 0.49681)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.058 286)",
-        "hex": "#7d7ca2",
-        "p3": "color(display-p3 0.48836 0.4845 0.62324)"
+        "oklch": "oklch(0.6 0.06 298)",
+        "hex": "#8479a0",
+        "p3": "color(display-p3 0.51099 0.47524 0.61588)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.058 286)",
-        "hex": "#9b9ac2",
-        "p3": "color(display-p3 0.60602 0.60278 0.7468)"
+        "oklch": "oklch(0.7 0.06 298)",
+        "hex": "#a397c0",
+        "p3": "color(display-p3 0.62957 0.59317 0.73912)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.058 286)",
-        "hex": "#bab9e2",
-        "p3": "color(display-p3 0.72808 0.72532 0.87413)"
+        "oklch": "oklch(0.8 0.06 298)",
+        "hex": "#c2b6e0",
+        "p3": "color(display-p3 0.75246 0.7154 0.86618)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.058 286)",
-        "hex": "#dadaff",
-        "p3": "color(display-p3 0.85467 0.85252 1)"
+        "oklch": "oklch(0.9 0.06 298)",
+        "hex": "#e2d7ff",
+        "p3": "color(display-p3 0.87926 0.84153 0.99674)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.058 286)",
-        "hex": "#edecff",
-        "p3": "color(display-p3 0.92671 0.92653 1)"
+        "oklch": "oklch(0.95 0.06 298)",
+        "hex": "#f0ebff",
+        "p3": "color(display-p3 0.9391 0.92075 1)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.058 286)",
-        "hex": "#f8f8ff",
-        "p3": "color(display-p3 0.97054 0.97065 1)"
+        "oklch": "oklch(0.98 0.06 298)",
+        "hex": "#f9f7ff",
+        "p3": "color(display-p3 0.97549 0.96837 1)"
       },
       "100": {
-        "oklch": "oklch(1 0 286)",
+        "oklch": "oklch(1 0 298)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
     },
     "success": {
       "0": {
-        "oklch": "oklch(0 0 155)",
+        "oklch": "oklch(0 0 152)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.034 155)",
+        "oklch": "oklch(0.1 0.038 152)",
         "hex": "#000501",
-        "p3": "color(display-p3 0.00008 0.02035 0.00454)"
+        "p3": "color(display-p3 0 0.02062 0.00314)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.034 155)",
-        "hex": "#081b0f",
-        "p3": "color(display-p3 0.04923 0.10233 0.0629)"
+        "oklch": "oklch(0.2 0.038 152)",
+        "hex": "#071b0d",
+        "p3": "color(display-p3 0.04709 0.10356 0.05652)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.034 155)",
-        "hex": "#203326",
-        "p3": "color(display-p3 0.14088 0.19786 0.15398)"
+        "oklch": "oklch(0.3 0.038 152)",
+        "hex": "#1f3324",
+        "p3": "color(display-p3 0.13883 0.19936 0.14722)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.034 155)",
-        "hex": "#394d40",
-        "p3": "color(display-p3 0.24046 0.301 0.25367)"
+        "oklch": "oklch(0.4 0.038 152)",
+        "hex": "#384e3e",
+        "p3": "color(display-p3 0.23838 0.30269 0.24653)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.034 155)",
-        "hex": "#54695b",
-        "p3": "color(display-p3 0.34675 0.41039 0.36021)"
+        "oklch": "oklch(0.5 0.038 152)",
+        "hex": "#536a59",
+        "p3": "color(display-p3 0.3446 0.41224 0.35274)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.034 155)",
-        "hex": "#718777",
-        "p3": "color(display-p3 0.45874 0.52513 0.47251)"
+        "oklch": "oklch(0.6 0.038 152)",
+        "hex": "#708775",
+        "p3": "color(display-p3 0.45654 0.5271 0.46473)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.034 155)",
-        "hex": "#8ea595",
-        "p3": "color(display-p3 0.57572 0.64456 0.58979)"
+        "oklch": "oklch(0.7 0.038 152)",
+        "hex": "#8ea693",
+        "p3": "color(display-p3 0.57346 0.64664 0.58174)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.034 155)",
-        "hex": "#adc5b4",
-        "p3": "color(display-p3 0.69712 0.76819 0.7115)"
+        "oklch": "oklch(0.8 0.038 152)",
+        "hex": "#acc5b2",
+        "p3": "color(display-p3 0.69481 0.77037 0.7032)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.034 155)",
-        "hex": "#cde5d4",
-        "p3": "color(display-p3 0.82253 0.89564 0.8372)"
+        "oklch": "oklch(0.9 0.038 152)",
+        "hex": "#cce6d2",
+        "p3": "color(display-p3 0.82016 0.8979 0.82867)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.034 155)",
-        "hex": "#def6e5",
-        "p3": "color(display-p3 0.88662 0.96069 0.90143)"
+        "oklch": "oklch(0.95 0.038 152)",
+        "hex": "#ddf6e2",
+        "p3": "color(display-p3 0.88423 0.96299 0.8928)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.034 155)",
-        "hex": "#e9fff0",
-        "p3": "color(display-p3 0.92574 1 0.94056)"
+        "oklch": "oklch(0.98 0.038 152)",
+        "hex": "#eaffee",
+        "p3": "color(display-p3 0.92763 1 0.9354)"
       },
       "100": {
-        "oklch": "oklch(1 0 155)",
+        "oklch": "oklch(1 0 152)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
     },
     "warning": {
       "0": {
-        "oklch": "oklch(0 0 82)",
+        "oklch": "oklch(0 0 78)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.065 82)",
+        "oklch": "oklch(0.1 0.07 78)",
         "hex": "#060300",
-        "p3": "color(display-p3 0.02164 0.01112 0)"
+        "p3": "color(display-p3 0.02269 0.01065 0)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.065 82)",
-        "hex": "#1f1400",
-        "p3": "color(display-p3 0.11991 0.07757 0)"
+        "oklch": "oklch(0.2 0.07 78)",
+        "hex": "#201300",
+        "p3": "color(display-p3 0.12341 0.07522 0)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.065 82)",
-        "hex": "#3d2a00",
-        "p3": "color(display-p3 0.23068 0.16706 0.02076)"
+        "oklch": "oklch(0.3 0.07 78)",
+        "hex": "#3f2900",
+        "p3": "color(display-p3 0.23958 0.16192 0.00623)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.065 82)",
-        "hex": "#59441a",
-        "p3": "color(display-p3 0.33649 0.26965 0.1296)"
+        "oklch": "oklch(0.4 0.07 78)",
+        "hex": "#5c4215",
+        "p3": "color(display-p3 0.34639 0.26464 0.11658)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.065 82)",
-        "hex": "#766036",
-        "p3": "color(display-p3 0.44806 0.37835 0.23557)"
+        "oklch": "oklch(0.5 0.07 78)",
+        "hex": "#795e32",
+        "p3": "color(display-p3 0.45877 0.37335 0.22373)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.065 82)",
-        "hex": "#947d53",
-        "p3": "color(display-p3 0.56466 0.49236 0.34534)"
+        "oklch": "oklch(0.6 0.07 78)",
+        "hex": "#977b4f",
+        "p3": "color(display-p3 0.57605 0.48733 0.33375)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.065 82)",
-        "hex": "#b39b70",
-        "p3": "color(display-p3 0.68573 0.61107 0.45965)"
+        "oklch": "oklch(0.7 0.07 78)",
+        "hex": "#b7996c",
+        "p3": "color(display-p3 0.69771 0.606 0.44803)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.065 82)",
-        "hex": "#d3ba8e",
-        "p3": "color(display-p3 0.81082 0.73401 0.57831)"
+        "oklch": "oklch(0.8 0.07 78)",
+        "hex": "#d7b98b",
+        "p3": "color(display-p3 0.82332 0.72887 0.56657)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.065 82)",
-        "hex": "#f4dbae",
-        "p3": "color(display-p3 0.93959 0.86078 0.70104)"
+        "oklch": "oklch(0.9 0.07 78)",
+        "hex": "#f8d9aa",
+        "p3": "color(display-p3 0.95255 0.85558 0.68913)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.065 82)",
-        "hex": "#ffeccb",
-        "p3": "color(display-p3 1 0.92643 0.7772)"
+        "oklch": "oklch(0.95 0.07 78)",
+        "hex": "#ffeccf",
+        "p3": "color(display-p3 1 0.92416 0.79406)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.065 82)",
-        "hex": "#fff8ea",
-        "p3": "color(display-p3 1 0.97121 0.91239)"
+        "oklch": "oklch(0.98 0.07 78)",
+        "hex": "#fff7ec",
+        "p3": "color(display-p3 1 0.9702 0.91891)"
       },
       "100": {
-        "oklch": "oklch(1 0 82)",
+        "oklch": "oklch(1 0 78)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
     },
     "danger": {
       "0": {
-        "oklch": "oklch(0 0 28)",
+        "oklch": "oklch(0 0 18)",
         "hex": "#000000",
         "p3": "color(display-p3 0 0 0)"
       },
       "10": {
-        "oklch": "oklch(0.1 0.078 28)",
-        "hex": "#0d0000",
-        "p3": "color(display-p3 0.04684 0 0.00025)"
+        "oklch": "oklch(0.1 0.086 18)",
+        "hex": "#0d0001",
+        "p3": "color(display-p3 0.04575 0 0.00331)"
       },
       "20": {
-        "oklch": "oklch(0.2 0.078 28)",
-        "hex": "#310102",
-        "p3": "color(display-p3 0.17381 0.01869 0.0127)"
+        "oklch": "oklch(0.2 0.086 18)",
+        "hex": "#320007",
+        "p3": "color(display-p3 0.18053 0.00582 0.02938)"
       },
       "30": {
-        "oklch": "oklch(0.3 0.078 28)",
-        "hex": "#4e1b16",
-        "p3": "color(display-p3 0.28162 0.11872 0.09703)"
+        "oklch": "oklch(0.3 0.086 18)",
+        "hex": "#50171d",
+        "p3": "color(display-p3 0.28984 0.1056 0.1183)"
       },
       "40": {
-        "oklch": "oklch(0.4 0.078 28)",
-        "hex": "#6c362f",
-        "p3": "color(display-p3 0.39428 0.22163 0.19468)"
+        "oklch": "oklch(0.4 0.086 18)",
+        "hex": "#6f3236",
+        "p3": "color(display-p3 0.40373 0.20964 0.21612)"
       },
       "50": {
-        "oklch": "oklch(0.5 0.078 28)",
-        "hex": "#8a514a",
-        "p3": "color(display-p3 0.51148 0.32941 0.2989)"
+        "oklch": "oklch(0.5 0.086 18)",
+        "hex": "#8e4e50",
+        "p3": "color(display-p3 0.52194 0.31763 0.32091)"
       },
       "60": {
-        "oklch": "oklch(0.6 0.078 28)",
-        "hex": "#aa6e66",
-        "p3": "color(display-p3 0.63284 0.44222 0.40896)"
+        "oklch": "oklch(0.6 0.086 18)",
+        "hex": "#ae6b6d",
+        "p3": "color(display-p3 0.64418 0.43039 0.43162)"
       },
       "70": {
-        "oklch": "oklch(0.7 0.078 28)",
-        "hex": "#cb8c83",
-        "p3": "color(display-p3 0.75805 0.55967 0.52416)"
+        "oklch": "oklch(0.7 0.086 18)",
+        "hex": "#ce898a",
+        "p3": "color(display-p3 0.77015 0.54771 0.54747)"
       },
       "80": {
-        "oklch": "oklch(0.8 0.078 28)",
-        "hex": "#ecaba2",
-        "p3": "color(display-p3 0.8868 0.68137 0.64394)"
+        "oklch": "oklch(0.8 0.086 18)",
+        "hex": "#f0a8a9",
+        "p3": "color(display-p3 0.89959 0.66923 0.66786)"
       },
       "90": {
-        "oklch": "oklch(0.9 0.078 28)",
-        "hex": "#ffd2cb",
-        "p3": "color(display-p3 1 0.81611 0.78175)"
+        "oklch": "oklch(0.9 0.086 18)",
+        "hex": "#ffd1d1",
+        "p3": "color(display-p3 1 0.81172 0.80883)"
       },
       "95": {
-        "oklch": "oklch(0.95 0.078 28)",
-        "hex": "#ffe9e5",
-        "p3": "color(display-p3 1 0.90953 0.89196)"
+        "oklch": "oklch(0.95 0.086 18)",
+        "hex": "#ffe8e8",
+        "p3": "color(display-p3 1 0.90739 0.90497)"
       },
       "98": {
-        "oklch": "oklch(0.98 0.078 28)",
-        "hex": "#fff6f5",
-        "p3": "color(display-p3 1 0.96409 0.95701)"
+        "oklch": "oklch(0.98 0.086 18)",
+        "hex": "#fff6f6",
+        "p3": "color(display-p3 1 0.96325 0.9621)"
       },
       "100": {
-        "oklch": "oklch(1 0 28)",
+        "oklch": "oklch(1 0 18)",
         "hex": "#ffffff",
         "p3": "color(display-p3 1 1 1)"
       }
@@ -536,7 +536,7 @@
     "light": {
       "--df-bg": {
         "palette": "neutral-98",
-        "hex": "#f4f9ff"
+        "hex": "#faf8f4"
       },
       "--df-surface-1": {
         "palette": "neutral-100",
@@ -544,23 +544,23 @@
       },
       "--df-surface-2": {
         "palette": "neutral-98",
-        "hex": "#f4f9ff"
+        "hex": "#faf8f4"
       },
       "--df-surface-3": {
         "palette": "neutral-95",
-        "hex": "#e9eff7"
+        "hex": "#f0eeea"
       },
       "--df-surface-strong": {
         "palette": "neutral-90",
-        "hex": "#d9dfe6"
+        "hex": "#dfdeda"
       },
       "--df-text-1": {
         "palette": "neutral-10",
-        "hex": "#020306"
+        "hex": "#040302"
       },
       "--df-text-2": {
         "palette": "neutral-30",
-        "hex": "#2a2e34"
+        "hex": "#2f2e2a"
       },
       "--df-text-inverse": {
         "palette": "neutral-100",
@@ -568,23 +568,23 @@
       },
       "--df-line-subtle": {
         "palette": "neutral-90",
-        "hex": "#d9dfe6"
+        "hex": "#dfdeda"
       },
       "--df-line": {
         "palette": "neutral-80",
-        "hex": "#b9bec6"
+        "hex": "#bfbeb9"
       },
       "--df-line-strong": {
         "palette": "neutral-60",
-        "hex": "#7b8187"
+        "hex": "#81807c"
       },
       "--df-action-bg": {
-        "palette": "brand-40",
-        "hex": "#0c4a7d"
+        "palette": "neutral-10",
+        "hex": "#040302"
       },
       "--df-action-bg-hover": {
-        "palette": "brand-30",
-        "hex": "#002f56"
+        "palette": "neutral-20",
+        "hex": "#171613"
       },
       "--df-action-text": {
         "palette": "neutral-100",
@@ -592,55 +592,55 @@
       },
       "--df-action-border": {
         "palette": "brand-50",
-        "hex": "#2e669c"
+        "hex": "#8c513f"
       },
       "--df-action-soft": {
         "palette": "neutral-95",
-        "hex": "#e9eff7"
+        "hex": "#f0eeea"
       },
       "--df-action-soft-text": {
         "palette": "brand-30",
-        "hex": "#002f56"
+        "hex": "#4f1b09"
       },
       "--df-focus-ring": {
         "palette": "agent-50",
-        "hex": "#605f83"
+        "hex": "#675c81"
       },
       "--df-focus-halo": {
         "palette": "neutral-95",
-        "hex": "#e9eff7"
+        "hex": "#f0eeea"
       },
       "--df-data-bg": {
         "palette": "neutral-98",
-        "hex": "#f4f9ff"
+        "hex": "#faf8f4"
       },
       "--df-data-text": {
         "palette": "data-30",
-        "hex": "#03343f"
+        "hex": "#0d3532"
       },
       "--df-agent-bg": {
         "palette": "neutral-98",
-        "hex": "#f4f9ff"
+        "hex": "#faf8f4"
       },
       "--df-agent-text": {
         "palette": "agent-30",
-        "hex": "#2c2949"
+        "hex": "#322748"
       },
       "--df-agent-line": {
         "palette": "agent-60",
-        "hex": "#7d7ca2"
+        "hex": "#8479a0"
       },
       "--df-autonomy-bg": {
         "palette": "neutral-98",
-        "hex": "#f4f9ff"
+        "hex": "#faf8f4"
       },
       "--df-autonomy-text": {
         "palette": "agent-30",
-        "hex": "#2c2949"
+        "hex": "#322748"
       },
       "--df-autonomy-line": {
         "palette": "agent-60",
-        "hex": "#7d7ca2"
+        "hex": "#8479a0"
       },
       "--df-stage-idle-bg": {
         "palette": "neutral-100",
@@ -648,11 +648,11 @@
       },
       "--df-stage-idle-text": {
         "palette": "neutral-30",
-        "hex": "#2a2e34"
+        "hex": "#2f2e2a"
       },
       "--df-stage-idle-line": {
         "palette": "neutral-80",
-        "hex": "#b9bec6"
+        "hex": "#bfbeb9"
       },
       "--df-stage-active-bg": {
         "palette": "neutral-100",
@@ -660,11 +660,11 @@
       },
       "--df-stage-active-text": {
         "palette": "brand-30",
-        "hex": "#002f56"
+        "hex": "#4f1b09"
       },
       "--df-stage-active-line": {
         "palette": "brand-60",
-        "hex": "#4c84bc"
+        "hex": "#ac6e5b"
       },
       "--df-stage-complete-bg": {
         "palette": "neutral-100",
@@ -672,11 +672,11 @@
       },
       "--df-stage-complete-text": {
         "palette": "success-30",
-        "hex": "#203326"
+        "hex": "#1f3324"
       },
       "--df-stage-complete-line": {
         "palette": "success-60",
-        "hex": "#718777"
+        "hex": "#708775"
       },
       "--df-stage-blocked-bg": {
         "palette": "neutral-100",
@@ -684,11 +684,11 @@
       },
       "--df-stage-blocked-text": {
         "palette": "warning-20",
-        "hex": "#1f1400"
+        "hex": "#201300"
       },
       "--df-stage-blocked-line": {
         "palette": "warning-60",
-        "hex": "#947d53"
+        "hex": "#977b4f"
       },
       "--df-stage-failed-bg": {
         "palette": "neutral-100",
@@ -696,11 +696,11 @@
       },
       "--df-stage-failed-text": {
         "palette": "danger-30",
-        "hex": "#4e1b16"
+        "hex": "#50171d"
       },
       "--df-stage-failed-line": {
         "palette": "danger-60",
-        "hex": "#aa6e66"
+        "hex": "#ae6b6d"
       },
       "--df-confidence-high-bg": {
         "palette": "neutral-100",
@@ -708,7 +708,11 @@
       },
       "--df-confidence-high-text": {
         "palette": "success-30",
-        "hex": "#203326"
+        "hex": "#1f3324"
+      },
+      "--df-confidence-high-line": {
+        "palette": "success-60",
+        "hex": "#708775"
       },
       "--df-confidence-medium-bg": {
         "palette": "neutral-100",
@@ -716,7 +720,11 @@
       },
       "--df-confidence-medium-text": {
         "palette": "warning-20",
-        "hex": "#1f1400"
+        "hex": "#201300"
+      },
+      "--df-confidence-medium-line": {
+        "palette": "warning-60",
+        "hex": "#977b4f"
       },
       "--df-confidence-low-bg": {
         "palette": "neutral-100",
@@ -724,7 +732,11 @@
       },
       "--df-confidence-low-text": {
         "palette": "danger-30",
-        "hex": "#4e1b16"
+        "hex": "#50171d"
+      },
+      "--df-confidence-low-line": {
+        "palette": "danger-60",
+        "hex": "#ae6b6d"
       },
       "--df-proof-bg": {
         "palette": "neutral-100",
@@ -732,11 +744,11 @@
       },
       "--df-proof-text": {
         "palette": "data-30",
-        "hex": "#03343f"
+        "hex": "#0d3532"
       },
       "--df-proof-line": {
         "palette": "data-60",
-        "hex": "#5c8895"
+        "hex": "#628985"
       },
       "--df-status-safe-bg": {
         "palette": "neutral-100",
@@ -744,11 +756,11 @@
       },
       "--df-status-safe-text": {
         "palette": "success-30",
-        "hex": "#203326"
+        "hex": "#1f3324"
       },
       "--df-status-safe-line": {
         "palette": "success-60",
-        "hex": "#718777"
+        "hex": "#708775"
       },
       "--df-status-review-bg": {
         "palette": "neutral-100",
@@ -756,11 +768,11 @@
       },
       "--df-status-review-text": {
         "palette": "warning-20",
-        "hex": "#1f1400"
+        "hex": "#201300"
       },
       "--df-status-review-line": {
         "palette": "warning-60",
-        "hex": "#947d53"
+        "hex": "#977b4f"
       },
       "--df-status-danger-bg": {
         "palette": "neutral-100",
@@ -768,11 +780,11 @@
       },
       "--df-status-danger-text": {
         "palette": "danger-30",
-        "hex": "#4e1b16"
+        "hex": "#50171d"
       },
       "--df-status-danger-line": {
         "palette": "danger-60",
-        "hex": "#aa6e66"
+        "hex": "#ae6b6d"
       },
       "--df-diff-old-bg": {
         "palette": "neutral-100",
@@ -780,7 +792,7 @@
       },
       "--df-diff-old-text": {
         "palette": "danger-30",
-        "hex": "#4e1b16"
+        "hex": "#50171d"
       },
       "--df-diff-new-bg": {
         "palette": "neutral-100",
@@ -788,273 +800,285 @@
       },
       "--df-diff-new-text": {
         "palette": "success-30",
-        "hex": "#203326"
+        "hex": "#1f3324"
       },
       "--df-code-bg": {
         "palette": "neutral-10",
-        "hex": "#020306"
+        "hex": "#040302"
       },
       "--df-code-text": {
         "palette": "neutral-95",
-        "hex": "#e9eff7"
+        "hex": "#f0eeea"
       }
     },
     "dark": {
       "--df-bg": {
         "palette": "neutral-10",
-        "hex": "#020306"
+        "hex": "#040302"
       },
       "--df-surface-1": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-surface-2": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-surface-3": {
         "palette": "neutral-30",
-        "hex": "#2a2e34"
+        "hex": "#2f2e2a"
       },
       "--df-surface-strong": {
         "palette": "neutral-30",
-        "hex": "#2a2e34"
+        "hex": "#2f2e2a"
       },
       "--df-text-1": {
         "palette": "neutral-98",
-        "hex": "#f4f9ff"
+        "hex": "#faf8f4"
       },
       "--df-text-2": {
         "palette": "neutral-90",
-        "hex": "#d9dfe6"
+        "hex": "#dfdeda"
       },
       "--df-text-inverse": {
         "palette": "neutral-10",
-        "hex": "#020306"
+        "hex": "#040302"
       },
       "--df-line-subtle": {
         "palette": "neutral-40",
-        "hex": "#43484e"
+        "hex": "#494844"
       },
       "--df-line": {
         "palette": "neutral-50",
-        "hex": "#5f646a"
+        "hex": "#64635f"
       },
       "--df-line-strong": {
         "palette": "neutral-60",
-        "hex": "#7b8187"
+        "hex": "#81807c"
       },
       "--df-action-bg": {
-        "palette": "brand-70",
-        "hex": "#6aa3dd"
+        "palette": "neutral-98",
+        "hex": "#faf8f4"
       },
       "--df-action-bg-hover": {
-        "palette": "brand-80",
-        "hex": "#89c3ff"
+        "palette": "brand-90",
+        "hex": "#ffd3c5"
       },
       "--df-action-text": {
         "palette": "neutral-10",
-        "hex": "#020306"
+        "hex": "#040302"
       },
       "--df-action-border": {
         "palette": "brand-60",
-        "hex": "#4c84bc"
+        "hex": "#ac6e5b"
       },
       "--df-action-soft": {
         "palette": "brand-20",
-        "hex": "#00172e"
+        "hex": "#2d0700"
       },
       "--df-action-soft-text": {
         "palette": "brand-90",
-        "hex": "#c6e1ff"
+        "hex": "#ffd3c5"
       },
       "--df-focus-ring": {
         "palette": "agent-80",
-        "hex": "#bab9e2"
+        "hex": "#c2b6e0"
       },
       "--df-focus-halo": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-data-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-data-text": {
         "palette": "data-90",
-        "hex": "#b8e7f5"
+        "hex": "#bee8e3"
       },
       "--df-agent-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-agent-text": {
         "palette": "agent-90",
-        "hex": "#dadaff"
+        "hex": "#e2d7ff"
       },
       "--df-agent-line": {
         "palette": "agent-60",
-        "hex": "#7d7ca2"
+        "hex": "#8479a0"
       },
       "--df-autonomy-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-autonomy-text": {
         "palette": "agent-90",
-        "hex": "#dadaff"
+        "hex": "#e2d7ff"
       },
       "--df-autonomy-line": {
         "palette": "agent-60",
-        "hex": "#7d7ca2"
+        "hex": "#8479a0"
       },
       "--df-stage-idle-bg": {
         "palette": "neutral-30",
-        "hex": "#2a2e34"
+        "hex": "#2f2e2a"
       },
       "--df-stage-idle-text": {
         "palette": "neutral-90",
-        "hex": "#d9dfe6"
+        "hex": "#dfdeda"
       },
       "--df-stage-idle-line": {
         "palette": "neutral-50",
-        "hex": "#5f646a"
+        "hex": "#64635f"
       },
       "--df-stage-active-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-stage-active-text": {
         "palette": "brand-90",
-        "hex": "#c6e1ff"
+        "hex": "#ffd3c5"
       },
       "--df-stage-active-line": {
         "palette": "brand-60",
-        "hex": "#4c84bc"
+        "hex": "#ac6e5b"
       },
       "--df-stage-complete-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-stage-complete-text": {
         "palette": "success-90",
-        "hex": "#cde5d4"
+        "hex": "#cce6d2"
       },
       "--df-stage-complete-line": {
         "palette": "success-60",
-        "hex": "#718777"
+        "hex": "#708775"
       },
       "--df-stage-blocked-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-stage-blocked-text": {
         "palette": "warning-95",
-        "hex": "#ffeccb"
+        "hex": "#ffeccf"
       },
       "--df-stage-blocked-line": {
         "palette": "warning-60",
-        "hex": "#947d53"
+        "hex": "#977b4f"
       },
       "--df-stage-failed-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-stage-failed-text": {
         "palette": "danger-90",
-        "hex": "#ffd2cb"
+        "hex": "#ffd1d1"
       },
       "--df-stage-failed-line": {
         "palette": "danger-60",
-        "hex": "#aa6e66"
+        "hex": "#ae6b6d"
       },
       "--df-confidence-high-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-confidence-high-text": {
         "palette": "success-90",
-        "hex": "#cde5d4"
+        "hex": "#cce6d2"
+      },
+      "--df-confidence-high-line": {
+        "palette": "success-60",
+        "hex": "#708775"
       },
       "--df-confidence-medium-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-confidence-medium-text": {
         "palette": "warning-95",
-        "hex": "#ffeccb"
+        "hex": "#ffeccf"
+      },
+      "--df-confidence-medium-line": {
+        "palette": "warning-60",
+        "hex": "#977b4f"
       },
       "--df-confidence-low-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-confidence-low-text": {
         "palette": "danger-90",
-        "hex": "#ffd2cb"
+        "hex": "#ffd1d1"
+      },
+      "--df-confidence-low-line": {
+        "palette": "danger-60",
+        "hex": "#ae6b6d"
       },
       "--df-proof-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-proof-text": {
         "palette": "data-90",
-        "hex": "#b8e7f5"
+        "hex": "#bee8e3"
       },
       "--df-proof-line": {
         "palette": "data-60",
-        "hex": "#5c8895"
+        "hex": "#628985"
       },
       "--df-status-safe-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-status-safe-text": {
         "palette": "success-90",
-        "hex": "#cde5d4"
+        "hex": "#cce6d2"
       },
       "--df-status-safe-line": {
         "palette": "success-60",
-        "hex": "#718777"
+        "hex": "#708775"
       },
       "--df-status-review-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-status-review-text": {
         "palette": "warning-95",
-        "hex": "#ffeccb"
+        "hex": "#ffeccf"
       },
       "--df-status-review-line": {
         "palette": "warning-60",
-        "hex": "#947d53"
+        "hex": "#977b4f"
       },
       "--df-status-danger-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-status-danger-text": {
         "palette": "danger-90",
-        "hex": "#ffd2cb"
+        "hex": "#ffd1d1"
       },
       "--df-status-danger-line": {
         "palette": "danger-60",
-        "hex": "#aa6e66"
+        "hex": "#ae6b6d"
       },
       "--df-diff-old-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-diff-old-text": {
         "palette": "danger-90",
-        "hex": "#ffd2cb"
+        "hex": "#ffd1d1"
       },
       "--df-diff-new-bg": {
         "palette": "neutral-20",
-        "hex": "#12161b"
+        "hex": "#171613"
       },
       "--df-diff-new-text": {
         "palette": "success-90",
-        "hex": "#cde5d4"
+        "hex": "#cce6d2"
       },
       "--df-code-bg": {
         "palette": "neutral-0",
@@ -1062,7 +1086,7 @@
       },
       "--df-code-text": {
         "palette": "neutral-95",
-        "hex": "#e9eff7"
+        "hex": "#f0eeea"
       }
     }
   }

@@ -37,10 +37,12 @@ served as an API-only Hugging Face Docker Space.
 - [x] Rate limiting returns 429 on the 11th POST within a minute from one client.
 - [x] The frontend uses relative assets plus `config.js` and never assumes HF static hosting.
 - [x] No browser storage APIs or frontend API keys appear under `playground/web/`.
-- [x] The frontend primary action is Analyze; result tabs are Risk, Repairs, and Receipt.
-- [x] The frontend renders the proof loop as a persistent supervision cockpit:
-  command rail, workflow spine, evidence canvas, decision ledger, repair diff,
-  and receipt drawer.
+- [x] The frontend primary action is Analyze; evidence is organized through
+  multi-page product routes for Run, Atlas, Evidence, Repairs, Receipt, and
+  System.
+- [x] The frontend renders the proof loop as a persistent DataForge Observatory:
+  product navigation, mission bar, proof atlas, evidence dock, human review
+  queue, repair comparison, and receipt handoff.
 - [x] The frontend uses `/api/analyze/stream` when the health response advertises
   streaming and falls back to `/api/analyze` when streaming is unavailable.
 - [x] The frontend exposes cancel/retry behavior for in-flight stream requests
@@ -82,9 +84,11 @@ served as an API-only Hugging Face Docker Space.
 - Safety: no endpoint may silently bypass safety or verifier failures.
 - Visual quality: color tokens come from `SPEC_color_system.md`; color never
   carries critical state without adjacent text, iconography, or ARIA semantics.
-  The playground uses an institutional-console shell with a command bar,
-  neutral-first surfaces, cobalt primary action, and subdued success green only
-  for verified-safe states.
+  The playground uses the DataForge Mineral Intelligence surface: porcelain
+  field, graphite command, vermilion signal, teal-steel evidence, viridian
+  proof, brass caution, hematite failure, and muted ultraviolet agent presence.
+  State color appears as precision instrumentation rather than large
+  decorative fills.
 - AUX quality: agency, uncertainty, verifier boundaries, abstentions,
   handoffs, and human-required decisions are visible without opening exported
   JSON. Motion communicates causality/progress and respects
@@ -162,9 +166,9 @@ served as an API-only Hugging Face Docker Space.
 - Depends on: 6.2, 6.7
 - Estimated complexity: M
 
-### 6.10 AUX supervision cockpit
+### 6.10 DataForge multi-page AUX surface
 - Acceptance: the React playground uses the stream when available, falls back to
-  `/api/analyze`, preserves keyboard-complete Risk/Repairs/Receipt views, shows
+  `/api/analyze`, supports direct `/playground/*` product routes, shows
   workflow stages, proof obligations, root causes, failures, accepted
   constraints, limitations, and local CLI handoff as first-class UI.
 - Depends on: 6.4, 6.8, 6.9
