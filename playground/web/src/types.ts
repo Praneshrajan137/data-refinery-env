@@ -7,6 +7,8 @@ export interface BackendCapability {
   status: "ok";
   advanced_available: boolean;
   max_upload_bytes: number;
+  streaming_available?: boolean;
+  workflow_contract_version?: "workflow_event_v1";
   service?: string;
   api_version?: string;
   contract_version?: string;
@@ -256,4 +258,45 @@ export interface ProblemDetail {
   instance?: string;
   error?: string;
   [key: string]: unknown;
+}
+
+export type WorkflowStageId =
+  | "intake"
+  | "schema_inference"
+  | "constraint_review"
+  | "detectors"
+  | "repair_candidates"
+  | "safety_gate"
+  | "smt_verifier"
+  | "dry_run_transaction"
+  | "receipt";
+
+export type WorkflowStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "cancelled";
+
+export interface WorkflowEvent {
+  schema_version: "workflow_event_v1";
+  run_id: string;
+  sequence: number;
+  stage_id: WorkflowStageId;
+  status: WorkflowStatus;
+  summary: string;
+  started_at?: string;
+  completed_at?: string;
+  counts: Record<string, number | string | boolean>;
+  confidence?: number;
+  uncertainty?: string;
+  requires_human: boolean;
+  analysis?: AnalyzeResponse;
+  problem?: ProblemDetail;
+}
+
+export interface AnalyzeStreamOptions {
+  signal?: AbortSignal;
+  onEvent: (event: WorkflowEvent) => void;
 }

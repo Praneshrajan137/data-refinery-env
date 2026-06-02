@@ -2,7 +2,7 @@
 
 > Status: Reviewed
 > Owner: @Praneshrajan15
-> Last updated: 2026-06-01
+> Last updated: 2026-06-02
 
 ## 1. Purpose (2 sentences)
 
@@ -15,8 +15,17 @@ served as an API-only Hugging Face Docker Space.
 ## 2. Outcomes (measurable, binary pass/fail)
 
 - [x] `GET /api/health` returns `status`, `advanced_available`, and `max_upload_bytes`.
+- [x] `GET /api/health` returns `streaming_available=true` and
+  `workflow_contract_version="workflow_event_v1"` for the supervision cockpit.
 - [x] `GET /` returns stable API service metadata and never tries to serve a SPA.
 - [x] `POST /api/analyze` on `hospital_10rows.csv` returns source facts, schema inference, categorical risk, issues, verified repairs, verification evidence, dry-run journal, receipt, apply handoff, and limitations within 5 s warm.
+- [x] `POST /api/analyze/stream` returns NDJSON `workflow_event_v1` events for
+  `intake`, `schema_inference`, `constraint_review`, `detectors`,
+  `repair_candidates`, `safety_gate`, `smt_verifier`, `dry_run_transaction`,
+  and `receipt`; the final completed receipt event includes the same
+  `AnalyzeResponse` payload shape as `/api/analyze`.
+- [x] `POST /api/analyze/stream` emits a failed receipt event with a public
+  problem payload when the workflow stops after streaming begins.
 - [x] `POST /api/analyze` keeps inferred constraints pending by default and uses only submitted accepted constraint IDs for repair semantics.
 - [x] Unknown accepted constraint IDs return 400 `application/problem+json` with `error="unknown_constraint_id"`.
 - [x] `POST /api/profile` and `POST /api/repair?dry_run=true` remain compatibility routes backed by the shared analyzer/serializer contracts.
@@ -29,6 +38,13 @@ served as an API-only Hugging Face Docker Space.
 - [x] The frontend uses relative assets plus `config.js` and never assumes HF static hosting.
 - [x] No browser storage APIs or frontend API keys appear under `playground/web/`.
 - [x] The frontend primary action is Analyze; result tabs are Risk, Repairs, and Receipt.
+- [x] The frontend renders the proof loop as a persistent supervision cockpit:
+  command rail, workflow spine, evidence canvas, decision ledger, repair diff,
+  and receipt drawer.
+- [x] The frontend uses `/api/analyze/stream` when the health response advertises
+  streaming and falls back to `/api/analyze` when streaming is unavailable.
+- [x] The frontend exposes cancel/retry behavior for in-flight stream requests
+  without clearing the last completed analysis.
 - [x] Constraint selections are per-run memory only and are never persisted to browser storage.
 - [x] The authoritative HF deploy path uses `scripts/playground/stage_space.py`, not subtree push.
 - [x] The frontend imports the generated DataForge color system, passes
@@ -40,6 +56,8 @@ served as an API-only Hugging Face Docker Space.
 
 **IN**:
 - API endpoints: `/`, `/api/health`, `/api/samples/{name}`, `/api/analyze`, `/api/profile`, `/api/repair`
+- Stream endpoint: `/api/analyze/stream` with line-delimited
+  `workflow_event_v1` events
 - Temporary-directory-only dry-run transaction journaling
 - Schema-inference review artifacts with pending-by-default constraints
 - Categorical risk and repair readiness summaries
@@ -67,6 +85,10 @@ served as an API-only Hugging Face Docker Space.
   The playground uses an institutional-console shell with a command bar,
   neutral-first surfaces, cobalt primary action, and subdued success green only
   for verified-safe states.
+- AUX quality: agency, uncertainty, verifier boundaries, abstentions,
+  handoffs, and human-required decisions are visible without opening exported
+  JSON. Motion communicates causality/progress and respects
+  `prefers-reduced-motion`.
 - Hosting: single-worker Space runtime, `PORT` honored, UID 1000, all temporary I/O under a request-local temp directory.
 - Quality gate: `make lint`, `make type`, `make test`, playground smoke tests, and regression smoke must all pass.
 - Contract gate: `make backend-gate` verifies OpenAPI drift, README truth,
@@ -132,12 +154,30 @@ served as an API-only Hugging Face Docker Space.
 - Depends on: 6.2
 - Estimated complexity: M
 
+### 6.9 Streamable supervision workflow
+- Acceptance: `/api/analyze/stream` emits NDJSON `workflow_event_v1` events in
+  fixed stage order, includes final `AnalyzeResponse` data on the receipt event,
+  emits failed receipt events for stream-time public errors, and remains
+  dry-run/stateless.
+- Depends on: 6.2, 6.7
+- Estimated complexity: M
+
+### 6.10 AUX supervision cockpit
+- Acceptance: the React playground uses the stream when available, falls back to
+  `/api/analyze`, preserves keyboard-complete Risk/Repairs/Receipt views, shows
+  workflow stages, proof obligations, root causes, failures, accepted
+  constraints, limitations, and local CLI handoff as first-class UI.
+- Depends on: 6.4, 6.8, 6.9
+- Estimated complexity: L
+
 ## 7. Verification
 
 - Integration tests: `tests/integration/test_playground_smoke.py`
 - Unit tests: `tests/unit/test_playground_stage_space.py`, `tests/unit/test_playground_web_contract.py`
 - Regression tests: `tests/regression/test_env.py`
 - Frontend visual contract: `npm run colors:check`, `npm run audit:colors`, `npm run test:unit`, `npm run test:e2e`
+- Stream contract: integration tests cover event order, final payload parity,
+  health metadata, stream failure events, and fallback behavior.
 - CI assertions: no browser storage APIs, no frontend API keys, no raw
   hand-authored hex colors, valid HF Space front matter
 

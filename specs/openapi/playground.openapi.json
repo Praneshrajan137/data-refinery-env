@@ -130,6 +130,31 @@
         "title": "Body_analyze_api_analyze_post",
         "type": "object"
       },
+      "Body_analyze_stream_api_analyze_stream_post": {
+        "properties": {
+          "accepted_constraint_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Constraint Ids"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_stream_api_analyze_stream_post",
+        "type": "object"
+      },
       "Body_profile_api_profile_post": {
         "properties": {
           "file": {
@@ -394,6 +419,15 @@
             "const": "ok",
             "title": "Status",
             "type": "string"
+          },
+          "streaming_available": {
+            "title": "Streaming Available",
+            "type": "boolean"
+          },
+          "workflow_contract_version": {
+            "const": "workflow_event_v1",
+            "title": "Workflow Contract Version",
+            "type": "string"
           }
         },
         "required": [
@@ -401,6 +435,8 @@
           "status",
           "advanced_available",
           "max_upload_bytes",
+          "streaming_available",
+          "workflow_contract_version",
           "api_version",
           "contract_version",
           "build_sha",
@@ -1422,6 +1458,43 @@
           }
         },
         "summary": "Analyze"
+      }
+    },
+    "/api/analyze/stream": {
+      "post": {
+        "description": "Stream the analyze proof loop as NDJSON workflow events.",
+        "operationId": "analyze_stream_api_analyze_stream_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_stream_api_analyze_stream_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze Stream"
       }
     },
     "/api/health": {

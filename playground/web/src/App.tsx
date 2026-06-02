@@ -1,11 +1,17 @@
 import {
   Activity,
   AlertTriangle,
+  BrainCircuit,
   CheckCircle2,
+  CircleDot,
+  ClipboardCheck,
   ClipboardCopy,
   Database,
   Download,
   FileText,
+  GitBranch,
+  ListChecks,
+  PauseCircle,
   RefreshCw,
   ShieldCheck,
   Upload,
@@ -15,8 +21,10 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
   type ReactNode,
+  type RefObject,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
 } from "react";
@@ -34,17 +42,26 @@ import {
 import type {
   AnalyzeResponse,
   BackendCapability,
+  CandidateRepair,
   ConstraintCandidate,
   CsvPreview,
   DatasetInput,
   IssueGroup,
   ProblemDetail,
+  ProofObligation,
   RepairFailure,
   RepairReadiness,
   RiskLevel,
+  RootCause,
   Severity,
   VerifiedFix,
+  WorkflowEvent,
 } from "./types";
+import {
+  createWorkflowState,
+  workflowReducer,
+  type WorkflowStageView,
+} from "./workflow";
 
 const SAMPLE_OPTIONS = [
   { value: "hospital_10rows", label: "Hospital", detail: "Healthcare data" },
@@ -69,6 +86,7 @@ function App() {
     [runtimeConfig.BACKEND_URL],
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const [capability, setCapability] = useState<BackendCapability | null>(null);
   const [backendState, setBackendState] = useState<WorkState>("loading");
@@ -78,6 +96,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabId>("risk");
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [analysisState, setAnalysisState] = useState<WorkState>("idle");
+  const [workflow, dispatchWorkflow] = useReducer(workflowReducer, undefined, createWorkflowState);
   const [acceptedConstraintIds, setAcceptedConstraintIds] = useState<string[]>([]);
   const [problem, setProblem] = useState<ProblemDetail | null>(null);
   const [filter, setFilter] = useState("");
@@ -86,8 +105,12 @@ function App() {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
 
   const maxUploadBytes = capability?.max_upload_bytes ?? DEFAULT_MAX_UPLOAD_BYTES;
+  const streamingEnabled =
+    capability?.streaming_available === true &&
+    capability.workflow_contract_version === "workflow_event_v1";
   const busy = datasetState === "loading" || analysisState === "loading";
   const canRun = backendState === "ready" && dataset !== null && !busy;
+  const latestAnalysis = workflow.lastAnalysis ?? analysis;
   const evidenceText = useMemo(
     () => (analysis && dataset ? buildEvidenceExport(dataset.file.name, analysis) : ""),
     [analysis, dataset],
@@ -125,6 +148,7 @@ function App() {
     void warmBackend();
     return () => {
       cancelled = true;
+      abortControllerRef.current?.abort();
     };
   }, [client]);
 
@@ -148,6 +172,7 @@ function App() {
       setCopyState("idle");
       setAnalysisState("idle");
       setActiveTab("risk");
+      dispatchWorkflow({ type: "reset" });
     } catch (error) {
       setDatasetState("error");
       setProblem(localProblem(error instanceof Error ? error.message : "The CSV preview failed."));
@@ -181,12 +206,25 @@ function App() {
     if (!dataset || !canRun) {
       return;
     }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setAnalysisState("loading");
     setProblem(null);
     setCopyState("idle");
     setActiveTab("risk");
+    dispatchWorkflow({ type: "start" });
+
     try {
-      const nextAnalysis = await client.analyze(dataset.file, advanced, ids);
+      const nextAnalysis = streamingEnabled
+        ? await client.analyzeStream(dataset.file, advanced, ids, {
+            signal: controller.signal,
+            onEvent: (event: WorkflowEvent) => dispatchWorkflow({ type: "event", event }),
+          })
+        : await client.analyze(dataset.file, advanced, ids);
+
+      if (!streamingEnabled) {
+        dispatchWorkflow({ type: "analysis", analysis: nextAnalysis });
+      }
       setAnalysis(nextAnalysis);
       setAcceptedConstraintIds(
         nextAnalysis.schema_inference.candidates
@@ -195,16 +233,30 @@ function App() {
       );
       setAnalysisState("ready");
     } catch (error) {
+      if (isAbortError(error)) {
+        dispatchWorkflow({ type: "cancel" });
+        setAnalysisState(analysis ? "ready" : "idle");
+        return;
+      }
       const nextProblem = problemFromUnknown(error);
       setAnalysisState("error");
       setProblem(nextProblem);
+      dispatchWorkflow({ type: "problem", problem: nextProblem });
       if (nextProblem.error === "advanced_mode_unavailable") {
         setAdvanced(false);
         setCapability((current) =>
           current ? { ...current, advanced_available: false } : current,
         );
       }
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
     }
+  }
+
+  function cancelAnalyze() {
+    abortControllerRef.current?.abort();
   }
 
   function toggleConstraint(candidateId: string, checked: boolean) {
@@ -264,182 +316,244 @@ function App() {
           <span className="product-mark" aria-hidden="true">DF</span>
           <div>
             <p className="eyebrow">DataForge Playground</p>
-            <h1>Verified CSV repair workbench</h1>
+            <h1>Agentic repair supervision cockpit</h1>
           </div>
         </div>
         <div className="command-meta" aria-label="Playground operating constraints">
           <span>Stateless dry run</span>
+          <span>{streamingEnabled ? "Workflow stream" : "JSON fallback"}</span>
           <span>{Math.floor(maxUploadBytes / 1024)} KiB CSV cap</span>
           <BackendStatus state={backendState} capability={capability} onRetry={() => window.location.reload()} />
         </div>
       </header>
 
-      <main className="workspace" aria-busy={busy}>
-        <section className="panel intake-panel" aria-labelledby="intake-title">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Input</p>
-              <h2 id="intake-title">Dataset intake</h2>
-            </div>
-            <span className="limit-pill">{Math.floor(maxUploadBytes / 1024)} KiB limit</span>
-          </div>
+      <main className="cockpit-shell" aria-busy={busy}>
+        <CommandRail
+          dataset={dataset}
+          busy={busy}
+          canRun={canRun}
+          maxUploadBytes={maxUploadBytes}
+          capability={capability}
+          advanced={advanced}
+          acceptedConstraintIds={acceptedConstraintIds}
+          analysisState={analysisState}
+          fileInputRef={fileInputRef}
+          onAdvancedChange={setAdvanced}
+          onChooseSample={chooseSample}
+          onFileChange={handleFileChange}
+          onAnalyze={() => void runAnalyze([])}
+          onRerun={() => void runAnalyze(acceptedConstraintIds)}
+          onCancel={cancelAnalyze}
+        />
 
-          <label className="file-drop" htmlFor="csv-upload">
-            <Upload aria-hidden="true" />
-            <span>
-              <strong>Upload CSV</strong>
-              <small>{dataset?.source === "upload" ? dataset.file.name : "No file selected"}</small>
-            </span>
-            <input
-              id="csv-upload"
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              disabled={busy}
-              onChange={handleFileChange}
-            />
-          </label>
+        <section className="cockpit-main" aria-label="Supervision workspace">
+          <WorkflowSpine stages={workflow.stages} runId={workflow.runId} status={workflow.status} />
 
-          <div className="sample-grid" aria-label="Sample datasets">
-            {SAMPLE_OPTIONS.map((sample) => (
-              <button
-                className="sample-button"
-                type="button"
-                key={sample.value}
-                disabled={busy}
-                onClick={() => void chooseSample(sample.value)}
-              >
-                <Database aria-hidden="true" />
-                <span>
-                  <strong>{sample.label}</strong>
-                  <small>{sample.detail}</small>
-                </span>
-              </button>
-            ))}
-          </div>
+          <EvidenceCanvas
+            dataset={dataset}
+            analysis={latestAnalysis}
+            preview={dataset?.preview ?? null}
+            problem={problem}
+            copyState={copyState}
+            evidenceText={evidenceText}
+            onCopy={() => void copyEvidence()}
+            onExport={exportEvidence}
+          />
 
-          <label className="switch-row" htmlFor="advanced-mode">
-            <span>
-              <strong>Advanced mode</strong>
-              <small>
-                {capability?.advanced_available
-                  ? "Backend provider available"
-                  : "Backend provider unavailable"}
-              </small>
-            </span>
-            <input
-              id="advanced-mode"
-              type="checkbox"
-              role="switch"
-              checked={advanced}
-              disabled={busy || !capability?.advanced_available}
-              onChange={(event) => setAdvanced(event.target.checked)}
-            />
-          </label>
+          <DecisionLedger
+            analysis={latestAnalysis}
+            selectedConstraintIds={acceptedConstraintIds}
+            onToggleConstraint={toggleConstraint}
+          />
 
-          <div className="action-row">
-            <button className="primary-action" type="button" disabled={!canRun} onClick={() => void runAnalyze([])}>
-              <Activity aria-hidden="true" />
-              Analyze
-            </button>
-            <button
-              className="secondary-action"
-              type="button"
-              disabled={!canRun || acceptedConstraintIds.length === 0}
-              onClick={() => void runAnalyze(acceptedConstraintIds)}
-            >
-              <RefreshCw aria-hidden="true" />
-              Rerun with accepted constraints
-            </button>
-          </div>
-        </section>
-
-        <section className="panel preview-panel" aria-labelledby="preview-title">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Preview</p>
-              <h2 id="preview-title">Current CSV</h2>
-            </div>
-            <DatasetBadge dataset={dataset} />
-          </div>
-          {dataset ? (
-            <CsvPreviewTable preview={dataset.preview} />
-          ) : (
-            <EmptyState
-              icon={<FileText aria-hidden="true" />}
-              title="No dataset loaded"
-              body="Choose a sample or upload a CSV to inspect the first rows before backend analysis."
-            />
-          )}
-        </section>
-
-        <section className="panel results-panel" aria-labelledby="results-title">
-          <div className="panel-heading">
-            <div>
-              <p className="eyebrow">Evidence</p>
-              <h2 id="results-title">Proof loop</h2>
-            </div>
-            {analysis ? (
-              <div className="evidence-actions">
-                <button type="button" className="icon-button" onClick={() => void copyEvidence()}>
-                  <ClipboardCopy aria-hidden="true" />
-                  {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}
-                </button>
-                <button type="button" className="icon-button" onClick={exportEvidence}>
-                  <Download aria-hidden="true" />
-                  Export
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          {problem ? <ProblemBanner problem={problem} /> : null}
           {copyState === "failed" && evidenceText ? (
             <CopyFallback evidenceText={evidenceText} />
           ) : null}
 
-          <div className="tabs" role="tablist" aria-label="Result views">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                id={`tab-${tab.id}`}
-                role="tab"
-                type="button"
-                aria-selected={activeTab === tab.id}
-                aria-controls={`panel-${tab.id}`}
-                tabIndex={activeTab === tab.id ? 0 : -1}
-                onClick={() => setActiveTab(tab.id)}
-                onKeyDown={handleTabKeyDown}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <section className="panel results-panel" aria-labelledby="results-title">
+            <div className="panel-heading">
+              <div>
+                <p className="eyebrow">Evidence Views</p>
+                <h2 id="results-title">Risk, repairs, and receipt</h2>
+              </div>
+              <span className="muted-pill">
+                {analysis ? analysis.meta.contract_version : "Awaiting analysis"}
+              </span>
+            </div>
 
-          <ResultPanel id="risk" activeTab={activeTab}>
-            <RiskView
-              state={analysisState}
-              analysis={analysis}
-              issues={visibleIssues}
-              filter={filter}
-              severityFilter={severityFilter}
-              sortKey={sortKey}
-              selectedConstraintIds={acceptedConstraintIds}
-              onFilterChange={setFilter}
-              onSeverityFilterChange={setSeverityFilter}
-              onSortChange={setSortKey}
-              onToggleConstraint={toggleConstraint}
-            />
-          </ResultPanel>
-          <ResultPanel id="repairs" activeTab={activeTab}>
-            <RepairsView state={analysisState} analysis={analysis} dataset={dataset} />
-          </ResultPanel>
-          <ResultPanel id="receipt" activeTab={activeTab}>
-            <ReceiptView analysis={analysis} />
-          </ResultPanel>
+            <div className="tabs" role="tablist" aria-label="Result views">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  id={`tab-${tab.id}`}
+                  role="tab"
+                  type="button"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`panel-${tab.id}`}
+                  tabIndex={activeTab === tab.id ? 0 : -1}
+                  onClick={() => setActiveTab(tab.id)}
+                  onKeyDown={handleTabKeyDown}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <ResultPanel id="risk" activeTab={activeTab}>
+              <RiskView
+                state={analysisState}
+                analysis={analysis}
+                issues={visibleIssues}
+                filter={filter}
+                severityFilter={severityFilter}
+                sortKey={sortKey}
+                selectedConstraintIds={acceptedConstraintIds}
+                onFilterChange={setFilter}
+                onSeverityFilterChange={setSeverityFilter}
+                onSortChange={setSortKey}
+                onToggleConstraint={toggleConstraint}
+              />
+            </ResultPanel>
+            <ResultPanel id="repairs" activeTab={activeTab}>
+              <RepairsView state={analysisState} analysis={analysis} dataset={dataset} />
+            </ResultPanel>
+            <ResultPanel id="receipt" activeTab={activeTab}>
+              <ReceiptView analysis={analysis} />
+            </ResultPanel>
+          </section>
         </section>
       </main>
     </div>
+  );
+}
+
+function CommandRail({
+  dataset,
+  busy,
+  canRun,
+  maxUploadBytes,
+  capability,
+  advanced,
+  acceptedConstraintIds,
+  analysisState,
+  fileInputRef,
+  onAdvancedChange,
+  onChooseSample,
+  onFileChange,
+  onAnalyze,
+  onRerun,
+  onCancel,
+}: {
+  dataset: DatasetInput | null;
+  busy: boolean;
+  canRun: boolean;
+  maxUploadBytes: number;
+  capability: BackendCapability | null;
+  advanced: boolean;
+  acceptedConstraintIds: string[];
+  analysisState: WorkState;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  onAdvancedChange: (next: boolean) => void;
+  onChooseSample: (sampleName: string) => void | Promise<void>;
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+  onAnalyze: () => void;
+  onRerun: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <aside className="command-rail" aria-labelledby="command-rail-title">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Command Rail</p>
+          <h2 id="command-rail-title">Human control</h2>
+        </div>
+        <span className="limit-pill">{Math.floor(maxUploadBytes / 1024)} KiB</span>
+      </div>
+
+      <label className="file-drop" htmlFor="csv-upload">
+        <Upload aria-hidden="true" />
+        <span>
+          <strong>Upload CSV</strong>
+          <small>{dataset?.source === "upload" ? dataset.file.name : "No file selected"}</small>
+        </span>
+        <input
+          id="csv-upload"
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          disabled={busy}
+          onChange={onFileChange}
+        />
+      </label>
+
+      <div className="sample-grid" aria-label="Sample datasets">
+        {SAMPLE_OPTIONS.map((sample) => (
+          <button
+            className="sample-button"
+            type="button"
+            key={sample.value}
+            disabled={busy}
+            onClick={() => void onChooseSample(sample.value)}
+          >
+            <Database aria-hidden="true" />
+            <span>
+              <strong>{sample.label}</strong>
+              <small>{sample.detail}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <label className="switch-row" htmlFor="advanced-mode">
+        <span>
+          <strong>Advanced mode</strong>
+          <small>
+            {capability?.advanced_available
+              ? "Backend provider available"
+              : "Backend provider unavailable"}
+          </small>
+        </span>
+        <input
+          id="advanced-mode"
+          type="checkbox"
+          role="switch"
+          checked={advanced}
+          disabled={busy || !capability?.advanced_available}
+          onChange={(event) => onAdvancedChange(event.target.checked)}
+        />
+      </label>
+
+      <div className="action-stack">
+        {analysisState === "loading" ? (
+          <button className="secondary-action secondary-action--danger" type="button" onClick={onCancel}>
+            <PauseCircle aria-hidden="true" />
+            Cancel run
+          </button>
+        ) : (
+          <button className="primary-action" type="button" disabled={!canRun} onClick={onAnalyze}>
+            <Activity aria-hidden="true" />
+            Analyze
+          </button>
+        )}
+        <button
+          className="secondary-action"
+          type="button"
+          disabled={!canRun || acceptedConstraintIds.length === 0}
+          onClick={onRerun}
+        >
+          <RefreshCw aria-hidden="true" />
+          Rerun with accepted constraints
+        </button>
+      </div>
+
+      <div className="autonomy-boundary" aria-label="Autonomy boundary">
+        <BrainCircuit aria-hidden="true" />
+        <div>
+          <strong>Bounded agency</strong>
+          <p>Hosted runs can inspect, infer, propose, and verify. Apply and revert remain local CLI actions.</p>
+        </div>
+      </div>
+    </aside>
   );
 }
 
@@ -473,6 +587,194 @@ function BackendStatus({
       <CheckCircle2 aria-hidden="true" />
       {capability?.advanced_available ? "Ready with advanced mode" : "Ready"}
     </div>
+  );
+}
+
+function WorkflowSpine({
+  stages,
+  runId,
+  status,
+}: {
+  stages: WorkflowStageView[];
+  runId: string | null;
+  status: string;
+}) {
+  return (
+    <section className="panel workflow-panel" aria-labelledby="workflow-title">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">AUX Spine</p>
+          <h2 id="workflow-title">Agentic proof loop</h2>
+        </div>
+        <span className={`run-state run-state--${status}`}>{status}</span>
+      </div>
+      <ol className="workflow-spine" aria-label="Workflow stages">
+        {stages.map((stage) => (
+          <li className={`workflow-stage workflow-stage--${stage.status}`} key={stage.id}>
+            <span className="stage-icon" aria-hidden="true">
+              {stage.status === "completed" ? (
+                <CheckCircle2 />
+              ) : stage.status === "blocked" || stage.status === "failed" ? (
+                <AlertTriangle />
+              ) : stage.status === "running" ? (
+                <RefreshCw />
+              ) : (
+                <CircleDot />
+              )}
+            </span>
+            <div>
+              <div className="stage-title-row">
+                <strong>{stage.label}</strong>
+                <span>{stage.status}</span>
+              </div>
+              <p>{stage.summary || stage.description}</p>
+              {stage.uncertainty ? <small>{stage.uncertainty}</small> : null}
+              <StageCounts counts={stage.counts} />
+            </div>
+          </li>
+        ))}
+      </ol>
+      <p className="run-id">{runId ? `run ${runId.slice(0, 12)}` : "No active run"}</p>
+    </section>
+  );
+}
+
+function EvidenceCanvas({
+  dataset,
+  analysis,
+  preview,
+  problem,
+  copyState,
+  evidenceText,
+  onCopy,
+  onExport,
+}: {
+  dataset: DatasetInput | null;
+  analysis: AnalyzeResponse | null;
+  preview: CsvPreview | null;
+  problem: ProblemDetail | null;
+  copyState: "idle" | "copied" | "failed";
+  evidenceText: string;
+  onCopy: () => void;
+  onExport: () => void;
+}) {
+  return (
+    <section className="panel evidence-canvas" aria-labelledby="canvas-title">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Evidence Canvas</p>
+          <h2 id="canvas-title">Current table and run posture</h2>
+        </div>
+        {analysis ? (
+          <div className="evidence-actions">
+            <button type="button" className="icon-button" onClick={onCopy}>
+              <ClipboardCopy aria-hidden="true" />
+              {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}
+            </button>
+            <button type="button" className="icon-button" onClick={onExport}>
+              <Download aria-hidden="true" />
+              Export
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {problem ? <ProblemBanner problem={problem} /> : null}
+
+      <div className="canvas-grid">
+        <div className="canvas-preview">
+          <div className="canvas-subhead">
+            <div>
+              <p className="eyebrow">Preview</p>
+              <h3>Current CSV</h3>
+            </div>
+            <DatasetBadge dataset={dataset} />
+          </div>
+          {preview ? (
+            <CsvPreviewTable preview={preview} />
+          ) : (
+            <EmptyState
+              icon={<FileText aria-hidden="true" />}
+              title="No dataset loaded"
+              body="Choose a sample or upload a CSV to inspect the first rows before backend analysis."
+            />
+          )}
+        </div>
+
+        <div className="run-summary" aria-label="Run summary">
+          {analysis ? (
+            <>
+              <Metric label="Dataset risk" value={formatLabel(analysis.risk_summary.dataset_level)} compact />
+              <Metric label="Repair readiness" value={formatLabel(analysis.risk_summary.repair_readiness)} compact />
+              <Metric label="Verified fixes" value={analysis.repairs.length} />
+              <Metric label="Human review" value={reviewBurden(analysis)} compact />
+              <RiskSummaryPanel
+                datasetLevel={analysis.risk_summary.dataset_level}
+                readiness={analysis.risk_summary.repair_readiness}
+                reasons={analysis.risk_summary.reasons}
+              />
+            </>
+          ) : (
+            <EmptyState
+              icon={<ShieldCheck aria-hidden="true" />}
+              title="Run posture appears here"
+              body="Analyze a dataset to see risk, readiness, verifier posture, and human review load."
+            />
+          )}
+        </div>
+      </div>
+
+      {analysis && evidenceText ? (
+        <p className="canvas-note">Evidence export includes source facts, assumptions, issues, repairs, verification, receipt, and local handoff.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function DecisionLedger({
+  analysis,
+  selectedConstraintIds,
+  onToggleConstraint,
+}: {
+  analysis: AnalyzeResponse | null;
+  selectedConstraintIds: string[];
+  onToggleConstraint: (candidateId: string, checked: boolean) => void;
+}) {
+  return (
+    <section className="panel decision-ledger" aria-labelledby="decision-ledger-title">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Decision Ledger</p>
+          <h2 id="decision-ledger-title">Human handoffs and proof boundaries</h2>
+        </div>
+        <span className="muted-pill">
+          {analysis ? `${analysis.receipt.proof_obligations.length} proof checks` : "Awaiting run"}
+        </span>
+      </div>
+      {analysis ? (
+        <div className="ledger-grid">
+          <ConstraintReviewTable
+            candidates={analysis.schema_inference.candidates}
+            selectedConstraintIds={selectedConstraintIds}
+            onToggleConstraint={onToggleConstraint}
+            titleId="ledger-constraint-review-title"
+          />
+          <RootCauseList rootCauses={analysis.receipt.root_causes} />
+          <ProofObligationList obligations={analysis.receipt.proof_obligations} />
+          <FailureList
+            failures={analysis.verification.failures}
+            compact
+            titleId="ledger-failures-title"
+          />
+        </div>
+      ) : (
+        <EmptyState
+          icon={<ListChecks aria-hidden="true" />}
+          title="No decisions yet"
+          body="Constraint acceptance, verifier obligations, abstentions, and local handoff boundaries appear after analysis."
+        />
+      )}
+    </section>
   );
 }
 
@@ -637,6 +939,7 @@ function RiskView({
         candidates={analysis.schema_inference.candidates}
         selectedConstraintIds={selectedConstraintIds}
         onToggleConstraint={onToggleConstraint}
+        titleId="risk-constraint-review-title"
       />
     </div>
   );
@@ -712,10 +1015,12 @@ function ConstraintReviewTable({
   candidates,
   selectedConstraintIds,
   onToggleConstraint,
+  titleId = "constraint-review-title",
 }: {
   candidates: ConstraintCandidate[];
   selectedConstraintIds: string[];
   onToggleConstraint: (candidateId: string, checked: boolean) => void;
+  titleId?: string;
 }) {
   const selected = new Set(selectedConstraintIds);
   const sortedCandidates = [...candidates].sort((a, b) => {
@@ -729,11 +1034,11 @@ function ConstraintReviewTable({
   });
 
   return (
-    <section className="result-stack" aria-labelledby="constraint-review-title">
+    <section className="ledger-section" aria-labelledby={titleId}>
       <div className="panel-heading panel-heading--tight">
         <div>
           <p className="eyebrow">Assumptions</p>
-          <h3 id="constraint-review-title">Constraint review</h3>
+          <h3 id={titleId}>Constraint review</h3>
         </div>
         <span className="muted-pill">{candidates.length} inferred</span>
       </div>
@@ -774,7 +1079,9 @@ function ConstraintReviewTable({
                     <code>{formatLabel(candidate.kind)}</code>
                   </td>
                   <td>{formatConstraintColumns(candidate)}</td>
-                  <td>{formatPercent(candidate.confidence)}</td>
+                  <td>
+                    <ConfidenceBadge value={candidate.confidence} />
+                  </td>
                   <td>{candidate.repair_supported ? candidate.decision : "unsupported"}</td>
                   <td>{candidate.evidence}</td>
                 </tr>
@@ -837,7 +1144,8 @@ function RepairsView({
           ))}
         </div>
       ) : null}
-      <FailureList failures={analysis.verification.failures} />
+      <CandidateRepairList candidates={analysis.receipt.candidate_repairs} />
+      <FailureList failures={analysis.verification.failures} titleId="repair-failures-title" />
     </div>
   );
 }
@@ -872,13 +1180,45 @@ function RepairDiff({ fix, analysis }: { fix: VerifiedFix; analysis: AnalyzeResp
   );
 }
 
-function FailureList({ failures }: { failures: RepairFailure[] }) {
-  if (failures.length === 0) {
+function CandidateRepairList({ candidates }: { candidates: CandidateRepair[] }) {
+  if (candidates.length === 0) {
     return null;
   }
   return (
-    <section className="failure-list" aria-labelledby="failures-title">
-      <h3 id="failures-title">Attempted but not fixed</h3>
+    <section className="candidate-list" aria-labelledby="candidate-repairs-title">
+      <h3 id="candidate-repairs-title">Candidate repair trail</h3>
+      {candidates.map((candidate) => (
+        <article className="candidate-row" key={`${candidate.row}:${candidate.column}:${candidate.new_value}:${candidate.verifier_reason}`}>
+          <strong>
+            Row {candidate.row}, <code>{candidate.column}</code>
+          </strong>
+          <span>{candidate.detector_id} - {candidate.operation} - {candidate.provenance}</span>
+          <p>{candidate.verifier_reason}</p>
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function FailureList({
+  failures,
+  compact = false,
+  titleId = "failures-title",
+}: {
+  failures: RepairFailure[];
+  compact?: boolean;
+  titleId?: string;
+}) {
+  if (failures.length === 0) {
+    return compact ? (
+      <section className="failure-list" aria-label="Attempted but not fixed">
+        <EvidenceNote title="No repair abstentions" body="Every attempted repair either verified or no issue required a fix." />
+      </section>
+    ) : null;
+  }
+  return (
+    <section className="failure-list" aria-labelledby={titleId}>
+      <h3 id={titleId}>Attempted but not fixed</h3>
       {failures.map((failure) => (
         <article
           className="failure-row"
@@ -894,6 +1234,68 @@ function FailureList({ failures }: { failures: RepairFailure[] }) {
           ) : null}
         </article>
       ))}
+    </section>
+  );
+}
+
+function RootCauseList({ rootCauses }: { rootCauses: RootCause[] }) {
+  return (
+    <section className="ledger-section" aria-labelledby="root-causes-title">
+      <div className="panel-heading panel-heading--tight">
+        <div>
+          <p className="eyebrow">Diagnosis</p>
+          <h3 id="root-causes-title">Root causes</h3>
+        </div>
+        <span className="muted-pill">{rootCauses.length} diagnosis</span>
+      </div>
+      {rootCauses.length === 0 ? (
+        <EvidenceNote title="No root causes emitted" body="The receipt did not include issue-level root-cause diagnoses for this run." />
+      ) : (
+        <div className="ledger-card-list">
+          {rootCauses.map((rootCause) => (
+            <article className="ledger-card" key={`${rootCause.row}:${rootCause.column}:${rootCause.issue_type}`}>
+              <GitBranch aria-hidden="true" />
+              <div>
+                <strong>{formatLabel(rootCause.category)}</strong>
+                <span>
+                  row {rootCause.row}, <code>{rootCause.column}</code> - confidence {formatPercent(rootCause.confidence)}
+                </span>
+                <p>{rootCause.reason}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ProofObligationList({ obligations }: { obligations: ProofObligation[] }) {
+  return (
+    <section className="ledger-section" aria-labelledby="proof-obligations-title">
+      <div className="panel-heading panel-heading--tight">
+        <div>
+          <p className="eyebrow">Verifier Boundary</p>
+          <h3 id="proof-obligations-title">Proof obligations</h3>
+        </div>
+        <span className="muted-pill">{obligations.length} checks</span>
+      </div>
+      {obligations.length === 0 ? (
+        <EvidenceNote title="No proof obligations" body="No safety or verifier obligations were emitted for this run." />
+      ) : (
+        <div className="proof-list">
+          {obligations.map((obligation) => (
+            <article className={`proof-row proof-row--${obligation.status}`} key={obligation.obligation_id}>
+              <ClipboardCheck aria-hidden="true" />
+              <div>
+                <strong>{obligation.verifier} - {obligation.status}</strong>
+                <span>{obligation.obligation_id}</span>
+                <p>{obligation.reason}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -1015,6 +1417,11 @@ function SeverityBadge({ severity }: { severity: Severity }) {
   return <span className={`severity severity--${severity}`}>{severity}</span>;
 }
 
+function ConfidenceBadge({ value }: { value: number }) {
+  const bucket = value >= 0.85 ? "high" : value >= 0.65 ? "medium" : "low";
+  return <span className={`confidence confidence--${bucket}`}>{formatPercent(value)}</span>;
+}
+
 function ProblemBanner({ problem }: { problem: ProblemDetail }) {
   return (
     <div className="problem-banner" role="alert">
@@ -1050,6 +1457,22 @@ function EmptyState({
       {icon}
       <strong>{title}</strong>
       <p>{body}</p>
+    </div>
+  );
+}
+
+function StageCounts({ counts }: { counts: Record<string, number | string | boolean> }) {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) {
+    return null;
+  }
+  return (
+    <div className="stage-counts">
+      {entries.slice(0, 4).map(([key, value]) => (
+        <span key={key}>
+          {formatLabel(key)} {String(value)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -1098,6 +1521,15 @@ function shortHash(value: string): string {
   return value.slice(0, 12);
 }
 
+function reviewBurden(analysis: AnalyzeResponse): string {
+  const pending = analysis.risk_summary.pending_repair_supported_constraints;
+  const failures = analysis.verification.failures.length;
+  if (pending === 0 && failures === 0) {
+    return "clear";
+  }
+  return `${pending + failures} item${pending + failures === 1 ? "" : "s"}`;
+}
+
 function problemFromUnknown(error: unknown): ProblemDetail {
   if (error instanceof ApiProblemError) {
     return error.problem;
@@ -1113,6 +1545,10 @@ function localProblem(message: string): ProblemDetail {
     detail: message,
     error: "frontend_validation",
   };
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
 }
 
 function sleep(ms: number): Promise<void> {

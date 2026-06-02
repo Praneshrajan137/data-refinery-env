@@ -1,10 +1,12 @@
 import { backendPath, normalizeBackendUrl } from "./config";
 import type {
   AnalyzeResponse,
+  AnalyzeStreamOptions,
   BackendCapability,
   ProblemDetail,
   ProfileResponse,
   RepairResponse,
+  WorkflowEvent,
 } from "./types";
 
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -68,6 +70,90 @@ export class DataForgeClient {
       method: "POST",
       body: formData,
     });
+  }
+
+  async analyzeStream(
+    file: File,
+    advanced: boolean,
+    acceptedConstraintIds: string[] = [],
+    options: AnalyzeStreamOptions,
+  ): Promise<AnalyzeResponse> {
+    const params = advanced ? "?advanced=true" : "";
+    const formData = new FormData();
+    formData.append("file", file);
+    if (acceptedConstraintIds.length > 0) {
+      formData.append("accepted_constraint_ids", JSON.stringify(acceptedConstraintIds));
+    }
+
+    const response = await fetch(backendPath(this.backendUrl, `/api/analyze/stream${params}`), {
+      method: "POST",
+      body: formData,
+      signal: options.signal,
+    });
+    if (!response.ok) {
+      throw new ApiProblemError(await problemFromResponse(response));
+    }
+    if (!response.body) {
+      throw new ApiProblemError({
+        type: "https://dataforge.local/problems/stream_unavailable",
+        title: "Stream Unavailable",
+        status: 502,
+        detail: "The backend did not return a readable workflow stream.",
+        error: "stream_unavailable",
+      });
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let finalAnalysis: AnalyzeResponse | null = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const event = JSON.parse(trimmed) as WorkflowEvent;
+        options.onEvent(event);
+        if (event.analysis) {
+          finalAnalysis = event.analysis;
+        }
+        if (event.problem && event.status === "failed") {
+          throw new ApiProblemError(event.problem);
+        }
+      }
+      if (done) {
+        break;
+      }
+    }
+
+    const trailing = buffer.trim();
+    if (trailing) {
+      const event = JSON.parse(trailing) as WorkflowEvent;
+      options.onEvent(event);
+      if (event.analysis) {
+        finalAnalysis = event.analysis;
+      }
+      if (event.problem && event.status === "failed") {
+        throw new ApiProblemError(event.problem);
+      }
+    }
+
+    if (!finalAnalysis) {
+      throw new ApiProblemError({
+        type: "https://dataforge.local/problems/stream_missing_receipt",
+        title: "Stream Missing Receipt",
+        status: 502,
+        detail: "The workflow stream ended before returning a repair receipt.",
+        error: "stream_missing_receipt",
+      });
+    }
+    return finalAnalysis;
   }
 
   async repair(file: File, advanced: boolean): Promise<RepairResponse> {

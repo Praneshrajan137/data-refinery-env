@@ -199,12 +199,71 @@ function analyzePayload(accepted = false) {
   };
 }
 
+function workflowStreamBody(accepted = false) {
+  const analysis = analyzePayload(accepted);
+  const runId = accepted ? "run-accepted" : "run-default";
+  const now = "2026-06-02T00:00:00Z";
+  const stages: Array<[string, string, string, Record<string, number | boolean>]> = [
+    ["intake", "running", "Reading CSV upload and establishing the dry-run boundary.", { bytes: sampleCsv.length }],
+    ["intake", "completed", "Accepted hospital_10rows.csv for stateless dry-run analysis.", { bytes: sampleCsv.length }],
+    ["schema_inference", "running", "Inferring schema assumptions before repair semantics are applied.", {}],
+    [
+      "schema_inference",
+      "completed",
+      "Inferred 2 reviewable constraint candidate(s).",
+      { candidates: 2, repair_supported_pending: accepted ? 0 : 1 },
+    ],
+    [
+      "constraint_review",
+      "completed",
+      `${accepted ? 1 : 0} accepted constraint(s) were used for repair semantics.`,
+      { accepted: accepted ? 1 : 0, pending_supported: accepted ? 0 : 1 },
+    ],
+    ["detectors", "completed", "Detected 2 issue group(s) across the uploaded CSV.", { issues: 2, review: 1, unsafe: 1 }],
+    [
+      "repair_candidates",
+      "completed",
+      "Produced 1 candidate repair(s); 1 became verified fix(es).",
+      { candidate_repairs: 1, verified_fixes: 1, failures: 1 },
+    ],
+    ["safety_gate", "completed", "Safety gate returned allow.", { proof_obligations: 1 }],
+    ["smt_verifier", "completed", "SMT verifier returned accept.", { proof_obligations: 1, abstentions: 1 }],
+    [
+      "dry_run_transaction",
+      "completed",
+      "Created dry-run transaction txn-demo; no uploaded data was mutated.",
+      { fixes: 1, applied: false },
+    ],
+    ["receipt", "completed", analysis.receipt.reason, { issues: 2, fixes: 1, limitations: 2 }],
+  ];
+  const events = stages.map(([stage_id, status, summary, counts], sequence) => ({
+    schema_version: "workflow_event_v1",
+    run_id: runId,
+    sequence,
+    stage_id,
+    status,
+    summary,
+    started_at: now,
+    completed_at: status === "running" ? undefined : now,
+    counts,
+    confidence: stage_id === "schema_inference" ? 0.96 : stage_id === "repair_candidates" ? 0.91 : undefined,
+    uncertainty: stage_id === "schema_inference" ? "Inference is advisory until accepted for the current run." : undefined,
+    requires_human: ["constraint_review", "detectors", "repair_candidates", "smt_verifier", "receipt"].includes(
+      String(stage_id),
+    ),
+    analysis: stage_id === "receipt" ? analysis : undefined,
+  }));
+  return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/health", async (route) => {
     await route.fulfill({
       json: {
         status: "ok",
         advanced_available: false,
+        streaming_available: true,
+        workflow_contract_version: "workflow_event_v1",
         max_upload_bytes: 1_048_576,
       },
     });
@@ -223,7 +282,15 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/samples/beers_10rows", async (route) => {
     await route.fulfill({ status: 200, contentType: "text/csv", body: sampleCsv });
   });
-  await page.route("**/api/analyze**", async (route) => {
+  await page.route("**/api/analyze/stream**", async (route) => {
+    const posted = route.request().postData() ?? "";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-ndjson",
+      body: workflowStreamBody(posted.includes("cnd-state-fd")),
+    });
+  });
+  await page.route("**/api/analyze", async (route) => {
     const posted = route.request().postData() ?? "";
     await route.fulfill({ json: analyzePayload(posted.includes("cnd-state-fd")) });
   });
@@ -244,16 +311,18 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
 
   await page.getByRole("button", { name: "Analyze" }).click();
   await expect(page.getByRole("cell", { name: "fd_violation" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Constraint review" })).toBeVisible();
+  const riskPanel = page.locator("#panel-risk");
+  await expect(riskPanel.getByRole("heading", { name: "Constraint review" })).toBeVisible();
 
-  await page.getByRole("checkbox", { name: /functional_dependency constraint cnd-state-fd/ }).check();
+  await riskPanel.getByRole("checkbox", { name: /functional_dependency constraint cnd-state-fd/ }).check();
   await page.getByRole("button", { name: "Rerun with accepted constraints" }).click();
-  await expect(page.getByText("accepted", { exact: true })).toBeVisible();
+  await expect(riskPanel.getByRole("cell", { name: "accepted" })).toBeVisible();
 
   await page.getByRole("tab", { name: "Repairs" }).click();
-  await expect(page.getByText("Tenfold outlier")).toBeVisible();
-  await expect(page.getByText("All proposed fixes passed the SMT verifier.")).toBeVisible();
-  await expect(page.getByText("Attempted but not fixed")).toBeVisible();
+  const repairsPanel = page.locator("#panel-repairs");
+  await expect(repairsPanel.getByText("Tenfold outlier")).toBeVisible();
+  await expect(repairsPanel.getByText("All proposed fixes passed the SMT verifier.")).toBeVisible();
+  await expect(repairsPanel.getByText("Attempted but not fixed")).toBeVisible();
 
   const repairsTab = page.getByRole("tab", { name: "Repairs" });
   await repairsTab.focus();
@@ -355,6 +424,7 @@ for (const colorScheme of ["light", "dark"] as const) {
         action: styles.getPropertyValue("--df-action-bg").trim(),
         success: styles.getPropertyValue("--df-status-safe-bg").trim(),
         agent: styles.getPropertyValue("--df-agent-bg").trim(),
+        stage: styles.getPropertyValue("--df-stage-active-bg").trim(),
       };
     });
     expect(rootTokens.bg).not.toEqual("");
@@ -362,8 +432,9 @@ for (const colorScheme of ["light", "dark"] as const) {
     expect(rootTokens.action).not.toEqual("");
     expect(rootTokens.action).not.toEqual(rootTokens.success);
     expect(rootTokens.agent).not.toEqual("");
+    expect(rootTokens.stage).not.toEqual("");
     await expect(page.getByRole("banner", { name: "DataForge command bar" })).toBeVisible();
-    await expect(page.getByText("Verified CSV repair workbench")).toBeVisible();
+    await expect(page.getByText("Agentic repair supervision cockpit")).toBeVisible();
     await expect(page.getByText("Stateless dry run")).toBeVisible();
 
     await page.getByRole("button", { name: /Hospital/ }).click();

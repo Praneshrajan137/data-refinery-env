@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataForgeClient, problemFromResponse } from "./api";
+import type { AnalyzeResponse, WorkflowEvent } from "./types";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -71,5 +72,109 @@ describe("problem detail handling", () => {
     const body = calls[0].init?.body;
     expect(body).toBeInstanceOf(FormData);
     expect((body as FormData).get("accepted_constraint_ids")).toBe("[\"cnd-1\"]");
+  });
+
+  it("parses NDJSON workflow events and returns the final stream analysis", async () => {
+    const finalAnalysis = {
+      source: { name: "sample.csv", sha256: "a".repeat(64), rows: 1, columns: 1, column_names: ["id"] },
+      meta: { api_version: "0.1.0", contract_version: "repair_contract_v2" },
+    } as AnalyzeResponse;
+    const firstEvent: WorkflowEvent = {
+      schema_version: "workflow_event_v1",
+      run_id: "run-1",
+      sequence: 0,
+      stage_id: "intake",
+      status: "running",
+      summary: "Reading CSV.",
+      started_at: "2026-06-02T00:00:00Z",
+      counts: { bytes: 4 },
+      requires_human: false,
+    };
+    const receiptEvent: WorkflowEvent = {
+      ...firstEvent,
+      sequence: 1,
+      stage_id: "receipt",
+      status: "completed",
+      summary: "Done.",
+      completed_at: "2026-06-02T00:00:01Z",
+      analysis: finalAnalysis,
+    };
+    const body = `${JSON.stringify(firstEvent)}\n${JSON.stringify(receiptEvent)}\n`;
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ input, init });
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(body));
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/x-ndjson" } },
+        );
+      }),
+    );
+
+    const events: WorkflowEvent[] = [];
+    const client = new DataForgeClient("https://api.example.test");
+    const analysis = await client.analyzeStream(
+      new File(["id\n1"], "sample.csv", { type: "text/csv" }),
+      false,
+      ["cnd-1"],
+      { onEvent: (event) => events.push(event) },
+    );
+
+    expect(String(calls[0].input)).toContain("/api/analyze/stream");
+    const requestBody = calls[0].init?.body;
+    expect(requestBody).toBeInstanceOf(FormData);
+    expect((requestBody as FormData).get("accepted_constraint_ids")).toBe("[\"cnd-1\"]");
+    expect(events.map((event) => event.stage_id)).toEqual(["intake", "receipt"]);
+    expect(analysis).toEqual(finalAnalysis);
+  });
+
+  it("surfaces stream problem events as API errors", async () => {
+    const problem = {
+      type: "https://dataforge.local/problems/request_timeout",
+      title: "Request Timeout",
+      status: 504,
+      detail: "Timed out.",
+      error: "request_timeout",
+    };
+    const failedEvent: WorkflowEvent = {
+      schema_version: "workflow_event_v1",
+      run_id: "run-2",
+      sequence: 99,
+      stage_id: "receipt",
+      status: "failed",
+      summary: "Stopped.",
+      started_at: "2026-06-02T00:00:00Z",
+      completed_at: "2026-06-02T00:00:01Z",
+      counts: {},
+      requires_human: true,
+      problem,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(`${JSON.stringify(failedEvent)}\n`));
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/x-ndjson" } },
+        ),
+      ),
+    );
+
+    const client = new DataForgeClient("https://api.example.test");
+    await expect(
+      client.analyzeStream(new File(["id\n1"], "sample.csv", { type: "text/csv" }), false, [], {
+        onEvent: vi.fn(),
+      }),
+    ).rejects.toMatchObject({ problem });
   });
 });

@@ -2,14 +2,14 @@
 
 > Status: Draft
 > Owner: @Praneshrajan15
-> Last updated: 2026-05-21
+> Last updated: 2026-06-02
 
 ## 1. Purpose
 
-Create a perceptual, institutional-console color system for DataForge surfaces.
-The system must feel precise, premium, and operational: neutral-first, cobalt
-for primary action, restrained violet for advanced mode, amber/red for risk,
-and muted green only for verified success.
+Create a perceptual Apex Intelligence color system for DataForge surfaces.
+The system must feel precise, premium, and inevitable: platinum/graphite
+surfaces, deep ink text, sovereign blue for command, and state color used as
+instrumentation rather than large decorative fills.
 
 ## 2. Outcomes
 
@@ -28,20 +28,22 @@ and muted green only for verified success.
 - [ ] P3-enhanced color is limited to non-text-critical glow or atmosphere
   tokens and has sRGB fallbacks.
 - [ ] Raw hand-authored hex colors are rejected outside generated artifacts.
-- [ ] `--df-action-*` maps to the cobalt `brand` palette and never to a green,
-  teal, `success`, `safe`, or legacy `forge` palette.
-- [ ] Success green remains low-chroma and is reserved for verified completion
-  or proved-safe states.
+- [ ] `--df-action-*` maps to the sovereign-blue `brand` palette and never to a
+  green, teal, `success`, `safe`, or legacy `forge` palette.
+- [ ] Large light-theme state backgrounds remain neutral/platinum; status
+  meaning appears through borders, text, icons, rails, and compact badges.
+- [ ] Success verdigris remains low-chroma and is reserved for verified
+  completion or proved-safe states.
 
 ## 3. Domain Semantics
 
-- Brand cobalt: primary commands, active tabs, and high-confidence action.
-- Steel blue: dataset intake, evidence, inspection, and tabular structure.
-- Restrained violet: optional advanced mode, agentic cognition, and orchestration.
-- Muted green: proved safe, accepted, verified, and complete.
-- Ochre amber: caution, uncertainty, rate limits, and human review.
-- Sober red: unsafe, failed, rejected, or destructive possibilities.
-- Financial graphite: quiet operational scaffolding and dense data reading.
+- Graphite-platinum: product structure, table reading, and large surfaces.
+- Sovereign blue: primary commands, active tabs, focus, and command authority.
+- Forensic steel: dataset intake, evidence, inspection, and proof records.
+- Restrained amethyst: optional advanced mode, agentic cognition, and orchestration.
+- Proof verdigris: accepted, verified, completed, and proved-safe signals.
+- Antique amber: caution, uncertainty, rate limits, and human review.
+- Oxide red: unsafe, failed, rejected, or destructive possibilities.
 
 ## 4. Constraints
 
@@ -53,8 +55,8 @@ and muted green only for verified success.
 - The browser JavaScript gzip budget remains 90 KiB.
 - Token generation clamps default output to sRGB; wide-gamut P3 output is
   progressive enhancement only.
-- Decorative page glows, rainbow rails, and saturated color washes are not part
-  of the institutional console direction.
+- Decorative page glows, rainbow rails, saturated color washes, and pastel
+  status slabs are not part of the Apex Intelligence direction.
 
 ## 5. Verification
 

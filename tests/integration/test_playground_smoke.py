@@ -10,6 +10,7 @@ running server or network access.
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from playground.api.app import (
     MAX_UPLOAD_CELLS,
     MAX_UPLOAD_COLUMNS,
     MAX_UPLOAD_ROWS,
+    WORKFLOW_CONTRACT_VERSION,
     app,
     limiter,
 )
@@ -43,6 +45,24 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 def _hospital_csv_bytes() -> bytes:
     """Load the hospital_10rows fixture as raw bytes."""
     return (FIXTURES_DIR / "hospital_10rows.csv").read_bytes()
+
+
+def _ndjson_events(text: str) -> list[dict[str, object]]:
+    """Parse a complete NDJSON response body into workflow events."""
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def _stable_analyze_payload(payload: dict[str, object]) -> dict[str, object]:
+    """Normalize request-specific transaction fields before comparing endpoint parity."""
+    stable = json.loads(json.dumps(payload))
+    stable["txn_journal"]["txn_id"] = "<txn_id>"
+    stable["txn_journal"]["created_at"] = "<created_at>"
+    stable["receipt"]["txn_id"] = "<txn_id>"
+    stable["receipt"]["revert_command"] = "<revert_command>"
+    stable["receipt"]["constraints_artifact_sha256"] = "<constraints_artifact_sha256>"
+    stable["apply_handoff"]["audit_command"] = "<audit_command>"
+    stable["apply_handoff"]["revert_command"] = "<revert_command>"
+    return stable
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +96,8 @@ def test_health(client: TestClient) -> None:
     assert body["service"] == "DataForge Playground API"
     assert body["advanced_available"] is False
     assert body["max_upload_bytes"] == MAX_UPLOAD_BYTES
+    assert body["streaming_available"] is True
+    assert body["workflow_contract_version"] == WORKFLOW_CONTRACT_VERSION
     assert body["limits"] == {
         "max_upload_bytes": MAX_UPLOAD_BYTES,
         "max_rows": MAX_UPLOAD_ROWS,
@@ -200,6 +222,73 @@ def test_analyze_hospital_returns_proof_loop_payload(client: TestClient) -> None
         == "dataforge repair path/to/hospital_10rows.csv --dry-run"
     )
     assert body["limitations"]
+
+
+@pytest.mark.integration
+def test_analyze_stream_returns_ordered_workflow_events_and_final_payload(
+    client: TestClient,
+) -> None:
+    """POST /api/analyze/stream streams the proof loop and ends with AnalyzeResponse parity."""
+    csv_bytes = _hospital_csv_bytes()
+    json_response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    stream_response = client.post(
+        "/api/analyze/stream",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+
+    assert json_response.status_code == 200
+    assert stream_response.status_code == 200
+    assert stream_response.headers["x-dataforge-workflow-contract"] == WORKFLOW_CONTRACT_VERSION
+
+    events = _ndjson_events(stream_response.text)
+    stage_ids = [event["stage_id"] for event in events]
+    statuses = [event["status"] for event in events]
+    sequences = [event["sequence"] for event in events]
+    assert sequences == sorted(sequences)
+    assert stage_ids[:3] == ["intake", "intake", "schema_inference"]
+    assert statuses[:3] == ["running", "completed", "running"]
+    assert [
+        "intake",
+        "schema_inference",
+        "constraint_review",
+        "detectors",
+        "repair_candidates",
+        "safety_gate",
+        "smt_verifier",
+        "dry_run_transaction",
+        "receipt",
+    ] == list(dict.fromkeys(stage_ids))
+    assert all(event["schema_version"] == WORKFLOW_CONTRACT_VERSION for event in events)
+    assert all("run_id" in event and "summary" in event and "started_at" in event for event in events)
+    assert events[-1]["stage_id"] == "receipt"
+    assert events[-1]["status"] == "completed"
+    assert _stable_analyze_payload(events[-1]["analysis"]) == _stable_analyze_payload(
+        json_response.json()
+    )
+
+
+@pytest.mark.integration
+def test_analyze_stream_reports_advanced_unavailable_as_problem_event(client: TestClient) -> None:
+    """Advanced stream requests fail inside the event contract without returning mutation data."""
+    response = client.post(
+        "/api/analyze/stream",
+        params={"advanced": "true"},
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+
+    assert response.status_code == 200
+    events = _ndjson_events(response.text)
+    assert events[0]["stage_id"] == "intake"
+    assert events[-1]["stage_id"] == "receipt"
+    assert events[-1]["status"] == "failed"
+    assert "analysis" not in events[-1]
+    problem = events[-1]["problem"]
+    assert isinstance(problem, dict)
+    assert problem["error"] == "advanced_mode_unavailable"
+    assert problem["status"] == 400
 
 
 @pytest.mark.integration

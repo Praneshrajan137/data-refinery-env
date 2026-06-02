@@ -20,7 +20,7 @@ import tempfile
 import time
 import uuid
 from collections import defaultdict, deque
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from importlib import import_module
 from pathlib import Path
@@ -172,6 +172,30 @@ OTEL_ENABLED_VALUES = {"1", "true", "yes", "on"}
 RiskLevel = Literal["none", "low", "medium", "high"]
 RepairReadiness = Literal["no_action", "verified", "partial", "blocked"]
 ConstraintDecision = Literal["pending", "accepted", "rejected"]
+WorkflowStageId = Literal[
+    "intake",
+    "schema_inference",
+    "constraint_review",
+    "detectors",
+    "repair_candidates",
+    "safety_gate",
+    "smt_verifier",
+    "dry_run_transaction",
+    "receipt",
+]
+WorkflowStatus = Literal["queued", "running", "completed", "blocked", "failed", "cancelled"]
+WORKFLOW_CONTRACT_VERSION = "workflow_event_v1"
+WORKFLOW_STAGE_IDS: tuple[WorkflowStageId, ...] = (
+    "intake",
+    "schema_inference",
+    "constraint_review",
+    "detectors",
+    "repair_candidates",
+    "safety_gate",
+    "smt_verifier",
+    "dry_run_transaction",
+    "receipt",
+)
 
 
 class LimitPayload(BaseModel):
@@ -221,6 +245,8 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     advanced_available: bool
     max_upload_bytes: int
+    streaming_available: bool
+    workflow_contract_version: Literal["workflow_event_v1"]
     api_version: str
     contract_version: str
     build_sha: str
@@ -466,6 +492,25 @@ class AnalyzeResponse(BaseModel):
     meta: ResponseMeta
 
 
+class WorkflowEvent(BaseModel):
+    """Line-delimited workflow event for the agentic supervision cockpit."""
+
+    schema_version: Literal["workflow_event_v1"] = WORKFLOW_CONTRACT_VERSION
+    run_id: str
+    sequence: int
+    stage_id: WorkflowStageId
+    status: WorkflowStatus
+    summary: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    counts: dict[str, int | float | str | bool] = Field(default_factory=dict)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    uncertainty: str | None = None
+    requires_human: bool = False
+    analysis: AnalyzeResponse | None = None
+    problem: dict[str, Any] | None = None
+
+
 class _RequestMetrics:
     """Tiny in-process request counters for free-tier health reporting."""
 
@@ -644,6 +689,7 @@ class FallbackRateLimitMiddleware(BaseHTTPMiddleware):
         """Apply a 10/minute in-memory fallback to mutating playground endpoints."""
         if request.method == "POST" and request.url.path in {
             "/api/analyze",
+            "/api/analyze/stream",
             "/api/profile",
             "/api/repair",
         }:
@@ -1328,6 +1374,226 @@ async def _run_with_timeout(label: str, func: Callable[[], _ResultT]) -> _Result
         ) from exc
 
 
+def _utc_now_text() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
+    return datetime.now(UTC).isoformat()
+
+
+def _workflow_event(
+    *,
+    run_id: str,
+    sequence: int,
+    stage_id: WorkflowStageId,
+    status: WorkflowStatus,
+    summary: str,
+    started_at: str | None = None,
+    completed_at: str | None = None,
+    counts: dict[str, int | float | str | bool] | None = None,
+    confidence: float | None = None,
+    uncertainty: str | None = None,
+    requires_human: bool = False,
+    analysis: AnalyzeResponse | None = None,
+    problem: dict[str, Any] | None = None,
+) -> WorkflowEvent:
+    """Create one stable workflow event for NDJSON streaming."""
+    event_started_at = started_at or _utc_now_text()
+    return WorkflowEvent(
+        run_id=run_id,
+        sequence=sequence,
+        stage_id=stage_id,
+        status=status,
+        summary=summary,
+        started_at=event_started_at,
+        completed_at=completed_at,
+        counts=counts or {},
+        confidence=confidence,
+        uncertainty=uncertainty,
+        requires_human=requires_human,
+        analysis=analysis,
+        problem=problem,
+    )
+
+
+def _event_line(event: WorkflowEvent) -> str:
+    """Serialize a workflow event as one NDJSON line."""
+    payload = event.model_dump(mode="json", exclude_none=True)
+    if event.analysis is not None:
+        payload["analysis"] = event.analysis.model_dump(mode="json")
+    return f"{json.dumps(payload, separators=(',', ':'))}\n"
+
+
+def _problem_payload_from_exception(exc: HTTPException) -> dict[str, Any]:
+    """Convert a public HTTPException into a stream-safe problem payload."""
+    detail = exc.detail if isinstance(exc.detail, dict) else {}
+    message = (
+        str(detail.get("message") or detail.get("detail") or exc.detail)
+        if detail or exc.detail
+        else "The analysis pipeline could not complete safely."
+    )
+    error = str(detail.get("error") or f"http_{exc.status_code}")
+    return {
+        **detail,
+        "type": str(detail.get("type") or f"https://dataforge.local/problems/{error}"),
+        "title": str(detail.get("title") or error.replace("_", " ").title()),
+        "status": exc.status_code,
+        "detail": message,
+        "error": error,
+    }
+
+
+def _completed_workflow_events(run_id: str, analysis: AnalyzeResponse) -> list[WorkflowEvent]:
+    """Build completed supervision-stage events from the final proof-loop response."""
+    now = _utc_now_text()
+    pending_supported = analysis.risk_summary.pending_repair_supported_constraints
+    proof_count = len(analysis.receipt.proof_obligations)
+    safety_failed = analysis.receipt.safety_verdict not in {"allow", "accept", "accepted"}
+    verifier_failed = analysis.receipt.verifier_verdict in {"reject", "unknown"}
+    transaction_ready = bool(analysis.txn_journal.txn_id) and analysis.txn_journal.applied is False
+    events: list[WorkflowEvent] = [
+        _workflow_event(
+            run_id=run_id,
+            sequence=3,
+            stage_id="schema_inference",
+            status="completed",
+            summary=(
+                f"Inferred {len(analysis.schema_inference.candidates)} reviewable "
+                "constraint candidate(s)."
+            ),
+            completed_at=now,
+            counts={
+                "candidates": len(analysis.schema_inference.candidates),
+                "repair_supported_pending": pending_supported,
+            },
+            confidence=_average_candidate_confidence(analysis.schema_inference.candidates),
+            uncertainty="Inference is advisory until accepted for the current run.",
+            requires_human=pending_supported > 0,
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=4,
+            stage_id="constraint_review",
+            status="completed",
+            summary=(
+                f"{len(analysis.receipt.accepted_constraint_ids)} accepted constraint(s) "
+                "were used for repair semantics."
+            ),
+            completed_at=now,
+            counts={
+                "accepted": len(analysis.receipt.accepted_constraint_ids),
+                "pending_supported": pending_supported,
+            },
+            requires_human=pending_supported > 0,
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=5,
+            stage_id="detectors",
+            status="completed",
+            summary=f"Detected {len(analysis.issues)} issue group(s) across the uploaded CSV.",
+            completed_at=now,
+            counts={
+                "issues": len(analysis.issues),
+                "safe": analysis.risk_summary.severity_counts.get("safe", 0),
+                "review": analysis.risk_summary.severity_counts.get("review", 0),
+                "unsafe": analysis.risk_summary.severity_counts.get("unsafe", 0),
+            },
+            uncertainty="Severity is categorical and evidence-derived, not an accuracy score.",
+            requires_human=analysis.risk_summary.severity_counts.get("unsafe", 0) > 0,
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=6,
+            stage_id="repair_candidates",
+            status="completed",
+            summary=(
+                f"Produced {len(analysis.receipt.candidate_repairs)} candidate repair(s); "
+                f"{len(analysis.repairs)} became verified fix(es)."
+            ),
+            completed_at=now,
+            counts={
+                "candidate_repairs": len(analysis.receipt.candidate_repairs),
+                "verified_fixes": len(analysis.repairs),
+                "failures": len(analysis.verification.failures),
+            },
+            confidence=_average_fix_confidence(analysis.repairs),
+            requires_human=len(analysis.verification.failures) > 0,
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=7,
+            stage_id="safety_gate",
+            status="blocked" if safety_failed else "completed",
+            summary=f"Safety gate returned {analysis.receipt.safety_verdict}.",
+            completed_at=now,
+            counts={"proof_obligations": proof_count},
+            requires_human=safety_failed,
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=8,
+            stage_id="smt_verifier",
+            status="blocked" if verifier_failed else "completed",
+            summary=f"SMT verifier returned {analysis.receipt.verifier_verdict}.",
+            completed_at=now,
+            counts={
+                "proof_obligations": proof_count,
+                "abstentions": len(analysis.verification.abstentions),
+            },
+            requires_human=verifier_failed or bool(analysis.verification.abstentions),
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=9,
+            stage_id="dry_run_transaction",
+            status="completed" if transaction_ready else "blocked",
+            summary=(
+                f"Created dry-run transaction {analysis.txn_journal.txn_id}; "
+                "no uploaded data was mutated."
+            ),
+            completed_at=now,
+            counts={
+                "fixes": analysis.txn_journal.fixes_count,
+                "applied": analysis.txn_journal.applied,
+            },
+        ),
+        _workflow_event(
+            run_id=run_id,
+            sequence=10,
+            stage_id="receipt",
+            status="completed",
+            summary=analysis.receipt.reason,
+            completed_at=now,
+            counts={
+                "issues": analysis.receipt.issues_count,
+                "fixes": analysis.receipt.fixes_count,
+                "limitations": len(analysis.limitations),
+            },
+            requires_human=(
+                pending_supported > 0
+                or len(analysis.verification.failures) > 0
+                or verifier_failed
+                or safety_failed
+            ),
+            analysis=analysis,
+        ),
+    ]
+    return events
+
+
+def _average_candidate_confidence(candidates: list[ConstraintCandidateView]) -> float | None:
+    """Return a rounded average confidence for inferred constraints."""
+    if not candidates:
+        return None
+    return round(sum(candidate.confidence for candidate in candidates) / len(candidates), 4)
+
+
+def _average_fix_confidence(fixes: list[VerifiedFixView]) -> float | None:
+    """Return a rounded average confidence for verified fixes."""
+    if not fixes:
+        return None
+    return round(sum(fix.confidence for fix in fixes) / len(fixes), 4)
+
+
 def _profile_upload(source_bytes: bytes, *, advanced_requested: bool) -> ProfileResponse:
     """Parse and profile a CSV upload in a worker thread."""
     df = _csv_to_df(source_bytes)
@@ -1403,6 +1669,8 @@ async def health() -> HealthResponse:
         status="ok",
         advanced_available=_advanced_available(),
         max_upload_bytes=MAX_UPLOAD_BYTES,
+        streaming_available=True,
+        workflow_contract_version=WORKFLOW_CONTRACT_VERSION,
         api_version=app.version,
         contract_version=CONTRACT_VERSION,
         build_sha=os.environ.get("DATAFORGE_BUILD_SHA")
@@ -1482,6 +1750,115 @@ async def analyze(
                 "message": "The analysis pipeline could not complete safely.",
             },
         ) from exc
+
+
+@app.post("/api/analyze/stream")
+@limiter.limit("10/minute")
+async def analyze_stream(
+    request: Request,
+    file: UploadFile,
+    accepted_constraint_ids: str | None = Form(default=None),
+) -> StreamingResponse:
+    """Stream the analyze proof loop as NDJSON workflow events."""
+    advanced_requested = request.query_params.get("advanced", "false").lower() == "true"
+    source_bytes = await _read_upload(file)
+    upload_name = Path(file.filename or "upload.csv").name
+    accepted_ids = _parse_accepted_constraint_ids(accepted_constraint_ids)
+    run_id = uuid.uuid4().hex
+
+    async def event_stream() -> AsyncIterator[str]:
+        started_at = _utc_now_text()
+        yield _event_line(
+            _workflow_event(
+                run_id=run_id,
+                sequence=0,
+                stage_id="intake",
+                status="running",
+                summary="Reading CSV upload and establishing the dry-run boundary.",
+                started_at=started_at,
+                counts={"bytes": len(source_bytes), "advanced": advanced_requested},
+            )
+        )
+        await asyncio.sleep(0)
+        try:
+            _require_advanced_mode(advanced_requested)
+            yield _event_line(
+                _workflow_event(
+                    run_id=run_id,
+                    sequence=1,
+                    stage_id="intake",
+                    status="completed",
+                    summary=f"Accepted {upload_name} for stateless dry-run analysis.",
+                    started_at=started_at,
+                    completed_at=_utc_now_text(),
+                    counts={"bytes": len(source_bytes)},
+                )
+            )
+            yield _event_line(
+                _workflow_event(
+                    run_id=run_id,
+                    sequence=2,
+                    stage_id="schema_inference",
+                    status="running",
+                    summary="Inferring schema assumptions before repair semantics are applied.",
+                    started_at=_utc_now_text(),
+                )
+            )
+            await asyncio.sleep(0)
+            analysis = await _run_with_timeout(
+                "analyze_stream",
+                lambda: _analyze_upload(
+                    upload_name=upload_name,
+                    source_bytes=source_bytes,
+                    accepted_constraint_ids=accepted_ids,
+                    allow_llm=advanced_requested,
+                ),
+            )
+            for event in _completed_workflow_events(run_id, analysis):
+                yield _event_line(event)
+                await asyncio.sleep(0)
+        except HTTPException as exc:
+            yield _event_line(
+                _workflow_event(
+                    run_id=run_id,
+                    sequence=99,
+                    stage_id="receipt",
+                    status="failed",
+                    summary="The analysis workflow stopped before a verified receipt was produced.",
+                    completed_at=_utc_now_text(),
+                    problem=_problem_payload_from_exception(exc),
+                    requires_human=True,
+                )
+            )
+        except Exception:
+            logger.exception("Analyze stream endpoint failed")
+            yield _event_line(
+                _workflow_event(
+                    run_id=run_id,
+                    sequence=99,
+                    stage_id="receipt",
+                    status="failed",
+                    summary="The analysis workflow could not complete safely.",
+                    completed_at=_utc_now_text(),
+                    problem={
+                        "type": "https://dataforge.local/problems/analyze_failed",
+                        "title": "Analyze Failed",
+                        "status": 500,
+                        "detail": "The analysis pipeline could not complete safely.",
+                        "error": "analyze_failed",
+                    },
+                    requires_human=True,
+                )
+            )
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="application/x-ndjson",
+        headers={
+            "X-DataForge-Workflow-Contract": WORKFLOW_CONTRACT_VERSION,
+            "X-DataForge-Workflow-Run-Id": run_id,
+        },
+    )
 
 
 @app.post("/api/profile", response_model=ProfileResponse)

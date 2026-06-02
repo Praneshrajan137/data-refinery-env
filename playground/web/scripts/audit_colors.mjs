@@ -33,6 +33,33 @@ const requiredTokens = [
   "--df-status-danger-text",
   "--df-agent-bg",
   "--df-agent-text",
+  "--df-autonomy-bg",
+  "--df-autonomy-text",
+  "--df-autonomy-line",
+  "--df-stage-idle-bg",
+  "--df-stage-idle-text",
+  "--df-stage-idle-line",
+  "--df-stage-active-bg",
+  "--df-stage-active-text",
+  "--df-stage-active-line",
+  "--df-stage-complete-bg",
+  "--df-stage-complete-text",
+  "--df-stage-complete-line",
+  "--df-stage-blocked-bg",
+  "--df-stage-blocked-text",
+  "--df-stage-blocked-line",
+  "--df-stage-failed-bg",
+  "--df-stage-failed-text",
+  "--df-stage-failed-line",
+  "--df-confidence-high-bg",
+  "--df-confidence-high-text",
+  "--df-confidence-medium-bg",
+  "--df-confidence-medium-text",
+  "--df-confidence-low-bg",
+  "--df-confidence-low-text",
+  "--df-proof-bg",
+  "--df-proof-text",
+  "--df-proof-line",
   "--df-diff-old-bg",
   "--df-diff-old-text",
   "--df-diff-new-bg",
@@ -108,6 +135,16 @@ function auditContrast(system) {
     assertContrast(system, theme, "--df-status-safe-text", "--df-status-safe-bg", 4.5);
     assertContrast(system, theme, "--df-status-review-text", "--df-status-review-bg", 4.5);
     assertContrast(system, theme, "--df-status-danger-text", "--df-status-danger-bg", 4.5);
+    assertContrast(system, theme, "--df-autonomy-text", "--df-autonomy-bg", 4.5);
+    assertContrast(system, theme, "--df-stage-idle-text", "--df-stage-idle-bg", 4.5);
+    assertContrast(system, theme, "--df-stage-active-text", "--df-stage-active-bg", 4.5);
+    assertContrast(system, theme, "--df-stage-complete-text", "--df-stage-complete-bg", 4.5);
+    assertContrast(system, theme, "--df-stage-blocked-text", "--df-stage-blocked-bg", 4.5);
+    assertContrast(system, theme, "--df-stage-failed-text", "--df-stage-failed-bg", 4.5);
+    assertContrast(system, theme, "--df-confidence-high-text", "--df-confidence-high-bg", 4.5);
+    assertContrast(system, theme, "--df-confidence-medium-text", "--df-confidence-medium-bg", 4.5);
+    assertContrast(system, theme, "--df-confidence-low-text", "--df-confidence-low-bg", 4.5);
+    assertContrast(system, theme, "--df-proof-text", "--df-proof-bg", 4.5);
     assertContrast(system, theme, "--df-diff-old-text", "--df-diff-old-bg", 4.5);
     assertContrast(system, theme, "--df-diff-new-text", "--df-diff-new-bg", 4.5);
     assertContrast(system, theme, "--df-focus-ring", "--df-bg", 3);
@@ -123,7 +160,7 @@ function auditInstitutionalPalette(system) {
       .map((token) => token.palette.split("-")[0]),
   );
   if (!actionPalettes.has("brand")) {
-    fail("Institutional action tokens must map to the cobalt brand palette.");
+    fail("Apex action tokens must map to the sovereign brand palette.");
   }
 
   for (const theme of ["light", "dark"]) {
@@ -138,19 +175,58 @@ function auditInstitutionalPalette(system) {
     }
     const successBg = system.semantic[theme]["--df-status-safe-bg"]?.palette ?? "";
     const successText = system.semantic[theme]["--df-status-safe-text"]?.palette ?? "";
-    if (!successBg.startsWith("success-") || !successText.startsWith("success-")) {
-      fail(`${theme} success status tokens must use the subdued success palette.`);
+    if (!successBg.startsWith("neutral-") || !successText.startsWith("success-")) {
+      fail(`${theme} success status must use neutral background and verdigris text.`);
     }
   }
 
   if ("forge" in system.seeds || "safe" in system.seeds || "review" in system.seeds) {
     fail("Legacy forge/safe/review seed names are not allowed in the institutional palette.");
   }
-  if (system.seeds.success.c > 0.075) {
-    fail("Success green must remain low-chroma and reserved for verified outcomes.");
+  if (system.seeds.success.c > 0.04) {
+    fail("Success verdigris must remain low-chroma and reserved for verified outcomes.");
   }
-  if (system.seeds.brand.h < 240 || system.seeds.brand.h > 275) {
-    fail("Primary action brand hue must stay in the cobalt range.");
+  if (system.seeds.brand.h < 235 || system.seeds.brand.h > 260) {
+    fail("Primary action brand hue must stay in the sovereign blue range.");
+  }
+}
+
+function auditApexBackgroundDiscipline(system) {
+  const forbiddenLightStateBackgrounds = new Set([
+    "brand-95",
+    "data-95",
+    "agent-95",
+    "success-95",
+    "warning-95",
+    "danger-95",
+  ]);
+  const largeStateBackgroundTokens = [
+    "--df-data-bg",
+    "--df-agent-bg",
+    "--df-autonomy-bg",
+    "--df-stage-active-bg",
+    "--df-stage-complete-bg",
+    "--df-stage-blocked-bg",
+    "--df-stage-failed-bg",
+    "--df-confidence-high-bg",
+    "--df-confidence-medium-bg",
+    "--df-confidence-low-bg",
+    "--df-proof-bg",
+    "--df-status-safe-bg",
+    "--df-status-review-bg",
+    "--df-status-danger-bg",
+    "--df-diff-old-bg",
+    "--df-diff-new-bg",
+  ];
+
+  for (const tokenName of largeStateBackgroundTokens) {
+    const palette = system.semantic.light[tokenName]?.palette ?? "";
+    if (!palette.startsWith("neutral-")) {
+      fail(`light ${tokenName} must use a neutral/platinum surface, not ${palette}.`);
+    }
+    if (forbiddenLightStateBackgrounds.has(palette)) {
+      fail(`light ${tokenName} must not use pastel state fill ${palette}.`);
+    }
   }
 }
 
@@ -196,6 +272,7 @@ const css = readFileSync(cssPath, "utf8");
 auditGeneratedFiles(system, css);
 auditContrast(system);
 auditInstitutionalPalette(system);
+auditApexBackgroundDiscipline(system);
 auditPackage();
 auditRawHexUsage();
 
