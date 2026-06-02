@@ -27,10 +27,10 @@ Current surfaces:
 - Separate Gradio model demo for the published 0.5B SFT smoke checkpoint
 
 Mandatory full-vision gates must stay labeled as incomplete until external
-proof exists: PyPI/TestPyPI ownership for `dataforge`, the
-mandatory `https://dataforge.dev/playground` production route, published sibling
-packages, dbt-duckdb fresh-env proof, not yet met design-partner evidence, and
-production model-family evidence.
+proof exists: PyPI/TestPyPI ownership for `dataforge`, production verification
+for `https://dataforge.praneshrajan15.workers.dev/playground`, published
+sibling packages, dbt-duckdb fresh-env proof, not yet met design-partner
+evidence, and production model-family evidence.
 
 ## 0.2 Who It Is For
 
@@ -53,8 +53,7 @@ three things:
 Anti-signals:
 
 - Claims for unshipped integrations or hosted domains.
-- Treating mandatory `dataforge.dev/playground` as mere branding instead of a
-  hard full-vision release gate.
+- Replacing the working Workers playground with speculative domain work.
 - Benchmark or model-quality numbers without a committed reproduction path.
 - Generated staging directories edited by hand as if they were source docs.
 - LLM-styled filler in committed docs.

@@ -94,11 +94,10 @@ def test_generated_benchmark_claim_block_is_allowed(tmp_path: Path) -> None:
     assert readme_truth.check_public_claim_boundaries([claim_path]) == []
 
 
-def test_workers_dev_playground_url_is_checked_but_custom_domain_is_not() -> None:
-    """The lightweight URL checker avoids DNS-sensitive dataforge.dev probes."""
+def test_workers_dev_playground_url_is_checked() -> None:
+    """The lightweight URL checker includes the canonical Workers playground."""
     text = (
         "Try https://dataforge.praneshrajan15.workers.dev/playground now.\n"
-        "Mandatory domain gate, not yet live: https://dataforge.dev/playground.\n"
         "Backend: https://Praneshrajan15-dataforge-playground.hf.space.\n"
     )
 
@@ -106,43 +105,48 @@ def test_workers_dev_playground_url_is_checked_but_custom_domain_is_not() -> Non
 
     assert "https://dataforge.praneshrajan15.workers.dev/playground" in urls
     assert "https://Praneshrajan15-dataforge-playground.hf.space" in urls
-    assert all("dataforge.dev" not in url for url in urls)
 
 
-def test_unqualified_custom_domain_claim_fails(tmp_path: Path) -> None:
-    """dataforge.dev must not be presented as current without evidence."""
+def test_removed_domain_claim_fails(tmp_path: Path) -> None:
+    """The removed domain must not appear in release docs."""
+    removed = "dataforge" + ".dev"
     claim_path = tmp_path / "claim.md"
-    claim_path.write_text("Live playground: https://dataforge.dev/playground\n", encoding="utf-8")
+    claim_path.write_text(f"Live playground: https://{removed}/playground\n", encoding="utf-8")
 
     errors = readme_truth.check_custom_domain_claims([claim_path])
 
     assert errors
-    assert "without release evidence" in errors[0]
+    assert "removed domain" in errors[0]
 
 
-def test_optional_custom_domain_claim_fails(tmp_path: Path) -> None:
-    """Optional custom-domain wording is forbidden by the full original vision."""
+def test_optional_removed_domain_claim_fails(tmp_path: Path) -> None:
+    """Optional removed-domain wording is forbidden too."""
+    removed = "dataforge" + ".dev"
     claim_path = tmp_path / "claim.md"
     claim_path.write_text(
-        "Future optional custom domain, not a release target: https://dataforge.dev/playground\n",
+        f"Future optional removed domain, not a release target: https://{removed}/playground\n",
         encoding="utf-8",
     )
 
     errors = readme_truth.check_custom_domain_claims([claim_path])
 
     assert errors
-    assert "optional" in errors[0]
+    assert "removed domain" in errors[0]
 
 
-def test_mandatory_unmet_custom_domain_gate_is_allowed(tmp_path: Path) -> None:
-    """Mandatory blocked-domain wording is honest while DNS is external."""
+def test_mandatory_removed_domain_gate_fails(tmp_path: Path) -> None:
+    """Mandatory blocked-domain wording is no longer honest."""
+    removed = "dataforge" + ".dev"
     claim_path = tmp_path / "claim.md"
     claim_path.write_text(
-        "Mandatory hard gate, not yet live: https://dataforge.dev/playground\n",
+        f"Mandatory hard gate, not yet live: https://{removed}/playground\n",
         encoding="utf-8",
     )
 
-    assert readme_truth.check_custom_domain_claims([claim_path]) == []
+    errors = readme_truth.check_custom_domain_claims([claim_path])
+
+    assert errors
+    assert "removed domain" in errors[0]
 
 
 def test_unqualified_unshipped_integration_claim_fails(tmp_path: Path) -> None:

@@ -80,13 +80,18 @@ def test_hf_sync_workflow_targets_dataforge_playground_space() -> None:
     assert "HF_SPACE_ID: Praneshrajan15/data-quality-env" not in body
 
 
-def test_dataforge_dev_is_the_mandatory_public_playground_url() -> None:
-    """Deploy scripts default to the mandatory production domain."""
+def test_workers_dev_is_the_public_playground_url() -> None:
+    """Deploy scripts default to the production Workers URL."""
     deploy_space = DEPLOY_SPACE_PATH.read_text(encoding="utf-8")
     verifier = VERIFIER_PATH.read_text(encoding="utf-8")
 
-    assert 'DEFAULT_FRONTEND_ORIGIN = "https://dataforge.dev"' in deploy_space
-    assert 'DEFAULT_FRONTEND_URL = "https://dataforge.dev/playground"' in verifier
+    assert (
+        'DEFAULT_FRONTEND_ORIGIN = "https://dataforge.praneshrajan15.workers.dev"' in deploy_space
+    )
+    assert (
+        'DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"'
+        in verifier
+    )
 
 
 def test_renderer_writes_normalized_backend_url(tmp_path: Path) -> None:

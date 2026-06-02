@@ -54,7 +54,7 @@ served as an API-only Hugging Face Docker Space.
 - Persistent state, sessions, accounts, or browser storage
 - Apply-mode writes from the hosted playground
 - Browser-side LLM calls
-- Paid hosting or custom domains
+- Paid hosting beyond the current Workers/HF deployment
 - README claims that the playground is live before deploy verification
 
 ## 4. Constraints

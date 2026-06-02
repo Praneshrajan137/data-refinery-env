@@ -100,7 +100,8 @@ evidence, and should not be cited as the authoritative product workflow.
 
 Follow `playground/web/DEPLOY.md` for Cloudflare deployment and
 `playground/api/SPACE_SETUP.md` for the Hugging Face backend. A release is not
-ready until verification confirms that `https://dataforge.dev/playground`
-serves the React app, the Hugging Face root serves API metadata, `/api/health`
+ready until verification confirms that
+`https://dataforge.praneshrajan15.workers.dev/playground` serves the React app,
+the Hugging Face root serves API metadata, `/api/health`
 matches the capability contract, `/api/analyze` returns proof-loop evidence,
 and CORS allows only the intended frontend origin.

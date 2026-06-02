@@ -35,9 +35,9 @@ claims:
   - claim: final_dataforge_pypi_name
     status: roadmap
     evidence: The full-vision gate requires PyPI/TestPyPI ownership for dataforge; current public indexes are not yet controlled by this project.
-  - claim: dataforge_dev_playground
+  - claim: workers_dev_playground
     status: roadmap
-    evidence: The full-vision gate requires https://dataforge.dev/playground DNS, TLS, Cloudflare routing, and live repair-flow evidence.
+    evidence: The full-vision gate requires https://dataforge.praneshrajan15.workers.dev/playground to serve the Cloudflare frontend, point at the expected HF backend, and pass live repair-flow checks.
   - claim: trained_model_family
     status: roadmap
     evidence: Only the 0.5B SFT smoke artifact has public verifier evidence; GRPO, GiGPO, and larger-family quality claims remain blocked.

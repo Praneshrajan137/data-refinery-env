@@ -4,10 +4,11 @@
 
 DataForge is release-ready only when the local source tree, public contracts,
 and external evidence tell the same story: CLI-first CSV/DuckDB repair, only
-when `pip install dataforge` works from PyPI, mandatory `https://dataforge.dev/playground`
-serves the production playground, MCP tools keep apply disabled by default,
-OpenEnv/eval support is usable, dbt-duckdb proof exists, design-partner
-evidence exists, and every published model-quality claim has verifier evidence.
+when `pip install dataforge` works from PyPI,
+`https://dataforge.praneshrajan15.workers.dev/playground` serves the production
+playground, MCP tools keep apply disabled by default, OpenEnv/eval support is
+usable, dbt-duckdb proof exists, design-partner evidence exists, and every
+published model-quality claim has verifier evidence.
 
 Required local gate:
 
@@ -79,7 +80,7 @@ These gates cannot be completed by local source edits alone:
 
 - PyPI/TestPyPI trusted-publisher ownership for every package.
 - Cloudflare and Hugging Face deployed playground verification.
-- Mandatory `dataforge.dev/playground` DNS, TLS, Cloudflare routing, and monitoring.
+- Cloudflare Workers playground monitoring and live repair-flow proof.
 - Design-partner evidence from real users.
 - Model-card and verifier evidence for any trained-model quality claim.
 

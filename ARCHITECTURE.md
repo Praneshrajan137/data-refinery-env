@@ -162,9 +162,8 @@ Optional extras and scoped dependencies:
   source checkout.
 - `dataforge-mcp` is the planned nested standalone distribution for
   `dataforge-mcp-v*` release tags after PyPI ownership is verified.
-- `https://dataforge.dev/playground` is the mandatory production playground
-  route for the full original vision; workers.dev and hf.space URLs are
-  deployment substrates, not completion substitutes.
+- `https://dataforge.praneshrajan15.workers.dev/playground` is the production
+  playground route for the full original vision. This is the release URL.
 - SFT datasets and checkpoints are Hugging Face artifacts verified by
   `scripts/model/verify_sft_release.py`.
 - GRPO checkpoints are Hugging Face artifacts verified by

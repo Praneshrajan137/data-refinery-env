@@ -4,7 +4,7 @@ import { createRequire } from "node:module";
 const require = createRequire(new URL("../../playground/web/package.json", import.meta.url));
 const { chromium, devices } = require("playwright");
 
-const DEFAULT_FRONTEND_URL = "https://dataforge.dev/playground";
+const DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground";
 const DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space";
 const SAMPLE_CSV = "id,amount,state\n1,100,AL\n2,1020,AX\n3,105,AL\n";
 

@@ -16,10 +16,10 @@ The gate checks:
   `dataforge-agent-patterns`.
 - Trusted Publishing, attestations, and fresh-install smoke evidence exist for
   every package.
-- `https://dataforge.dev/playground` resolves, serves the Cloudflare frontend,
-  and points at the expected Hugging Face backend.
-- The HF Space backend is production, CORS-compatible with `dataforge.dev`, and
-  can be tied to the release SHA.
+- `https://dataforge.praneshrajan15.workers.dev/playground` serves the
+  Cloudflare Workers frontend and points at the expected Hugging Face backend.
+- The HF Space backend is production, CORS-compatible with the Workers origin,
+  and can be tied to the release SHA.
 - `dataforge-dbt` has a fresh Python 3.12 `dbt-duckdb` proof with no skipped
   end-to-end test and an audit artifact.
 - Marcus, Priya, Shreya, and agent-user design-partner paths have consented

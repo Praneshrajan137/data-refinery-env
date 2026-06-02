@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
-    frontend_origin = "https://dataforge.dev"
+    frontend_origin = "https://dataforge.praneshrajan15.workers.dev"
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url).rstrip("/")

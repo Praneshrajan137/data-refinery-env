@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import socket
 from pathlib import Path
 from typing import Any
 
@@ -108,14 +107,14 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
         timeout_s: float = 20.0,
         headers: dict[str, str] | None = None,
     ) -> tuple[int | None, str, dict[str, str], str]:
-        if url == "https://dataforge.dev/playground":
+        if url == "https://dataforge.praneshrajan15.workers.dev/playground":
             return (
                 200,
                 '<!doctype html><div id="root"></div><script src="config.js"></script>',
                 {},
                 "",
             )
-        if url == "https://dataforge.dev/playground/config.js":
+        if url == "https://dataforge.praneshrajan15.workers.dev/playground/config.js":
             return (
                 200,
                 "window.__DATAFORGE_CONFIG__={BACKEND_URL:'https://backend.example'}",
@@ -124,8 +123,10 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
             )
         if url == "https://backend.example/api/health":
             response_headers = {}
-            if headers and headers.get("Origin") == "https://dataforge.dev":
-                response_headers["access-control-allow-origin"] = "https://dataforge.dev"
+            if headers and headers.get("Origin") == "https://dataforge.praneshrajan15.workers.dev":
+                response_headers["access-control-allow-origin"] = (
+                    "https://dataforge.praneshrajan15.workers.dev"
+                )
             return (
                 200,
                 json.dumps(
@@ -142,17 +143,10 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
 
     monkeypatch.setattr(full_vision, "_fetch_json", fake_fetch_json)
     monkeypatch.setattr(full_vision, "_fetch_text", fake_fetch_text)
-    monkeypatch.setattr(
-        socket,
-        "getaddrinfo",
-        lambda *args, **kwargs: [
-            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("203.0.113.10", 443))
-        ],
-    )
 
     report = full_vision.run_full_vision_gate(
         evidence_root=tmp_path,
-        frontend_url="https://dataforge.dev/playground",
+        frontend_url="https://dataforge.praneshrajan15.workers.dev/playground",
         backend_url="https://backend.example",
         expected_git_sha="abc123def456",
     )
@@ -162,7 +156,7 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
         "pypi_packages",
         "testpypi_packages",
         "pypi_publish_evidence",
-        "dataforge_dev_playground",
+        "workers_dev_playground",
         "hf_space_backend",
         "dbt_duckdb_fresh_env",
         "design_partner_evidence",

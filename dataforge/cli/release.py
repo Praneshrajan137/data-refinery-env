@@ -101,7 +101,7 @@ def full_vision(
     ] = None,
     frontend_url: Annotated[
         str,
-        typer.Option("--frontend-url", help="Mandatory dataforge.dev Playground URL."),
+        typer.Option("--frontend-url", help="Cloudflare Workers Playground URL."),
     ] = FULL_VISION_FRONTEND_URL,
     backend_url: Annotated[
         str,
@@ -137,7 +137,7 @@ def playground_check(
     frontend_url: Annotated[
         str,
         typer.Option("--frontend-url", help="Cloudflare Playground frontend URL."),
-    ] = "https://dataforge.dev/playground",
+    ] = "https://dataforge.praneshrajan15.workers.dev/playground",
     backend_url: Annotated[
         str,
         typer.Option("--backend-url", help="Hugging Face Playground backend URL."),

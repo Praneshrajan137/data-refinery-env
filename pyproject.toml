@@ -23,7 +23,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Aegis15/dataforge"
 Repository = "https://github.com/Aegis15/dataforge"
-Documentation = "https://dataforge.dev/playground"
+Documentation = "https://dataforge.praneshrajan15.workers.dev/playground"
 
 [project.optional-dependencies]
 bench = [

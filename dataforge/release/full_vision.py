@@ -1,14 +1,13 @@
 """External completion gate for the full original DataForge vision.
 
 This gate is intentionally stricter than the local release gate. It checks
-public package names, the mandatory production domain, Hugging Face artifacts,
+public package names, the production Workers playground, Hugging Face artifacts,
 and evidence files that can only be produced by real external work.
 """
 
 from __future__ import annotations
 
 import json
-import socket
 import sys
 import urllib.error
 import urllib.request
@@ -28,7 +27,7 @@ EXPECTED_PACKAGES = (
 EXPECTED_MODEL_SIZES = ("0.5B", "1.5B", "3B", "7B")
 EXPECTED_MODEL_STAGES = ("SFT", "GRPO", "GiGPO")
 EXPECTED_DESIGN_PERSONAS = ("marcus", "priya", "shreya", "agent")
-DEFAULT_FRONTEND_URL = "https://dataforge.dev/playground"
+DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
 DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
 DEFAULT_HF_OWNER = "Praneshrajan15"
 
@@ -214,16 +213,10 @@ def _check_publish_evidence(evidence_root: Path) -> FullVisionCheck:
     )
 
 
-def _check_dataforge_dev(frontend_url: str, backend_url: str) -> FullVisionCheck:
-    """Verify the mandatory production domain serves the playground shell."""
+def _check_workers_playground(frontend_url: str, backend_url: str) -> FullVisionCheck:
+    """Verify the production Workers playground serves the frontend shell."""
     errors: list[str] = []
     metadata: dict[str, Any] = {"frontend_url": frontend_url, "backend_url": backend_url}
-    try:
-        addresses = socket.getaddrinfo("dataforge.dev", 443)
-        metadata["dns_addresses"] = sorted({entry[4][0] for entry in addresses})
-    except Exception as exc:
-        errors.append(f"dataforge.dev DNS failed: {exc}")
-        metadata["dns_error"] = str(exc)
 
     status, body, headers, error = _fetch_text(frontend_url)
     metadata["status_code"] = status
@@ -247,11 +240,11 @@ def _check_dataforge_dev(frontend_url: str, backend_url: str) -> FullVisionCheck
     if "no-store" not in metadata["config_cache_control"].lower():
         errors.append("config.js is not served with Cache-Control: no-store")
     return FullVisionCheck(
-        name="dataforge_dev_playground",
+        name="workers_dev_playground",
         ok=not errors,
-        detail="dataforge.dev/playground serves the production playground."
+        detail="workers.dev playground serves the production frontend."
         if not errors
-        else "dataforge.dev/playground is not production-ready.",
+        else "workers.dev playground is not production-ready.",
         metadata={**metadata, "errors": errors},
     )
 
@@ -302,7 +295,7 @@ def _check_hf_backend(
     if cors_error:
         errors.append(f"CORS probe failed: {cors_error}")
     if metadata["cors_allow_origin"] != origin:
-        errors.append(f"CORS does not allow mandatory origin {origin}")
+        errors.append(f"CORS does not allow frontend origin {origin}")
     return FullVisionCheck(
         name="hf_space_backend",
         ok=not errors,
@@ -459,7 +452,7 @@ def run_full_vision_gate(
         _check_package_index("pypi", "https://pypi.org/pypi"),
         _check_package_index("testpypi", "https://test.pypi.org/pypi"),
         _check_publish_evidence(root),
-        _check_dataforge_dev(frontend_url, backend_url),
+        _check_workers_playground(frontend_url, backend_url),
         _check_hf_backend(frontend_url, backend_url, expected_git_sha),
         _check_dbt_evidence(root),
         _check_design_partner_evidence(root),

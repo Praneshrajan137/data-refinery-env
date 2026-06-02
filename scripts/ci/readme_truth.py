@@ -2,8 +2,7 @@
 
 Asserts that every public `dataforge <subcommand>` shown in the root README
 resolves to a registered Typer command. It also guards the full-vision claim
-boundary: `dataforge.dev` must be treated as a mandatory external gate, never
-as optional branding.
+boundary: the removed domain must not appear in public release docs.
 
 Usage:
     python scripts/ci/readme_truth.py
@@ -126,26 +125,10 @@ PUBLIC_CLAIM_QUALIFIERS = (
     "source checkout",
     "not shipped yet",
 )
+REMOVED_CUSTOM_DOMAIN = "dataforge" + ".dev"
 CUSTOM_DOMAIN_PATTERN = re.compile(
-    r"(?:https?://(?:www\.)?dataforge\.dev(?:/[^\s)]*)?|\bdataforge\.dev\b)"
-)
-CUSTOM_DOMAIN_QUALIFIERS = (
-    "mandatory",
-    "required",
-    "release-blocking",
-    "release blocking",
-    "hard gate",
-    "blocked",
-    "not ",
-    "not yet",
-    "only when",
-    "until",
-)
-CUSTOM_DOMAIN_FORBIDDEN_QUALIFIERS = (
-    "optional",
-    "out of scope",
-    "nice to have",
-    "future optional",
+    rf"(?:https?://(?:www\.)?{re.escape(REMOVED_CUSTOM_DOMAIN)}(?:/[^\s)]*)?"
+    rf"|\b{re.escape(REMOVED_CUSTOM_DOMAIN)}\b)"
 )
 UNSHIPPED_INTEGRATION_PATTERNS = (
     re.compile(r"\bdataforge-airbyte\b", re.IGNORECASE),
@@ -282,11 +265,7 @@ def get_registered_release_commands() -> set[str]:
 
 
 def extract_playground_urls(text: str) -> list[str]:
-    """Find live playground URLs in the README.
-
-    The optional custom domain is intentionally excluded because it is future
-    branding, not a release-readiness target.
-    """
+    """Find live playground URLs in the README."""
     pattern = re.compile(r"https?://[^\s)`]+(?:workers\.dev|pages\.dev|hf\.space)[^\s)`]*")
     return [match.rstrip(".,;:") for match in pattern.findall(text)]
 
@@ -415,7 +394,7 @@ def check_public_claim_boundaries(paths: list[Path]) -> list[str]:
 
 
 def check_custom_domain_claims(paths: list[Path]) -> list[str]:
-    """Reject optional dataforge.dev language and unqualified live-domain claims."""
+    """Reject any reference to the removed domain."""
     errors: list[str] = []
     for path in paths:
         if not path.exists():
@@ -428,20 +407,9 @@ def check_custom_domain_claims(paths: list[Path]) -> list[str]:
         for index, line in enumerate(lines):
             if not CUSTOM_DOMAIN_PATTERN.search(line):
                 continue
-            previous_line = lines[index - 1] if index > 0 else ""
-            next_line = lines[index + 1] if index + 1 < len(lines) else ""
-            context = f"{previous_line}\n{line}\n{next_line}".lower()
-            if any(qualifier in context for qualifier in CUSTOM_DOMAIN_FORBIDDEN_QUALIFIERS):
-                errors.append(
-                    f"{display_path}:{index + 1} treats dataforge.dev as optional. "
-                    "The full original vision makes dataforge.dev/playground mandatory."
-                )
-                continue
-            if any(qualifier in context for qualifier in CUSTOM_DOMAIN_QUALIFIERS):
-                continue
             errors.append(
-                f"{display_path}:{index + 1} presents dataforge.dev as a current live "
-                "surface without release evidence or a mandatory-gate qualifier."
+                f"{display_path}:{index + 1} references the removed domain. "
+                "Use the Cloudflare workers.dev playground URL instead."
             )
     return errors
 

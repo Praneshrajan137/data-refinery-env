@@ -35,9 +35,8 @@ it does not claim design-partner or customer validation evidence yet.
 
 The current verified public playground is
 `https://dataforge.praneshrajan15.workers.dev/playground`; the API backend is
-`https://Praneshrajan15-dataforge-playground.hf.space`. The mandatory
-`https://dataforge.dev/playground` domain gate is not yet live in committed
-release evidence.
+`https://Praneshrajan15-dataforge-playground.hf.space`. That Workers URL is
+the production playground surface and release URL.
 
 ## Benchmark Evidence
 

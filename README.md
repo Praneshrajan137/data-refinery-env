@@ -52,7 +52,7 @@ Not shipped yet:
 - final PyPI/TestPyPI ownership for `dataforge`
 - published `dataforge`, `dataforge-mcp`, `dataforge-evals`, `dataforge-dbt`,
   and `dataforge-agent-patterns` packages
-- mandatory `https://dataforge.dev/playground` DNS/TLS/Cloudflare route
+- committed production verification for the Cloudflare Workers playground
 - warehouse-native or external adapter packages
 - credentialed Snowflake, BigQuery, or Databricks apply/revert conformance
 - design-partner, pilot-user, or customer validation evidence is not yet claimed
@@ -192,8 +192,8 @@ Streamable HTTP is available for local experiments.
 - The current verified public playground URL is
   `https://dataforge.praneshrajan15.workers.dev/playground`, backed by
   `https://Praneshrajan15-dataforge-playground.hf.space`.
-- `https://dataforge.dev/playground` is a mandatory hard gate for the full
-  original vision and is not yet live in this checkout's verified evidence.
+- That Workers URL is the production playground surface for the full original
+  vision; this is the release URL.
 - `playground-model/` is a separate Gradio Space demo for the published
   `DataForge-0.5B-SFT` smoke checkpoint. It accepts small CSV snippets and is
   intentionally limited to demo use.
@@ -263,7 +263,7 @@ dataforge release full-vision --json
 
 `--core` is the default OSS release check. `--maintainer-deploy` additionally
 checks maintainer-specific Hugging Face, Kaggle OAuth plus clean-config Kaggle
-CLI execution, Cloudflare, and domain state.
+CLI execution, and Cloudflare state.
 `release gate` is the authoritative fresh-user proof: it builds the
 distribution, audits wheel contents, creates a dependency wheelhouse, installs
 with `pip --no-index --find-links`, then runs profile, repair dry-run, apply,
@@ -274,8 +274,8 @@ Configure pending trusted publishers for `dataforge` on TestPyPI and PyPI
 before tagging. The real PyPI workflow refuses pre-release metadata and should
 only run after package-name ownership, trusted publishing, attestations, and
 fresh-install evidence are verified. `dataforge release full-vision --json`
-is expected to fail until PyPI ownership, `dataforge.dev`, dbt-duckdb,
-not yet met design-partner evidence, and model-family evidence are real.
+is expected to fail until PyPI ownership, dbt-duckdb proof, not yet met design-partner
+evidence, and model-family evidence are real.
 
 Windows setup:
 

@@ -19,7 +19,7 @@
 - Renamed final public package targets from staging `dataforge15*` names to
   `dataforge*` names.
 - Added the `dataforge release full-vision` external gate for PyPI/TestPyPI,
-  `dataforge.dev`, dbt-duckdb, design-partner, and model-family evidence.
+  Cloudflare Workers playground, dbt-duckdb, design-partner, and model-family evidence.
 - Added the CLI-first DataForge repair pipeline with profile, repair, revert,
   and bench commands.
 - Added detectors for type mismatches, decimal shifts, and functional
