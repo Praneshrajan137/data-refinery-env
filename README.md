@@ -179,6 +179,10 @@ The default transport is stdio. MCP reads and writes are sandboxed to configured
 allowed roots; dry-run works by default, while apply requires `--enable-apply`.
 Streamable HTTP is available for local experiments.
 
+The monorepo `packages/` directory contains the side-package release sources
+for `dataforge_07_evals`, `dataforge_07_dbt`, and
+`dataforge_07_agent_patterns`.
+
 ## Playground And Model Demo
 
 - `playground/api/` is the API backend for the CSV playground. Public Space

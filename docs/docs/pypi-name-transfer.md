@@ -23,6 +23,9 @@ The core distribution must still install:
 - `python -m pip install dataforge_07` works in a clean Python 3.12 environment.
 - `dataforge --version`, `profile`, `repair --dry-run`, `repair --apply`,
   `audit`, `revert`, `watch`, and `bench` pass from the installed artifact.
+- The side packages publish from this monorepo under `packages/` and install as
+  `dataforge_07_mcp`, `dataforge_07_evals`, `dataforge_07_dbt`, and
+  `dataforge_07_agent_patterns`.
 - `docs/evidence/pypi/publish_report.json` records Trusted Publishing,
   attestations, fresh-install proof, package URLs, distribution hashes, and
   smoke logs for every `dataforge_07*` package.

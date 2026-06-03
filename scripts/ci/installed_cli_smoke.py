@@ -204,25 +204,56 @@ def run_smoke(*, dataforge: str = "dataforge") -> InstalledCliSmokeReport:
         )
         _run(
             "constraints_review",
-            [resolved_dataforge, "constraints", "review", str(constraints_path), "--no-tui", "--json"],
+            [
+                resolved_dataforge,
+                "constraints",
+                "review",
+                str(constraints_path),
+                "--no-tui",
+                "--json",
+            ],
             cwd=workdir,
             steps=steps,
         )
         _run(
             "repair_dry_run",
-            [resolved_dataforge, "repair", str(csv_path), "--schema", str(schema_path), "--dry-run", "--json"],
+            [
+                resolved_dataforge,
+                "repair",
+                str(csv_path),
+                "--schema",
+                str(schema_path),
+                "--dry-run",
+                "--json",
+            ],
             cwd=workdir,
             steps=steps,
         )
         _run(
             "watch_once",
-            [resolved_dataforge, "watch", str(csv_path), "--schema", str(schema_path), "--once", "--json"],
+            [
+                resolved_dataforge,
+                "watch",
+                str(csv_path),
+                "--schema",
+                str(schema_path),
+                "--once",
+                "--json",
+            ],
             cwd=workdir,
             steps=steps,
         )
         apply_stdout = _run(
             "repair_apply",
-            [resolved_dataforge, "repair", str(csv_path), "--schema", str(schema_path), "--apply", "--json"],
+            [
+                resolved_dataforge,
+                "repair",
+                str(csv_path),
+                "--schema",
+                str(schema_path),
+                "--apply",
+                "--json",
+            ],
             cwd=workdir,
             steps=steps,
         )

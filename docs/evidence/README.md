@@ -18,3 +18,14 @@ runbook.
 Every positive manifest entry must point at inspectable logs, artifacts,
 consent records, eval reports, or verifier reports. Booleans alone are not
 release evidence.
+
+Generate `pypi/publish_report.json` only after public PyPI and TestPyPI
+publication is complete:
+
+```bash
+python scripts/ci/pypi_publish_report.py \
+  --workflow-run-url https://github.com/Aegis15/dataforge/actions/runs/<run-id>
+```
+
+The script refuses to write optimistic evidence when package metadata, release
+hashes, provenance URLs, or referenced smoke logs are missing.

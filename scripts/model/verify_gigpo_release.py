@@ -157,7 +157,9 @@ def _validate_metrics(metrics: dict[str, Any]) -> None:
     if str(metrics["model_license"]).lower() != "apache-2.0":
         raise GigpoReleaseVerificationError("model_license must be apache-2.0.")
     if metrics["benchmark_name"] != "DataForge-Bench-light-verified":
-        raise GigpoReleaseVerificationError("benchmark_name must be DataForge-Bench-light-verified.")
+        raise GigpoReleaseVerificationError(
+            "benchmark_name must be DataForge-Bench-light-verified."
+        )
     if metrics["benchmark_seeds"] != [0, 1, 2]:
         raise GigpoReleaseVerificationError("benchmark_seeds must be [0, 1, 2].")
     for field in ("gpu_hours", "grpo_f1", "gigpo_f1", "f1_delta", "parse_success_rate"):

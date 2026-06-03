@@ -1,9 +1,6 @@
 name: Publish dataforge_07 to TestPyPI
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:

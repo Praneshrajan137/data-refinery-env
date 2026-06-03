@@ -250,7 +250,7 @@ def test_analyze_stream_returns_ordered_workflow_events_and_final_payload(
     assert sequences == sorted(sequences)
     assert stage_ids[:3] == ["intake", "intake", "schema_inference"]
     assert statuses[:3] == ["running", "completed", "running"]
-    assert [
+    assert list(dict.fromkeys(stage_ids)) == [
         "intake",
         "schema_inference",
         "constraint_review",
@@ -260,9 +260,11 @@ def test_analyze_stream_returns_ordered_workflow_events_and_final_payload(
         "smt_verifier",
         "dry_run_transaction",
         "receipt",
-    ] == list(dict.fromkeys(stage_ids))
+    ]
     assert all(event["schema_version"] == WORKFLOW_CONTRACT_VERSION for event in events)
-    assert all("run_id" in event and "summary" in event and "started_at" in event for event in events)
+    assert all(
+        "run_id" in event and "summary" in event and "started_at" in event for event in events
+    )
     assert events[-1]["stage_id"] == "receipt"
     assert events[-1]["status"] == "completed"
     assert _stable_analyze_payload(events[-1]["analysis"]) == _stable_analyze_payload(

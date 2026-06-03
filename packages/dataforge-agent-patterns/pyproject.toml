@@ -1,0 +1,67 @@
+[project]
+name = "dataforge_07_agent_patterns"
+version = "0.1.0"
+description = "Reusable agentic primitives extracted from DataForge."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11,<3.13"
+keywords = ["agents", "safety", "transactions", "smt", "causal"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pydantic>=2.7",
+    "z3-solver>=4.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/Aegis15/dataforge"
+Repository = "https://github.com/Aegis15/dataforge"
+Documentation = "https://dataforge.praneshrajan15.workers.dev/playground"
+
+[project.optional-dependencies]
+dev = [
+    "build>=1.2",
+    "mypy>=1.10",
+    "pytest>=8.2",
+    "ruff>=0.11",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dataforge_agent_patterns = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PIE", "RET", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers --strict-config --doctest-modules"
+testpaths = ["tests", "src"]
+pythonpath = ["src"]

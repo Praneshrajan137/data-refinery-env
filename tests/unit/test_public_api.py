@@ -64,11 +64,10 @@ EXPECTED_PUBLIC_EXPORTS = {
 }
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-WORKSPACE_ROOT = PROJECT_ROOT.parent
 INTEGRATION_ENTRYPOINTS = [
     PROJECT_ROOT / "dataforge-mcp" / "dataforge_mcp" / "tools.py",
     PROJECT_ROOT / "playground" / "api" / "app.py",
-    WORKSPACE_ROOT / "dataforge-dbt" / "dataforge_dbt" / "dispatch.py",
+    PROJECT_ROOT / "packages" / "dataforge-dbt" / "dataforge_dbt" / "dispatch.py",
 ]
 BANNED_INTEGRATION_IMPORTS = (
     "from dataforge.detectors",
@@ -105,6 +104,9 @@ def test_integrations_import_from_root_public_facade() -> None:
     available = [path for path in INTEGRATION_ENTRYPOINTS if path.exists()]
     assert PROJECT_ROOT / "dataforge-mcp" / "dataforge_mcp" / "tools.py" in available
     assert PROJECT_ROOT / "playground" / "api" / "app.py" in available
+    assert (
+        PROJECT_ROOT / "packages" / "dataforge-dbt" / "dataforge_dbt" / "dispatch.py"
+    ) in available
 
     for path in available:
         text = path.read_text(encoding="utf-8")

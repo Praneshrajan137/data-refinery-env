@@ -53,9 +53,9 @@ def test_frontend_stays_storage_free_and_capability_aware() -> None:
 def test_frontend_has_typed_vite_quality_gates() -> None:
     """The playground frontend is a typed Vite app with unit, browser, and budget gates."""
     body = PACKAGE_PATH.read_text(encoding="utf-8")
-    budget = (PROJECT_ROOT / "playground" / "web" / "scripts" / "check_bundle_budget.mjs").read_text(
-        encoding="utf-8"
-    )
+    budget = (
+        PROJECT_ROOT / "playground" / "web" / "scripts" / "check_bundle_budget.mjs"
+    ).read_text(encoding="utf-8")
     assert '"vite"' in body
     assert '"typescript"' in body
     assert '"@playwright/test"' in body
@@ -168,7 +168,9 @@ def test_apex_color_system_keeps_green_blue_and_black_out_of_primary_action() ->
         semantic = generated_json["semantic"][theme]
         for token in ("--df-action-bg", "--df-action-bg-hover"):
             assert semantic[token]["palette"].startswith(("neutral-", "brand-"))
-            assert not semantic[token]["palette"].startswith(("data-", "success-", "safe-", "forge-"))
+            assert not semantic[token]["palette"].startswith(
+                ("data-", "success-", "safe-", "forge-")
+            )
         assert semantic["--df-action-border"]["palette"].startswith("brand-")
         assert semantic["--df-status-safe-bg"]["palette"].startswith("neutral-")
         assert semantic["--df-status-safe-text"]["palette"].startswith("success-")

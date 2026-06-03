@@ -82,11 +82,14 @@ logs/
 
 The following product surfaces remain future work unless a spec says otherwise:
 
-- `dataforge_07_dbt`
+- `packages/dataforge-evals`: monorepo source for `dataforge_07_evals`.
+- `packages/dataforge-dbt`: monorepo source for `dataforge_07_dbt`.
+- `packages/dataforge-agent-patterns`: monorepo source for
+  `dataforge_07_agent_patterns`.
 - `dataforge-airbyte`
 - warehouse-native adapters
-- standalone `dataforge15-evals`
-- standalone `dataforge15-agent-patterns`
+- published `dataforge_07_evals`, `dataforge_07_dbt`, and
+  `dataforge_07_agent_patterns` package evidence
 - production model family beyond the current verified SFT/GRPO release evidence
 - hosted product domain and docs site
 

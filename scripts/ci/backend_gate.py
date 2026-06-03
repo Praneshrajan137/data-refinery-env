@@ -32,7 +32,9 @@ MYPY_PATHS = [
     "scripts/ci/readme_truth.py",
     "scripts/ci/benchmark_truth.py",
     "scripts/ci/full_vision_external_gate.py",
+    "scripts/ci/installed_package_smoke.py",
     "scripts/ci/openapi_contract.py",
+    "scripts/ci/pypi_publish_report.py",
     "scripts/ci/backend_gate.py",
     "scripts/playground/build_samples.py",
     "scripts/playground/stage_space.py",
@@ -43,6 +45,12 @@ MYPY_PATHS = [
     "scripts/model/verify_sft_release.py",
     "scripts/model/publish_dataset_readme.py",
     "scripts/publish_model.py",
+]
+PACKAGE_ROOTS = [
+    PROJECT_ROOT / "dataforge-mcp",
+    PROJECT_ROOT / "packages" / "dataforge-evals",
+    PROJECT_ROOT / "packages" / "dataforge-dbt",
+    PROJECT_ROOT / "packages" / "dataforge-agent-patterns",
 ]
 EXCLUDED_SECRET_DIRS = {
     ".git",
@@ -84,11 +92,26 @@ def _clean_package_artifacts() -> None:
         PROJECT_ROOT / "dataforge_07.egg-info",
         PROJECT_ROOT / "dataforge.egg-info",
         PROJECT_ROOT / "dataforge15.egg-info",
-        PROJECT_ROOT / "dataforge-mcp" / "build",
-        PROJECT_ROOT / "dataforge-mcp" / "dist",
-        PROJECT_ROOT / "dataforge-mcp" / "dataforge_07_mcp.egg-info",
-        PROJECT_ROOT / "dataforge-mcp" / "dataforge_mcp.egg-info",
-        PROJECT_ROOT / "dataforge-mcp" / "dataforge15_mcp.egg-info",
+        *[
+            path
+            for package_root in PACKAGE_ROOTS
+            for path in (
+                package_root / "build",
+                package_root / "dist",
+                package_root / "dataforge_07_mcp.egg-info",
+                package_root / "dataforge_mcp.egg-info",
+                package_root / "dataforge15_mcp.egg-info",
+                package_root / "dataforge_07_evals.egg-info",
+                package_root / "dataforge_evals.egg-info",
+                package_root / "dataforge15_evals.egg-info",
+                package_root / "dataforge_07_dbt.egg-info",
+                package_root / "dataforge_dbt.egg-info",
+                package_root / "dataforge15_dbt.egg-info",
+                package_root / "src" / "dataforge_07_agent_patterns.egg-info",
+                package_root / "src" / "dataforge_agent_patterns.egg-info",
+                package_root / "src" / "dataforge15_agent_patterns.egg-info",
+            )
+        ],
     ]:
         if path.exists():
             if path.is_dir():
@@ -102,6 +125,7 @@ def _run(
     label: str,
     command: list[str],
     *,
+    cwd: Path = PROJECT_ROOT,
     optional: bool = False,
     timeout_seconds: int | None = None,
 ) -> bool:
@@ -110,7 +134,7 @@ def _run(
     try:
         result = subprocess.run(
             command,
-            cwd=PROJECT_ROOT,
+            cwd=cwd,
             check=False,
             timeout=timeout_seconds,
         )
@@ -193,6 +217,21 @@ def main() -> int:
     checks.extend(
         [
             _run("MCP pytest", [PYTHON, "-m", "pytest", "dataforge-mcp/tests", "-v"]),
+            _run(
+                "dataforge_07_evals pytest",
+                [PYTHON, "-m", "pytest", "tests", "-v"],
+                cwd=PROJECT_ROOT / "packages" / "dataforge-evals",
+            ),
+            _run(
+                "dataforge_07_agent_patterns pytest",
+                [PYTHON, "-m", "pytest", "tests", "-v"],
+                cwd=PROJECT_ROOT / "packages" / "dataforge-agent-patterns",
+            ),
+            _run(
+                "dataforge_07_dbt pytest",
+                [PYTHON, "-m", "pytest", "integration_tests", "-v"],
+                cwd=PROJECT_ROOT / "packages" / "dataforge-dbt",
+            ),
             _run("README truth", [PYTHON, "scripts/ci/readme_truth.py"]),
             _run("benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]),
             _run("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
@@ -236,6 +275,34 @@ def main() -> int:
         _run(
             "dataforge_07_mcp package build",
             [PYTHON, "-m", "build", "--sdist", "--wheel", "dataforge-mcp"],
+            optional=build_optional,
+        )
+    )
+    checks.append(
+        _run(
+            "dataforge_07_evals package build",
+            [PYTHON, "-m", "build", "--sdist", "--wheel", "packages/dataforge-evals"],
+            optional=build_optional,
+        )
+    )
+    checks.append(
+        _run(
+            "dataforge_07_agent_patterns package build",
+            [
+                PYTHON,
+                "-m",
+                "build",
+                "--sdist",
+                "--wheel",
+                "packages/dataforge-agent-patterns",
+            ],
+            optional=build_optional,
+        )
+    )
+    checks.append(
+        _run(
+            "dataforge_07_dbt package build",
+            [PYTHON, "-m", "build", "--sdist", "--wheel", "packages/dataforge-dbt"],
             optional=build_optional,
         )
     )

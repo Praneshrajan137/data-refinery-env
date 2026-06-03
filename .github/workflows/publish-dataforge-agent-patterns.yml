@@ -1,0 +1,74 @@
+name: Publish dataforge_07_agent_patterns
+
+on:
+  push:
+    tags:
+      - "dataforge-agent-patterns-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Refuse prerelease versions on PyPI
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("packages/dataforge-agent-patterns/pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          if any(marker in version for marker in ("a", "b", "rc", ".dev")):
+              raise SystemExit(f"Refusing to publish prerelease version {version!r} to PyPI.")
+          PY
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build packages/dataforge-agent-patterns --sdist --wheel --outdir packages/dataforge-agent-patterns/dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/dataforge-agent-patterns/dist
+
+  pypi-smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fresh install from PyPI
+        run: |
+          python -m pip install --upgrade pip
+          for attempt in 1 2 3 4 5; do
+            python -m pip install dataforge_07_agent_patterns==0.1.0 && break
+            if [ "$attempt" = "5" ]; then
+              exit 1
+            fi
+            sleep 30
+          done
+          python scripts/ci/installed_package_smoke.py \
+            --package dataforge_07_agent_patterns \
+            --output dataforge_07_agent_patterns-pypi-smoke.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dataforge-07-agent-patterns-pypi-smoke
+          path: dataforge_07_agent_patterns-pypi-smoke.json

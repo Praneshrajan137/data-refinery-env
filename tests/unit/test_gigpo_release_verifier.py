@@ -43,7 +43,9 @@ def _files(tmp_path: Path, *, metrics: dict[str, object]) -> dict[str, Path]:
     readme.write_text("# DataForge-0.5B-GiGPO\n", encoding="utf-8")
     diagnostics = tmp_path / "eval_diagnostics.json"
     diagnostics.write_text(
-        json.dumps({"schema_version": "dataforge_gigpo_eval_diagnostics_v1", "failure_samples": []}),
+        json.dumps(
+            {"schema_version": "dataforge_gigpo_eval_diagnostics_v1", "failure_samples": []}
+        ),
         encoding="utf-8",
     )
     return {

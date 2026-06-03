@@ -47,6 +47,8 @@ jobs:
     needs: publish-testpypi
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -58,5 +60,11 @@ jobs:
             --index-url https://test.pypi.org/simple/ \
             --extra-index-url https://pypi.org/simple/ \
             dataforge_07 dataforge_07_mcp
-          dataforge --version
-          dataforge-mcp --help
+          python scripts/ci/installed_package_smoke.py \
+            --package dataforge_07_mcp \
+            --output dataforge_07_mcp-testpypi-smoke.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dataforge-07-mcp-testpypi-smoke
+          path: dataforge_07_mcp-testpypi-smoke.json

@@ -52,3 +52,32 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dataforge-mcp/dist
+
+  pypi-smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fresh install from PyPI
+        run: |
+          python -m pip install --upgrade pip
+          for attempt in 1 2 3 4 5; do
+            python -m pip install dataforge_07_mcp==0.1.0 && break
+            if [ "$attempt" = "5" ]; then
+              exit 1
+            fi
+            sleep 30
+          done
+          python scripts/ci/installed_package_smoke.py \
+            --package dataforge_07_mcp \
+            --output dataforge_07_mcp-pypi-smoke.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dataforge-07-mcp-pypi-smoke
+          path: dataforge_07_mcp-pypi-smoke.json

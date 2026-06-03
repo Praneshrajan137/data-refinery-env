@@ -184,7 +184,7 @@ WorkflowStageId = Literal[
     "receipt",
 ]
 WorkflowStatus = Literal["queued", "running", "completed", "blocked", "failed", "cancelled"]
-WORKFLOW_CONTRACT_VERSION = "workflow_event_v1"
+WORKFLOW_CONTRACT_VERSION: Literal["workflow_event_v1"] = "workflow_event_v1"
 WORKFLOW_STAGE_IDS: tuple[WorkflowStageId, ...] = (
     "intake",
     "schema_inference",
@@ -1424,7 +1424,7 @@ def _event_line(event: WorkflowEvent) -> str:
 
 def _problem_payload_from_exception(exc: HTTPException) -> dict[str, Any]:
     """Convert a public HTTPException into a stream-safe problem payload."""
-    detail = exc.detail if isinstance(exc.detail, dict) else {}
+    detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
     message = (
         str(detail.get("message") or detail.get("detail") or exc.detail)
         if detail or exc.detail

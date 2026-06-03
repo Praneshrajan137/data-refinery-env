@@ -44,11 +44,13 @@ Status: pending maintainer configuration and TestPyPI run.
 
 Required trusted-publisher setup before tagging:
 
-- TestPyPI pending publisher for project `dataforge_07`, workflow
-  `publish-testpypi.yml`, environment `testpypi`.
-- PyPI pending publisher for project `dataforge_07`, workflow
-  `publish-dataforge.yml`, environment `pypi`.
-- GitHub environment approval rules for both `testpypi` and `pypi`.
+- TestPyPI pending publishers for `dataforge_07`, `dataforge_07_mcp`,
+  `dataforge_07_evals`, `dataforge_07_agent_patterns`, and `dataforge_07_dbt`.
+- PyPI pending publishers for the same five projects.
+- Each publisher uses owner `Aegis15`, repository `dataforge`, the matching
+  workflow filename, and environment `testpypi` or `pypi`.
+- GitHub environment approval rules for `pypi`; `testpypi` remains
+  environment-scoped for OIDC but can stay lower-friction.
 
 Evidence to record after the workflow passes:
 
@@ -58,6 +60,8 @@ Evidence to record after the workflow passes:
 - PyPI project URL after the real release.
 - Trusted Publishing workflow URL and PyPI attestation URL.
 - Stored TestPyPI and PyPI fresh-install smoke logs under `docs/evidence/pypi/`.
+- Generated `docs/evidence/pypi/publish_report.json` from
+  `scripts/ci/pypi_publish_report.py` after every package is public.
 - Installed-package smoke output for `dataforge --version`, `profile`,
   `profile --constraints-out`, `constraints review --accept ... --no-tui`,
   `repair --constraints --dry-run --json`, and
@@ -77,8 +81,8 @@ refuses pre-release package metadata.
   apply by default, enabled apply inside an allowed root, and revert.
 - `dataforge_07_evals`, `dataforge_07_agent_patterns`, and
   `dataforge_07_dbt`:
-  sibling packages must pass their own clean virtualenv tests and TestPyPI
-  fresh-install smoke before any real PyPI publication.
+  monorepo packages under `packages/` that must pass their own clean virtualenv
+  tests and TestPyPI fresh-install smoke before any real PyPI publication.
 
 ## Evidence Manifest Discipline
 
