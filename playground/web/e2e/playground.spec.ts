@@ -4,6 +4,17 @@ import { expect, test } from "@playwright/test";
 const sampleCsv = "id,amount,state\n1,100,AL\n2,1020,AX\n3,105,AL\n";
 const sourceHash = "a".repeat(64);
 
+async function allowClipboardWrite(page: import("@playwright/test").Page) {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: () => Promise.resolve(),
+      },
+    });
+  });
+}
+
 function analyzePayload(accepted = false) {
   return {
     source: {
@@ -296,11 +307,8 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("sample path analyzes, accepts constraints, exports evidence, and passes accessibility", async ({
-  page,
-  context,
-}) => {
-  await context.grantPermissions(["clipboard-write"]);
+test("sample path analyzes, accepts constraints, exports evidence, and passes accessibility", async ({ page }) => {
+  await allowClipboardWrite(page);
   await page.goto("/playground/run");
 
   await expect(page.getByRole("region", { name: "DataForge mission bar" })).toBeVisible();
@@ -416,11 +424,8 @@ test("product routes support direct load, navigation, and browser history", asyn
 });
 
 for (const colorScheme of ["light", "dark"] as const) {
-  test(`DataForge multi-page product supports the full sample flow in ${colorScheme} mode`, async ({
-    page,
-    context,
-  }) => {
-    await context.grantPermissions(["clipboard-write"]);
+  test(`DataForge multi-page product supports the full sample flow in ${colorScheme} mode`, async ({ page }) => {
+    await allowClipboardWrite(page);
     await page.emulateMedia({ colorScheme });
     await page.goto("/playground/run");
 

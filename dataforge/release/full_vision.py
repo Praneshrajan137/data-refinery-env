@@ -30,6 +30,16 @@ EXPECTED_DESIGN_PERSONAS = ("marcus", "priya", "shreya", "agent")
 DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
 DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
 DEFAULT_HF_OWNER = "Praneshrajan15"
+REQUIRED_PACKAGE_EVIDENCE_FIELDS = (
+    "testpypi_url",
+    "pypi_url",
+    "workflow_run_url",
+    "attestation_url",
+    "wheel_sha256",
+    "sdist_sha256",
+    "testpypi_smoke_log_path",
+    "pypi_smoke_log_path",
+)
 
 
 @dataclass(frozen=True)
@@ -116,6 +126,30 @@ def _load_json_file(path: Path) -> tuple[dict[str, Any] | None, str]:
     return payload, ""
 
 
+def _resolve_evidence_file(evidence_root: Path, raw_path: Any) -> Path | None:
+    """Resolve a manifest evidence path and require it to point to a file."""
+    text = str(raw_path or "").strip()
+    if not text:
+        return None
+    path = Path(text)
+    if not path.is_absolute():
+        path = evidence_root / path
+    if not path.is_file():
+        return None
+    return path
+
+
+def _is_https_url(value: Any) -> bool:
+    """Return whether a manifest field is a concrete HTTPS URL."""
+    return str(value or "").strip().startswith("https://")
+
+
+def _is_sha256(value: Any) -> bool:
+    """Return whether a manifest field looks like a SHA-256 hex digest."""
+    text = str(value or "").strip().lower()
+    return len(text) == 64 and all(char in "0123456789abcdef" for char in text)
+
+
 def _version_tuple(value: str) -> tuple[int, ...]:
     """Parse a simple dotted numeric version for release-gate comparisons."""
     parts: list[int] = []
@@ -195,6 +229,9 @@ def _check_publish_evidence(evidence_root: Path) -> FullVisionCheck:
             errors.append("package evidence entries must be objects")
             continue
         name = str(item.get("name", ""))
+        for field in REQUIRED_PACKAGE_EVIDENCE_FIELDS:
+            if not str(item.get(field, "")).strip():
+                errors.append(f"{name}: {field} is required")
         if item.get("trusted_publishing") is not True:
             errors.append(f"{name}: trusted_publishing must be true")
         if item.get("attestations") is not True:
@@ -203,6 +240,15 @@ def _check_publish_evidence(evidence_root: Path) -> FullVisionCheck:
             errors.append(f"{name}: TestPyPI fresh-install proof is missing")
         if item.get("pypi_fresh_install") is not True:
             errors.append(f"{name}: PyPI fresh-install proof is missing")
+        for field in ("testpypi_url", "pypi_url", "workflow_run_url", "attestation_url"):
+            if item.get(field) and not _is_https_url(item.get(field)):
+                errors.append(f"{name}: {field} must be an HTTPS URL")
+        for field in ("wheel_sha256", "sdist_sha256"):
+            if item.get(field) and not _is_sha256(item.get(field)):
+                errors.append(f"{name}: {field} must be a SHA-256 hex digest")
+        for field in ("testpypi_smoke_log_path", "pypi_smoke_log_path"):
+            if item.get(field) and _resolve_evidence_file(evidence_root, item.get(field)) is None:
+                errors.append(f"{name}: {field} must point to an evidence file")
     return FullVisionCheck(
         name="pypi_publish_evidence",
         ok=not errors,
@@ -321,12 +367,31 @@ def _check_dbt_evidence(evidence_root: Path) -> FullVisionCheck:
         errors.append("package must be dataforge-dbt")
     if not str(payload.get("python_version", "")).startswith("3.12"):
         errors.append("python_version must be 3.12.x")
+    if not str(payload.get("dbt_core_version", "")).strip():
+        errors.append("dbt_core_version is required")
+    if not str(payload.get("dbt_duckdb_version", "")).strip():
+        errors.append("dbt_duckdb_version is required")
+    for field in ("dbt_seed_passed", "dbt_run_passed", "dbt_test_passed"):
+        if payload.get(field) is not True:
+            errors.append(f"{field} must be true")
+    for field in (
+        "dataforge_dbt_dry_run_passed",
+        "dataforge_dbt_refuse_passed",
+        "dataforge_dbt_apply_passed",
+        "dataforge_table_store_audit_passed",
+        "dataforge_table_store_revert_passed",
+    ):
+        if payload.get(field) is not True:
+            errors.append(f"{field} must be true")
     if payload.get("dbt_duckdb_e2e_passed") is not True:
         errors.append("dbt_duckdb_e2e_passed must be true")
     if int(payload.get("skipped_tests", -1)) != 0:
         errors.append("skipped_tests must be 0")
     if payload.get("audit_artifact_written") is not True:
         errors.append("audit_artifact_written must be true")
+    for field in ("artifact_path", "command_log_path"):
+        if _resolve_evidence_file(evidence_root, payload.get(field)) is None:
+            errors.append(f"{field} must point to an evidence file")
     return FullVisionCheck(
         name="dbt_duckdb_fresh_env",
         ok=not errors,
@@ -362,8 +427,17 @@ def _check_design_partner_evidence(evidence_root: Path) -> FullVisionCheck:
             errors.append(f"{persona}: validated must be true")
         if not entry.get("evidence_path"):
             errors.append(f"{persona}: evidence_path is required")
+        elif _resolve_evidence_file(evidence_root, entry.get("evidence_path")) is None:
+            errors.append(f"{persona}: evidence_path must point to an evidence file")
         if not entry.get("consent_record"):
             errors.append(f"{persona}: consent_record is required")
+        elif _resolve_evidence_file(evidence_root, entry.get("consent_record")) is None:
+            errors.append(f"{persona}: consent_record must point to an evidence file")
+        if entry.get("blocking_findings_closed") is not True:
+            errors.append(f"{persona}: blocking_findings_closed must be true")
+        timing = entry.get("timing_seconds")
+        if not isinstance(timing, int | float) or timing <= 0:
+            errors.append(f"{persona}: timing_seconds must be positive")
     return FullVisionCheck(
         name="design_partner_evidence",
         ok=not errors,
@@ -416,18 +490,33 @@ def _check_hf_model_family(evidence_root: Path, hf_owner: str) -> FullVisionChec
         if not isinstance(models, list):
             errors.append("model_family_report models must be a list")
             models = []
-        passed_repos = {
-            str(item.get("repo_id", ""))
-            for item in models
-            if isinstance(item, dict) and item.get("verifier_passed") is True
+        entries_by_repo = {
+            str(item.get("repo_id", "")): item for item in models if isinstance(item, dict)
         }
         expected_repos = {
             f"{hf_owner}/DataForge-{size}-{stage}"
             for size in EXPECTED_MODEL_SIZES
             for stage in EXPECTED_MODEL_STAGES
         }
-        missing = sorted(expected_repos - passed_repos)
-        errors.extend(f"missing verifier-passed model evidence: {repo_id}" for repo_id in missing)
+        missing = sorted(expected_repos - set(entries_by_repo))
+        errors.extend(f"missing model evidence: {repo_id}" for repo_id in missing)
+        for repo_id in sorted(expected_repos & set(entries_by_repo)):
+            item = entries_by_repo[repo_id]
+            if item.get("verifier_passed") is not True:
+                errors.append(f"{repo_id}: verifier_passed must be true")
+            if item.get("limitations_documented") is not True:
+                errors.append(f"{repo_id}: limitations_documented must be true")
+            if not str(item.get("dataset_repo", "")).strip():
+                errors.append(f"{repo_id}: dataset_repo is required")
+            for field in ("training_run_url", "model_card_url"):
+                if not _is_https_url(item.get(field)):
+                    errors.append(f"{repo_id}: {field} must be an HTTPS URL")
+            for field in ("eval_report_path", "verification_report_path"):
+                if _resolve_evidence_file(evidence_root, item.get(field)) is None:
+                    errors.append(f"{repo_id}: {field} must point to an evidence file")
+            metrics = item.get("eval_metrics")
+            if not isinstance(metrics, dict) or not metrics:
+                errors.append(f"{repo_id}: eval_metrics must be a non-empty object")
     return FullVisionCheck(
         name="hf_model_family",
         ok=not errors,

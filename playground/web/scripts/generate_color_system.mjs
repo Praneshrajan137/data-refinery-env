@@ -11,13 +11,28 @@ const checkMode = process.argv.includes("--check");
 
 const toneStops = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 100];
 const seeds = {
-  neutral: { l: 0.63, c: 0.006, h: 92, meaning: "porcelain graphite and cool mineral gray" },
-  brand: { l: 0.55, c: 0.084, h: 38, meaning: "restrained vermilion executive signal" },
+  neutral: { l: 0.63, c: 0.006, h: 92, meaning: "pearl porcelain and warm mineral gray" },
+  brand: { l: 0.55, c: 0.096, h: 34, meaning: "aurelian cinnabar executive command signal" },
   data: { l: 0.56, c: 0.044, h: 188, meaning: "desaturated teal-steel evidence" },
-  agent: { l: 0.55, c: 0.06, h: 298, meaning: "muted ultraviolet agent cognition" },
+  agent: { l: 0.55, c: 0.058, h: 298, meaning: "muted ultraviolet agent cognition" },
   success: { l: 0.55, c: 0.038, h: 152, meaning: "low-chroma viridian proof" },
-  warning: { l: 0.67, c: 0.07, h: 78, meaning: "antique brass review" },
+  warning: { l: 0.67, c: 0.066, h: 78, meaning: "antique brass review" },
   danger: { l: 0.53, c: 0.086, h: 18, meaning: "deep carmine hematite risk" },
+};
+
+const agentStateRefs = {
+  thinking: { light: ["neutral-100", "agent-30", "agent-60"], dark: ["neutral-20", "agent-90", "agent-60"] },
+  acting: { light: ["neutral-100", "brand-30", "brand-60"], dark: ["neutral-20", "brand-90", "brand-60"] },
+  waiting: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
+  asking: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  uncertain: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  confident: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  completed: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  failed: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
+  interrupted: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  delegated: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
+  escalated: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
+  recovered: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
 };
 
 const semanticRefs = {
@@ -27,20 +42,33 @@ const semanticRefs = {
     "--df-surface-2": "neutral-98",
     "--df-surface-3": "neutral-95",
     "--df-surface-strong": "neutral-90",
-    "--df-text-1": "neutral-10",
-    "--df-text-2": "neutral-30",
+    "--df-text-1": "neutral-20",
+    "--df-text-2": "neutral-40",
     "--df-text-inverse": "neutral-100",
     "--df-line-subtle": "neutral-90",
     "--df-line": "neutral-80",
     "--df-line-strong": "neutral-60",
-    "--df-action-bg": "neutral-10",
-    "--df-action-bg-hover": "neutral-20",
+    "--df-action-bg": "brand-30",
+    "--df-action-bg-hover": "brand-40",
     "--df-action-text": "neutral-100",
-    "--df-action-border": "brand-50",
+    "--df-action-border": "brand-60",
     "--df-action-soft": "neutral-95",
     "--df-action-soft-text": "brand-30",
     "--df-focus-ring": "agent-50",
     "--df-focus-halo": "neutral-95",
+    "--df-info-bg": "neutral-100",
+    "--df-info-text": "data-30",
+    "--df-info-line": "data-60",
+    "--df-selection-bg": "neutral-95",
+    "--df-selection-text": "neutral-20",
+    "--df-selection-line": "brand-50",
+    "--df-hover-bg": "neutral-95",
+    "--df-disabled-bg": "neutral-95",
+    "--df-disabled-text": "neutral-50",
+    "--df-disabled-line": "neutral-80",
+    "--df-loading-bg": "neutral-100",
+    "--df-loading-text": "brand-30",
+    "--df-loading-line": "brand-60",
     "--df-data-bg": "neutral-98",
     "--df-data-text": "data-30",
     "--df-agent-bg": "neutral-98",
@@ -89,7 +117,7 @@ const semanticRefs = {
     "--df-diff-old-text": "danger-30",
     "--df-diff-new-bg": "neutral-100",
     "--df-diff-new-text": "success-30",
-    "--df-code-bg": "neutral-10",
+    "--df-code-bg": "neutral-20",
     "--df-code-text": "neutral-95",
   },
   dark: {
@@ -112,6 +140,19 @@ const semanticRefs = {
     "--df-action-soft-text": "brand-90",
     "--df-focus-ring": "agent-80",
     "--df-focus-halo": "neutral-20",
+    "--df-info-bg": "neutral-20",
+    "--df-info-text": "data-90",
+    "--df-info-line": "data-60",
+    "--df-selection-bg": "neutral-30",
+    "--df-selection-text": "neutral-98",
+    "--df-selection-line": "brand-60",
+    "--df-hover-bg": "neutral-30",
+    "--df-disabled-bg": "neutral-20",
+    "--df-disabled-text": "neutral-70",
+    "--df-disabled-line": "neutral-50",
+    "--df-loading-bg": "neutral-20",
+    "--df-loading-text": "brand-90",
+    "--df-loading-line": "brand-60",
     "--df-data-bg": "neutral-20",
     "--df-data-text": "data-90",
     "--df-agent-bg": "neutral-20",
@@ -165,11 +206,36 @@ const semanticRefs = {
   },
 };
 
+for (const [state, refs] of Object.entries(agentStateRefs)) {
+  for (const [theme, [bg, text, line]] of Object.entries(refs)) {
+    semanticRefs[theme][`--df-agent-${state}-bg`] = bg;
+    semanticRefs[theme][`--df-agent-${state}-text`] = text;
+    semanticRefs[theme][`--df-agent-${state}-line`] = line;
+  }
+}
+
+const highContrastRefs = {
+  light: {
+    "--df-text-2": "neutral-20",
+    "--df-line": "neutral-60",
+    "--df-line-strong": "neutral-40",
+    "--df-focus-ring": "agent-30",
+    "--df-action-border": "brand-40",
+  },
+  dark: {
+    "--df-text-2": "neutral-95",
+    "--df-line": "neutral-70",
+    "--df-line-strong": "neutral-80",
+    "--df-focus-ring": "agent-90",
+    "--df-action-border": "brand-80",
+  },
+};
+
 const glowRefs = {
   "--df-data-glow": "data-60",
   "--df-action-glow": "brand-60",
   "--df-agent-glow": "agent-60",
-  "--df-safe-glow": "success-60",
+  "--df-proof-glow": "success-60",
   "--df-danger-glow": "danger-60",
 };
 
@@ -273,15 +339,22 @@ function buildSystem() {
       Object.entries(refs).map(([token, ref]) => [token, semanticToken(ref, palettes)]),
     );
   }
+  const highContrast = {};
+  for (const [theme, refs] of Object.entries(highContrastRefs)) {
+    highContrast[theme] = Object.fromEntries(
+      Object.entries(refs).map(([token, ref]) => [token, semanticToken(ref, palettes)]),
+    );
+  }
 
   return {
     version: "1.0.0",
     generatedBy: "playground/web/scripts/generate_color_system.mjs",
-    colorSpace: "OKLCH seeds, constant-hue/chroma-reduced sRGB output, P3 non-text accents",
+    colorSpace: "Aurelian Proof Intelligence OKLCH seeds, constant-hue/chroma-reduced sRGB output, P3 non-text accents",
     toneStops,
     seeds,
     palettes,
     semantic,
+    highContrast,
   };
 }
 
@@ -305,10 +378,26 @@ function buildCss(system) {
   }
   lines.push("}");
   lines.push("");
+  lines.push("@media (prefers-contrast: more) {");
+  lines.push("  :root {");
+  for (const [token, value] of Object.entries(system.highContrast.light)) {
+    lines.push(`    ${token}: var(--df-palette-${value.palette});`);
+  }
+  lines.push("  }");
+  lines.push("}");
+  lines.push("");
   lines.push("@media (prefers-color-scheme: dark) {");
   lines.push("  :root {");
   lines.push("    color-scheme: dark;");
   for (const [token, value] of Object.entries(system.semantic.dark)) {
+    lines.push(`    ${token}: var(--df-palette-${value.palette});`);
+  }
+  lines.push("  }");
+  lines.push("}");
+  lines.push("");
+  lines.push("@media (prefers-color-scheme: dark) and (prefers-contrast: more) {");
+  lines.push("  :root {");
+  for (const [token, value] of Object.entries(system.highContrast.dark)) {
     lines.push(`    ${token}: var(--df-palette-${value.palette});`);
   }
   lines.push("  }");

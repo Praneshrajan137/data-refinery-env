@@ -10,7 +10,12 @@
       "pypi_fresh_install": true,
       "testpypi_url": "",
       "pypi_url": "",
-      "workflow_run_url": ""
+      "workflow_run_url": "",
+      "attestation_url": "",
+      "wheel_sha256": "",
+      "sdist_sha256": "",
+      "testpypi_smoke_log_path": "",
+      "pypi_smoke_log_path": ""
     }
   ]
 }

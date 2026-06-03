@@ -61,7 +61,7 @@ a:focus-visible,
 [tabindex]:focus-visible {
   outline: 2px solid var(--df-focus-ring);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--df-focus-ring) 14%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--df-focus-halo) 78%, transparent);
 }
 
 svg {
@@ -303,7 +303,7 @@ h3 {
 .hash-grid button:hover,
 .cell-button:hover {
   border-color: var(--df-line-strong);
-  background: var(--df-surface-1);
+  background: var(--df-hover-bg);
 }
 
 .mission-controls {
@@ -446,7 +446,10 @@ button:disabled,
 input:disabled,
 select:disabled {
   cursor: not-allowed;
-  opacity: 0.58;
+  border-color: var(--df-disabled-line);
+  background: var(--df-disabled-bg);
+  color: var(--df-disabled-text);
+  opacity: 1;
 }
 
 .observatory-grid {
@@ -551,7 +554,9 @@ select:disabled {
 }
 
 .stage-node-button[aria-pressed="true"] {
-  background: color-mix(in srgb, var(--df-action-soft) 74%, var(--df-surface-1));
+  background: var(--df-selection-bg);
+  color: var(--df-selection-text);
+  box-shadow: inset 0 0 0 1px var(--df-selection-line);
 }
 
 .stage-index {
@@ -1368,8 +1373,9 @@ textarea {
 .loading-state {
   min-height: 220px;
   align-content: center;
-  color: var(--df-stage-active-text);
-  border-color: var(--df-stage-active-line);
+  background: var(--df-loading-bg);
+  color: var(--df-loading-text);
+  border-color: var(--df-loading-line);
 }
 
 @keyframes spin {
@@ -1527,7 +1533,7 @@ textarea {
 
 .product-nav a:hover {
   border-color: var(--df-line);
-  background: var(--df-surface-2);
+  background: var(--df-hover-bg);
 }
 
 .product-nav a[aria-current="page"] {
@@ -1634,6 +1640,7 @@ textarea {
 .route-card:hover,
 .route-actions button:hover {
   border-color: var(--df-action-border);
+  background: var(--df-hover-bg);
 }
 
 .route-card span {
@@ -1733,6 +1740,102 @@ textarea {
 .legend-item--agent {
   color: var(--df-agent-text);
   border-color: var(--df-agent-line);
+}
+
+.legend-item--info {
+  color: var(--df-info-text);
+  border-color: var(--df-info-line);
+  background: var(--df-info-bg);
+}
+
+.legend-item--selection {
+  color: var(--df-selection-text);
+  border-color: var(--df-selection-line);
+  background: var(--df-selection-bg);
+}
+
+.legend-item--disabled {
+  color: var(--df-disabled-text);
+  border-color: var(--df-disabled-line);
+  background: var(--df-disabled-bg);
+}
+
+.legend-item--loading {
+  color: var(--df-loading-text);
+  border-color: var(--df-loading-line);
+  background: var(--df-loading-bg);
+}
+
+.legend-item--thinking {
+  color: var(--df-agent-thinking-text);
+  border-color: var(--df-agent-thinking-line);
+  background: var(--df-agent-thinking-bg);
+}
+
+.legend-item--acting {
+  color: var(--df-agent-acting-text);
+  border-color: var(--df-agent-acting-line);
+  background: var(--df-agent-acting-bg);
+}
+
+.legend-item--waiting {
+  color: var(--df-agent-waiting-text);
+  border-color: var(--df-agent-waiting-line);
+  background: var(--df-agent-waiting-bg);
+}
+
+.legend-item--asking {
+  color: var(--df-agent-asking-text);
+  border-color: var(--df-agent-asking-line);
+  background: var(--df-agent-asking-bg);
+}
+
+.legend-item--uncertain {
+  color: var(--df-agent-uncertain-text);
+  border-color: var(--df-agent-uncertain-line);
+  background: var(--df-agent-uncertain-bg);
+}
+
+.legend-item--confident {
+  color: var(--df-agent-confident-text);
+  border-color: var(--df-agent-confident-line);
+  background: var(--df-agent-confident-bg);
+}
+
+.legend-item--completed {
+  color: var(--df-agent-completed-text);
+  border-color: var(--df-agent-completed-line);
+  background: var(--df-agent-completed-bg);
+}
+
+.legend-item--failed {
+  color: var(--df-agent-failed-text);
+  border-color: var(--df-agent-failed-line);
+  background: var(--df-agent-failed-bg);
+}
+
+.legend-item--interrupted {
+  color: var(--df-agent-interrupted-text);
+  border-color: var(--df-agent-interrupted-line);
+  background: var(--df-agent-interrupted-bg);
+}
+
+.legend-item--delegated {
+  color: var(--df-agent-delegated-text);
+  border-color: var(--df-agent-delegated-line);
+  background: var(--df-agent-delegated-bg);
+}
+
+.legend-item--escalated {
+  color: var(--df-agent-escalated-text);
+  border-color: var(--df-agent-escalated-line);
+  background: var(--df-agent-escalated-bg);
+}
+
+.legend-item--recovered {
+  color: var(--df-agent-recovered-text);
+  border-color: var(--df-agent-recovered-line);
+  background: var(--df-agent-recovered-bg);
 }
 
 .empty-route {

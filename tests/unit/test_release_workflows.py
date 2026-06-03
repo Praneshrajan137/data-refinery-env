@@ -31,5 +31,5 @@ def test_testpypi_workflow_uses_trusted_publishing_and_installed_smoke() -> None
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
     assert "--extra-index-url https://pypi.org/simple/" in workflow
     assert "dataforge==0.1.0" in workflow
-    assert "dataforge constraints review constraints.json --accept" in workflow
-    assert "dataforge release doctor --core --json" in workflow
+    assert "scripts/ci/installed_cli_smoke.py" in workflow
+    assert "dataforge-testpypi-installed-cli-smoke" in workflow

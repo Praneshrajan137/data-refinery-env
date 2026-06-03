@@ -12,6 +12,37 @@ Format for every entry:
 
 ---
 
+## 2026-06-03 - Treat Workers as the canonical playground and harden external evidence
+**Context**: The full original DataForge vision still depends on external
+state: PyPI/TestPyPI ownership, public package publication, live deployment
+verification, real dbt-duckdb proof, real design-partner evidence, and a public
+Hugging Face model family. A custom domain adds DNS ownership and routing risk
+without improving the product proof because the Workers URL is already the
+stable hosted playground surface.
+**Alternatives**:
+- Require a custom domain. Pros: shorter branded URL. Cons: introduces a DNS
+  gate unrelated to the product's safety, package, or model claims.
+- Keep both a custom domain and Workers. Pros: optional brand path. Cons:
+  doubles deployment truth surfaces and invites stale docs.
+- Make the Workers playground canonical. Pros: removes DNS ambiguity and keeps
+  the external gate focused on package ownership, hosted behavior, evidence,
+  and model quality. Cons: less polished URL.
+**Decision**: use `https://dataforge.praneshrajan15.workers.dev/playground` as
+the canonical public playground and make the full-vision gate require hard,
+file-backed evidence for PyPI, dbt-duckdb, design partners, and the HF model
+family.
+**Reasoning**: the project should optimize for falsifiable proof, not vanity
+surface area. The Workers URL is sufficient for the hosted playground claim;
+the release risk belongs in package ownership, reversible repair behavior, and
+model/eval evidence.
+**Reviewed with**: `dataforge release full-vision --json`, PyPI trusted
+publishing guidance, dbt data-test guidance, and Hugging Face model-card
+guidance.
+**Reversal criteria**: revisit only if a custom domain is already controlled,
+monitored, and useful to users without weakening the existing Workers gate.
+
+---
+
 ## 2026-05-16 - Use GRPO before GiGPO on the free-tier training path
 **Context**: Week 12 needs a post-SFT reinforcement learning step that can run
 on Kaggle or Colab free GPUs without adding a second distributed RL stack.

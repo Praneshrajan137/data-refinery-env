@@ -14,3 +14,7 @@ external events have happened:
 Do not create positive evidence files before the public state, user validation,
 or model verification exists. Use `docs/evidence/templates/` when preparing a
 runbook.
+
+Every positive manifest entry must point at inspectable logs, artifacts,
+consent records, eval reports, or verifier reports. Booleans alone are not
+release evidence.

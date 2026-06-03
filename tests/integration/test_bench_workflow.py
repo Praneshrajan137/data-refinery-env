@@ -2,20 +2,14 @@
 
 from __future__ import annotations
 
-import functools
-import importlib
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
-from dataforge.bench.runner import run_agent_comparison
 from dataforge.cli import app
-
-bench_module = importlib.import_module("dataforge.cli.bench")
 
 _ROOT = Path(__file__).resolve().parents[2]
 _FIXTURES = _ROOT / "tests" / "fixtures" / "bench"
@@ -41,21 +35,10 @@ class TestBenchWorkflow:
     def test_cached_heuristic_bench_command_runs_under_thirty_seconds(
         self,
         tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         cache_root = tmp_path / "cache"
         output_json = tmp_path / "eval" / "results" / "agent_comparison.json"
         _populate_cache(cache_root)
-
-        monkeypatch.setattr(
-            bench_module,
-            "run_agent_comparison",
-            functools.partial(
-                run_agent_comparison,
-                cache_root=cache_root,
-                verify_dataset_hashes=False,
-            ),
-        )
 
         start = time.monotonic()
         result = runner.invoke(
@@ -68,6 +51,9 @@ class TestBenchWorkflow:
                 "hospital",
                 "--seeds",
                 "1",
+                "--cache-root",
+                str(cache_root),
+                "--no-verify-dataset-hashes",
                 "--output-json",
                 str(output_json),
             ],

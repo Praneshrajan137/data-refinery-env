@@ -80,6 +80,20 @@ def bench(
             help="Where to write eval/results/agent_comparison.json.",
         ),
     ] = Path("eval/results/agent_comparison.json"),
+    cache_root: Annotated[
+        Path | None,
+        typer.Option(
+            "--cache-root",
+            help="Benchmark dataset cache root. Defaults to the user DataForge cache.",
+        ),
+    ] = None,
+    verify_dataset_hashes: Annotated[
+        bool,
+        typer.Option(
+            "--verify-dataset-hashes/--no-verify-dataset-hashes",
+            help="Verify cached benchmark bytes against pinned upstream hashes.",
+        ),
+    ] = True,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print benchmark results as JSON."),
@@ -94,6 +108,8 @@ def bench(
             seed_list=_parse_seed_list(seed_list),
             output_json=output_json,
             really_run_big_bench=really_run_big_bench,
+            cache_root=cache_root,
+            verify_dataset_hashes=verify_dataset_hashes,
         )
     except Exception as exc:
         _console.print(

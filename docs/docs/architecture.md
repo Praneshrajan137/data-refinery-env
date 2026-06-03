@@ -140,5 +140,8 @@ Optional extras and scoped dependencies:
 - GRPO checkpoints are Hugging Face artifacts verified by
   `scripts/model/verify_grpo_release.py` before they can be cited as quality
   improvements.
+- GiGPO checkpoints are Hugging Face artifacts verified by
+  `scripts/model/verify_gigpo_release.py` before the full model-family claim
+  can pass.
 - Generated Hugging Face staging directories are deployment artifacts, not
   canonical documentation sources.

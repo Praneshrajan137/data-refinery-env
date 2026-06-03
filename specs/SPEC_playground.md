@@ -84,9 +84,10 @@ served as an API-only Hugging Face Docker Space.
 - Safety: no endpoint may silently bypass safety or verifier failures.
 - Visual quality: color tokens come from `SPEC_color_system.md`; color never
   carries critical state without adjacent text, iconography, or ARIA semantics.
-  The playground uses the DataForge Mineral Intelligence surface: porcelain
-  field, graphite command, vermilion signal, teal-steel evidence, viridian
-  proof, brass caution, hematite failure, and muted ultraviolet agent presence.
+  The playground uses the DataForge Aurelian Proof Intelligence surface:
+  porcelain field, pearl mineral structure, cinnabar command, teal-steel
+  evidence, viridian proof, brass caution, hematite failure, and muted
+  ultraviolet agent presence.
   State color appears as precision instrumentation rather than large
   decorative fills.
 - AUX quality: agency, uncertainty, verifier boundaries, abstentions,

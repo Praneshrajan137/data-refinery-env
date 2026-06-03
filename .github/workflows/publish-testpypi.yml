@@ -55,6 +55,8 @@ jobs:
     needs: publish-testpypi
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -74,43 +76,9 @@ jobs:
           done
 
       - name: Smoke installed TestPyPI artifact
-        run: |
-          set -euo pipefail
-          workdir="$(mktemp -d)"
-          cd "$workdir"
-          dataforge --version
-          cat > fd.csv <<'CSV'
-          code,name
-          A,Alpha
-          A,Alpha
-          A,Alfa
-          B,Beta
-          B,Beta
-          C,Gamma
-          C,Gamma
-          D,Delta
-          D,Delta
-          E,Echo
-          CSV
-          dataforge profile fd.csv --constraints-out constraints.json --json
-          fd_id="$(python - <<'PY'
-          import json
-          from pathlib import Path
+        run: python scripts/ci/installed_cli_smoke.py --output testpypi-installed-cli-smoke.json
 
-          payload = json.loads(Path("constraints.json").read_text(encoding="utf-8"))
-          for reviewed in payload["candidates"]:
-              candidate = reviewed["candidate"]
-              if (
-                  candidate["kind"] == "functional_dependency"
-                  and candidate["columns"] == ["code"]
-                  and candidate["dependent"] == "name"
-              ):
-                  print(reviewed["candidate_id"])
-                  break
-          else:
-              raise SystemExit("No code -> name FD candidate found.")
-          PY
-          )"
-          dataforge constraints review constraints.json --accept "$fd_id" --no-tui --json
-          dataforge repair fd.csv --constraints constraints.json --dry-run --json
-          dataforge release doctor --core --json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dataforge-testpypi-installed-cli-smoke
+          path: testpypi-installed-cli-smoke.json

@@ -14,8 +14,16 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload), encoding="utf-8")
 
 
+def _write_text(path: Path, text: str = "evidence\n") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
 def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkeypatch: Any) -> None:
     """A fully evidenced external state satisfies every full-vision check."""
+    for name in full_vision.EXPECTED_PACKAGES:
+        _write_text(tmp_path / "pypi" / f"{name}-testpypi-smoke.log")
+        _write_text(tmp_path / "pypi" / f"{name}-pypi-smoke.log")
     _write_json(
         tmp_path / "pypi" / "publish_report.json",
         {
@@ -27,11 +35,21 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
                     "attestations": True,
                     "testpypi_fresh_install": True,
                     "pypi_fresh_install": True,
+                    "testpypi_url": f"https://test.pypi.org/project/{name}/",
+                    "pypi_url": f"https://pypi.org/project/{name}/",
+                    "workflow_run_url": f"https://github.com/Aegis15/dataforge/actions/runs/{name}",
+                    "attestation_url": f"https://pypi.org/project/{name}/0.1.0/#data",
+                    "wheel_sha256": "a" * 64,
+                    "sdist_sha256": "b" * 64,
+                    "testpypi_smoke_log_path": f"pypi/{name}-testpypi-smoke.log",
+                    "pypi_smoke_log_path": f"pypi/{name}-pypi-smoke.log",
                 }
                 for name in full_vision.EXPECTED_PACKAGES
             ],
         },
     )
+    _write_text(tmp_path / "dbt_duckdb" / "txn.jsonl")
+    _write_text(tmp_path / "dbt_duckdb" / "commands.log")
     _write_json(
         tmp_path / "dbt_duckdb" / "fresh_env_report.json",
         {
@@ -39,11 +57,26 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
             "install_source": "pypi",
             "package": "dataforge-dbt",
             "python_version": "3.12.10",
+            "dbt_core_version": "1.10.0",
+            "dbt_duckdb_version": "1.10.0",
+            "dbt_seed_passed": True,
+            "dbt_run_passed": True,
+            "dbt_test_passed": True,
+            "dataforge_dbt_dry_run_passed": True,
+            "dataforge_dbt_refuse_passed": True,
+            "dataforge_dbt_apply_passed": True,
+            "dataforge_table_store_audit_passed": True,
+            "dataforge_table_store_revert_passed": True,
             "dbt_duckdb_e2e_passed": True,
             "skipped_tests": 0,
             "audit_artifact_written": True,
+            "artifact_path": "dbt_duckdb/txn.jsonl",
+            "command_log_path": "dbt_duckdb/commands.log",
         },
     )
+    for persona in full_vision.EXPECTED_DESIGN_PERSONAS:
+        _write_text(tmp_path / "design_partners" / f"{persona}.md")
+        _write_text(tmp_path / "design_partners" / f"{persona}.consent.json", "{}\n")
     _write_json(
         tmp_path / "design_partners" / "manifest.json",
         {
@@ -52,8 +85,10 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
                 {
                     "persona": persona,
                     "validated": True,
-                    "evidence_path": f"{persona}.md",
-                    "consent_record": f"{persona}.consent.json",
+                    "evidence_path": f"design_partners/{persona}.md",
+                    "consent_record": f"design_partners/{persona}.consent.json",
+                    "timing_seconds": 120,
+                    "blocking_findings_closed": True,
                 }
                 for persona in full_vision.EXPECTED_DESIGN_PERSONAS
             ],
@@ -64,12 +99,29 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
         for size in full_vision.EXPECTED_MODEL_SIZES
         for stage in full_vision.EXPECTED_MODEL_STAGES
     ]
+    for repo_id in expected_model_repos:
+        slug = repo_id.rsplit("/", 1)[1]
+        _write_text(tmp_path / "models" / f"{slug}.eval.json")
+        _write_text(tmp_path / "models" / f"{slug}.verification.json")
     _write_json(
         tmp_path / "models" / "model_family_report.json",
         {
             "schema_version": "dataforge_model_family_report_v1",
             "models": [
-                {"repo_id": repo_id, "verifier_passed": True} for repo_id in expected_model_repos
+                {
+                    "repo_id": repo_id,
+                    "verifier_passed": True,
+                    "dataset_repo": "Praneshrajan15/dataforge-sft-trajectories",
+                    "training_run_url": "https://huggingface.co/jobs/Praneshrajan15/example",
+                    "model_card_url": f"https://huggingface.co/{repo_id}",
+                    "eval_report_path": f"models/{repo_id.rsplit('/', 1)[1]}.eval.json",
+                    "verification_report_path": (
+                        f"models/{repo_id.rsplit('/', 1)[1]}.verification.json"
+                    ),
+                    "limitations_documented": True,
+                    "eval_metrics": {"macro_f1": 0.5, "parse_success_rate": 1.0},
+                }
+                for repo_id in expected_model_repos
             ],
         },
     )

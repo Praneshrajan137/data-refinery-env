@@ -463,7 +463,7 @@ function ProductShell({
           <span className="product-mark" aria-hidden="true">DF</span>
           <div>
             <p className="eyebrow">DataForge</p>
-            <strong>Mineral Intelligence</strong>
+            <strong>Aurelian Proof</strong>
           </div>
         </div>
         <nav>
@@ -869,15 +869,31 @@ function SystemPage({
       <section className="state-legend" aria-labelledby="state-legend-title">
         <div>
           <p className="eyebrow">Semantic State</p>
-          <h2 id="state-legend-title">Mineral Intelligence legend</h2>
+          <h2 id="state-legend-title">Aurelian Proof Intelligence legend</h2>
         </div>
         <div className="legend-grid">
-          <span className="legend-item legend-item--command">Graphite command</span>
+          <span className="legend-item legend-item--command">Aurelian command</span>
           <span className="legend-item legend-item--active">Vermilion active</span>
+          <span className="legend-item legend-item--info">Teal evidence</span>
           <span className="legend-item legend-item--verified">Viridian proof</span>
           <span className="legend-item legend-item--review">Brass review</span>
           <span className="legend-item legend-item--danger">Hematite danger</span>
           <span className="legend-item legend-item--agent">Ultraviolet agent</span>
+          <span className="legend-item legend-item--selection">Selected evidence</span>
+          <span className="legend-item legend-item--loading">Loading progress</span>
+          <span className="legend-item legend-item--disabled">Disabled boundary</span>
+          <span className="legend-item legend-item--thinking">Agent thinking</span>
+          <span className="legend-item legend-item--acting">Agent acting</span>
+          <span className="legend-item legend-item--waiting">Agent waiting</span>
+          <span className="legend-item legend-item--asking">Agent asking</span>
+          <span className="legend-item legend-item--uncertain">Agent uncertain</span>
+          <span className="legend-item legend-item--confident">Agent confident</span>
+          <span className="legend-item legend-item--completed">Agent completed</span>
+          <span className="legend-item legend-item--failed">Agent failed</span>
+          <span className="legend-item legend-item--interrupted">Agent interrupted</span>
+          <span className="legend-item legend-item--delegated">Agent delegated</span>
+          <span className="legend-item legend-item--escalated">Agent escalated</span>
+          <span className="legend-item legend-item--recovered">Agent recovered</span>
         </div>
       </section>
       <section className="handoff-panel">

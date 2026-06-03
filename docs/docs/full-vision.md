@@ -15,17 +15,24 @@ The gate checks:
   `dataforge-mcp`, `dataforge-evals`, `dataforge-dbt`, and
   `dataforge-agent-patterns`.
 - Trusted Publishing, attestations, and fresh-install smoke evidence exist for
-  every package.
+  every package, with workflow URLs, attestation URLs, distribution SHA-256
+  hashes, and stored smoke logs.
 - `https://dataforge.praneshrajan15.workers.dev/playground` serves the
   Cloudflare Workers frontend and points at the expected Hugging Face backend.
 - The HF Space backend is production, CORS-compatible with the Workers origin,
   and can be tied to the release SHA.
 - `dataforge-dbt` has a fresh Python 3.12 `dbt-duckdb` proof with no skipped
-  end-to-end test and an audit artifact.
+  end-to-end test, dry-run/refuse/apply/revert evidence, command logs, and an
+  audit artifact.
 - Marcus, Priya, Shreya, and agent-user design-partner paths have consented
-  evidence.
+  evidence, timings, and closed blocking findings.
 - The full Hugging Face model family has public model cards and verifier-passed
-  quality evidence.
+  quality evidence for SFT, GRPO, and GiGPO stages.
+
+The evidence manifests are not placeholders. Every referenced log, consent
+record, dbt artifact, eval report, and verifier report must exist under
+`docs/evidence/` or as an absolute file path on the verifier machine. Missing
+evidence is the correct state until the external event actually happened.
 
 Until this command passes, the project must not claim the full original
 DataForge vision is achieved.

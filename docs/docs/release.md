@@ -54,6 +54,9 @@ Evidence to record after the workflow passes:
 - Git SHA and tag.
 - Wheel and sdist filenames plus SHA-256 hashes.
 - TestPyPI project URL.
+- PyPI project URL after the real release.
+- Trusted Publishing workflow URL and PyPI attestation URL.
+- Stored TestPyPI and PyPI fresh-install smoke logs under `docs/evidence/pypi/`.
 - Installed-package smoke output for `dataforge --version`, `profile`,
   `profile --constraints-out`, `constraints review --accept ... --no-tui`,
   `repair --constraints --dry-run --json`, and
@@ -73,6 +76,19 @@ metadata.
 - `dataforge-evals`, `dataforge-agent-patterns`, and `dataforge-dbt`:
   sibling packages must pass their own clean virtualenv tests and TestPyPI
   fresh-install smoke before any real PyPI publication.
+
+## Evidence Manifest Discipline
+
+The full-vision manifests are release records, not status pages. Do not write
+`docs/evidence/pypi/publish_report.json`,
+`docs/evidence/dbt_duckdb/fresh_env_report.json`,
+`docs/evidence/design_partners/manifest.json`, or
+`docs/evidence/models/model_family_report.json` until the referenced public
+state exists and every manifest path points at a stored artifact.
+
+Before the model-family manifest may mark an HF artifact as passed, each
+training stage must have a verifier report, eval report, complete Hub model
+card, dataset reference, and training run URL.
 
 ## External Gates
 

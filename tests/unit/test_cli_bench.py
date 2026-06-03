@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import re
+from pathlib import Path
 from typing import Any
 
 from typer.testing import CliRunner
@@ -67,8 +68,12 @@ class TestBenchCommand:
         assert result.exit_code == 0
         assert "Usage:" in output
         assert "root bench [OPTIONS]" in output
-        assert "Comma-separated benchmark methods." in output
-        assert "Comma-separated benchmark datasets." in output
+        assert "--methods" in output
+        assert "benchmark methods" in output
+        assert "--datasets" in output
+        assert "benchmark datasets" in output
+        assert "--cache-root" in output
+        assert "--no-verify-datas" in output
 
     def test_bench_uses_expected_defaults(self, monkeypatch: Any) -> None:
         captured: dict[str, Any] = {}
@@ -85,6 +90,8 @@ class TestBenchCommand:
         assert captured["methods"] == ["heuristic", "llm_zeroshot"]
         assert captured["datasets"] == ["hospital"]
         assert captured["seeds"] == 3
+        assert captured["cache_root"] is None
+        assert captured["verify_dataset_hashes"] is True
 
     def test_bench_accepts_documented_long_options(self, monkeypatch: Any) -> None:
         captured: dict[str, Any] = {}
@@ -105,6 +112,9 @@ class TestBenchCommand:
                 "hospital",
                 "--seeds",
                 "3",
+                "--cache-root",
+                "cache-dir",
+                "--no-verify-dataset-hashes",
             ],
         )
 
@@ -112,6 +122,8 @@ class TestBenchCommand:
         assert captured["methods"] == ["heuristic"]
         assert captured["datasets"] == ["hospital"]
         assert captured["seeds"] == 3
+        assert captured["cache_root"] == Path("cache-dir")
+        assert captured["verify_dataset_hashes"] is False
 
     def test_bench_json_output(self, monkeypatch: Any) -> None:
         def _fake_run_agent_comparison(**kwargs: Any) -> BenchmarkRunOutput:
