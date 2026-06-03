@@ -128,11 +128,11 @@ Optional extras and scoped dependencies:
 
 ## Release Boundaries
 
-- `dataforge` is the planned core CLI/library distribution. It is not
-  published yet; `v0.1.0-rc1` is TestPyPI-only and real PyPI release tags should
-  be created only after local gates, RC evidence, and PyPI trusted-publisher
-  ownership are verified. It intentionally keeps the `dataforge` Python import
-  namespace for the 0.1 line.
+- `dataforge_07` is the planned PyPI/TestPyPI core CLI/library distribution. It
+  is not published yet; `v0.1.0-rc1` is TestPyPI-only and real PyPI release tags
+  should be created only after local gates, RC evidence, and PyPI
+  trusted-publisher configuration are verified. It intentionally keeps the
+  `dataforge` Python import namespace and CLI for the 0.1 line.
 - `dataforge_07_mcp` is the planned nested standalone distribution for
   `dataforge-mcp-v*` release tags after PyPI publication evidence is verified.
 - SFT datasets and checkpoints are Hugging Face artifacts verified by

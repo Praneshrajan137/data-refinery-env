@@ -152,10 +152,10 @@ Optional extras and scoped dependencies:
 
 ## Release Boundaries
 
-- `dataforge` is the final core CLI/library distribution. It is not published
-  by this project yet because the PyPI/TestPyPI name is an external ownership
-  gate; release tags should be created only after local gates and PyPI
-  trusted-publisher ownership are verified. The legacy
+- `dataforge_07` is the final PyPI/TestPyPI core CLI/library distribution. It is
+  not published yet; release tags should be created only after local gates and
+  PyPI trusted-publisher configuration are verified. It intentionally keeps the
+  `dataforge` Python import namespace and CLI for the 0.1 line. The legacy
   `data_quality_env` namespace is source-tree compatibility/regression material
   and is excluded from the core wheel and source distribution. Release gates
   verify that clean installs cannot import `data_quality_env` or leak from the
