@@ -18,11 +18,11 @@ from typing import Any
 SCHEMA_VERSION = "dataforge_full_vision_gate_v1"
 EXPECTED_VERSION = "0.1.0"
 EXPECTED_PACKAGES = (
-    "dataforge",
-    "dataforge-mcp",
-    "dataforge-evals",
-    "dataforge-dbt",
-    "dataforge-agent-patterns",
+    "dataforge_07",
+    "dataforge_07_mcp",
+    "dataforge_07_evals",
+    "dataforge_07_dbt",
+    "dataforge_07_agent_patterns",
 )
 EXPECTED_MODEL_SIZES = ("0.5B", "1.5B", "3B", "7B")
 EXPECTED_MODEL_STAGES = ("SFT", "GRPO", "GiGPO")
@@ -363,8 +363,8 @@ def _check_dbt_evidence(evidence_root: Path) -> FullVisionCheck:
         errors.append("schema_version must be dataforge_dbt_fresh_env_proof_v1")
     if payload.get("install_source") != "pypi":
         errors.append("install_source must be pypi")
-    if payload.get("package") != "dataforge-dbt":
-        errors.append("package must be dataforge-dbt")
+    if payload.get("package") != "dataforge_07_dbt":
+        errors.append("package must be dataforge_07_dbt")
     if not str(payload.get("python_version", "")).startswith("3.12"):
         errors.append("python_version must be 3.12.x")
     if not str(payload.get("dbt_core_version", "")).strip():

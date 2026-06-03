@@ -93,13 +93,13 @@ the server is started with `--enable-apply` or `DATAFORGE_MCP_ENABLE_APPLY=1`.
 ## Release
 
 The package is intended to release independently from the nested
-`dataforge-mcp/` source directory, but it is not published yet. After PyPI
-ownership and Trusted Publishing are configured, the workflow will build on tags
-matching:
+`dataforge-mcp/` source directory as the `dataforge_07_mcp` distribution, but
+it is not published yet. After PyPI Trusted Publishing is configured, the
+workflow will build on tags matching:
 
 ```text
 dataforge-mcp-v*
 ```
 
-The package depends on `dataforge` and the official Python `mcp` SDK; it does
+The package depends on `dataforge_07` and the official Python `mcp` SDK; it does
 not vendor DataForge or add MCP dependencies to the core package.

@@ -1,25 +1,34 @@
-# PyPI Name Transfer Runbook
+# PyPI Distribution Name
 
-The full original DataForge vision requires `pip install dataforge`. The
-`dataforge` name is currently controlled by unrelated PyPI/TestPyPI projects, so
-completion requires owner cooperation or a successful PyPI name-transfer request.
+DataForge keeps the product name, import namespace, and CLI command as
+`dataforge`, but publishes to PyPI/TestPyPI under the `dataforge_07*`
+distribution family. This avoids depending on transfer of the occupied
+unqualified `dataforge` project name.
 
-## Required Evidence Before Filing
+## Decision
 
-- Public repository URL: `https://github.com/Aegis15/dataforge`.
-- Package metadata showing the final project name is `dataforge`.
-- TestPyPI/PyPI Trusted Publishing workflow configuration.
-- Good-faith contact attempts to the existing project owner where policy
-  requires them.
-- Explanation that `dataforge15` was a temporary staging name and is not the
-  final public artifact.
+- Core distribution: `dataforge_07`
+- MCP distribution: `dataforge_07_mcp`
+- Eval harness distribution: `dataforge_07_evals`
+- dbt integration distribution: `dataforge_07_dbt`
+- Agent-patterns distribution: `dataforge_07_agent_patterns`
 
-## Do Not Claim Completion Until
+The core distribution must still install:
 
-- PyPI and TestPyPI both resolve `dataforge` to this project.
-- `python -m pip install dataforge` installs this package in a clean Python 3.12
-  environment.
+- Python import namespace: `dataforge`
+- CLI command: `dataforge`
+
+## Required Evidence
+
+- `python -m pip install dataforge_07` works in a clean Python 3.12 environment.
 - `dataforge --version`, `profile`, `repair --dry-run`, `repair --apply`,
   `audit`, `revert`, `watch`, and `bench` pass from the installed artifact.
 - `docs/evidence/pypi/publish_report.json` records Trusted Publishing,
-  attestations, fresh-install proof, and package URLs.
+  attestations, fresh-install proof, package URLs, distribution hashes, and
+  smoke logs for every `dataforge_07*` package.
+
+## Rejected Path
+
+Waiting for `dataforge` name transfer is no longer the release path. The
+unqualified name remains occupied by unrelated projects, and the project accepts
+the small install-command tradeoff for a publishable, auditable release.

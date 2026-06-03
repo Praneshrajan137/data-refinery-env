@@ -4,7 +4,8 @@
 
 DataForge is release-ready only when the local source tree, public contracts,
 and external evidence tell the same story: CLI-first CSV/DuckDB repair, only
-when `pip install dataforge` works from PyPI,
+when `pip install dataforge_07` works from PyPI and installs the `dataforge`
+CLI/import namespace,
 `https://dataforge.praneshrajan15.workers.dev/playground` serves the production
 playground, MCP tools keep apply disabled by default, OpenEnv/eval support is
 usable, dbt-duckdb proof exists, design-partner evidence exists, and every
@@ -43,9 +44,9 @@ Status: pending maintainer configuration and TestPyPI run.
 
 Required trusted-publisher setup before tagging:
 
-- TestPyPI pending publisher for project `dataforge`, workflow
+- TestPyPI pending publisher for project `dataforge_07`, workflow
   `publish-testpypi.yml`, environment `testpypi`.
-- PyPI pending publisher for project `dataforge`, workflow
+- PyPI pending publisher for project `dataforge_07`, workflow
   `publish-dataforge.yml`, environment `pypi`.
 - GitHub environment approval rules for both `testpypi` and `pypi`.
 
@@ -63,17 +64,19 @@ Evidence to record after the workflow passes:
   `release doctor --core --json`.
 
 Real PyPI remains blocked until the TestPyPI evidence above is complete and
-ownership is verified. The real PyPI workflow refuses pre-release package
-metadata.
+the `dataforge_07` trusted publisher is configured. The real PyPI workflow
+refuses pre-release package metadata.
 
 ## Package Matrix
 
-- `dataforge`: core CLI/library distribution. Publish to TestPyPI first,
-  then real PyPI only after fresh-install smoke evidence is recorded.
-- `dataforge-mcp`: nested MCP distribution. Publish only after MCP Inspector
+- `dataforge_07`: core CLI/library distribution. It installs the `dataforge`
+  import namespace and CLI. Publish to TestPyPI first, then real PyPI only
+  after fresh-install smoke evidence is recorded.
+- `dataforge_07_mcp`: nested MCP distribution. Publish only after MCP Inspector
   smoke covers list tools, profile, detect, verify, dry-run apply, blocked
   apply by default, enabled apply inside an allowed root, and revert.
-- `dataforge-evals`, `dataforge-agent-patterns`, and `dataforge-dbt`:
+- `dataforge_07_evals`, `dataforge_07_agent_patterns`, and
+  `dataforge_07_dbt`:
   sibling packages must pass their own clean virtualenv tests and TestPyPI
   fresh-install smoke before any real PyPI publication.
 
@@ -94,7 +97,8 @@ card, dataset reference, and training run URL.
 
 These gates cannot be completed by local source edits alone:
 
-- PyPI/TestPyPI trusted-publisher ownership for every package.
+- PyPI/TestPyPI trusted-publisher configuration and publication evidence for
+  every `dataforge_07*` package.
 - Cloudflare and Hugging Face deployed playground verification.
 - Cloudflare Workers playground monitoring and live repair-flow proof.
 - Design-partner evidence from real users.

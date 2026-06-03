@@ -1,4 +1,4 @@
-name: Publish dataforge-mcp to TestPyPI
+name: Publish dataforge_07_mcp to TestPyPI
 
 on:
   workflow_dispatch:
@@ -29,7 +29,7 @@ jobs:
       - name: Smoke built MCP package
         run: |
           python -m venv .mcp-testpypi-smoke
-          .mcp-testpypi-smoke/bin/python -m pip install --find-links dist --find-links dataforge-mcp/dist dataforge-mcp
+          .mcp-testpypi-smoke/bin/python -m pip install --find-links dist --find-links dataforge-mcp/dist dataforge_07_mcp
           .mcp-testpypi-smoke/bin/python - <<'PY'
           import sys
           from pathlib import Path
@@ -57,6 +57,6 @@ jobs:
           python -m pip install \
             --index-url https://test.pypi.org/simple/ \
             --extra-index-url https://pypi.org/simple/ \
-            dataforge dataforge-mcp
+            dataforge_07 dataforge_07_mcp
           dataforge --version
           dataforge-mcp --help

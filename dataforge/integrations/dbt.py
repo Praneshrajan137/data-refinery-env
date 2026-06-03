@@ -1,6 +1,6 @@
 """dbt artifact helpers for DataForge's local repair contract.
 
-The external ``dataforge-dbt`` package can call these helpers without
+The external ``dataforge_07_dbt`` distribution can call these helpers without
 duplicating dbt manifest parsing rules.  Only dbt generic tests that DataForge
 can represent as local constraints are mapped; everything else is ignored
 conservatively.

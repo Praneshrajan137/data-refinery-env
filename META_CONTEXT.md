@@ -20,17 +20,18 @@ Current surfaces:
 - OpenEnv-compatible RL environment with eight typed actions
 - Real-world benchmark harness for Hospital, Flights, and Beers
 - Causal root-cause analyzer for cascading tabular errors
-- Local MCP server package under `dataforge-mcp/`, published as `dataforge-mcp`
+- Local MCP server package under `dataforge-mcp/`, distributed as `dataforge_07_mcp`
 - Hugging Face Docker Space backend and Cloudflare static playground frontend
 - Week 9 SFT warmup workflow, dataset/model cards, Kaggle notebook, and release
   verifier
 - Separate Gradio model demo for the published 0.5B SFT smoke checkpoint
 
 Mandatory full-vision gates must stay labeled as incomplete until external
-proof exists: PyPI/TestPyPI ownership for `dataforge`, production verification
-for `https://dataforge.praneshrajan15.workers.dev/playground`, published
-sibling packages, dbt-duckdb fresh-env proof, not yet met design-partner
-evidence, and production model-family evidence.
+proof exists: PyPI/TestPyPI publication evidence for the `dataforge_07*`
+distribution family, production verification for
+`https://dataforge.praneshrajan15.workers.dev/playground`, published sibling
+packages, dbt-duckdb fresh-env proof, not yet met design-partner evidence, and
+production model-family evidence.
 
 ## 0.2 Who It Is For
 

@@ -13,7 +13,7 @@ can call DataForge without parsing terminal UI.
 
 ## 2. Outcomes
 
-- [x] `pip install dataforge-mcp` installs a `dataforge-mcp` console command.
+- [x] `pip install dataforge_07_mcp` installs a `dataforge-mcp` console command.
 - [x] `dataforge-mcp serve` starts a stdio MCP server with five DataForge tools.
 - [x] MCP tool calls return structured JSON-compatible results backed by the
       real detector, safety, verifier, and transaction paths.
@@ -51,7 +51,7 @@ can call DataForge without parsing terminal UI.
 ## 5. Prior decisions
 
 - `dataforge-mcp/` is nested in this repository but builds the standalone
-  `dataforge-mcp` distribution.
+  `dataforge_07_mcp` distribution.
 - The package depends on `dataforge` and `mcp`; it does not vendor
   DataForge.
 - Tool outputs are typed Pydantic models rather than Rich CLI text.

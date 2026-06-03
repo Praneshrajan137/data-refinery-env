@@ -14,7 +14,7 @@ Format for every entry:
 
 ## 2026-06-03 - Treat Workers as the canonical playground and harden external evidence
 **Context**: The full original DataForge vision still depends on external
-state: PyPI/TestPyPI ownership, public package publication, live deployment
+state: PyPI/TestPyPI trusted publishing, public package publication, live deployment
 verification, real dbt-duckdb proof, real design-partner evidence, and a public
 Hugging Face model family. A custom domain adds DNS ownership and routing risk
 without improving the product proof because the Workers URL is already the
@@ -25,7 +25,7 @@ stable hosted playground surface.
 - Keep both a custom domain and Workers. Pros: optional brand path. Cons:
   doubles deployment truth surfaces and invites stale docs.
 - Make the Workers playground canonical. Pros: removes DNS ambiguity and keeps
-  the external gate focused on package ownership, hosted behavior, evidence,
+  the external gate focused on package publication, hosted behavior, evidence,
   and model quality. Cons: less polished URL.
 **Decision**: use `https://dataforge.praneshrajan15.workers.dev/playground` as
 the canonical public playground and make the full-vision gate require hard,
@@ -33,7 +33,7 @@ file-backed evidence for PyPI, dbt-duckdb, design partners, and the HF model
 family.
 **Reasoning**: the project should optimize for falsifiable proof, not vanity
 surface area. The Workers URL is sufficient for the hosted playground claim;
-the release risk belongs in package ownership, reversible repair behavior, and
+the release risk belongs in package publication, reversible repair behavior, and
 model/eval evidence.
 **Reviewed with**: `dataforge release full-vision --json`, PyPI trusted
 publishing guidance, dbt data-test guidance, and Hugging Face model-card

@@ -6,10 +6,10 @@ files. It profiles CSVs, proposes deterministic repairs, checks
 changes through safety and verification gates, and records applied fixes in a
 reversible transaction log.
 
-The final PyPI distribution is `dataforge`, but the name is currently occupied
-by an unrelated project. Install from this source checkout for now. PyPI/TestPyPI
-ownership or maintainer cooperation is a hard release gate before `pip install
-dataforge` can point at this project.
+The PyPI/TestPyPI distribution family is `dataforge_07*` because the
+unqualified `dataforge` project name is occupied by unrelated packages. Install
+from this source checkout for now. After publication, `pip install dataforge_07`
+will install the `dataforge` import namespace and `dataforge` CLI.
 
 The current checkout is an alpha meant for local CSV profiling, repair
 experiments, benchmarks, and training/evaluation research. It is not a

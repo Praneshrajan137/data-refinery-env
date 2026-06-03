@@ -18,7 +18,7 @@ We aim to acknowledge reports within 48 hours and patch critical issues within
 ## In Scope
 
 - `dataforge/` CLI and library code
-- `dataforge-mcp/` local MCP server source package, published as `dataforge-mcp`
+- `dataforge-mcp/` local MCP server source package, distributed as `dataforge_07_mcp`
 - `playground/api/` backend
 - safety filter and SMT verifier
 - transaction hash-chain integrity, audit verification, and revert behavior

@@ -32,9 +32,9 @@ claims:
   - claim: design_partner_validation
     status: roadmap
     evidence: CONTRIBUTORS.md marks the design-partner gate as not met.
-  - claim: final_dataforge_pypi_name
+  - claim: final_dataforge07_pypi_distribution
     status: roadmap
-    evidence: The full-vision gate requires PyPI/TestPyPI ownership for dataforge; current public indexes are not yet controlled by this project.
+    evidence: The full-vision gate requires PyPI/TestPyPI publication evidence for the dataforge_07 distribution family, which installs the dataforge CLI/import namespace.
   - claim: workers_dev_playground
     status: roadmap
     evidence: The full-vision gate requires https://dataforge.praneshrajan15.workers.dev/playground to serve the Cloudflare frontend, point at the expected HF backend, and pass live repair-flow checks.

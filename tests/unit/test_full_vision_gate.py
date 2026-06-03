@@ -55,7 +55,7 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
         {
             "schema_version": "dataforge_dbt_fresh_env_proof_v1",
             "install_source": "pypi",
-            "package": "dataforge-dbt",
+            "package": "dataforge_07_dbt",
             "python_version": "3.12.10",
             "dbt_core_version": "1.10.0",
             "dbt_duckdb_version": "1.10.0",

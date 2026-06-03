@@ -57,7 +57,7 @@ flowchart LR
   hooks, readiness and release verifiers, Kaggle notebooks, Hub metadata, and a
   separate Gradio model-demo Space.
 - **MCP integration**: nested standalone `dataforge-mcp/` source directory
-  building the `dataforge-mcp` package and exposing structured DataForge
+  building the `dataforge_07_mcp` distribution and exposing structured DataForge
   tools over stdio by default.
 
 ## Safety Invariant
@@ -147,7 +147,7 @@ Optional extras and scoped dependencies:
 - `playground`: FastAPI, Uvicorn, multipart upload, and rate limiting.
 - `openenv`: OpenEnv protocol dependency.
 - `dataforge-mcp/`: source directory for the separate planned
-  `dataforge-mcp` PyPI package with MCP dependencies.
+  `dataforge_07_mcp` PyPI distribution with MCP dependencies.
 - `playground-model/`: Gradio and model-demo dependencies only.
 
 ## Release Boundaries
@@ -160,8 +160,8 @@ Optional extras and scoped dependencies:
   and is excluded from the core wheel and source distribution. Release gates
   verify that clean installs cannot import `data_quality_env` or leak from the
   source checkout.
-- `dataforge-mcp` is the planned nested standalone distribution for
-  `dataforge-mcp-v*` release tags after PyPI ownership is verified.
+- `dataforge_07_mcp` is the planned nested standalone distribution for
+  `dataforge-mcp-v*` release tags after PyPI publication evidence is verified.
 - `https://dataforge.praneshrajan15.workers.dev/playground` is the production
   playground route for the full original vision. This is the release URL.
 - SFT datasets and checkpoints are Hugging Face artifacts verified by

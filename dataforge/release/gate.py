@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 SCHEMA_VERSION = "release_gate_report_v1"
-PACKAGE_NAME = "dataforge"
+PACKAGE_NAME = "dataforge_07"
 CLI_NAMES = ("dataforge", "dataforge15")
 REQUIRED_WHEEL_MEMBERS = frozenset(
     {
@@ -81,7 +81,7 @@ ALLOWED_SDIST_TOP_LEVEL = {
     "pyproject.toml",
     "setup.cfg",
     "dataforge",
-    "dataforge.egg-info",
+    f"{PACKAGE_NAME}.egg-info",
 }
 ALLOWED_SDIST_EGG_INFO = {
     "PKG-INFO",

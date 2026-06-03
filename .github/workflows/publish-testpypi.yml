@@ -1,4 +1,4 @@
-name: Publish dataforge to TestPyPI
+name: Publish dataforge_07 to TestPyPI
 
 on:
   push:
@@ -68,7 +68,7 @@ jobs:
             python -m pip install \
               --index-url https://test.pypi.org/simple/ \
               --extra-index-url https://pypi.org/simple/ \
-              dataforge==0.1.0 && break
+              dataforge_07==0.1.0 && break
             if [ "$attempt" = "5" ]; then
               exit 1
             fi

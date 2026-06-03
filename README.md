@@ -5,12 +5,11 @@ detects common CSV issues, proposes deterministic repairs, checks proposed
 changes through safety and verification gates, and records applied changes in a
 reversible transaction log.
 
-The final public PyPI distribution is `dataforge`, and the import namespace is
-`dataforge`. `dataforge15` is only a temporary staging alias retained for local
-compatibility; it is not the final public product name. The `dataforge` name is
-currently occupied by an unrelated PyPI/TestPyPI project, so package ownership
-or maintainer cooperation is a hard release gate before `pip install dataforge`
-can truthfully point at this project.
+The final public product name is DataForge. The PyPI/TestPyPI distribution
+family is `dataforge_07*` because the unqualified `dataforge` project name is
+occupied by unrelated packages. Installing `dataforge_07` still provides the
+`dataforge` import namespace and `dataforge` CLI. `dataforge15` is only a
+temporary staging alias retained for local compatibility.
 
 The current repository is an alpha implementation. It also contains the
 OpenEnv-compatible training environment, the SFT warmup workflow, a local MCP
@@ -49,9 +48,8 @@ Shipped in the current worktree:
 
 Not shipped yet:
 
-- final PyPI/TestPyPI ownership for `dataforge`
-- published `dataforge`, `dataforge-mcp`, `dataforge-evals`, `dataforge-dbt`,
-  and `dataforge-agent-patterns` packages
+- published `dataforge_07`, `dataforge_07_mcp`, `dataforge_07_evals`,
+  `dataforge_07_dbt`, and `dataforge_07_agent_patterns` packages
 - committed production verification for the Cloudflare Workers playground
 - warehouse-native or external adapter packages
 - credentialed Snowflake, BigQuery, or Databricks apply/revert conformance
@@ -73,7 +71,8 @@ dataforge bench --methods random,heuristic --datasets hospital,flights,beers --s
 ```
 
 `dataforge15` remains a temporary staging compatibility alias, but public docs
-and release evidence must use `dataforge`.
+and release evidence must use `dataforge_07` for PyPI distribution identity and
+`dataforge` for the installed CLI/import identity.
 
 To apply repairs, use `--apply`. Applied repairs write a transaction journal and
 source snapshot before mutating the CSV, so they can be reverted:
@@ -165,7 +164,7 @@ After GRPO eval evidence exists:
 ## MCP Server
 
 The nested `dataforge-mcp/` source directory builds the standalone
-`dataforge-mcp` distribution. It is not published yet, so install it from
+`dataforge_07_mcp` distribution. It is not published yet, so install it from
 source while release ownership is pending:
 
 ```bash
@@ -242,8 +241,8 @@ use deterministic CI flags such as `--accept cnd-... --no-tui --json`.
 `make backend-gate` is the release-quality backend check: lint, format, strict
 mypy, root tests, MCP tests, README truth, benchmark truth, OpenAPI snapshot
 drift, secret scan, dependency audit availability, SBOM generation
-availability, and package build availability for both `dataforge` and
-`dataforge-mcp`. The gate covers the core `dataforge` distribution and
+availability, and package build availability for both `dataforge_07` and
+`dataforge_07_mcp`. The gate covers the core `dataforge_07` distribution and
 release surfaces; the historical
 `data_quality_env` namespace remains source-tree regression coverage, not part
 of the `dataforge` wheel or source distribution.
@@ -270,12 +269,12 @@ with `pip --no-index --find-links`, then runs profile, repair dry-run, apply,
 constraint review, audit, revert, and post-revert audit from outside the source
 checkout.
 
-Configure pending trusted publishers for `dataforge` on TestPyPI and PyPI
+Configure pending trusted publishers for `dataforge_07` on TestPyPI and PyPI
 before tagging. The real PyPI workflow refuses pre-release metadata and should
-only run after package-name ownership, trusted publishing, attestations, and
-fresh-install evidence are verified. `dataforge release full-vision --json`
-is expected to fail until PyPI ownership, dbt-duckdb proof, not yet met design-partner
-evidence, and model-family evidence are real.
+only run after trusted publishing, attestations, and fresh-install evidence are
+verified. `dataforge release full-vision --json` is expected to fail until PyPI
+publication evidence, dbt-duckdb proof, not yet met design-partner evidence,
+and model-family evidence are real.
 
 Windows setup:
 

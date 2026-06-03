@@ -17,7 +17,8 @@
 ## 0.1.0
 
 - Renamed final public package targets from staging `dataforge15*` names to
-  `dataforge*` names.
+  the PyPI-safe `dataforge_07*` distribution family while keeping the
+  `dataforge` CLI/import namespace.
 - Added the `dataforge release full-vision` external gate for PyPI/TestPyPI,
   Cloudflare Workers playground, dbt-duckdb, design-partner, and model-family evidence.
 - Added the CLI-first DataForge repair pipeline with profile, repair, revert,

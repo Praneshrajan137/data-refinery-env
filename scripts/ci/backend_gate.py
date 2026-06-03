@@ -81,10 +81,12 @@ def _clean_package_artifacts() -> None:
     for path in [
         PROJECT_ROOT / "build",
         PROJECT_ROOT / "dist",
+        PROJECT_ROOT / "dataforge_07.egg-info",
         PROJECT_ROOT / "dataforge.egg-info",
         PROJECT_ROOT / "dataforge15.egg-info",
         PROJECT_ROOT / "dataforge-mcp" / "build",
         PROJECT_ROOT / "dataforge-mcp" / "dist",
+        PROJECT_ROOT / "dataforge-mcp" / "dataforge_07_mcp.egg-info",
         PROJECT_ROOT / "dataforge-mcp" / "dataforge_mcp.egg-info",
         PROJECT_ROOT / "dataforge-mcp" / "dataforge15_mcp.egg-info",
     ]:
@@ -225,14 +227,14 @@ def main() -> int:
     build_optional = not (args.require_optional or os.environ.get("DATAFORGE_REQUIRE_BUILD"))
     checks.append(
         _run(
-            "dataforge package build",
+            "dataforge_07 package build",
             [PYTHON, "-m", "build", "--sdist", "--wheel"],
             optional=build_optional,
         )
     )
     checks.append(
         _run(
-            "dataforge-mcp package build",
+            "dataforge_07_mcp package build",
             [PYTHON, "-m", "build", "--sdist", "--wheel", "dataforge-mcp"],
             optional=build_optional,
         )

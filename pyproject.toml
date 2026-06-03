@@ -1,5 +1,5 @@
 [project]
-name = "dataforge"
+name = "dataforge_07"
 version = "0.1.0"
 description = "DataForge: CLI-first data-quality detection and reversible repair for tabular data."
 readme = "README.md"
@@ -119,7 +119,7 @@ openenv = [
     "hyppo>=0.5.2",
 ]
 all = [
-    "dataforge[bench,causal,dev,eval,pandas,playground,providers,train,openenv]",
+    "dataforge_07[bench,causal,dev,eval,pandas,playground,providers,train,openenv]",
 ]
 
 [project.scripts]

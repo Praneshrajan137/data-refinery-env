@@ -14,7 +14,7 @@ This threat model covers the 0.1 DataForge release surfaces:
   only.
 - Local MCP server, including disabled-by-default apply mode.
 - Optional LLM fallback, SFT/GRPO training scripts, and model-demo artifacts.
-- Release and supply-chain workflows for `dataforge` and `dataforge-mcp`.
+- Release and supply-chain workflows for `dataforge_07` and `dataforge_07_mcp`.
 
 Out of scope for 0.1: credentialed Snowflake, BigQuery, or Databricks mutation;
 Airbyte; autonomous hosted repair; production model-quality claims; multi-user
@@ -30,7 +30,7 @@ accounts; and persistent playground storage.
   Cloudflare, PyPI/TestPyPI, Kaggle, and GitHub Actions.
 - Model training datasets, evaluation reports, benchmark evidence, and model
   cards.
-- The PyPI package namespace and GitHub release tags.
+- The PyPI `dataforge_07*` distribution namespace and GitHub release tags.
 
 ## Trust Boundaries
 
@@ -87,7 +87,7 @@ Release gates:
 - MCP path-allowlist tests.
 - Disabled-apply tests.
 - Prompt-injection text fixtures in safety tests.
-- Manual MCP Inspector smoke before publishing `dataforge-mcp`.
+- Manual MCP Inspector smoke before publishing `dataforge_07_mcp`.
 
 ### Sensitive data exposure
 

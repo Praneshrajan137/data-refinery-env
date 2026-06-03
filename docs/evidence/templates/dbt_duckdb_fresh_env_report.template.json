@@ -1,6 +1,6 @@
 {
   "schema_version": "dataforge_dbt_fresh_env_proof_v1",
-  "package": "dataforge-dbt",
+  "package": "dataforge_07_dbt",
   "install_source": "pypi",
   "python_version": "3.12.x",
   "dbt_core_version": "",

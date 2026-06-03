@@ -39,7 +39,7 @@ jobs:
       - name: Installed MCP stdio smoke
         run: |
           python -m venv .release-smoke
-          timeout 60 .release-smoke/bin/python -m pip install --find-links dist dataforge-mcp
+          timeout 60 .release-smoke/bin/python -m pip install --find-links dist dataforge_07_mcp
           .release-smoke/bin/python - <<'PY'
           import asyncio
           import json

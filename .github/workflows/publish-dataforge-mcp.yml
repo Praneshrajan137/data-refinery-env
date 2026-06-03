@@ -1,4 +1,4 @@
-name: Publish dataforge-mcp
+name: Publish dataforge_07_mcp
 
 on:
   push:
@@ -37,7 +37,7 @@ jobs:
       - name: Smoke built package
         run: |
           python -m venv .mcp-publish-smoke
-          .mcp-publish-smoke/bin/python -m pip install --find-links dist --find-links dataforge-mcp/dist dataforge-mcp
+          .mcp-publish-smoke/bin/python -m pip install --find-links dist --find-links dataforge-mcp/dist dataforge_07_mcp
           .mcp-publish-smoke/bin/python - <<'PY'
           import shutil
           import sys

@@ -20,10 +20,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The PyPI package is not published yet because the final `dataforge` name is an
-external ownership gate. After PyPI ownership and publication, use
-`python -m pip install dataforge`; after PyPI ownership the import namespace
-remains `dataforge`.
+The PyPI package is not published yet. After PyPI publication, install the DataForge distribution with `python -m pip install dataforge_07`; the installed import namespace and CLI command remain `dataforge`.
 
 ## 2. Profile the hospital fixture
 

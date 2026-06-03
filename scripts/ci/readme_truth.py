@@ -45,17 +45,15 @@ CUSTOM_DOMAIN_TRUTH_DOCS = sorted(
     set(RELEASE_TRUTH_DOCS + DESIGN_PARTNER_TRUTH_DOCS + PUBLIC_CLAIM_TRUTH_DOCS)
 )
 UNPUBLISHED_DISTS = (
-    "dataforge",
-    "dataforge-dbt",
-    "dataforge-evals",
-    "dataforge-mcp",
-    "dataforge-agent-patterns",
+    "dataforge_07",
+    "dataforge_07_dbt",
+    "dataforge_07_evals",
+    "dataforge_07_mcp",
+    "dataforge_07_agent_patterns",
 )
 PUBLISHED_QUALIFIERS = (
     "after publication",
     "after pypi publication",
-    "after pypi ownership",
-    "after package ownership",
     "blocked until",
     "before",
     "only when",

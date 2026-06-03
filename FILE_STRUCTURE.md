@@ -23,7 +23,7 @@ data_quality_env/
     transactions/            Append-only journals, snapshots, revert.
     ui/                      Rich rendering helpers.
     verifier/                SMT verifier and explanations.
-  dataforge-mcp/             Standalone MCP source package and tests; planned PyPI name is dataforge15-mcp.
+  dataforge-mcp/             Standalone MCP source package and tests; planned PyPI name is dataforge_07_mcp.
   playground/
     api/                     Hugging Face Docker Space backend.
     web/                     Cloudflare Workers Static Assets frontend.
@@ -82,7 +82,7 @@ logs/
 
 The following product surfaces remain future work unless a spec says otherwise:
 
-- `dataforge15-dbt`
+- `dataforge_07_dbt`
 - `dataforge-airbyte`
 - warehouse-native adapters
 - standalone `dataforge15-evals`
