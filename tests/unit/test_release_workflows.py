@@ -30,7 +30,9 @@ def test_testpypi_workflow_uses_trusted_publishing_and_installed_smoke() -> None
     assert "id-token: write" in workflow
     assert "repository-url: https://test.pypi.org/legacy/" in workflow
     assert "--extra-index-url https://pypi.org/simple/" in workflow
-    assert "dataforge_07==0.1.0" in workflow
+    assert 'Path("pyproject.toml")' in workflow
+    assert '"dataforge_07==${PACKAGE_VERSION}"' in workflow
+    assert "dataforge_07==0.1.0" not in workflow
     assert "scripts/ci/installed_cli_smoke.py" in workflow
     assert "dataforge-testpypi-installed-cli-smoke" in workflow
 
@@ -71,9 +73,12 @@ def test_all_dataforge07_publish_workflows_exist_and_use_oidc() -> None:
         assert "repository-url: https://test.pypi.org/legacy/" in testpypi
         assert package in testpypi
         assert "workflow_dispatch:" in testpypi
+        assert "PACKAGE_VERSION" in testpypi
 
         assert "environment: pypi" in pypi
         assert "id-token: write" in pypi
         assert "repository-url: https://test.pypi.org/legacy/" not in pypi
         assert package in pypi
         assert tag_glob in pypi
+        assert "PACKAGE_VERSION" in pypi
+        assert "==0.1.0" not in pypi

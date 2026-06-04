@@ -15,9 +15,10 @@ The gate checks:
   `dataforge_07_mcp`, `dataforge_07_evals`, `dataforge_07_dbt`, and
   `dataforge_07_agent_patterns`.
 - `dataforge_07` installs the `dataforge` import namespace and `dataforge` CLI.
-- Trusted Publishing, attestations, and fresh-install smoke evidence exist for
-  every package, with workflow URLs, attestation URLs, distribution SHA-256
-  hashes, and stored smoke logs.
+- Trusted Publishing, Integrity API publish attestations, and fresh-install
+  smoke evidence exist for every package, with workflow URLs, wheel/sdist
+  provenance URLs, downloaded artifact SHA-256 verification, expected GitHub
+  publisher identity, and stored smoke logs.
 - `https://dataforge.praneshrajan15.workers.dev/playground` serves the
   Cloudflare Workers frontend and points at the expected Hugging Face backend.
 - The HF Space backend is production, CORS-compatible with the Workers origin,
@@ -25,8 +26,9 @@ The gate checks:
 - `dataforge_07_dbt` has a fresh Python 3.12 `dbt-duckdb` proof with no skipped
   end-to-end test, dry-run/refuse/apply/revert evidence, command logs, and an
   audit artifact.
-- Marcus, Priya, Shreya, and agent-user design-partner paths have consented
-  evidence, timings, and closed blocking findings.
+- Marcus, Priya, Shreya, and agent-user design-partner paths have sanitized
+  evidence notes, separate consent records, timings, trust signals, and closed
+  blocking findings.
 - The full Hugging Face model family has public model cards and verifier-passed
   quality evidence for SFT, GRPO, and GiGPO stages.
 

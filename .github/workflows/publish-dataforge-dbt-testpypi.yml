@@ -52,10 +52,17 @@ jobs:
       - name: Fresh install from TestPyPI
         run: |
           python -m pip install --upgrade pip
+          PACKAGE_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("packages/dataforge-dbt/pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+          PY
+          )"
           python -m pip install \
             --index-url https://test.pypi.org/simple/ \
             --extra-index-url https://pypi.org/simple/ \
-            dataforge_07 dataforge_07_dbt
+            "dataforge_07_dbt==${PACKAGE_VERSION}"
           python scripts/ci/installed_package_smoke.py \
             --package dataforge_07_dbt \
             --output dataforge_07_dbt-testpypi-smoke.json

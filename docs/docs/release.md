@@ -55,12 +55,15 @@ Required trusted-publisher setup before tagging:
 Evidence to record after the workflow passes:
 
 - Git SHA and tag.
-- Wheel and sdist filenames plus SHA-256 hashes.
+- Wheel and sdist filenames plus SHA-256 hashes for both TestPyPI and PyPI.
 - TestPyPI project URL.
 - PyPI project URL after the real release.
-- Trusted Publishing workflow URL and PyPI attestation URL.
+- Trusted Publishing workflow URL, PyPI Simple API provenance URL, Integrity
+  API publish predicate, and GitHub Trusted Publisher identity for every wheel
+  and sdist.
 - Stored TestPyPI and PyPI fresh-install smoke logs under `docs/evidence/pypi/`.
-- Generated `docs/evidence/pypi/publish_report.json` from
+- Generated `docs/evidence/pypi/publish_report.json`
+  (`dataforge_pypi_publish_report_v2`) from
   `scripts/ci/pypi_publish_report.py` after every package is public.
 - Installed-package smoke output for `dataforge --version`, `profile`,
   `profile --constraints-out`, `constraints review --accept ... --no-tui`,
@@ -92,6 +95,16 @@ The full-vision manifests are release records, not status pages. Do not write
 `docs/evidence/design_partners/manifest.json`, or
 `docs/evidence/models/model_family_report.json` until the referenced public
 state exists and every manifest path points at a stored artifact.
+
+The PyPI report must be generated, not hand-filled. It verifies public registry
+metadata, downloaded artifact hashes, PyPI Integrity API provenance for wheel
+and sdist files, and the expected `Aegis15/dataforge` GitHub Trusted Publisher
+workflow identity.
+
+Design-partner manifests must point at sanitized evidence notes and separate
+consent JSON records. The evidence note records task outcome, timing, trust
+signal, and blocking findings; the consent record is the only place
+permission-to-list is captured.
 
 Before the model-family manifest may mark an HF artifact as passed, each
 training stage must have a verifier report, eval report, complete Hub model

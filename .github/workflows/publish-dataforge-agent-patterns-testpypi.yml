@@ -51,10 +51,17 @@ jobs:
       - name: Fresh install from TestPyPI
         run: |
           python -m pip install --upgrade pip
+          PACKAGE_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("packages/dataforge-agent-patterns/pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+          PY
+          )"
           python -m pip install \
             --index-url https://test.pypi.org/simple/ \
             --extra-index-url https://pypi.org/simple/ \
-            dataforge_07_agent_patterns
+            "dataforge_07_agent_patterns==${PACKAGE_VERSION}"
           python scripts/ci/installed_package_smoke.py \
             --package dataforge_07_agent_patterns \
             --output dataforge_07_agent_patterns-testpypi-smoke.json

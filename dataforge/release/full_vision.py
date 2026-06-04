@@ -31,15 +31,28 @@ DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
 DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
 DEFAULT_HF_OWNER = "Praneshrajan15"
 REQUIRED_PACKAGE_EVIDENCE_FIELDS = (
-    "testpypi_url",
-    "pypi_url",
+    "version",
     "workflow_run_url",
-    "attestation_url",
-    "wheel_sha256",
-    "sdist_sha256",
     "testpypi_smoke_log_path",
     "pypi_smoke_log_path",
 )
+EXPECTED_PUBLISHER_REPOSITORY = "Aegis15/dataforge"
+EXPECTED_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+PUBLISH_ATTESTATION_PREDICATE = "https://docs.pypi.org/attestations/publish/v1"
+PYPI_WORKFLOWS = {
+    "dataforge_07": "publish-dataforge.yml",
+    "dataforge_07_mcp": "publish-dataforge-mcp.yml",
+    "dataforge_07_evals": "publish-dataforge-evals.yml",
+    "dataforge_07_dbt": "publish-dataforge-dbt.yml",
+    "dataforge_07_agent_patterns": "publish-dataforge-agent-patterns.yml",
+}
+TESTPYPI_WORKFLOWS = {
+    "dataforge_07": "publish-testpypi.yml",
+    "dataforge_07_mcp": "publish-dataforge-mcp-testpypi.yml",
+    "dataforge_07_evals": "publish-dataforge-evals-testpypi.yml",
+    "dataforge_07_dbt": "publish-dataforge-dbt-testpypi.yml",
+    "dataforge_07_agent_patterns": "publish-dataforge-agent-patterns-testpypi.yml",
+}
 
 
 @dataclass(frozen=True)
@@ -150,6 +163,91 @@ def _is_sha256(value: Any) -> bool:
     return len(text) == 64 and all(char in "0123456789abcdef" for char in text)
 
 
+def _check_distribution_evidence(
+    *,
+    package: str,
+    index: str,
+    kind: str,
+    payload: Any,
+    expected_workflow: str,
+) -> list[str]:
+    """Return errors for one wheel or sdist evidence object."""
+    errors: list[str] = []
+    label = f"{package}.{index}.{kind}"
+    if not isinstance(payload, dict):
+        return [f"{label}: evidence must be an object"]
+    for field in (
+        "filename",
+        "package_type",
+        "download_url",
+        "sha256",
+        "upload_time_iso_8601",
+        "provenance_url",
+        "integrity_predicate_type",
+        "integrity_subject_sha256",
+    ):
+        if not str(payload.get(field, "")).strip():
+            errors.append(f"{label}: {field} is required")
+    for field in ("download_url", "provenance_url"):
+        if payload.get(field) and not _is_https_url(payload.get(field)):
+            errors.append(f"{label}: {field} must be an HTTPS URL")
+    sha256 = str(payload.get("sha256", "")).lower()
+    subject_sha256 = str(payload.get("integrity_subject_sha256", "")).lower()
+    if sha256 and not _is_sha256(sha256):
+        errors.append(f"{label}: sha256 must be a SHA-256 hex digest")
+    if subject_sha256 and not _is_sha256(subject_sha256):
+        errors.append(f"{label}: integrity_subject_sha256 must be a SHA-256 hex digest")
+    if sha256 and subject_sha256 and sha256 != subject_sha256:
+        errors.append(f"{label}: integrity_subject_sha256 must match sha256")
+    if payload.get("integrity_predicate_type") != PUBLISH_ATTESTATION_PREDICATE:
+        errors.append(f"{label}: integrity_predicate_type must be {PUBLISH_ATTESTATION_PREDICATE}")
+    publisher = payload.get("trusted_publisher")
+    if not isinstance(publisher, dict):
+        errors.append(f"{label}: trusted_publisher must be an object")
+        return errors
+    if publisher.get("repository") != EXPECTED_PUBLISHER_REPOSITORY:
+        errors.append(
+            f"{label}: trusted_publisher.repository must be {EXPECTED_PUBLISHER_REPOSITORY}"
+        )
+    if publisher.get("workflow") != expected_workflow:
+        errors.append(f"{label}: trusted_publisher.workflow must be {expected_workflow}")
+    if publisher.get("oidc_issuer") != EXPECTED_OIDC_ISSUER:
+        errors.append(f"{label}: trusted_publisher.oidc_issuer must be {EXPECTED_OIDC_ISSUER}")
+    identity = str(publisher.get("identity", ""))
+    if identity and expected_workflow not in identity:
+        errors.append(f"{label}: trusted_publisher.identity must reference {expected_workflow}")
+    return errors
+
+
+def _check_index_evidence(
+    *,
+    package: str,
+    index: str,
+    payload: Any,
+    expected_workflow: str,
+) -> list[str]:
+    """Return errors for one package-index evidence object."""
+    errors: list[str] = []
+    label = f"{package}.{index}"
+    if not isinstance(payload, dict):
+        return [f"{label}: evidence must be an object"]
+    if payload.get("index") != index:
+        errors.append(f"{label}: index must be {index}")
+    if not _is_https_url(payload.get("project_url")):
+        errors.append(f"{label}: project_url must be an HTTPS URL")
+    for kind in ("wheel", "sdist"):
+        errors.extend(
+            _check_distribution_evidence(
+                package=package,
+                index=index,
+                kind=kind,
+                payload=payload.get(kind),
+                expected_workflow=expected_workflow,
+            )
+        )
+    return errors
+
+
 def _version_tuple(value: str) -> tuple[int, ...]:
     """Parse a simple dotted numeric version for release-gate comparisons."""
     parts: list[int] = []
@@ -216,8 +314,8 @@ def _check_publish_evidence(evidence_root: Path) -> FullVisionCheck:
         return FullVisionCheck("pypi_publish_evidence", False, error, {"path": str(path)})
     packages = payload.get("packages")
     errors: list[str] = []
-    if payload.get("schema_version") != "dataforge_pypi_publish_report_v1":
-        errors.append("schema_version must be dataforge_pypi_publish_report_v1")
+    if payload.get("schema_version") != "dataforge_pypi_publish_report_v2":
+        errors.append("schema_version must be dataforge_pypi_publish_report_v2")
     if not isinstance(packages, list):
         errors.append("packages must be a list")
         packages = []
@@ -232,6 +330,8 @@ def _check_publish_evidence(evidence_root: Path) -> FullVisionCheck:
         for field in REQUIRED_PACKAGE_EVIDENCE_FIELDS:
             if not str(item.get(field, "")).strip():
                 errors.append(f"{name}: {field} is required")
+        if item.get("version") and str(item.get("version")) != EXPECTED_VERSION:
+            errors.append(f"{name}: version must be {EXPECTED_VERSION}")
         if item.get("trusted_publishing") is not True:
             errors.append(f"{name}: trusted_publishing must be true")
         if item.get("attestations") is not True:
@@ -240,19 +340,33 @@ def _check_publish_evidence(evidence_root: Path) -> FullVisionCheck:
             errors.append(f"{name}: TestPyPI fresh-install proof is missing")
         if item.get("pypi_fresh_install") is not True:
             errors.append(f"{name}: PyPI fresh-install proof is missing")
-        for field in ("testpypi_url", "pypi_url", "workflow_run_url", "attestation_url"):
+        for field in ("workflow_run_url",):
             if item.get(field) and not _is_https_url(item.get(field)):
                 errors.append(f"{name}: {field} must be an HTTPS URL")
-        for field in ("wheel_sha256", "sdist_sha256"):
-            if item.get(field) and not _is_sha256(item.get(field)):
-                errors.append(f"{name}: {field} must be a SHA-256 hex digest")
         for field in ("testpypi_smoke_log_path", "pypi_smoke_log_path"):
             if item.get(field) and _resolve_evidence_file(evidence_root, item.get(field)) is None:
                 errors.append(f"{name}: {field} must point to an evidence file")
+        if name in PYPI_WORKFLOWS:
+            errors.extend(
+                _check_index_evidence(
+                    package=name,
+                    index="pypi",
+                    payload=item.get("pypi"),
+                    expected_workflow=PYPI_WORKFLOWS[name],
+                )
+            )
+            errors.extend(
+                _check_index_evidence(
+                    package=name,
+                    index="testpypi",
+                    payload=item.get("testpypi"),
+                    expected_workflow=TESTPYPI_WORKFLOWS[name],
+                )
+            )
     return FullVisionCheck(
         name="pypi_publish_evidence",
         ok=not errors,
-        detail="Trusted publishing, attestations, and fresh-install evidence exist."
+        detail="Trusted publishing, attestations, provenance, and fresh-install evidence exist."
         if not errors
         else "Publishing evidence is incomplete.",
         metadata={"path": str(path), "errors": errors},
@@ -423,8 +537,13 @@ def _check_design_partner_evidence(evidence_root: Path) -> FullVisionCheck:
         if entry is None:
             errors.append(f"missing design-partner validation: {persona}")
             continue
+        for field in ("role", "session_date", "production_surface", "task_completed"):
+            if not str(entry.get(field, "")).strip():
+                errors.append(f"{persona}: {field} is required")
         if entry.get("validated") is not True:
             errors.append(f"{persona}: validated must be true")
+        if entry.get("trust_confirmed") is not True:
+            errors.append(f"{persona}: trust_confirmed must be true")
         if not entry.get("evidence_path"):
             errors.append(f"{persona}: evidence_path is required")
         elif _resolve_evidence_file(evidence_root, entry.get("evidence_path")) is None:

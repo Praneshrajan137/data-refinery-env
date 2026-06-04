@@ -162,6 +162,8 @@ def run_proof(
     *, output: Path, index_url: str | None, extra_index_url: str | None
 ) -> FreshEnvReport:
     """Run the proof and write a report."""
+    if sys.version_info[:2] != (3, 12):
+        raise RuntimeError("The dbt-duckdb fresh-env proof must run under Python 3.12.")
     with tempfile.TemporaryDirectory(prefix="dataforge-dbt-proof-") as tmp:
         root = Path(tmp)
         venv_path = root / ".venv"
@@ -190,7 +192,7 @@ def run_proof(
             install_command.extend(["--index-url", index_url])
         if extra_index_url:
             install_command.extend(["--extra-index-url", extra_index_url])
-        install_command.extend(["dataforge_07", "dataforge_07_dbt", "dbt-duckdb"])
+        install_command.extend(["dataforge_07_dbt"])
         _run(install_command, cwd=root, log=log_path)
 
         _write_project(project_dir, profiles_dir, database_path)
@@ -227,7 +229,9 @@ def run_proof(
         )
         artifacts = sorted((project_dir / "target" / "dataforge_txns").glob("*.jsonl"))
         artifact_written = bool(artifacts)
-        table_store_logs = sorted((project_dir / "target" / ".dataforge" / "transactions").glob("*.jsonl"))
+        table_store_logs = sorted(
+            (project_dir / "target" / ".dataforge" / "transactions").glob("*.jsonl")
+        )
         if not table_store_logs:
             raise RuntimeError("DataForge dbt apply did not write a table-store transaction log.")
         txn_id = table_store_logs[0].stem

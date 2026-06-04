@@ -24,8 +24,19 @@ publication is complete:
 
 ```bash
 python scripts/ci/pypi_publish_report.py \
-  --workflow-run-url https://github.com/Aegis15/dataforge/actions/runs/<run-id>
+  --workflow-run-url dataforge_07=https://github.com/Aegis15/dataforge/actions/runs/<run-id> \
+  --workflow-run-url dataforge_07_mcp=https://github.com/Aegis15/dataforge/actions/runs/<run-id> \
+  --workflow-run-url dataforge_07_evals=https://github.com/Aegis15/dataforge/actions/runs/<run-id> \
+  --workflow-run-url dataforge_07_dbt=https://github.com/Aegis15/dataforge/actions/runs/<run-id> \
+  --workflow-run-url dataforge_07_agent_patterns=https://github.com/Aegis15/dataforge/actions/runs/<run-id>
 ```
 
-The script refuses to write optimistic evidence when package metadata, release
-hashes, provenance URLs, or referenced smoke logs are missing.
+The script writes `dataforge_pypi_publish_report_v2` and refuses optimistic
+evidence when package metadata, downloaded artifact hashes, wheel/sdist
+provenance URLs, PyPI Integrity API publish attestations, expected GitHub
+Trusted Publisher identity, or referenced smoke logs are missing.
+
+Design-partner evidence must use sanitized notes plus separate consent records.
+Start from `templates/design_partner_evidence_note.template.md` and
+`templates/design_partner_consent.template.json`; do not commit private data or
+permission-to-list claims before consent exists.

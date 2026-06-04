@@ -19,6 +19,46 @@ def _write_text(path: Path, text: str = "evidence\n") -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _publisher(workflow: str) -> dict[str, str]:
+    return {
+        "repository": full_vision.EXPECTED_PUBLISHER_REPOSITORY,
+        "workflow": workflow,
+        "ref": "refs/tags/v0.1.0",
+        "identity": (
+            f"https://github.com/Aegis15/dataforge/.github/workflows/{workflow}@refs/tags/v0.1.0"
+        ),
+        "oidc_issuer": full_vision.EXPECTED_OIDC_ISSUER,
+    }
+
+
+def _dist(package: str, index: str, kind: str, workflow: str) -> dict[str, Any]:
+    extension = "py3-none-any.whl" if kind == "wheel" else "tar.gz"
+    package_type = "bdist_wheel" if kind == "wheel" else "sdist"
+    digest = ("a" if kind == "wheel" else "b") * 64
+    filename = f"{package}-0.1.0-{extension}" if kind == "wheel" else f"{package}-0.1.0.tar.gz"
+    return {
+        "filename": filename,
+        "package_type": package_type,
+        "download_url": f"https://files.example/{index}/{filename}",
+        "sha256": digest,
+        "upload_time_iso_8601": "2026-06-03T00:00:00.000000Z",
+        "provenance_url": f"https://{index}.example/integrity/{package}/0.1.0/{filename}",
+        "integrity_predicate_type": full_vision.PUBLISH_ATTESTATION_PREDICATE,
+        "integrity_subject_sha256": digest,
+        "trusted_publisher": _publisher(workflow),
+    }
+
+
+def _index(package: str, index: str, workflow: str) -> dict[str, Any]:
+    host = "pypi.org" if index == "pypi" else "test.pypi.org"
+    return {
+        "index": index,
+        "project_url": f"https://{host}/project/{package}/",
+        "wheel": _dist(package, index, "wheel", workflow),
+        "sdist": _dist(package, index, "sdist", workflow),
+    }
+
+
 def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkeypatch: Any) -> None:
     """A fully evidenced external state satisfies every full-vision check."""
     for name in full_vision.EXPECTED_PACKAGES:
@@ -27,22 +67,20 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
     _write_json(
         tmp_path / "pypi" / "publish_report.json",
         {
-            "schema_version": "dataforge_pypi_publish_report_v1",
+            "schema_version": "dataforge_pypi_publish_report_v2",
             "packages": [
                 {
                     "name": name,
+                    "version": "0.1.0",
                     "trusted_publishing": True,
                     "attestations": True,
                     "testpypi_fresh_install": True,
                     "pypi_fresh_install": True,
-                    "testpypi_url": f"https://test.pypi.org/project/{name}/",
-                    "pypi_url": f"https://pypi.org/project/{name}/",
                     "workflow_run_url": f"https://github.com/Aegis15/dataforge/actions/runs/{name}",
-                    "attestation_url": f"https://pypi.org/project/{name}/0.1.0/#data",
-                    "wheel_sha256": "a" * 64,
-                    "sdist_sha256": "b" * 64,
                     "testpypi_smoke_log_path": f"pypi/{name}-testpypi-smoke.log",
                     "pypi_smoke_log_path": f"pypi/{name}-pypi-smoke.log",
+                    "testpypi": _index(name, "testpypi", full_vision.TESTPYPI_WORKFLOWS[name]),
+                    "pypi": _index(name, "pypi", full_vision.PYPI_WORKFLOWS[name]),
                 }
                 for name in full_vision.EXPECTED_PACKAGES
             ],
@@ -84,7 +122,12 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
             "validations": [
                 {
                     "persona": persona,
+                    "role": "external practitioner",
+                    "session_date": "2026-06-03",
+                    "production_surface": "workers playground",
+                    "task_completed": "analyze sample and export receipt",
                     "validated": True,
+                    "trust_confirmed": True,
                     "evidence_path": f"design_partners/{persona}.md",
                     "consent_record": f"design_partners/{persona}.consent.json",
                     "timing_seconds": 120,

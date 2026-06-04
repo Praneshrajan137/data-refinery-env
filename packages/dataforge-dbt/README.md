@@ -16,11 +16,9 @@ The PyPI package is not published yet. Install from this source checkout:
 python -m pip install -e ".[dev]"
 ```
 
-After PyPI publication, `pip install dataforge_07_dbt dbt-duckdb` will install
-the integration and the free local integration-test warehouse adapter.
-
-If you install only the runtime package from source, install `dbt-duckdb`
-separately before running the DuckDB example.
+After PyPI publication, `pip install dataforge_07_dbt` will install the
+integration plus the supported `dbt-duckdb` adapter path for the free local
+integration-test warehouse.
 
 ### 2. Add the dbt package
 
