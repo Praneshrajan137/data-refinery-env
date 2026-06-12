@@ -3,17 +3,17 @@
 ## CLI
 
 ```bash
-dataforge15 profile <csv> [--schema schema.yaml]
-dataforge15 profile <csv> --constraints-out constraints.json
-dataforge15 constraints review constraints.json
-dataforge15 constraints review constraints.json --accept cnd-... --no-tui --json
-dataforge15 repair <csv> [--schema schema.yaml] --dry-run
-dataforge15 repair <csv> --constraints constraints.json --dry-run
-dataforge15 repair <csv> [--schema schema.yaml] --apply
-dataforge15 watch <csv> [--schema schema.yaml] --once --json
-dataforge15 audit <txn-id>
-dataforge15 revert <txn-id>
-dataforge15 bench --methods heuristic --datasets hospital --seeds 1
+dataforge profile <csv> [--schema schema.yaml]
+dataforge profile <csv> --constraints-out constraints.json
+dataforge constraints review constraints.json
+dataforge constraints review constraints.json --accept cnd-... --no-tui --json
+dataforge repair <csv> [--schema schema.yaml] --dry-run
+dataforge repair <csv> --constraints constraints.json --dry-run
+dataforge repair <csv> [--schema schema.yaml] --apply
+dataforge watch <csv> [--schema schema.yaml] --once --json
+dataforge audit <txn-id>
+dataforge revert <txn-id>
+dataforge bench --methods heuristic --datasets hospital --seeds 1
 ```
 
 ## Public modules
@@ -31,5 +31,5 @@ dataforge15 bench --methods heuristic --datasets hospital --seeds 1
 
 ## Version support
 
-DataForge15 0.1.0rc1 supports Python 3.11 and 3.12. The core package is
+DataForge 0.1.0 supports Python 3.11 and 3.12. The core package is
 intentionally separate from playground, training, and model-demo dependencies.

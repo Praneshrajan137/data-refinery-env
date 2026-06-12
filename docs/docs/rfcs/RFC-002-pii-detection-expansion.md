@@ -3,7 +3,7 @@
 ## Problem
 
 The shipped safety constitution blocks obvious risky edits, but broader PII
-detection is needed before DataForge15 can be trusted in regulated datasets.
+detection is needed before DataForge can be trusted in regulated datasets.
 
 ## Alternatives
 

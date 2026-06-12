@@ -1,7 +1,7 @@
 # SMT Verification
 
 The SMT verifier encodes proposed repairs and schema constraints into Z3 checks.
-It is the final deterministic guard before DataForge15 writes an applied repair.
+It is the final deterministic guard before DataForge writes an applied repair.
 
 ## What it checks
 
@@ -17,4 +17,4 @@ Verification returns one of three outcomes:
 
 - `ACCEPT`: mutation may proceed if safety also passed.
 - `REJECT`: mutation is blocked with a reason.
-- `UNKNOWN`: mutation is blocked because DataForge15 could not prove the fix safe.
+- `UNKNOWN`: mutation is blocked because DataForge could not prove the fix safe.

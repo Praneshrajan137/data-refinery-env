@@ -1,0 +1,12 @@
+{
+  "schema_version": "dataforge_design_partner_consent_v1",
+  "persona": "",
+  "participant_label": "",
+  "consent_date": "",
+  "permission_to_list": false,
+  "permission_scope": "",
+  "public_attribution": "",
+  "private_contact_record": "",
+  "redaction_confirmed": false,
+  "notes": ""
+}

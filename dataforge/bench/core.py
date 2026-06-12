@@ -167,7 +167,7 @@ def _package_version(name: str) -> str:
 def benchmark_dependency_versions() -> dict[str, str]:
     """Return versions of dependencies that influence benchmark behavior."""
     return {
-        "dataforge15": _package_version("dataforge15"),
+        "dataforge": _package_version("dataforge"),
         "httpx": _package_version("httpx"),
         "pandas": _package_version("pandas"),
         "pydantic": _package_version("pydantic"),

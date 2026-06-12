@@ -85,12 +85,28 @@ class SafetyFilter:
             reason="All proposed fixes passed the constitutional safety gate.",
         )
 
-    def evaluate_batch(self, fixes: list[ProposedFix]) -> SafetyResult:
+    def evaluate_batch(
+        self,
+        fixes: list[ProposedFix],
+        context: SafetyContext | None = None,
+    ) -> SafetyResult:
         """Return whether a batch of accepted fixes is internally consistent."""
+        context = context or SafetyContext()
         for rule in self._constitution.batch_rules:
             if rule.predicate(fixes):
+                if (
+                    rule.tier == "soft_require_confirm"
+                    and rule.confirm_flag
+                    and getattr(context, rule.confirm_flag, False)
+                ):
+                    continue
+                verdict = (
+                    SafetyVerdict.ESCALATE
+                    if rule.tier == "soft_require_confirm"
+                    else SafetyVerdict.DENY
+                )
                 return SafetyResult(
-                    verdict=SafetyVerdict.DENY,
+                    verdict=verdict,
                     reason=f"{rule.rule_id}: {rule.description}",
                     rule_ids=(rule.rule_id,),
                 )

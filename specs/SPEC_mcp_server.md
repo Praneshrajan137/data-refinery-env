@@ -1,8 +1,8 @@
-# SPEC: dataforge-mcp
+﻿# SPEC: dataforge-mcp
 
 > Status: Reviewed
 > Owner: Praneshrajan15
-> Last updated: 2026-05-20
+> Last updated: 2026-06-01
 
 ## 1. Purpose
 
@@ -13,7 +13,7 @@ can call DataForge without parsing terminal UI.
 
 ## 2. Outcomes
 
-- [x] `pip install dataforge-mcp` installs a `dataforge-mcp` console command.
+- [x] `pip install dataforge_07_mcp` installs a `dataforge-mcp` console command.
 - [x] `dataforge-mcp serve` starts a stdio MCP server with five DataForge tools.
 - [x] MCP tool calls return structured JSON-compatible results backed by the
       real detector, safety, verifier, and transaction paths.
@@ -50,8 +50,10 @@ can call DataForge without parsing terminal UI.
 
 ## 5. Prior decisions
 
-- `dataforge-mcp/` is nested in this repository but remains a standalone package.
-- The package depends on `dataforge` and `mcp`; it does not vendor DataForge.
+- `dataforge-mcp/` is nested in this repository but builds the standalone
+  `dataforge_07_mcp` distribution.
+- The package depends on `dataforge` and `mcp`; it does not vendor
+  DataForge.
 - Tool outputs are typed Pydantic models rather than Rich CLI text.
 
 ## 6. Task breakdown

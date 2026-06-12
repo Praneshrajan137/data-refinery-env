@@ -26,6 +26,22 @@ def explain_unsat_core(unsat_core: tuple[str, ...], schema: Schema) -> str:
                 f"{determinant_text} -> {dependent}."
             )
             continue
+        if len(tokens) >= 4 and tokens[0] in {"not_null", "primary_key_not_null"}:
+            _, column, _, row = tokens[:4]
+            parts.append(f"Row {row} would violate the not-null constraint for '{column}'.")
+            continue
+        if len(tokens) >= 4 and tokens[0] in {"unique", "primary_key_unique"}:
+            _, column, _, row = tokens[:4]
+            parts.append(f"Row {row} would violate the unique constraint for '{column}'.")
+            continue
+        if len(tokens) >= 4 and tokens[0] == "accepted_values":
+            _, column, _, row = tokens[:4]
+            parts.append(f"Row {row} would violate the accepted values constraint for '{column}'.")
+            continue
+        if len(tokens) >= 4 and tokens[0] == "regex":
+            _, column, _, row = tokens[:4]
+            parts.append(f"Row {row} would violate the regex constraint for '{column}'.")
+            continue
         parts.append(f"Tracked verifier rule '{label}' rejected the fix.")
 
     return " ".join(parts)

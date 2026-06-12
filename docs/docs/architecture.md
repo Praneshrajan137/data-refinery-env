@@ -1,6 +1,6 @@
 # Architecture
 
-DataForge15 is the official release name for the DataForge codebase: a local,
+DataForge is the official release name for the DataForge codebase: a local,
 auditable data-quality repair system. The core package is
 kept separate from playground, training, and model-demo surfaces so the CLI can
 remain installable without web or model dependencies.
@@ -47,7 +47,7 @@ flowchart LR
   hooks, readiness and release verifiers, Kaggle notebooks, Hub metadata, and a
   separate Gradio model-demo Space.
 - **MCP integration**: nested standalone `dataforge-mcp/` source directory
-  building the `dataforge15-mcp` package and exposing structured DataForge15
+  building the `dataforge_07_mcp` distribution and exposing structured DataForge
   tools over stdio by default.
 
 ## Safety Invariant
@@ -123,22 +123,25 @@ Optional extras and scoped dependencies:
 - `openenv`: OpenEnv protocol dependency plus `duckdb`, `sqlglot`, and
   statistical/causal dependencies.
 - `dataforge-mcp/`: source directory for the separate planned
-  `dataforge15-mcp` PyPI package with MCP dependencies.
+  `dataforge_07_mcp` PyPI distribution with MCP dependencies.
 - `playground-model/`: Gradio and model-demo dependencies only.
 
 ## Release Boundaries
 
-- `dataforge15` is the planned core CLI/library distribution. It is not
-  published yet; `v0.1.0-rc1` is TestPyPI-only and real PyPI release tags should
-  be created only after local gates, RC evidence, and PyPI trusted-publisher
-  ownership are verified. It intentionally keeps the `dataforge` Python import
-  namespace for the 0.1 line.
-- `dataforge15-mcp` is the planned nested standalone distribution for
-  `dataforge15-mcp-v*` release tags after PyPI ownership is verified.
+- `dataforge_07` is the planned PyPI/TestPyPI core CLI/library distribution. It
+  is not published yet; `v0.1.0-rc1` is TestPyPI-only and real PyPI release tags
+  should be created only after local gates, RC evidence, and PyPI
+  trusted-publisher configuration are verified. It intentionally keeps the
+  `dataforge` Python import namespace and CLI for the 0.1 line.
+- `dataforge_07_mcp` is the planned nested standalone distribution for
+  `dataforge-mcp-v*` release tags after PyPI publication evidence is verified.
 - SFT datasets and checkpoints are Hugging Face artifacts verified by
   `scripts/model/verify_sft_release.py`.
 - GRPO checkpoints are Hugging Face artifacts verified by
   `scripts/model/verify_grpo_release.py` before they can be cited as quality
   improvements.
+- GiGPO checkpoints are Hugging Face artifacts verified by
+  `scripts/model/verify_gigpo_release.py` before the full model-family claim
+  can pass.
 - Generated Hugging Face staging directories are deployment artifacts, not
   canonical documentation sources.

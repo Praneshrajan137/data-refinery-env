@@ -7,8 +7,12 @@ export default {
     }
 
     const assetUrl = new URL(request.url);
-    if (assetUrl.pathname.startsWith("/playground/")) {
-      assetUrl.pathname = assetUrl.pathname.slice("/playground".length) || "/";
+    if (assetUrl.pathname.startsWith("/playground/assets/")) {
+      assetUrl.pathname = assetUrl.pathname.slice("/playground".length);
+    } else if (assetUrl.pathname === "/playground/config.js") {
+      assetUrl.pathname = "/config.js";
+    } else if (assetUrl.pathname.startsWith("/playground/")) {
+      assetUrl.pathname = "/";
     }
     const response = await env.ASSETS.fetch(new Request(assetUrl, request));
     const headers = new Headers(response.headers);

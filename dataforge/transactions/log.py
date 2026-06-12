@@ -266,7 +266,11 @@ def _v2_reverted_record(log_path: Path, txn_id: str, reverted_at: datetime) -> d
     )
 
 
-def append_created_transaction(transaction: RepairTransaction) -> Path:
+def append_created_transaction(
+    transaction: RepairTransaction,
+    *,
+    log_root: Path | None = None,
+) -> Path:
     """Write the immutable transaction creation event.
 
     Args:
@@ -276,7 +280,11 @@ def append_created_transaction(transaction: RepairTransaction) -> Path:
         The created JSONL log path.
     """
     source_path = Path(transaction.source_path)
-    log_path = transaction_log_path_for(source_path, transaction.txn_id)
+    log_path = (
+        transaction_log_path_for(source_path, transaction.txn_id)
+        if log_root is None
+        else log_root.resolve() / ".dataforge" / "transactions" / f"{transaction.txn_id}.jsonl"
+    )
     _write_jsonl_line(log_path, _v2_created_record(transaction), create=True)
     return log_path
 
@@ -572,13 +580,14 @@ def verify_transaction_log(
         source_path = Path(transaction.source_path)
         snapshot_path = Path(transaction.source_snapshot_path)
         revert_errors: list[str] = []
-        if not source_path.exists():
-            revert_errors.append(f"Source file not found: {source_path}")
-        elif (
-            transaction.post_sha256 is not None
-            and sha256_file(source_path) != transaction.post_sha256
-        ):
-            revert_errors.append("Source file no longer matches the recorded post-state hash.")
+        if transaction.source_kind == "file":
+            if not source_path.exists():
+                revert_errors.append(f"Source file not found: {source_path}")
+            elif (
+                transaction.post_sha256 is not None
+                and sha256_file(source_path) != transaction.post_sha256
+            ):
+                revert_errors.append("Source file no longer matches the recorded post-state hash.")
         if not snapshot_path.exists():
             revert_errors.append(f"Source snapshot not found: {snapshot_path}")
         if revert_errors:

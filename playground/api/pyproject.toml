@@ -1,5 +1,5 @@
 [project]
-name = "dataforge15-playground-api"
+name = "dataforge-playground-api"
 version = "0.1.0"
 requires-python = ">=3.11,<3.13"
 dependencies = [

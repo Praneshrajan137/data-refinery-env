@@ -1,6 +1,160 @@
 {
   "components": {
     "schemas": {
+      "AnalyzeResponse": {
+        "description": "Primary Playground proof-loop response.",
+        "properties": {
+          "apply_handoff": {
+            "$ref": "#/components/schemas/ApplyHandoff"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueView"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/RepairReceiptView"
+          },
+          "repairs": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFixView"
+            },
+            "title": "Repairs",
+            "type": "array"
+          },
+          "risk_summary": {
+            "$ref": "#/components/schemas/RiskSummary"
+          },
+          "schema_inference": {
+            "$ref": "#/components/schemas/SchemaInferenceView"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceView"
+          },
+          "txn_journal": {
+            "$ref": "#/components/schemas/RepairJournalView"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/VerificationSummary"
+          }
+        },
+        "required": [
+          "source",
+          "schema_inference",
+          "risk_summary",
+          "issues",
+          "repairs",
+          "verification",
+          "txn_journal",
+          "receipt",
+          "apply_handoff",
+          "limitations",
+          "meta"
+        ],
+        "title": "AnalyzeResponse",
+        "type": "object"
+      },
+      "ApplyHandoff": {
+        "description": "Local CLI handoff for reversible apply outside the hosted playground.",
+        "properties": {
+          "apply_command": {
+            "title": "Apply Command",
+            "type": "string"
+          },
+          "audit_command": {
+            "title": "Audit Command",
+            "type": "string"
+          },
+          "dry_run_command": {
+            "title": "Dry Run Command",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "revert_command": {
+            "title": "Revert Command",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_name",
+          "dry_run_command",
+          "apply_command",
+          "audit_command",
+          "revert_command",
+          "note"
+        ],
+        "title": "ApplyHandoff",
+        "type": "object"
+      },
+      "Body_analyze_api_analyze_post": {
+        "properties": {
+          "accepted_constraint_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Constraint Ids"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_api_analyze_post",
+        "type": "object"
+      },
+      "Body_analyze_stream_api_analyze_stream_post": {
+        "properties": {
+          "accepted_constraint_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Constraint Ids"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_analyze_stream_api_analyze_stream_post",
+        "type": "object"
+      },
       "Body_profile_api_profile_post": {
         "properties": {
           "file": {
@@ -29,6 +183,172 @@
         "title": "Body_repair_api_repair_post",
         "type": "object"
       },
+      "CandidateRepairView": {
+        "description": "Candidate repair carried in the public repair receipt.",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "detector_id": {
+            "title": "Detector Id",
+            "type": "string"
+          },
+          "new_value": {
+            "title": "New Value",
+            "type": "string"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "type": "string"
+          },
+          "operation": {
+            "title": "Operation",
+            "type": "string"
+          },
+          "provenance": {
+            "title": "Provenance",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "verifier_reason": {
+            "title": "Verifier Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "old_value",
+          "new_value",
+          "detector_id",
+          "operation",
+          "reason",
+          "confidence",
+          "provenance",
+          "verifier_reason"
+        ],
+        "title": "CandidateRepairView",
+        "type": "object"
+      },
+      "ConstraintCandidateView": {
+        "description": "Reviewable inferred constraint shown in the proof loop.",
+        "properties": {
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "decision": {
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "dependent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dependent"
+          },
+          "evidence": {
+            "title": "Evidence",
+            "type": "string"
+          },
+          "inferred_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inferred Type"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value"
+          },
+          "pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern"
+          },
+          "repair_supported": {
+            "title": "Repair Supported",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "kind",
+          "columns",
+          "confidence",
+          "evidence",
+          "decision",
+          "repair_supported"
+        ],
+        "title": "ConstraintCandidateView",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -40,6 +360,886 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "Backend readiness and UI capability metadata.",
+        "properties": {
+          "advanced_available": {
+            "title": "Advanced Available",
+            "type": "boolean"
+          },
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "build_sha": {
+            "title": "Build Sha",
+            "type": "string"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "cors_configured": {
+            "title": "Cors Configured",
+            "type": "boolean"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/LimitPayload"
+          },
+          "max_upload_bytes": {
+            "title": "Max Upload Bytes",
+            "type": "integer"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/MetricsSnapshot"
+          },
+          "otel_enabled": {
+            "title": "Otel Enabled",
+            "type": "boolean"
+          },
+          "otel_instrumented": {
+            "title": "Otel Instrumented",
+            "type": "boolean"
+          },
+          "server_time_utc": {
+            "title": "Server Time Utc",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "streaming_available": {
+            "title": "Streaming Available",
+            "type": "boolean"
+          },
+          "workflow_contract_version": {
+            "const": "workflow_event_v1",
+            "title": "Workflow Contract Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "status",
+          "advanced_available",
+          "max_upload_bytes",
+          "streaming_available",
+          "workflow_contract_version",
+          "api_version",
+          "contract_version",
+          "build_sha",
+          "server_time_utc",
+          "environment",
+          "limits",
+          "cors_configured",
+          "otel_enabled",
+          "otel_instrumented",
+          "metrics"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "IssueView": {
+        "description": "Grouped detector evidence for one issue type/column/severity.",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "row_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Row Indices",
+            "type": "array"
+          },
+          "row_indices_truncated": {
+            "default": false,
+            "title": "Row Indices Truncated",
+            "type": "boolean"
+          },
+          "severity": {
+            "enum": [
+              "safe",
+              "review",
+              "unsafe"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "column",
+          "issue_type",
+          "severity",
+          "row_indices",
+          "count"
+        ],
+        "title": "IssueView",
+        "type": "object"
+      },
+      "LatencyMetrics": {
+        "description": "Rolling latency snapshot.",
+        "properties": {
+          "max": {
+            "title": "Max",
+            "type": "number"
+          },
+          "p50": {
+            "title": "P50",
+            "type": "number"
+          },
+          "p95": {
+            "title": "P95",
+            "type": "number"
+          },
+          "window_size": {
+            "title": "Window Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_size",
+          "p50",
+          "p95",
+          "max"
+        ],
+        "title": "LatencyMetrics",
+        "type": "object"
+      },
+      "LimitPayload": {
+        "description": "Processing limits exposed to playground clients.",
+        "properties": {
+          "max_cells": {
+            "title": "Max Cells",
+            "type": "integer"
+          },
+          "max_columns": {
+            "title": "Max Columns",
+            "type": "integer"
+          },
+          "max_rows": {
+            "title": "Max Rows",
+            "type": "integer"
+          },
+          "max_upload_bytes": {
+            "title": "Max Upload Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "max_upload_bytes",
+          "max_rows",
+          "max_columns",
+          "max_cells"
+        ],
+        "title": "LimitPayload",
+        "type": "object"
+      },
+      "MetricsSnapshot": {
+        "description": "Small in-process metrics response for free-tier health checks.",
+        "properties": {
+          "error_rate": {
+            "title": "Error Rate",
+            "type": "number"
+          },
+          "latency_ms": {
+            "$ref": "#/components/schemas/LatencyMetrics"
+          },
+          "requests_total": {
+            "title": "Requests Total",
+            "type": "integer"
+          },
+          "responses_4xx": {
+            "title": "Responses 4Xx",
+            "type": "integer"
+          },
+          "responses_5xx": {
+            "title": "Responses 5Xx",
+            "type": "integer"
+          },
+          "routes": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Routes",
+            "type": "object"
+          }
+        },
+        "required": [
+          "requests_total",
+          "responses_4xx",
+          "responses_5xx",
+          "error_rate",
+          "latency_ms",
+          "routes"
+        ],
+        "title": "MetricsSnapshot",
+        "type": "object"
+      },
+      "ProfileMeta": {
+        "description": "Profile compatibility response metadata.",
+        "properties": {
+          "advanced_requested": {
+            "title": "Advanced Requested",
+            "type": "boolean"
+          },
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "column_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Column Names",
+            "type": "array"
+          },
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "total_issues": {
+            "title": "Total Issues",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "api_version",
+          "contract_version",
+          "rows",
+          "columns",
+          "column_names",
+          "total_issues",
+          "advanced_requested"
+        ],
+        "title": "ProfileMeta",
+        "type": "object"
+      },
+      "ProfileResponse": {
+        "description": "Compatibility response for POST /api/profile.",
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/IssueView"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ProfileMeta"
+          }
+        },
+        "required": [
+          "issues",
+          "meta"
+        ],
+        "title": "ProfileResponse",
+        "type": "object"
+      },
+      "ProofObligationView": {
+        "description": "Proof or safety obligation carried in the public repair receipt.",
+        "properties": {
+          "obligation_id": {
+            "title": "Obligation Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "unsat_core": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unsat Core",
+            "type": "array"
+          },
+          "verifier": {
+            "title": "Verifier",
+            "type": "string"
+          }
+        },
+        "required": [
+          "obligation_id",
+          "verifier",
+          "status",
+          "reason"
+        ],
+        "title": "ProofObligationView",
+        "type": "object"
+      },
+      "RepairFailureView": {
+        "description": "Issue-level repair attempt that did not produce a verified fix.",
+        "properties": {
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "unsat_core": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unsat Core",
+            "type": "array"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "issue_type",
+          "status",
+          "reason",
+          "attempt_count"
+        ],
+        "title": "RepairFailureView",
+        "type": "object"
+      },
+      "RepairJournalView": {
+        "description": "Redacted dry-run transaction journal.",
+        "properties": {
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "events": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "fixes_count": {
+            "title": "Fixes Count",
+            "type": "integer"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "txn_id": {
+            "title": "Txn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "txn_id",
+          "created_at",
+          "source_name",
+          "source_sha256",
+          "fixes_count",
+          "applied",
+          "events",
+          "note"
+        ],
+        "title": "RepairJournalView",
+        "type": "object"
+      },
+      "RepairReceiptView": {
+        "description": "Stable repair receipt surfaced to browser clients.",
+        "properties": {
+          "accepted_constraint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepted Constraint Ids",
+            "type": "array"
+          },
+          "applied": {
+            "title": "Applied",
+            "type": "boolean"
+          },
+          "candidate_provenance": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Candidate Provenance",
+            "type": "array"
+          },
+          "candidate_repairs": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateRepairView"
+            },
+            "title": "Candidate Repairs",
+            "type": "array"
+          },
+          "constraints_artifact_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraints Artifact Sha256"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "fixes_count": {
+            "title": "Fixes Count",
+            "type": "integer"
+          },
+          "issues_count": {
+            "title": "Issues Count",
+            "type": "integer"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "patch_plan_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patch Plan Sha256"
+          },
+          "post_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Post Sha256"
+          },
+          "proof_obligations": {
+            "items": {
+              "$ref": "#/components/schemas/ProofObligationView"
+            },
+            "title": "Proof Obligations",
+            "type": "array"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "receipt_version": {
+            "title": "Receipt Version",
+            "type": "string"
+          },
+          "reversible": {
+            "title": "Reversible",
+            "type": "boolean"
+          },
+          "revert_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revert Command"
+          },
+          "root_causes": {
+            "items": {
+              "$ref": "#/components/schemas/RootCauseView"
+            },
+            "title": "Root Causes",
+            "type": "array"
+          },
+          "safety_verdict": {
+            "title": "Safety Verdict",
+            "type": "string"
+          },
+          "schema_version": {
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "txn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Txn Id"
+          },
+          "verifier_verdict": {
+            "title": "Verifier Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "receipt_version",
+          "contract_version",
+          "mode",
+          "applied",
+          "reversible",
+          "source_sha256",
+          "safety_verdict",
+          "verifier_verdict",
+          "issues_count",
+          "fixes_count",
+          "candidate_provenance",
+          "accepted_constraint_ids",
+          "reason"
+        ],
+        "title": "RepairReceiptView",
+        "type": "object"
+      },
+      "RepairResponse": {
+        "description": "Compatibility response for POST /api/repair.",
+        "properties": {
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/RepairFailureView"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "fixes": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFixView"
+            },
+            "title": "Fixes",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/RepairReceiptView"
+          },
+          "txn_journal": {
+            "$ref": "#/components/schemas/RepairJournalView"
+          }
+        },
+        "required": [
+          "fixes",
+          "txn_journal",
+          "receipt",
+          "meta"
+        ],
+        "title": "RepairResponse",
+        "type": "object"
+      },
+      "ResponseMeta": {
+        "description": "Shared API response metadata.",
+        "properties": {
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_version",
+          "contract_version"
+        ],
+        "title": "ResponseMeta",
+        "type": "object"
+      },
+      "RiskSummary": {
+        "description": "Categorical, evidence-derived risk summary.",
+        "properties": {
+          "dataset_level": {
+            "enum": [
+              "none",
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Dataset Level",
+            "type": "string"
+          },
+          "pending_repair_supported_constraints": {
+            "title": "Pending Repair Supported Constraints",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "repair_readiness": {
+            "enum": [
+              "no_action",
+              "verified",
+              "partial",
+              "blocked"
+            ],
+            "title": "Repair Readiness",
+            "type": "string"
+          },
+          "severity_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "safe",
+                "review",
+                "unsafe"
+              ]
+            },
+            "title": "Severity Counts",
+            "type": "object"
+          }
+        },
+        "required": [
+          "dataset_level",
+          "repair_readiness",
+          "severity_counts",
+          "pending_repair_supported_constraints",
+          "reasons"
+        ],
+        "title": "RiskSummary",
+        "type": "object"
+      },
+      "RootCauseView": {
+        "description": "Issue diagnosis carried in the public repair receipt.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "issue_type",
+          "category",
+          "confidence",
+          "reason"
+        ],
+        "title": "RootCauseView",
+        "type": "object"
+      },
+      "RootResponse": {
+        "description": "Stable API root response.",
+        "properties": {
+          "api_version": {
+            "title": "Api Version",
+            "type": "string"
+          },
+          "contract_version": {
+            "title": "Contract Version",
+            "type": "string"
+          },
+          "docs_url": {
+            "title": "Docs Url",
+            "type": "string"
+          },
+          "frontend_hosting": {
+            "title": "Frontend Hosting",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "status",
+          "api_version",
+          "contract_version",
+          "docs_url",
+          "frontend_hosting"
+        ],
+        "title": "RootResponse",
+        "type": "object"
+      },
+      "SchemaInferenceView": {
+        "description": "Ephemeral schema-inference evidence for the uploaded source.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/ConstraintCandidateView"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "row_count": {
+            "title": "Row Count",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": "constraint_review_v1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema_version",
+          "source_sha256",
+          "row_count",
+          "candidates"
+        ],
+        "title": "SchemaInferenceView",
+        "type": "object"
+      },
+      "SourceView": {
+        "description": "Uploaded source facts safe to return to the browser.",
+        "properties": {
+          "column_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Column Names",
+            "type": "array"
+          },
+          "columns": {
+            "title": "Columns",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "size_bytes",
+          "sha256",
+          "rows",
+          "columns",
+          "column_names"
+        ],
+        "title": "SourceView",
         "type": "object"
       },
       "ValidationError": {
@@ -81,6 +1281,117 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VerificationSummary": {
+        "description": "Safety, verifier, and abstention evidence for the run.",
+        "properties": {
+          "abstentions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Abstentions",
+            "type": "array"
+          },
+          "accepted_constraint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepted Constraint Ids",
+            "type": "array"
+          },
+          "failure_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failure Reasons",
+            "type": "array"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/RepairFailureView"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "safety_verdict": {
+            "title": "Safety Verdict",
+            "type": "string"
+          },
+          "verifier_verdict": {
+            "title": "Verifier Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "safety_verdict",
+          "verifier_verdict",
+          "accepted_constraint_ids",
+          "failures",
+          "abstentions",
+          "failure_reasons"
+        ],
+        "title": "VerificationSummary",
+        "type": "object"
+      },
+      "VerifiedFixView": {
+        "description": "Verified dry-run cell repair.",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "detector_id": {
+            "title": "Detector Id",
+            "type": "string"
+          },
+          "new_value": {
+            "title": "New Value",
+            "type": "string"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "type": "string"
+          },
+          "provenance": {
+            "title": "Provenance",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "verifier_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verifier Reason"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "old_value",
+          "new_value",
+          "detector_id",
+          "reason",
+          "confidence",
+          "provenance"
+        ],
+        "title": "VerifiedFixView",
+        "type": "object"
       }
     }
   },
@@ -100,9 +1411,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Root  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/RootResponse"
                 }
               }
             },
@@ -110,6 +1419,82 @@
           }
         },
         "summary": "Root"
+      }
+    },
+    "/api/analyze": {
+      "post": {
+        "description": "Analyze an uploaded CSV through profile, constraint review, and dry-run repair.",
+        "operationId": "analyze_api_analyze_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_api_analyze_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze"
+      }
+    },
+    "/api/analyze/stream": {
+      "post": {
+        "description": "Stream the analyze proof loop as NDJSON workflow events.",
+        "operationId": "analyze_stream_api_analyze_stream_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_analyze_stream_api_analyze_stream_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Analyze Stream"
       }
     },
     "/api/health": {
@@ -121,9 +1506,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Health Api Health Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             },
@@ -152,9 +1535,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Profile Api Profile Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ProfileResponse"
                 }
               }
             },
@@ -193,9 +1574,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Repair Api Repair Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/RepairResponse"
                 }
               }
             },

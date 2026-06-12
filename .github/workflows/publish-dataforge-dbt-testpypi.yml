@@ -1,0 +1,73 @@
+name: Publish dataforge_07_dbt to TestPyPI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-testpypi:
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build packages/dataforge-dbt --sdist --wheel --outdir packages/dataforge-dbt/dist
+
+      - name: Smoke built package
+        run: |
+          python -m build --wheel --outdir dist
+          python -m pip install --find-links dist --find-links packages/dataforge-dbt/dist dataforge_07_dbt
+          python scripts/ci/installed_package_smoke.py \
+            --package dataforge_07_dbt \
+            --output dataforge_07_dbt-built-smoke.json
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: packages/dataforge-dbt/dist
+          repository-url: https://test.pypi.org/legacy/
+
+  smoke-testpypi:
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fresh install from TestPyPI
+        run: |
+          python -m pip install --upgrade pip
+          PACKAGE_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("packages/dataforge-dbt/pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+          PY
+          )"
+          python -m pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            "dataforge_07_dbt==${PACKAGE_VERSION}"
+          python scripts/ci/installed_package_smoke.py \
+            --package dataforge_07_dbt \
+            --output dataforge_07_dbt-testpypi-smoke.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dataforge-07-dbt-testpypi-smoke
+          path: dataforge_07_dbt-testpypi-smoke.json

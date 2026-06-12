@@ -1,6 +1,6 @@
 # Transactions
 
-Applied repairs are reversible because DataForge15 writes transaction evidence
+Applied repairs are reversible because DataForge writes transaction evidence
 before it mutates the source CSV.
 
 ## Journal contents
@@ -37,12 +37,13 @@ The `created` event additionally embeds the immutable transaction payload:
 and optional `reverted_at`. The `applied` event records `post_sha256`; the
 `reverted` event records the same `txn_id` and closes the local revert path.
 
-Repair pipeline output uses `schema_version: repair_receipt_v1`. Release-gate
-output uses `schema_version: release_gate_report_v1`.
+Repair pipeline output uses `schema_version: repair_receipt_v1` and
+`receipt_version: repair_receipt_v1`. Release-gate output uses
+`schema_version: release_gate_report_v1`.
 
 ## Audit
 
-Run `dataforge15 audit <txn-id>` to verify a transaction log before relying on
+Run `dataforge audit <txn-id>` to verify a transaction log before relying on
 it as audit evidence. A verified v2 log proves local event order, payload
 integrity, and replayability. Legacy v1 logs can still be replayed and reverted,
 but audit reports mark them `legacy_unverified` because they do not contain
@@ -66,6 +67,6 @@ Audit verdicts are intentionally strict:
 ## Revert invariant
 
 Revert is byte-for-byte only when the current file still matches the recorded
-post-state hash. If another process changed the file after the DataForge15 apply,
+post-state hash. If another process changed the file after the DataForge apply,
 the revert is refused to avoid losing unrelated work. For v2 logs, revert also
 refuses when audit verification fails.

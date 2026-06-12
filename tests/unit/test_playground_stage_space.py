@@ -88,5 +88,6 @@ def test_frontend_deploy_runbook_uses_workers_static_assets_flow() -> None:
     assert "config.js" in body
     assert "dataforge-playground" in body
     assert "data-quality-env.hf.space" not in body
-    assert "broad `workers.dev`" in body
+    assert "https://dataforge.praneshrajan15.workers.dev/playground" in body
+    assert "paid hosting" not in body.lower()
     assert "sed -i" not in body

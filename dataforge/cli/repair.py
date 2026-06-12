@@ -15,6 +15,12 @@ from dataforge.detectors.base import Issue, Schema
 from dataforge.repairers.base import ProposedFix, RepairAttempt
 from dataforge.safety import SafetyContext, SafetyFilter, SafetyResult
 from dataforge.schema_inference import ConstraintReviewArtifact, load_constraint_review_artifact
+from dataforge.stores import (
+    TableStoreError,
+    is_table_store_uri,
+    run_table_store_repair,
+    store_from_uri,
+)
 from dataforge.transactions.txn import CellFix
 from dataforge.ui.repair_diff import render_repair_diff
 
@@ -126,7 +132,7 @@ def _resolve_escalation(
 
     confirmed = typer.confirm(
         f"Candidate fix for row {candidate.fix.row}, column '{candidate.fix.column}' "
-        "touches an aggregate-sensitive column. Confirm this edit?",
+        f"requires confirmation ({', '.join(safety_result.rule_ids)}). Confirm this edit?",
         default=False,
     )
     if confirmed:
@@ -204,9 +210,9 @@ def _apply_transaction(
 
 def repair(
     path: Annotated[
-        Path,
+        str,
         typer.Argument(
-            help="Path to the CSV file to repair.",
+            help="Path to the CSV file, or warehouse:// backend URI, to repair.",
         ),
     ],
     schema: Annotated[
@@ -263,6 +269,13 @@ def repair(
         str,
         typer.Option("--llm-model", help="Model name for fd_violation LLM fallback."),
     ] = "gemini-2.0-flash",
+    row_id: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--row-id",
+            help="Stable row identity column for warehouse apply. Repeat for composite keys.",
+        ),
+    ] = None,
     json_output: Annotated[
         bool,
         typer.Option("--json", help="Print repair result as JSON."),
@@ -277,11 +290,51 @@ def repair(
         raise typer.Exit(code=2)
 
     try:
-        resolved_path = resolve_cli_path(path)
-        if not resolved_path.exists():
-            raise typer.BadParameter(f"CSV file '{path}' does not exist.")
         parsed_schema = _resolve_schema(schema)
         constraints_artifact, constraints_sha256 = _resolve_constraints(constraints)
+        if is_table_store_uri(path):
+            if constraints_artifact is not None:
+                raise typer.BadParameter(
+                    "Reviewed constraints are not yet accepted for warehouse URI repair."
+                )
+            store = store_from_uri(path, row_ids=tuple(row_id or ()))
+            store_result = run_table_store_repair(
+                store,
+                mode="apply" if apply else "dry_run",
+                schema=parsed_schema,
+                allow_llm=allow_llm,
+                model=llm_model,
+                allow_pii=allow_pii,
+                confirm_pii=confirm_pii,
+                confirm_escalations=confirm_escalations,
+            )
+            if json_output:
+                typer.echo(
+                    json.dumps(store_result.model_dump(mode="json"), indent=2, sort_keys=True)
+                )
+                return
+            output_console = Console()
+            output_console.print(
+                Panel(
+                    (
+                        f"[bold]{store_result.backend}[/bold] patch plan "
+                        f"{store_result.patch_plan.plan_id}\n"
+                        f"Operations: {len(store_result.patch_plan.operations)}\n"
+                        f"Apply supported: {store_result.patch_plan.apply_supported}\n"
+                        f"Reason: {store_result.patch_plan.reason}"
+                    ),
+                    title="Warehouse Repair Plan",
+                    style="green" if store_result.patch_plan.apply_supported else "yellow",
+                )
+            )
+            return
+
+        resolved_path = resolve_cli_path(Path(path))
+        if not resolved_path.exists():
+            raise typer.BadParameter(f"CSV file '{path}' does not exist.")
+    except TableStoreError as exc:
+        _print_error(str(exc))
+        raise typer.Exit(code=1 if apply else 2) from exc
     except Exception as exc:
         _print_error(str(exc))
         raise typer.Exit(code=2) from exc

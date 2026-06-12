@@ -2,7 +2,7 @@
 
 ## 0.1.0rc1
 
-- Added `dataforge15 constraints review` with a Textual review UI for
+- Added `dataforge constraints review` with a Textual review UI for
   `constraint_review_v1` artifacts.
 - Added deterministic review flags for CI: `--accept`, `--reject`,
   `--pending`, `--note`, `--dry-run`, `--output`, `--json`, and `--no-tui`.
@@ -11,10 +11,17 @@
 - Added an RC-first TestPyPI workflow using trusted publishing and an installed
   package smoke for profile, constraint review, repair, and release doctor.
 - Guarded the real PyPI workflow so pre-release versions cannot publish there.
+- Added explicit `receipt_version` on public repair receipts while preserving
+  the existing `schema_version` field for compatibility.
 
 ## 0.1.0
 
-- Added the CLI-first DataForge15 repair pipeline with profile, repair, revert,
+- Renamed final public package targets from staging `dataforge15*` names to
+  the PyPI-safe `dataforge_07*` distribution family while keeping the
+  `dataforge` CLI/import namespace.
+- Added the `dataforge release full-vision` external gate for PyPI/TestPyPI,
+  Cloudflare Workers playground, dbt-duckdb, design-partner, and model-family evidence.
+- Added the CLI-first DataForge repair pipeline with profile, repair, revert,
   and bench commands.
 - Added detectors for type mismatches, decimal shifts, and functional
   dependency violations.

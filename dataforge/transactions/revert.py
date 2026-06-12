@@ -56,6 +56,14 @@ def revert_transaction(txn_id: str, *, search_root: Path | None = None) -> Repai
     if transaction.reverted_at is not None:
         raise TransactionRevertError(f"Transaction '{txn_id}' has already been reverted.")
 
+    if transaction.source_kind == "table_store":
+        try:
+            from dataforge.stores.revert import revert_table_store_transaction
+
+            return revert_table_store_transaction(log_path)
+        except Exception as exc:
+            raise TransactionRevertError(str(exc)) from exc
+
     source_path = Path(transaction.source_path)
     snapshot_path = Path(transaction.source_snapshot_path)
 

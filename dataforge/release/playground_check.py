@@ -14,7 +14,7 @@ from dataforge.release.doctor import run_doctor
 
 DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
 DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
-NEGATIVE_CORS_ORIGIN = "https://dataforge.unconfigured-workers-dev.workers.dev"
+NEGATIVE_CORS_ORIGIN = "https://untrusted-dataforge.example"
 REQUIRED_HEALTH_KEYS = {"status", "advanced_available", "max_upload_bytes"}
 ENHANCED_HEALTH_KEYS = {
     "service",
@@ -281,6 +281,13 @@ def _check_smoke_flow(client: httpx.Client, *, backend_url: str) -> PlaygroundCh
             )
 
         files = {"file": ("hospital_10rows.csv", sample.content, "text/csv")}
+        analyze, analyze_latency_ms = _timed_request(
+            client,
+            "POST",
+            f"{backend_url}/api/analyze",
+            files=files,
+        )
+        files = {"file": ("hospital_10rows.csv", sample.content, "text/csv")}
         profile, profile_latency_ms = _timed_request(
             client,
             "POST",
@@ -294,11 +301,23 @@ def _check_smoke_flow(client: httpx.Client, *, backend_url: str) -> PlaygroundCh
             f"{backend_url}/api/repair",
             files=files,
         )
+        analyze_payload = analyze.json() if analyze.status_code == 200 else {}
         profile_payload = profile.json() if profile.status_code == 200 else {}
         repair_payload = repair.json() if repair.status_code == 200 else {}
+        analyze_required_keys = {
+            "source",
+            "risk_summary",
+            "repairs",
+            "verification",
+            "receipt",
+            "apply_handoff",
+        }
+        analyze_missing = sorted(analyze_required_keys - set(analyze_payload))
         ok = (
-            profile.status_code == 200
+            analyze.status_code == 200
+            and profile.status_code == 200
             and repair.status_code == 200
+            and not analyze_missing
             and "issues" in profile_payload
             and "fixes" in repair_payload
             and "txn_journal" in repair_payload
@@ -306,15 +325,25 @@ def _check_smoke_flow(client: httpx.Client, *, backend_url: str) -> PlaygroundCh
         return PlaygroundCheck(
             "smoke_flow_passing",
             ok,
-            "Sample profile and repair dry-run passed." if ok else "Sample smoke flow failed.",
+            (
+                "Sample analyze, profile, and repair dry-run passed."
+                if ok
+                else "Sample smoke flow failed."
+            ),
             {
                 "sample_latency_ms": round(sample_latency_ms, 2),
+                "analyze_status_code": analyze.status_code,
                 "profile_status_code": profile.status_code,
                 "repair_status_code": repair.status_code,
+                "analyze_latency_ms": round(analyze_latency_ms, 2),
                 "profile_latency_ms": round(profile_latency_ms, 2),
                 "repair_latency_ms": round(repair_latency_ms, 2),
+                "analyze_missing": analyze_missing,
                 "issue_count": len(profile_payload.get("issues", []))
                 if isinstance(profile_payload, dict)
+                else None,
+                "repair_count": len(analyze_payload.get("repairs", []))
+                if isinstance(analyze_payload, dict)
                 else None,
                 "fix_count": len(repair_payload.get("fixes", []))
                 if isinstance(repair_payload, dict)

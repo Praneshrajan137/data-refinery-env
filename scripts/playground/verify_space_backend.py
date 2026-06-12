@@ -40,6 +40,15 @@ def _request_until_ready(
     raise RuntimeError(f"{url} did not become ready before timeout.")
 
 
+def _post_sample_csv(
+    client: httpx.Client, backend_url: str, sample_csv: Path, route: str
+) -> httpx.Response:
+    """POST the local sample CSV to a playground route."""
+    with sample_csv.open("rb") as handle:
+        files = {"file": ("hospital_10rows.csv", handle, "text/csv")}
+        return client.post(f"{backend_url}{route}", files=files)
+
+
 def verify_space_backend(
     *,
     backend_url: str = DEFAULT_BACKEND_URL,
@@ -47,7 +56,7 @@ def verify_space_backend(
     interval_s: float = 10.0,
     sample_csv: Path = Path("playground/api/samples/hospital_10rows.csv"),
 ) -> None:
-    """Verify health, sample download, profile, and repair endpoints."""
+    """Verify health, sample download, analyze, profile, and repair endpoints."""
     backend_url = _normalize_url(backend_url)
     with httpx.Client(follow_redirects=True, timeout=30.0) as client:
         health = _request_until_ready(
@@ -66,17 +75,30 @@ def verify_space_backend(
 
         if not sample_csv.exists():
             raise RuntimeError(f"Missing local sample CSV for POST smoke: {sample_csv}")
-        with sample_csv.open("rb") as handle:
-            files = {"file": ("hospital_10rows.csv", handle, "text/csv")}
-            profile = client.post(f"{backend_url}/api/profile", files=files)
+        analyze = _post_sample_csv(client, backend_url, sample_csv, "/api/analyze")
+        if analyze.status_code != 200:
+            raise RuntimeError(
+                f"Analyze endpoint failed: {analyze.status_code} {analyze.text[:200]}"
+            )
+        analyze_payload = analyze.json()
+        missing = {
+            "source",
+            "risk_summary",
+            "repairs",
+            "verification",
+            "receipt",
+            "apply_handoff",
+        } - set(analyze_payload)
+        if missing:
+            raise RuntimeError(f"Analyze payload is missing required keys: {sorted(missing)}")
+
+        profile = _post_sample_csv(client, backend_url, sample_csv, "/api/profile")
         if profile.status_code != 200:
             raise RuntimeError(
                 f"Profile endpoint failed: {profile.status_code} {profile.text[:200]}"
             )
 
-        with sample_csv.open("rb") as handle:
-            files = {"file": ("hospital_10rows.csv", handle, "text/csv")}
-            repair = client.post(f"{backend_url}/api/repair", files=files)
+        repair = _post_sample_csv(client, backend_url, sample_csv, "/api/repair")
         if repair.status_code != 200:
             raise RuntimeError(f"Repair endpoint failed: {repair.status_code} {repair.text[:200]}")
 

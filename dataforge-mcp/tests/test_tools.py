@@ -111,9 +111,15 @@ class TestDataForgeMcpTools:
 
         receipt = dataforge_apply_repairs(str(csv_path), "dry_run")
 
+        assert receipt.receipt_version == "repair_receipt_v1"
         assert receipt.applied is False
         assert receipt.txn_id is None
         assert receipt.fixes_count >= 1
+        assert receipt.root_causes
+        assert receipt.candidate_repairs
+        assert receipt.proof_obligations
+        assert receipt.patch_plan_sha256 is not None
+        assert receipt.limitations
         assert csv_path.read_bytes() == original
 
     def test_apply_requires_explicit_enablement(self, tmp_path: Path) -> None:

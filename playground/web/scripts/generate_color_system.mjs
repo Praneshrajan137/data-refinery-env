@@ -11,13 +11,28 @@ const checkMode = process.argv.includes("--check");
 
 const toneStops = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 100];
 const seeds = {
-  neutral: { l: 0.64, c: 0.018, h: 255, meaning: "cool financial graphite structure" },
-  brand: { l: 0.56, c: 0.145, h: 260, meaning: "cobalt primary action and command" },
-  data: { l: 0.58, c: 0.08, h: 235, meaning: "steel-blue dataset evidence" },
-  agent: { l: 0.55, c: 0.095, h: 292, meaning: "restrained advanced agentic mode" },
-  success: { l: 0.56, c: 0.06, h: 155, meaning: "subdued verified success only" },
-  warning: { l: 0.68, c: 0.105, h: 78, meaning: "ochre caution and human review" },
-  danger: { l: 0.55, c: 0.12, h: 28, meaning: "sober unsafe or failed state" },
+  neutral: { l: 0.63, c: 0.006, h: 92, meaning: "pearl porcelain and warm mineral gray" },
+  brand: { l: 0.55, c: 0.096, h: 34, meaning: "aurelian cinnabar executive command signal" },
+  data: { l: 0.56, c: 0.044, h: 188, meaning: "desaturated teal-steel evidence" },
+  agent: { l: 0.55, c: 0.058, h: 298, meaning: "muted ultraviolet agent cognition" },
+  success: { l: 0.55, c: 0.038, h: 152, meaning: "low-chroma viridian proof" },
+  warning: { l: 0.67, c: 0.066, h: 78, meaning: "antique brass review" },
+  danger: { l: 0.53, c: 0.086, h: 18, meaning: "deep carmine hematite risk" },
+};
+
+const agentStateRefs = {
+  thinking: { light: ["neutral-100", "agent-30", "agent-60"], dark: ["neutral-20", "agent-90", "agent-60"] },
+  acting: { light: ["neutral-100", "brand-30", "brand-60"], dark: ["neutral-20", "brand-90", "brand-60"] },
+  waiting: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
+  asking: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  uncertain: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  confident: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  completed: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  failed: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
+  interrupted: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  delegated: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
+  escalated: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
+  recovered: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
 };
 
 const semanticRefs = {
@@ -27,46 +42,89 @@ const semanticRefs = {
     "--df-surface-2": "neutral-98",
     "--df-surface-3": "neutral-95",
     "--df-surface-strong": "neutral-90",
-    "--df-text-1": "neutral-10",
-    "--df-text-2": "neutral-30",
+    "--df-text-1": "neutral-20",
+    "--df-text-2": "neutral-40",
     "--df-text-inverse": "neutral-100",
     "--df-line-subtle": "neutral-90",
     "--df-line": "neutral-80",
     "--df-line-strong": "neutral-60",
-    "--df-action-bg": "brand-40",
-    "--df-action-bg-hover": "brand-30",
+    "--df-action-bg": "brand-30",
+    "--df-action-bg-hover": "brand-40",
     "--df-action-text": "neutral-100",
-    "--df-action-border": "brand-50",
-    "--df-action-soft": "brand-95",
+    "--df-action-border": "brand-60",
+    "--df-action-soft": "neutral-95",
     "--df-action-soft-text": "brand-30",
     "--df-focus-ring": "agent-50",
-    "--df-focus-halo": "agent-95",
-    "--df-data-bg": "data-95",
+    "--df-focus-halo": "neutral-95",
+    "--df-info-bg": "neutral-100",
+    "--df-info-text": "data-30",
+    "--df-info-line": "data-60",
+    "--df-selection-bg": "neutral-95",
+    "--df-selection-text": "neutral-20",
+    "--df-selection-line": "brand-50",
+    "--df-hover-bg": "neutral-95",
+    "--df-disabled-bg": "neutral-95",
+    "--df-disabled-text": "neutral-50",
+    "--df-disabled-line": "neutral-80",
+    "--df-loading-bg": "neutral-100",
+    "--df-loading-text": "brand-30",
+    "--df-loading-line": "brand-60",
+    "--df-data-bg": "neutral-98",
     "--df-data-text": "data-30",
-    "--df-agent-bg": "agent-95",
+    "--df-agent-bg": "neutral-98",
     "--df-agent-text": "agent-30",
-    "--df-agent-line": "agent-70",
-    "--df-status-safe-bg": "success-95",
+    "--df-agent-line": "agent-60",
+    "--df-autonomy-bg": "neutral-98",
+    "--df-autonomy-text": "agent-30",
+    "--df-autonomy-line": "agent-60",
+    "--df-stage-idle-bg": "neutral-100",
+    "--df-stage-idle-text": "neutral-30",
+    "--df-stage-idle-line": "neutral-80",
+    "--df-stage-active-bg": "neutral-100",
+    "--df-stage-active-text": "brand-30",
+    "--df-stage-active-line": "brand-60",
+    "--df-stage-complete-bg": "neutral-100",
+    "--df-stage-complete-text": "success-30",
+    "--df-stage-complete-line": "success-60",
+    "--df-stage-blocked-bg": "neutral-100",
+    "--df-stage-blocked-text": "warning-20",
+    "--df-stage-blocked-line": "warning-60",
+    "--df-stage-failed-bg": "neutral-100",
+    "--df-stage-failed-text": "danger-30",
+    "--df-stage-failed-line": "danger-60",
+    "--df-confidence-high-bg": "neutral-100",
+    "--df-confidence-high-text": "success-30",
+    "--df-confidence-high-line": "success-60",
+    "--df-confidence-medium-bg": "neutral-100",
+    "--df-confidence-medium-text": "warning-20",
+    "--df-confidence-medium-line": "warning-60",
+    "--df-confidence-low-bg": "neutral-100",
+    "--df-confidence-low-text": "danger-30",
+    "--df-confidence-low-line": "danger-60",
+    "--df-proof-bg": "neutral-100",
+    "--df-proof-text": "data-30",
+    "--df-proof-line": "data-60",
+    "--df-status-safe-bg": "neutral-100",
     "--df-status-safe-text": "success-30",
-    "--df-status-safe-line": "success-70",
-    "--df-status-review-bg": "warning-95",
+    "--df-status-safe-line": "success-60",
+    "--df-status-review-bg": "neutral-100",
     "--df-status-review-text": "warning-20",
-    "--df-status-review-line": "warning-70",
-    "--df-status-danger-bg": "danger-95",
+    "--df-status-review-line": "warning-60",
+    "--df-status-danger-bg": "neutral-100",
     "--df-status-danger-text": "danger-30",
-    "--df-status-danger-line": "danger-70",
-    "--df-diff-old-bg": "danger-95",
+    "--df-status-danger-line": "danger-60",
+    "--df-diff-old-bg": "neutral-100",
     "--df-diff-old-text": "danger-30",
-    "--df-diff-new-bg": "success-95",
+    "--df-diff-new-bg": "neutral-100",
     "--df-diff-new-text": "success-30",
-    "--df-code-bg": "neutral-10",
+    "--df-code-bg": "neutral-20",
     "--df-code-text": "neutral-95",
   },
   dark: {
     "--df-bg": "neutral-10",
     "--df-surface-1": "neutral-20",
-    "--df-surface-2": "neutral-30",
-    "--df-surface-3": "neutral-40",
+    "--df-surface-2": "neutral-20",
+    "--df-surface-3": "neutral-30",
     "--df-surface-strong": "neutral-30",
     "--df-text-1": "neutral-98",
     "--df-text-2": "neutral-90",
@@ -74,34 +132,102 @@ const semanticRefs = {
     "--df-line-subtle": "neutral-40",
     "--df-line": "neutral-50",
     "--df-line-strong": "neutral-60",
-    "--df-action-bg": "brand-70",
-    "--df-action-bg-hover": "brand-80",
+    "--df-action-bg": "neutral-98",
+    "--df-action-bg-hover": "brand-90",
     "--df-action-text": "neutral-10",
     "--df-action-border": "brand-60",
     "--df-action-soft": "brand-20",
     "--df-action-soft-text": "brand-90",
     "--df-focus-ring": "agent-80",
-    "--df-focus-halo": "agent-20",
-    "--df-data-bg": "data-20",
+    "--df-focus-halo": "neutral-20",
+    "--df-info-bg": "neutral-20",
+    "--df-info-text": "data-90",
+    "--df-info-line": "data-60",
+    "--df-selection-bg": "neutral-30",
+    "--df-selection-text": "neutral-98",
+    "--df-selection-line": "brand-60",
+    "--df-hover-bg": "neutral-30",
+    "--df-disabled-bg": "neutral-20",
+    "--df-disabled-text": "neutral-70",
+    "--df-disabled-line": "neutral-50",
+    "--df-loading-bg": "neutral-20",
+    "--df-loading-text": "brand-90",
+    "--df-loading-line": "brand-60",
+    "--df-data-bg": "neutral-20",
     "--df-data-text": "data-90",
-    "--df-agent-bg": "agent-20",
+    "--df-agent-bg": "neutral-20",
     "--df-agent-text": "agent-90",
     "--df-agent-line": "agent-60",
-    "--df-status-safe-bg": "success-20",
+    "--df-autonomy-bg": "neutral-20",
+    "--df-autonomy-text": "agent-90",
+    "--df-autonomy-line": "agent-60",
+    "--df-stage-idle-bg": "neutral-30",
+    "--df-stage-idle-text": "neutral-90",
+    "--df-stage-idle-line": "neutral-50",
+    "--df-stage-active-bg": "neutral-20",
+    "--df-stage-active-text": "brand-90",
+    "--df-stage-active-line": "brand-60",
+    "--df-stage-complete-bg": "neutral-20",
+    "--df-stage-complete-text": "success-90",
+    "--df-stage-complete-line": "success-60",
+    "--df-stage-blocked-bg": "neutral-20",
+    "--df-stage-blocked-text": "warning-95",
+    "--df-stage-blocked-line": "warning-60",
+    "--df-stage-failed-bg": "neutral-20",
+    "--df-stage-failed-text": "danger-90",
+    "--df-stage-failed-line": "danger-60",
+    "--df-confidence-high-bg": "neutral-20",
+    "--df-confidence-high-text": "success-90",
+    "--df-confidence-high-line": "success-60",
+    "--df-confidence-medium-bg": "neutral-20",
+    "--df-confidence-medium-text": "warning-95",
+    "--df-confidence-medium-line": "warning-60",
+    "--df-confidence-low-bg": "neutral-20",
+    "--df-confidence-low-text": "danger-90",
+    "--df-confidence-low-line": "danger-60",
+    "--df-proof-bg": "neutral-20",
+    "--df-proof-text": "data-90",
+    "--df-proof-line": "data-60",
+    "--df-status-safe-bg": "neutral-20",
     "--df-status-safe-text": "success-90",
     "--df-status-safe-line": "success-60",
-    "--df-status-review-bg": "warning-20",
+    "--df-status-review-bg": "neutral-20",
     "--df-status-review-text": "warning-95",
     "--df-status-review-line": "warning-60",
-    "--df-status-danger-bg": "danger-20",
+    "--df-status-danger-bg": "neutral-20",
     "--df-status-danger-text": "danger-90",
     "--df-status-danger-line": "danger-60",
-    "--df-diff-old-bg": "danger-20",
+    "--df-diff-old-bg": "neutral-20",
     "--df-diff-old-text": "danger-90",
-    "--df-diff-new-bg": "success-20",
+    "--df-diff-new-bg": "neutral-20",
     "--df-diff-new-text": "success-90",
     "--df-code-bg": "neutral-0",
     "--df-code-text": "neutral-95",
+  },
+};
+
+for (const [state, refs] of Object.entries(agentStateRefs)) {
+  for (const [theme, [bg, text, line]] of Object.entries(refs)) {
+    semanticRefs[theme][`--df-agent-${state}-bg`] = bg;
+    semanticRefs[theme][`--df-agent-${state}-text`] = text;
+    semanticRefs[theme][`--df-agent-${state}-line`] = line;
+  }
+}
+
+const highContrastRefs = {
+  light: {
+    "--df-text-2": "neutral-20",
+    "--df-line": "neutral-60",
+    "--df-line-strong": "neutral-40",
+    "--df-focus-ring": "agent-30",
+    "--df-action-border": "brand-40",
+  },
+  dark: {
+    "--df-text-2": "neutral-95",
+    "--df-line": "neutral-70",
+    "--df-line-strong": "neutral-80",
+    "--df-focus-ring": "agent-90",
+    "--df-action-border": "brand-80",
   },
 };
 
@@ -109,7 +235,7 @@ const glowRefs = {
   "--df-data-glow": "data-60",
   "--df-action-glow": "brand-60",
   "--df-agent-glow": "agent-60",
-  "--df-safe-glow": "success-60",
+  "--df-proof-glow": "success-60",
   "--df-danger-glow": "danger-60",
 };
 
@@ -213,15 +339,22 @@ function buildSystem() {
       Object.entries(refs).map(([token, ref]) => [token, semanticToken(ref, palettes)]),
     );
   }
+  const highContrast = {};
+  for (const [theme, refs] of Object.entries(highContrastRefs)) {
+    highContrast[theme] = Object.fromEntries(
+      Object.entries(refs).map(([token, ref]) => [token, semanticToken(ref, palettes)]),
+    );
+  }
 
   return {
     version: "1.0.0",
     generatedBy: "playground/web/scripts/generate_color_system.mjs",
-    colorSpace: "OKLCH seeds, constant-hue/chroma-reduced sRGB output, P3 non-text accents",
+    colorSpace: "Aurelian Proof Intelligence OKLCH seeds, constant-hue/chroma-reduced sRGB output, P3 non-text accents",
     toneStops,
     seeds,
     palettes,
     semantic,
+    highContrast,
   };
 }
 
@@ -245,10 +378,26 @@ function buildCss(system) {
   }
   lines.push("}");
   lines.push("");
+  lines.push("@media (prefers-contrast: more) {");
+  lines.push("  :root {");
+  for (const [token, value] of Object.entries(system.highContrast.light)) {
+    lines.push(`    ${token}: var(--df-palette-${value.palette});`);
+  }
+  lines.push("  }");
+  lines.push("}");
+  lines.push("");
   lines.push("@media (prefers-color-scheme: dark) {");
   lines.push("  :root {");
   lines.push("    color-scheme: dark;");
   for (const [token, value] of Object.entries(system.semantic.dark)) {
+    lines.push(`    ${token}: var(--df-palette-${value.palette});`);
+  }
+  lines.push("  }");
+  lines.push("}");
+  lines.push("");
+  lines.push("@media (prefers-color-scheme: dark) and (prefers-contrast: more) {");
+  lines.push("  :root {");
+  for (const [token, value] of Object.entries(system.highContrast.dark)) {
     lines.push(`    ${token}: var(--df-palette-${value.palette});`);
   }
   lines.push("  }");

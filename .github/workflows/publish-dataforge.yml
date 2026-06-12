@@ -1,4 +1,4 @@
-name: Publish dataforge15
+name: Publish dataforge_07
 
 on:
   push:
@@ -49,3 +49,39 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+
+  pypi-smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install from PyPI outside source checkout
+        run: |
+          python -m pip install --upgrade pip
+          PACKAGE_VERSION="$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+
+          print(tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+          PY
+          )"
+          for attempt in 1 2 3 4 5; do
+            python -m pip install "dataforge_07==${PACKAGE_VERSION}" && break
+            if [ "$attempt" = "5" ]; then
+              exit 1
+            fi
+            sleep 30
+          done
+
+      - name: Smoke installed PyPI artifact
+        run: python scripts/ci/installed_cli_smoke.py --output pypi-installed-cli-smoke.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dataforge-pypi-installed-cli-smoke
+          path: pypi-installed-cli-smoke.json

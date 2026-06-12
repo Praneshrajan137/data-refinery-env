@@ -18,7 +18,7 @@ from dataforge.release.playground_check import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _mock_transport() -> httpx.MockTransport:
+def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
     frontend_origin = "https://dataforge.praneshrajan15.workers.dev"
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -95,6 +95,23 @@ def _mock_transport() -> httpx.MockTransport:
         ):
             return httpx.Response(200, json={"issues": [], "meta": {"rows": 1}})
         if (
+            include_analyze
+            and request.url.host == "praneshrajan15-dataforge-playground.hf.space"
+            and path == "/api/analyze"
+        ):
+            return httpx.Response(
+                200,
+                json={
+                    "source": {"name": "hospital_10rows.csv", "rows": 1},
+                    "risk_summary": {"repair_readiness": "verified"},
+                    "repairs": [],
+                    "verification": {"safety_verdict": "allow"},
+                    "receipt": {"contract_version": "repair_contract_v2"},
+                    "apply_handoff": {"dry_run_command": "dataforge repair path --dry-run"},
+                    "meta": {"contract_version": "repair_contract_v2"},
+                },
+            )
+        if (
             request.url.host == "praneshrajan15-dataforge-playground.hf.space"
             and path == "/api/repair"
         ):
@@ -118,6 +135,22 @@ def test_playground_check_answers_release_checklist() -> None:
     }
     payload = json.loads(report_to_json(report))
     assert payload["ok"] is True
+    smoke = next(check for check in payload["checks"] if check["name"] == "smoke_flow_passing")
+    assert smoke["metadata"]["analyze_status_code"] == 200
+    assert smoke["metadata"]["analyze_missing"] == []
+
+
+def test_playground_check_fails_when_primary_analyze_route_is_missing() -> None:
+    """A stale backend with only legacy endpoints must not pass release checks."""
+    with httpx.Client(
+        transport=_mock_transport(include_analyze=False), follow_redirects=True
+    ) as client:
+        report = run_playground_check(include_doctor=False, include_smoke=True, client=client)
+
+    assert report.ok is False
+    smoke = next(check for check in report.checks if check.name == "smoke_flow_passing")
+    assert smoke.ok is False
+    assert smoke.metadata["analyze_status_code"] == 404
 
 
 def test_playground_monitor_workflow_is_scheduled() -> None:

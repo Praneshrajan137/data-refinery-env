@@ -1,0 +1,92 @@
+{
+  "schema_version": "dataforge_pypi_publish_report_v2",
+  "packages": [
+    {
+      "name": "dataforge_07",
+      "version": "0.1.0",
+      "trusted_publishing": true,
+      "attestations": true,
+      "testpypi_fresh_install": true,
+      "pypi_fresh_install": true,
+      "workflow_run_url": "",
+      "testpypi_smoke_log_path": "",
+      "pypi_smoke_log_path": "",
+      "testpypi": {
+        "index": "testpypi",
+        "project_url": "",
+        "wheel": {
+          "filename": "",
+          "package_type": "bdist_wheel",
+          "download_url": "",
+          "sha256": "",
+          "upload_time_iso_8601": "",
+          "provenance_url": "",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "",
+          "trusted_publisher": {
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-testpypi.yml",
+            "ref": "",
+            "identity": "",
+            "oidc_issuer": "https://token.actions.githubusercontent.com"
+          }
+        },
+        "sdist": {
+          "filename": "",
+          "package_type": "sdist",
+          "download_url": "",
+          "sha256": "",
+          "upload_time_iso_8601": "",
+          "provenance_url": "",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "",
+          "trusted_publisher": {
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-testpypi.yml",
+            "ref": "",
+            "identity": "",
+            "oidc_issuer": "https://token.actions.githubusercontent.com"
+          }
+        }
+      },
+      "pypi": {
+        "index": "pypi",
+        "project_url": "",
+        "wheel": {
+          "filename": "",
+          "package_type": "bdist_wheel",
+          "download_url": "",
+          "sha256": "",
+          "upload_time_iso_8601": "",
+          "provenance_url": "",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "",
+          "trusted_publisher": {
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge.yml",
+            "ref": "",
+            "identity": "",
+            "oidc_issuer": "https://token.actions.githubusercontent.com"
+          }
+        },
+        "sdist": {
+          "filename": "",
+          "package_type": "sdist",
+          "download_url": "",
+          "sha256": "",
+          "upload_time_iso_8601": "",
+          "provenance_url": "",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "",
+          "trusted_publisher": {
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge.yml",
+            "ref": "",
+            "identity": "",
+            "oidc_issuer": "https://token.actions.githubusercontent.com"
+          }
+        }
+      }
+    }
+  ]
+}

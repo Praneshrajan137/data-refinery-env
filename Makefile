@@ -14,7 +14,7 @@ endif
 .PHONY: help setup setup-all lint format type test test-mapped frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage bench bench-free mutation clean lock uv-lock
 
 help:
-	@echo "DataForge15 dev targets"
+	@echo "DataForge dev targets"
 	@echo "  setup         Install dev deps plus playground test deps"
 	@echo "  setup-all     Install ALL extras (pip install -e '.[all]')"
 	@echo "  lint          Run ruff check + ruff format --check"

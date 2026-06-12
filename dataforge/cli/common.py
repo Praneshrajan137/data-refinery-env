@@ -13,10 +13,13 @@ import yaml
 from dataforge.table import Table
 from dataforge.table import read_csv as read_table_csv
 from dataforge.verifier.schema import (
+    AcceptedValues,
     AggregateDependency,
     AggregateLiteral,
     DomainBound,
     FunctionalDependency,
+    RegexConstraint,
+    RelationshipConstraint,
     Schema,
 )
 
@@ -92,6 +95,80 @@ def schema_from_mapping(raw_mapping: object) -> Schema:
         if isinstance(raw_pii_columns, Iterable) and not isinstance(raw_pii_columns, (str, bytes))
         else frozenset()
     )
+    raw_primary_key_columns = mapping.get("primary_key_columns", [])
+    primary_key_columns = (
+        frozenset(str(value) for value in raw_primary_key_columns)
+        if isinstance(raw_primary_key_columns, Iterable)
+        and not isinstance(raw_primary_key_columns, (str, bytes))
+        else frozenset()
+    )
+    raw_not_null_columns = mapping.get("not_null_columns", [])
+    not_null_columns = (
+        frozenset(str(value) for value in raw_not_null_columns)
+        if isinstance(raw_not_null_columns, Iterable)
+        and not isinstance(raw_not_null_columns, (str, bytes))
+        else frozenset()
+    )
+    raw_unique_columns = mapping.get("unique_columns", [])
+    unique_columns = (
+        frozenset(str(value) for value in raw_unique_columns)
+        if isinstance(raw_unique_columns, Iterable)
+        and not isinstance(raw_unique_columns, (str, bytes))
+        else frozenset()
+    )
+
+    accepted_values: list[AcceptedValues] = []
+    raw_accepted_values = mapping.get("accepted_values", {})
+    if isinstance(raw_accepted_values, dict):
+        for column, values in raw_accepted_values.items():
+            if isinstance(values, Iterable) and not isinstance(values, (str, bytes)):
+                accepted_values.append(
+                    AcceptedValues(
+                        column=str(column),
+                        values=tuple(str(value) for value in values),
+                    )
+                )
+    elif isinstance(raw_accepted_values, list):
+        for raw_rule in raw_accepted_values:
+            if not isinstance(raw_rule, dict):
+                continue
+            raw_values = raw_rule.get("values", [])
+            if isinstance(raw_values, Iterable) and not isinstance(raw_values, (str, bytes)):
+                accepted_values.append(
+                    AcceptedValues(
+                        column=str(raw_rule.get("column", "")),
+                        values=tuple(str(value) for value in raw_values),
+                    )
+                )
+
+    regex_constraints: list[RegexConstraint] = []
+    raw_regex_constraints = mapping.get("regex_constraints", {})
+    if isinstance(raw_regex_constraints, dict):
+        for column, pattern in raw_regex_constraints.items():
+            regex_constraints.append(RegexConstraint(column=str(column), pattern=str(pattern)))
+    elif isinstance(raw_regex_constraints, list):
+        for raw_rule in raw_regex_constraints:
+            if isinstance(raw_rule, dict):
+                regex_constraints.append(
+                    RegexConstraint(
+                        column=str(raw_rule.get("column", "")),
+                        pattern=str(raw_rule.get("pattern", "")),
+                    )
+                )
+
+    relationships: list[RelationshipConstraint] = []
+    raw_relationships = mapping.get("relationships", [])
+    if isinstance(raw_relationships, list):
+        for raw_rule in raw_relationships:
+            if not isinstance(raw_rule, dict):
+                continue
+            relationships.append(
+                RelationshipConstraint(
+                    column=str(raw_rule.get("column", "")),
+                    reference=str(raw_rule.get("reference", "")),
+                    reference_column=str(raw_rule.get("reference_column", "")),
+                )
+            )
 
     bounds: list[DomainBound] = []
     raw_bounds = mapping.get("domain_bounds", {})
@@ -145,6 +222,12 @@ def schema_from_mapping(raw_mapping: object) -> Schema:
         columns=columns,
         functional_dependencies=tuple(fds),
         pii_columns=pii_columns,
+        primary_key_columns=primary_key_columns,
+        not_null_columns=not_null_columns,
+        unique_columns=unique_columns,
+        accepted_values=tuple(accepted_values),
+        regex_constraints=tuple(regex_constraints),
+        relationships=tuple(relationships),
         domain_bounds=tuple(bounds),
         aggregate_dependencies=tuple(aggregate_dependencies),
     )

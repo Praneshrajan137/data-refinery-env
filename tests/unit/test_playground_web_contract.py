@@ -34,24 +34,35 @@ def test_config_js_exposes_backend_url_contract() -> None:
 
 
 def test_frontend_stays_storage_free_and_capability_aware() -> None:
-    """The frontend remains storage-free and consumes health capability metadata."""
+    """The frontend remains storage-free, route-aware, and consumes capability metadata."""
     body = "\n".join(
         path.read_text(encoding="utf-8") for path in SRC_DIR.rglob("*") if path.is_file()
     )
     assert "normalizeBackendUrl" in body
     assert "advanced_available" in body
-    assert "ArrowRight" in body
-    assert "ArrowLeft" in body
+    assert "streaming_available" in body
+    assert "workflow_event_v1" in body
+    assert "analyzeStream" in body
+    assert "AbortController" in body
+    assert "PRODUCT_ROUTES" in body
+    assert "routeFromPathname" in body
+    assert "pushState" in body
+    assert "popstate" in body
 
 
 def test_frontend_has_typed_vite_quality_gates() -> None:
     """The playground frontend is a typed Vite app with unit, browser, and budget gates."""
     body = PACKAGE_PATH.read_text(encoding="utf-8")
+    budget = (
+        PROJECT_ROOT / "playground" / "web" / "scripts" / "check_bundle_budget.mjs"
+    ).read_text(encoding="utf-8")
     assert '"vite"' in body
     assert '"typescript"' in body
     assert '"@playwright/test"' in body
     assert '"@axe-core/playwright"' in body
     assert '"budget"' in body
+    assert "Number.POSITIVE_INFINITY" in budget
+    assert "Bundle budget is unbounded" in budget
 
 
 def test_frontend_uses_generated_color_system_contract() -> None:
@@ -69,6 +80,7 @@ def test_frontend_uses_generated_color_system_contract() -> None:
     assert "audit:colors" in package["scripts"]["colors:check"]
     assert '@import "./design/color-system.generated.css";' in styles
     assert "@media (prefers-color-scheme: dark)" in generated_css
+    assert "@media (prefers-contrast: more)" in generated_css
     assert "@media (color-gamut: p3)" in generated_css
     assert generated_json["toneStops"] == [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 100]
 
@@ -82,36 +94,139 @@ def test_frontend_uses_generated_color_system_contract() -> None:
         "--df-line-strong",
         "--df-action-bg",
         "--df-focus-ring",
+        "--df-info-bg",
+        "--df-selection-bg",
+        "--df-hover-bg",
+        "--df-disabled-bg",
+        "--df-loading-bg",
         "--df-status-safe-bg",
         "--df-status-review-bg",
         "--df-status-danger-bg",
         "--df-agent-bg",
+        "--df-autonomy-bg",
+        "--df-stage-active-bg",
+        "--df-stage-complete-bg",
+        "--df-stage-blocked-bg",
+        "--df-stage-failed-bg",
+        "--df-confidence-high-bg",
+        "--df-confidence-medium-bg",
+        "--df-confidence-low-bg",
+        "--df-proof-bg",
         "--df-diff-old-bg",
         "--df-diff-new-bg",
     ]
+    agent_states = [
+        "thinking",
+        "acting",
+        "waiting",
+        "asking",
+        "uncertain",
+        "confident",
+        "completed",
+        "failed",
+        "interrupted",
+        "delegated",
+        "escalated",
+        "recovered",
+    ]
+    for state in agent_states:
+        required_tokens.extend(
+            [
+                f"--df-agent-{state}-bg",
+                f"--df-agent-{state}-text",
+                f"--df-agent-{state}-line",
+            ]
+        )
     for token in required_tokens:
         assert f"{token}:" in generated_css
         assert token in generated_json["semantic"]["light"]
         assert token in generated_json["semantic"]["dark"]
 
+    assert generated_json["highContrast"]["light"]["--df-text-2"]["palette"] == "neutral-20"
+    assert generated_json["highContrast"]["light"]["--df-action-border"]["palette"] == "brand-40"
+    assert generated_json["highContrast"]["dark"]["--df-text-2"]["palette"] == "neutral-95"
+    assert generated_json["highContrast"]["dark"]["--df-action-border"]["palette"] == "brand-80"
 
-def test_institutional_color_system_keeps_green_out_of_primary_action() -> None:
-    """Primary action is cobalt-led; green is low-chroma and status-only."""
+
+def test_apex_color_system_keeps_green_blue_and_black_out_of_primary_action() -> None:
+    """Primary action is Aurelian Proof-led; black, blue, and green stay out of the identity."""
     generated_json = json.loads(COLOR_JSON_PATH.read_text(encoding="utf-8"))
 
     assert "brand" in generated_json["seeds"]
     assert "success" in generated_json["seeds"]
     assert "forge" not in generated_json["seeds"]
     assert "safe" not in generated_json["seeds"]
-    assert generated_json["seeds"]["success"]["c"] <= 0.075
-    assert 240 <= generated_json["seeds"]["brand"]["h"] <= 275
+    assert generated_json["seeds"]["brand"]["c"] == 0.096
+    assert generated_json["seeds"]["brand"]["h"] == 34
+    assert generated_json["seeds"]["agent"]["c"] == 0.058
+    assert generated_json["seeds"]["warning"]["c"] == 0.066
+    assert generated_json["seeds"]["success"]["c"] <= 0.04
+    assert 20 <= generated_json["seeds"]["brand"]["h"] <= 55
+    assert not 190 <= generated_json["seeds"]["brand"]["h"] <= 270
 
     for theme in ("light", "dark"):
         semantic = generated_json["semantic"][theme]
-        for token in ("--df-action-bg", "--df-action-bg-hover", "--df-action-border"):
-            assert semantic[token]["palette"].startswith("brand-")
-            assert not semantic[token]["palette"].startswith(("success-", "safe-", "forge-"))
-        assert semantic["--df-status-safe-bg"]["palette"].startswith("success-")
+        for token in ("--df-action-bg", "--df-action-bg-hover"):
+            assert semantic[token]["palette"].startswith(("neutral-", "brand-"))
+            assert not semantic[token]["palette"].startswith(
+                ("data-", "success-", "safe-", "forge-")
+            )
+        assert semantic["--df-action-border"]["palette"].startswith("brand-")
+        assert semantic["--df-status-safe-bg"]["palette"].startswith("neutral-")
+        assert semantic["--df-status-safe-text"]["palette"].startswith("success-")
+
+    assert generated_json["semantic"]["light"]["--df-action-bg"]["palette"] == "brand-30"
+    assert generated_json["semantic"]["light"]["--df-action-bg-hover"]["palette"] == "brand-40"
+    assert generated_json["semantic"]["light"]["--df-text-1"]["palette"] == "neutral-20"
+
+
+def test_apex_color_system_avoids_light_theme_pastel_state_slabs() -> None:
+    """Large light-mode state surfaces stay neutral; color is reserved for instrumentation."""
+    generated_json = json.loads(COLOR_JSON_PATH.read_text(encoding="utf-8"))
+    semantic = generated_json["semantic"]["light"]
+    forbidden = {"brand-95", "data-95", "agent-95", "success-95", "warning-95", "danger-95"}
+    large_state_backgrounds = [
+        "--df-data-bg",
+        "--df-info-bg",
+        "--df-selection-bg",
+        "--df-disabled-bg",
+        "--df-loading-bg",
+        "--df-agent-bg",
+        "--df-autonomy-bg",
+        "--df-stage-active-bg",
+        "--df-stage-complete-bg",
+        "--df-stage-blocked-bg",
+        "--df-stage-failed-bg",
+        "--df-confidence-high-bg",
+        "--df-confidence-medium-bg",
+        "--df-confidence-low-bg",
+        "--df-proof-bg",
+        "--df-status-safe-bg",
+        "--df-status-review-bg",
+        "--df-status-danger-bg",
+        "--df-diff-old-bg",
+        "--df-diff-new-bg",
+    ]
+    for state in (
+        "thinking",
+        "acting",
+        "waiting",
+        "asking",
+        "uncertain",
+        "confident",
+        "completed",
+        "failed",
+        "interrupted",
+        "delegated",
+        "escalated",
+        "recovered",
+    ):
+        large_state_backgrounds.append(f"--df-agent-{state}-bg")
+
+    for token in large_state_backgrounds:
+        palette = semantic[token]["palette"]
+        assert palette.startswith("neutral-")
+        assert palette not in forbidden
 
 
 def test_frontend_has_no_raw_hand_authored_hex_colors() -> None:

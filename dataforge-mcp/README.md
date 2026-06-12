@@ -1,12 +1,12 @@
-# dataforge15-mcp
+# dataforge-mcp
 
-`dataforge15-mcp` exposes DataForge15's shipped CSV profiling, detection, repair,
+`dataforge-mcp` exposes DataForge's shipped CSV profiling, detection, repair,
 verification, and transaction-revert paths as Model Context Protocol tools.
 
 ```bash
 cd dataforge-mcp
 python -m pip install -e ".[dev]"
-dataforge15-mcp serve --allowed-root /path/to/csv/workspace
+dataforge-mcp serve --allowed-root /path/to/csv/workspace
 ```
 
 For local development from this repository:
@@ -14,21 +14,21 @@ For local development from this repository:
 ```bash
 cd dataforge-mcp
 python -m pip install -e ".[dev]"
-dataforge15-mcp serve --allowed-root ..
+dataforge-mcp serve --allowed-root ..
 ```
 
 The default transport is stdio, which is what local desktop MCP clients expect.
 For local Streamable HTTP experiments:
 
 ```bash
-dataforge15-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
+dataforge-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
 `dry_run` is the safe default. To allow file mutation through MCP, start the
 server with an explicit allowed root and `--enable-apply`:
 
 ```bash
-dataforge15-mcp serve --allowed-root /path/to/csv/workspace --enable-apply
+dataforge-mcp serve --allowed-root /path/to/csv/workspace --enable-apply
 ```
 
 ## Tools
@@ -50,7 +50,7 @@ MCP client that supports stdio servers:
 {
   "mcpServers": {
     "dataforge": {
-      "command": "dataforge15-mcp",
+      "command": "dataforge-mcp",
       "args": ["serve", "--allowed-root", "/path/to/csv/workspace"]
     }
   }
@@ -61,13 +61,21 @@ If your client cannot resolve the console script, replace `command` with the
 absolute path returned by your shell:
 
 ```bash
-which dataforge15-mcp
+which dataforge-mcp
 ```
 
 On Windows PowerShell:
 
 ```powershell
-Get-Command dataforge15-mcp
+Get-Command dataforge-mcp
+```
+
+Before describing a build as agent-ready, run an MCP Inspector smoke check
+against a fixture directory and confirm the profile, detect, verify, dry-run
+apply, and disabled-apply paths:
+
+```bash
+npx @modelcontextprotocol/inspector dataforge-mcp serve --allowed-root /path/to/csv/workspace
 ```
 
 ## Safety Model
@@ -85,13 +93,13 @@ the server is started with `--enable-apply` or `DATAFORGE_MCP_ENABLE_APPLY=1`.
 ## Release
 
 The package is intended to release independently from the nested
-`dataforge-mcp/` source directory, but it is not published yet. After PyPI
-ownership and Trusted Publishing are configured, the workflow will build on tags
-matching:
+`dataforge-mcp/` source directory as the `dataforge_07_mcp` distribution, but
+it is not published yet. After PyPI Trusted Publishing is configured, the
+workflow will build on tags matching:
 
 ```text
-dataforge15-mcp-v*
+dataforge-mcp-v*
 ```
 
-The package depends on `dataforge15` and the official Python `mcp` SDK; it does
-not vendor DataForge15 or add MCP dependencies to the core package.
+The package depends on `dataforge_07` and the official Python `mcp` SDK; it does
+not vendor DataForge or add MCP dependencies to the core package.

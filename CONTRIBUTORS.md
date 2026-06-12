@@ -2,7 +2,7 @@
 
 Design Partner Gate: NOT MET as of 2026-05-22.
 
-DataForge15 does not currently claim design-partner, pilot-user, or customer
+DataForge does not currently claim design-partner, pilot-user, or customer
 validation evidence. Contributors and external feedback partners will be listed
 only after all evidence criteria are met.
 

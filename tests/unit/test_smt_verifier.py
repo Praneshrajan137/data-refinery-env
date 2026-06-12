@@ -6,10 +6,22 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from dataforge.detectors.base import DomainBound, FunctionalDependency, Schema
+from dataforge.detectors.base import (
+    AcceptedValues,
+    DomainBound,
+    FunctionalDependency,
+    RegexConstraint,
+    Schema,
+)
 from dataforge.repairers.base import ProposedFix
 from dataforge.transactions.txn import CellFix
-from dataforge.verifier import SchemaToSMT, SMTVerifier, VerificationVerdict, explain_unsat_core
+from dataforge.verifier import (
+    SchemaToSMT,
+    SMTVerifier,
+    VerificationVerdict,
+    constraint_ir_from_schema,
+    explain_unsat_core,
+)
 
 
 def _fix(*, row: int, column: str, old_value: str, new_value: str, detector_id: str) -> ProposedFix:
@@ -71,6 +83,84 @@ class TestSchemaToSMT:
         explanation = explain_unsat_core(result.unsat_core, schema)
         assert "amount" in explanation
         assert "minimum" in explanation.lower()
+
+    def test_not_null_violation_is_rejected(self) -> None:
+        df = pd.DataFrame({"name": ["Ada", "Grace"]})
+        schema = Schema(columns={"name": "str"}, not_null_columns={"name"})
+
+        result = SchemaToSMT(schema, df).verify_fix(
+            _fix(row=1, column="name", old_value="Grace", new_value="", detector_id="manual")
+        )
+
+        assert result.verdict == VerificationVerdict.REJECT
+        assert "not-null" in result.reason.lower()
+
+    def test_unique_violation_is_rejected(self) -> None:
+        df = pd.DataFrame({"email": ["a@example.com", "b@example.com"]})
+        schema = Schema(columns={"email": "str"}, unique_columns={"email"})
+
+        result = SchemaToSMT(schema, df).verify_fix(
+            _fix(
+                row=1,
+                column="email",
+                old_value="b@example.com",
+                new_value="a@example.com",
+                detector_id="manual",
+            )
+        )
+
+        assert result.verdict == VerificationVerdict.REJECT
+        assert "unique" in result.reason.lower()
+
+    def test_accepted_values_violation_is_rejected(self) -> None:
+        df = pd.DataFrame({"status": ["placed", "shipped"]})
+        schema = Schema(
+            columns={"status": "str"},
+            accepted_values=[AcceptedValues(column="status", values=("placed", "shipped"))],
+        )
+
+        result = SchemaToSMT(schema, df).verify_fix(
+            _fix(
+                row=0,
+                column="status",
+                old_value="placed",
+                new_value="lost",
+                detector_id="manual",
+            )
+        )
+
+        assert result.verdict == VerificationVerdict.REJECT
+        assert "accepted values" in result.reason.lower()
+
+    def test_regex_violation_is_rejected(self) -> None:
+        df = pd.DataFrame({"state": ["CA", "NY"]})
+        schema = Schema(
+            columns={"state": "str"},
+            regex_constraints=[RegexConstraint(column="state", pattern=r"^[A-Z]{2}$")],
+        )
+
+        result = SchemaToSMT(schema, df).verify_fix(
+            _fix(row=1, column="state", old_value="NY", new_value="new york", detector_id="manual")
+        )
+
+        assert result.verdict == VerificationVerdict.REJECT
+        assert "regex" in result.reason.lower()
+
+    def test_constraint_ir_includes_v1_dbt_style_constraints(self) -> None:
+        schema = Schema(
+            columns={"id": "str", "status": "str"},
+            not_null_columns={"id"},
+            unique_columns={"id"},
+            primary_key_columns={"id"},
+            accepted_values=[AcceptedValues(column="status", values=("placed", "shipped"))],
+            regex_constraints=[RegexConstraint(column="status", pattern=r"^[a-z]+$")],
+        )
+
+        kinds = {constraint.kind for constraint in constraint_ir_from_schema(schema)}
+        ids = {constraint.constraint_id for constraint in constraint_ir_from_schema(schema)}
+
+        assert {"not_null", "unique", "accepted_values", "regex"}.issubset(kinds)
+        assert "primary_key::id" in ids
 
     def test_fd_violation_is_rejected(self) -> None:
         df = pd.DataFrame(

@@ -75,9 +75,32 @@ def revert(
         _console.print(Panel(f"[bold red]{exc}[/bold red]", title="Revert Error", style="red"))
         raise typer.Exit(code=2) from exc
 
-    source_path = Path(transaction.source_path)
     audit_report = verify_transaction_log(txn_id, search_root=search_root)
     if json_output:
+        if transaction.source_kind == "table_store":
+            typer.echo(
+                json.dumps(
+                    {
+                        "schema_version": "repair_revert_receipt_v1",
+                        "ok": True,
+                        "txn_id": transaction.txn_id,
+                        "source_kind": transaction.source_kind,
+                        "backend": transaction.backend,
+                        "source_path": transaction.source_path,
+                        "expected_source_sha256": transaction.source_sha256,
+                        "restored_source_sha256": None,
+                        "reverted_at": transaction.reverted_at.isoformat()
+                        if transaction.reverted_at is not None
+                        else None,
+                        "audit_verdict": audit_report.verdict.value,
+                        "revert_event_sha256": audit_report.head_sha256,
+                    },
+                    indent=2,
+                    sort_keys=True,
+                )
+            )
+            raise typer.Exit(code=0)
+        source_path = Path(transaction.source_path)
         typer.echo(
             json.dumps(
                 {
@@ -99,13 +122,18 @@ def revert(
         )
         raise typer.Exit(code=0)
 
+    title = (
+        "Table Store Revert Complete"
+        if transaction.source_kind == "table_store"
+        else "Revert Complete"
+    )
     Console().print(
         Panel(
             (
                 f"[green]Source restored successfully.[/green]\n"
                 f"Transaction: [bold]{transaction.txn_id}[/bold]"
             ),
-            title="Revert Complete",
+            title=title,
             style="green",
         )
     )

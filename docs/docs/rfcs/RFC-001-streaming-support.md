@@ -2,7 +2,7 @@
 
 ## Problem
 
-DataForge15 0.1.0 works on local CSV snapshots. Some users will want to inspect
+DataForge 0.1.0 works on local CSV snapshots. Some users will want to inspect
 append-only event streams or warehouse extracts without waiting for a complete
 file. Streaming support must preserve the same safety and reversibility
 standards as batch repair.
@@ -10,7 +10,7 @@ standards as batch repair.
 ## Alternatives
 
 - Add streaming directly to the existing CLI commands.
-- Add a separate `dataforge15 stream` command with windowed profiling and no
+- Add a separate `dataforge stream` command with windowed profiling and no
   mutation in v1.
 - Defer streaming until a warehouse adapter exists.
 

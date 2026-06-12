@@ -5,7 +5,7 @@ This walkthrough takes about five minutes from a fresh checkout.
 ## 1. Install
 
 ```bash
-python -m venv .venv
+python3.12 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
@@ -20,13 +20,12 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The PyPI package is not published yet. The first RC package version is
-`0.1.0rc1` for TestPyPI rehearsal. After PyPI publication, install with `python -m pip install dataforge15`; the import namespace remains `dataforge` for the 0.1 line.
+The PyPI package is not published yet. After PyPI publication, install the DataForge distribution with `python -m pip install dataforge_07`; the installed import namespace and CLI command remain `dataforge`.
 
 ## 2. Profile the hospital fixture
 
 ```bash
-dataforge15 profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml
+dataforge profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml
 ```
 
 The command prints a Rich table of detected issues, including issue type,
@@ -35,16 +34,16 @@ severity, confidence, and reason.
 For machine-readable CI or agent calls:
 
 ```bash
-dataforge15 profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --json
-dataforge15 profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --fail-on unsafe
-dataforge15 profile fixtures/hospital_10rows.csv --constraints-out constraints.json
-dataforge15 constraints review constraints.json
+dataforge profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --json
+dataforge profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --fail-on unsafe
+dataforge profile fixtures/hospital_10rows.csv --constraints-out constraints.json
+dataforge constraints review constraints.json
 ```
 
 ## 3. Preview repairs
 
 ```bash
-dataforge15 repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
+dataforge repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
 ```
 
 Dry-run mode exercises detection, repair proposal, safety, and verification
@@ -53,7 +52,7 @@ without writing to disk.
 ## 4. Watch once for CI
 
 ```bash
-dataforge15 watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
+dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
 ```
 
 Without `--once`, watch polls the path and reruns `profile` or dry-run repair
@@ -64,9 +63,9 @@ is passed explicitly.
 
 ```bash
 cp fixtures/hospital_10rows.csv /tmp/hospital_10rows.csv
-dataforge15 repair /tmp/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --apply
-dataforge15 audit <txn-id>
-dataforge15 revert <txn-id>
+dataforge repair /tmp/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --apply
+dataforge audit <txn-id>
+dataforge revert <txn-id>
 ```
 
 Applied repairs write a transaction journal and source snapshot before the CSV

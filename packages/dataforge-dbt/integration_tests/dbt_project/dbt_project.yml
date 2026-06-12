@@ -1,0 +1,18 @@
+name: dataforge_dbt_integration
+version: '1.0'
+config-version: 2
+
+profile: dataforge_dbt_integration
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+
+models:
+  dataforge_dbt_integration:
+    +materialized: table
+
+seeds:
+  dataforge_dbt_integration:
+    dirty_decimal_shift:
+      +column_types:
+        column_x: varchar

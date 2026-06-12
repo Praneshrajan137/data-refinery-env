@@ -10,6 +10,7 @@ running server or network access.
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,7 @@ from playground.api.app import (
     MAX_UPLOAD_CELLS,
     MAX_UPLOAD_COLUMNS,
     MAX_UPLOAD_ROWS,
+    WORKFLOW_CONTRACT_VERSION,
     app,
     limiter,
 )
@@ -43,6 +45,24 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 def _hospital_csv_bytes() -> bytes:
     """Load the hospital_10rows fixture as raw bytes."""
     return (FIXTURES_DIR / "hospital_10rows.csv").read_bytes()
+
+
+def _ndjson_events(text: str) -> list[dict[str, object]]:
+    """Parse a complete NDJSON response body into workflow events."""
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def _stable_analyze_payload(payload: dict[str, object]) -> dict[str, object]:
+    """Normalize request-specific transaction fields before comparing endpoint parity."""
+    stable = json.loads(json.dumps(payload))
+    stable["txn_journal"]["txn_id"] = "<txn_id>"
+    stable["txn_journal"]["created_at"] = "<created_at>"
+    stable["receipt"]["txn_id"] = "<txn_id>"
+    stable["receipt"]["revert_command"] = "<revert_command>"
+    stable["receipt"]["constraints_artifact_sha256"] = "<constraints_artifact_sha256>"
+    stable["apply_handoff"]["audit_command"] = "<audit_command>"
+    stable["apply_handoff"]["revert_command"] = "<revert_command>"
+    return stable
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +96,8 @@ def test_health(client: TestClient) -> None:
     assert body["service"] == "DataForge Playground API"
     assert body["advanced_available"] is False
     assert body["max_upload_bytes"] == MAX_UPLOAD_BYTES
+    assert body["streaming_available"] is True
+    assert body["workflow_contract_version"] == WORKFLOW_CONTRACT_VERSION
     assert body["limits"] == {
         "max_upload_bytes": MAX_UPLOAD_BYTES,
         "max_rows": MAX_UPLOAD_ROWS,
@@ -160,6 +182,217 @@ def test_profile_hospital(client: TestClient) -> None:
         assert "issue_type" in issue
         assert "severity" in issue
         assert "row_indices" in issue
+
+
+@pytest.mark.integration
+def test_analyze_hospital_returns_proof_loop_payload(client: TestClient) -> None:
+    """POST /api/analyze returns risk, constraints, verified repairs, and apply handoff."""
+    csv_bytes = _hospital_csv_bytes()
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["source"]["name"] == "hospital_10rows.csv"
+    assert body["source"]["rows"] == 10
+    assert body["risk_summary"]["dataset_level"] in {"medium", "high"}
+    assert body["risk_summary"]["repair_readiness"] in {"verified", "partial", "blocked"}
+    assert body["schema_inference"]["schema_version"] == "constraint_review_v1"
+    assert body["schema_inference"]["source_sha256"] == body["source"]["sha256"]
+    assert body["schema_inference"]["candidates"]
+    assert all(
+        candidate["decision"] == "pending" for candidate in body["schema_inference"]["candidates"]
+    )
+    assert "issues" in body
+    assert "repairs" in body
+    assert "verification" in body
+    assert "txn_journal" in body
+    assert body["txn_journal"]["applied"] is False
+    assert body["receipt"]["receipt_version"] == "repair_receipt_v1"
+    assert body["receipt"]["contract_version"] == "repair_contract_v2"
+    assert body["receipt"]["source_sha256"] == body["source"]["sha256"]
+    assert "root_causes" in body["receipt"]
+    assert "candidate_repairs" in body["receipt"]
+    assert "proof_obligations" in body["receipt"]
+    assert "limitations" in body["receipt"]
+    assert (
+        body["apply_handoff"]["dry_run_command"]
+        == "dataforge repair path/to/hospital_10rows.csv --dry-run"
+    )
+    assert body["limitations"]
+
+
+@pytest.mark.integration
+def test_analyze_stream_returns_ordered_workflow_events_and_final_payload(
+    client: TestClient,
+) -> None:
+    """POST /api/analyze/stream streams the proof loop and ends with AnalyzeResponse parity."""
+    csv_bytes = _hospital_csv_bytes()
+    json_response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    stream_response = client.post(
+        "/api/analyze/stream",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+
+    assert json_response.status_code == 200
+    assert stream_response.status_code == 200
+    assert stream_response.headers["x-dataforge-workflow-contract"] == WORKFLOW_CONTRACT_VERSION
+
+    events = _ndjson_events(stream_response.text)
+    stage_ids = [event["stage_id"] for event in events]
+    statuses = [event["status"] for event in events]
+    sequences = [event["sequence"] for event in events]
+    assert sequences == sorted(sequences)
+    assert stage_ids[:3] == ["intake", "intake", "schema_inference"]
+    assert statuses[:3] == ["running", "completed", "running"]
+    assert list(dict.fromkeys(stage_ids)) == [
+        "intake",
+        "schema_inference",
+        "constraint_review",
+        "detectors",
+        "repair_candidates",
+        "safety_gate",
+        "smt_verifier",
+        "dry_run_transaction",
+        "receipt",
+    ]
+    assert all(event["schema_version"] == WORKFLOW_CONTRACT_VERSION for event in events)
+    assert all(
+        "run_id" in event and "summary" in event and "started_at" in event for event in events
+    )
+    assert events[-1]["stage_id"] == "receipt"
+    assert events[-1]["status"] == "completed"
+    assert _stable_analyze_payload(events[-1]["analysis"]) == _stable_analyze_payload(
+        json_response.json()
+    )
+
+
+@pytest.mark.integration
+def test_analyze_stream_reports_advanced_unavailable_as_problem_event(client: TestClient) -> None:
+    """Advanced stream requests fail inside the event contract without returning mutation data."""
+    response = client.post(
+        "/api/analyze/stream",
+        params={"advanced": "true"},
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+
+    assert response.status_code == 200
+    events = _ndjson_events(response.text)
+    assert events[0]["stage_id"] == "intake"
+    assert events[-1]["stage_id"] == "receipt"
+    assert events[-1]["status"] == "failed"
+    assert "analysis" not in events[-1]
+    problem = events[-1]["problem"]
+    assert isinstance(problem, dict)
+    assert problem["error"] == "advanced_mode_unavailable"
+    assert problem["status"] == 400
+
+
+@pytest.mark.integration
+def test_analyze_clean_csv_returns_no_action_with_pending_assumptions(client: TestClient) -> None:
+    """Clean inputs still surface inferred assumptions without inventing repairs."""
+    csv_bytes = b"id,name\n1,Ada\n2,Lin\n3,Grace\n"
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("clean.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"]["rows"] == 3
+    assert body["receipt"]["issues_count"] == 0
+    assert body["repairs"] == []
+    assert body["risk_summary"]["repair_readiness"] == "no_action"
+    assert body["schema_inference"]["candidates"]
+    assert all(
+        candidate["decision"] == "pending" for candidate in body["schema_inference"]["candidates"]
+    )
+
+
+@pytest.mark.integration
+def test_analyze_malformed_csv_returns_problem_detail(client: TestClient) -> None:
+    """Malformed analyze uploads return the same stable CSV problem detail."""
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("broken.csv", io.BytesIO(b'id,name\n1,"unterminated'), "text/csv")},
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"] == "invalid_csv"
+    assert body["status"] == 400
+
+
+@pytest.mark.integration
+def test_analyze_accepts_reviewed_constraints(client: TestClient) -> None:
+    """Accepted inferred repair-supported constraints feed the shared repair engine."""
+    csv_bytes = (
+        b"code,name\n"
+        b"A,Alpha\n"
+        b"A,Alpha\n"
+        b"A,Alfa\n"
+        b"B,Beta\n"
+        b"B,Beta\n"
+        b"C,Gamma\n"
+        b"C,Gamma\n"
+        b"D,Delta\n"
+        b"D,Delta\n"
+        b"E,Echo\n"
+    )
+    first = client.post(
+        "/api/analyze",
+        files={"file": ("fd.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    assert first.status_code == 200
+    candidates = first.json()["schema_inference"]["candidates"]
+    fd_candidate = next(
+        candidate
+        for candidate in candidates
+        if candidate["kind"] == "functional_dependency"
+        and candidate["columns"] == ["code"]
+        and candidate["dependent"] == "name"
+    )
+
+    second = client.post(
+        "/api/analyze",
+        data={"accepted_constraint_ids": f'["{fd_candidate["candidate_id"]}"]'},
+        files={"file": ("fd.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    assert second.status_code == 200
+    body = second.json()
+    assert fd_candidate["candidate_id"] in body["receipt"]["accepted_constraint_ids"]
+    assert any(repair["detector_id"] == "fd_violation" for repair in body["repairs"])
+    assert body["apply_handoff"]["apply_command"].endswith("--constraints constraints.json --apply")
+
+
+@pytest.mark.integration
+def test_analyze_rejects_unknown_constraint_id(client: TestClient) -> None:
+    """Unknown accepted constraints fail as RFC 9457 problem details."""
+    response = client.post(
+        "/api/analyze",
+        data={"accepted_constraint_ids": '["cnd-0000000000000000"]'},
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+    assert response.status_code == 400
+    body = response.json()
+    assert body["error"] == "unknown_constraint_id"
+    assert body["type"].endswith("/unknown_constraint_id")
+    assert body["unknown_ids"] == ["cnd-0000000000000000"]
+
+
+@pytest.mark.integration
+def test_analyze_advanced_unavailable_without_provider_key(client: TestClient) -> None:
+    """POST /api/analyze?advanced=true returns 400 when no provider key is configured."""
+    response = client.post(
+        "/api/analyze",
+        params={"advanced": "true"},
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"] == "advanced_mode_unavailable"
 
 
 @pytest.mark.integration

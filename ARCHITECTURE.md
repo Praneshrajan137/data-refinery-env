@@ -1,15 +1,15 @@
-# DataForge15 Architecture
+# DataForge Architecture
 
 Last updated: 2026-05-20.
 
-DataForge15 is the official release name for the DataForge codebase: a local,
+DataForge is the official release name for the DataForge codebase: a local,
 auditable data-quality repair system. The core package is
 kept separate from playground, training, and model-demo surfaces so the CLI can
 remain installable without web or model dependencies.
 
 ```mermaid
 flowchart LR
-    A["CSV + optional schema"] --> B["Detectors"]
+    A["CSV/table store + optional schema"] --> B["Detectors"]
     B --> C["Repairers"]
     C --> D["SafetyFilter"]
     D --> E["SMTVerifier"]
@@ -37,9 +37,13 @@ flowchart LR
   row deletion, conflicting batch writes, and unconfirmed sensitive changes.
 - **Verification**: Z3-backed SMT checks that reject fixes which violate schema
   constraints or cannot be proven safe.
+- **Patch planning**: `PatchPlan` is the backend-neutral write contract for
+  table stores. It records row identity, expected old values, forward SQL,
+  rollback SQL, preflight probes, verifier obligations, safety verdicts, and
+  audit metadata before any warehouse mutation.
 - **Transactions**: append-only hash-chained JSONL journals, immutable source
   snapshots, post-state hash guards, local audit verification, and
-  byte-for-byte revert.
+  byte-for-byte CSV revert or backend rollback for proven table stores.
 - **Benchmarks**: Hospital, Flights, and Beers loaders, method runners, quota
   accounting, and generated markdown reports.
 - **OpenEnv environment**: HTTP and in-process environment with typed actions:
@@ -53,7 +57,7 @@ flowchart LR
   hooks, readiness and release verifiers, Kaggle notebooks, Hub metadata, and a
   separate Gradio model-demo Space.
 - **MCP integration**: nested standalone `dataforge-mcp/` source directory
-  building the `dataforge15-mcp` package and exposing structured DataForge15
+  building the `dataforge_07_mcp` distribution and exposing structured DataForge
   tools over stdio by default.
 
 ## Safety Invariant
@@ -106,6 +110,20 @@ flowchart TB
 The core pipeline owns repair behavior. Surrounding surfaces can expose or test
 the pipeline, but they should not create parallel write semantics.
 
+## Table Stores
+
+`dataforge.stores` contains the v1 table-store boundary:
+
+- `CSVStore` wraps the existing release-gated CSV transaction engine.
+- `DuckDBStore` is the local warehouse conformance adapter and supports
+  patch-plan dry-run, apply, audit, and rollback when stable row identity
+  columns are configured.
+- Snowflake, BigQuery, and Databricks adapters emit non-mutating patch plans and
+  refuse apply until credentialed conformance tests prove reversible semantics.
+
+Warehouse apply is denied unless the patch plan has stable row identity,
+preflight probes, rollback SQL, and deterministic verification evidence.
+
 ## Dependency Guidance
 
 Core runtime dependencies in `pyproject.toml`:
@@ -129,21 +147,23 @@ Optional extras and scoped dependencies:
 - `playground`: FastAPI, Uvicorn, multipart upload, and rate limiting.
 - `openenv`: OpenEnv protocol dependency.
 - `dataforge-mcp/`: source directory for the separate planned
-  `dataforge15-mcp` PyPI package with MCP dependencies.
+  `dataforge_07_mcp` PyPI distribution with MCP dependencies.
 - `playground-model/`: Gradio and model-demo dependencies only.
 
 ## Release Boundaries
 
-- `dataforge15` is the planned core CLI/library distribution. It is not
-  published yet; release tags should be created only after local gates and PyPI
-  trusted-publisher ownership are verified. It intentionally keeps the
-  `dataforge` Python import namespace for the 0.1 line. The legacy
+- `dataforge_07` is the final PyPI/TestPyPI core CLI/library distribution. It is
+  not published yet; release tags should be created only after local gates and
+  PyPI trusted-publisher configuration are verified. It intentionally keeps the
+  `dataforge` Python import namespace and CLI for the 0.1 line. The legacy
   `data_quality_env` namespace is source-tree compatibility/regression material
   and is excluded from the core wheel and source distribution. Release gates
   verify that clean installs cannot import `data_quality_env` or leak from the
   source checkout.
-- `dataforge15-mcp` is the planned nested standalone distribution for
-  `dataforge15-mcp-v*` release tags after PyPI ownership is verified.
+- `dataforge_07_mcp` is the planned nested standalone distribution for
+  `dataforge-mcp-v*` release tags after PyPI publication evidence is verified.
+- `https://dataforge.praneshrajan15.workers.dev/playground` is the production
+  playground route for the full original vision. This is the release URL.
 - SFT datasets and checkpoints are Hugging Face artifacts verified by
   `scripts/model/verify_sft_release.py`.
 - GRPO checkpoints are Hugging Face artifacts verified by

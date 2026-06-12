@@ -1,7 +1,7 @@
-site_name: DataForge15
+site_name: DataForge
 site_description: CLI-first data-quality detection and reversible repair for tabular data.
 site_url: https://dataforge-docs.pages.dev/
-repo_url: https://github.com/Praneshrajan15/data_quality_env
+repo_url: https://github.com/Aegis15/dataforge
 edit_uri: edit/main/docs/docs/
 
 docs_dir: docs
@@ -64,6 +64,8 @@ nav:
   - Architecture: architecture.md
   - Reference: reference.md
   - Release: release.md
+  - Full Vision Gate: full-vision.md
+  - PyPI Distribution Name: pypi-name-transfer.md
   - RFCs:
       - Overview: rfcs/index.md
       - RFC-001 Streaming Support: rfcs/RFC-001-streaming-support.md

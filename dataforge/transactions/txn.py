@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -83,6 +83,9 @@ class RepairTransaction(BaseModel):
     fixes: list[CellFix] = Field(default_factory=list)
     applied: bool
     reverted_at: datetime | None = None
+    source_kind: Literal["file", "table_store"] = "file"
+    backend: str | None = None
+    patch_plan: dict[str, Any] | None = None
 
     @field_validator("created_at")
     @classmethod

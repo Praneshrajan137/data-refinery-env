@@ -1,0 +1,57 @@
+{
+  "schema_version": "dataforge_design_partner_manifest_v1",
+  "validations": [
+    {
+      "persona": "marcus",
+      "role": "analytics/dbt practitioner",
+      "session_date": "",
+      "production_surface": "",
+      "task_completed": "",
+      "validated": true,
+      "trust_confirmed": true,
+      "evidence_path": "",
+      "consent_record": "",
+      "timing_seconds": null,
+      "blocking_findings_closed": true
+    },
+    {
+      "persona": "priya",
+      "role": "data/ML evaluation practitioner",
+      "session_date": "",
+      "production_surface": "",
+      "task_completed": "",
+      "validated": true,
+      "trust_confirmed": true,
+      "evidence_path": "",
+      "consent_record": "",
+      "timing_seconds": null,
+      "blocking_findings_closed": true
+    },
+    {
+      "persona": "shreya",
+      "role": "data-steward/operator",
+      "session_date": "",
+      "production_surface": "",
+      "task_completed": "",
+      "validated": true,
+      "trust_confirmed": true,
+      "evidence_path": "",
+      "consent_record": "",
+      "timing_seconds": null,
+      "blocking_findings_closed": true
+    },
+    {
+      "persona": "agent",
+      "role": "agent/MCP builder",
+      "session_date": "",
+      "production_surface": "",
+      "task_completed": "",
+      "validated": true,
+      "trust_confirmed": true,
+      "evidence_path": "",
+      "consent_record": "",
+      "timing_seconds": null,
+      "blocking_findings_closed": true
+    }
+  ]
+}

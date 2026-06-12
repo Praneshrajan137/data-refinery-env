@@ -1,9 +1,8 @@
 """CI check: verify README claims match shipped code.
 
-Asserts that every `dataforge15 <subcommand>` or compatibility
-`dataforge <subcommand>` shown in the root README resolves to a registered
-Typer command. Also checks that the playground
-URL (once added) returns HTTP 200.
+Asserts that every public `dataforge <subcommand>` shown in the root README
+resolves to a registered Typer command. It also guards the full-vision claim
+boundary: the removed domain must not appear in public release docs.
 
 Usage:
     python scripts/ci/readme_truth.py
@@ -15,9 +14,13 @@ import re
 import sys
 from pathlib import Path
 
+import yaml
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 README = PROJECT_ROOT / "README.md"
 CONTRIBUTORS = PROJECT_ROOT / "CONTRIBUTORS.md"
+CLAIM_LEDGER = PROJECT_ROOT / "docs" / "claims.yaml"
+CLAIM_LEDGER_STATUSES = frozenset({"shipped", "beta", "experimental", "roadmap"})
 RELEASE_TRUTH_DOCS = [
     README,
     PROJECT_ROOT / "META_CONTEXT.md",
@@ -38,16 +41,22 @@ PUBLIC_CLAIM_TRUTH_DOCS = [
     PROJECT_ROOT / "docs" / "docs" / "quickstart.md",
     PROJECT_ROOT / "docs" / "docs" / "release.md",
 ]
+CUSTOM_DOMAIN_TRUTH_DOCS = sorted(
+    set(RELEASE_TRUTH_DOCS + DESIGN_PARTNER_TRUTH_DOCS + PUBLIC_CLAIM_TRUTH_DOCS)
+)
 UNPUBLISHED_DISTS = (
-    "dataforge15",
-    "dataforge15-dbt",
-    "dataforge15-evals",
-    "dataforge15-mcp",
-    "dataforge15-agent-patterns",
+    "dataforge_07",
+    "dataforge_07_dbt",
+    "dataforge_07_evals",
+    "dataforge_07_mcp",
+    "dataforge_07_agent_patterns",
 )
 PUBLISHED_QUALIFIERS = (
     "after publication",
     "after pypi publication",
+    "blocked until",
+    "before",
+    "only when",
     "once published",
     "when published",
 )
@@ -85,6 +94,8 @@ PUBLIC_CLAIM_PATTERNS = (
     re.compile(r"\bproduction model[- ]quality claims?\b", re.IGNORECASE),
     re.compile(r"\b(?:live|hosted) (?:domain|playground|demo)\b", re.IGNORECASE),
     re.compile(r"\bdeployed at https?://", re.IGNORECASE),
+    re.compile(r"\b0\.5B\b[^\n]*(?:->|to|-|→)[^\n]*\b7B\b", re.IGNORECASE),
+    re.compile(r"\bSFT\b[^\n]*\bGRPO\b[^\n]*\bGiGPO\b", re.IGNORECASE),
 )
 PUBLIC_CLAIM_QUALIFIERS = (
     "not ",
@@ -112,16 +123,100 @@ PUBLIC_CLAIM_QUALIFIERS = (
     "source checkout",
     "not shipped yet",
 )
+REMOVED_CUSTOM_DOMAIN = "dataforge" + ".dev"
+CUSTOM_DOMAIN_PATTERN = re.compile(
+    rf"(?:https?://(?:www\.)?{re.escape(REMOVED_CUSTOM_DOMAIN)}(?:/[^\s)]*)?"
+    rf"|\b{re.escape(REMOVED_CUSTOM_DOMAIN)}\b)"
+)
+UNSHIPPED_INTEGRATION_PATTERNS = (
+    re.compile(r"\bdataforge-airbyte\b", re.IGNORECASE),
+    re.compile(r"\bdataforge-databricks\b", re.IGNORECASE),
+    re.compile(r"\bAirbyte\b", re.IGNORECASE),
+    re.compile(r"\bDatabricks\b", re.IGNORECASE),
+)
+UNSHIPPED_INTEGRATION_QUALIFIERS = (
+    "future",
+    "planned",
+    "not shipped",
+    "not yet",
+    "roadmap",
+    "external adapter packages",
+    "should only",
+    "until",
+    "once",
+)
+
+
+def load_claim_ledger(path: Path = CLAIM_LEDGER) -> list[dict[str, str]]:
+    """Load the public claim ledger entries."""
+    raw_payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(raw_payload, dict):
+        return []
+    raw_entries = raw_payload.get("claims", [])
+    if not isinstance(raw_entries, list):
+        return []
+    entries: list[dict[str, str]] = []
+    for raw_entry in raw_entries:
+        if not isinstance(raw_entry, dict):
+            continue
+        entry = {
+            "claim": str(raw_entry.get("claim", "")).strip(),
+            "status": str(raw_entry.get("status", "")).strip(),
+            "evidence": str(raw_entry.get("evidence", "")).strip(),
+        }
+        entries.append(entry)
+    return entries
+
+
+def check_claim_ledger(path: Path = CLAIM_LEDGER) -> list[str]:
+    """Verify every public claim has closed-vocabulary status and evidence."""
+    errors: list[str] = []
+    try:
+        display_path = path.relative_to(PROJECT_ROOT)
+    except ValueError:
+        display_path = path
+    if not path.exists():
+        return [f"{display_path} is missing."]
+
+    try:
+        raw_payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        return [f"{display_path} is not valid YAML: {exc}"]
+
+    if not isinstance(raw_payload, dict):
+        return [f"{display_path} must be a YAML mapping."]
+    raw_entries = raw_payload.get("claims")
+    if not isinstance(raw_entries, list):
+        return [f"{display_path} must contain a claims list."]
+
+    seen_claims: set[str] = set()
+    for index, raw_entry in enumerate(raw_entries, start=1):
+        if not isinstance(raw_entry, dict):
+            errors.append(f"claim ledger entry {index} must be a mapping.")
+            continue
+        claim = str(raw_entry.get("claim", "")).strip()
+        status = str(raw_entry.get("status", "")).strip()
+        evidence = str(raw_entry.get("evidence", "")).strip()
+        if not claim:
+            errors.append(f"claim ledger entry {index} is missing claim.")
+        elif claim in seen_claims:
+            errors.append(f"claim ledger entry {index} duplicates claim '{claim}'.")
+        seen_claims.add(claim)
+        if status not in CLAIM_LEDGER_STATUSES:
+            errors.append(f"claim ledger entry {index} has unknown status '{status}'.")
+        if not evidence:
+            errors.append(f"claim ledger entry {index} is missing evidence.")
+    return errors
 
 
 def extract_subcommands_from_readme(text: str) -> set[str]:
-    """Find all DataForge15 CLI subcommand references in the README."""
+    """Find all DataForge CLI subcommand references in the README."""
     pattern = re.compile(r"\bdataforge(?:15)?\s+([a-z][a-z0-9_-]*)")
     return {m.group(1) for m in pattern.finditer(text)}
 
 
 def extract_release_subcommands_from_readme(text: str) -> set[str]:
-    """Find all nested ``dataforge15 release <command>`` references."""
+    """Find all nested ``dataforge release <command>`` references."""
     pattern = re.compile(r"\bdataforge(?:15)?\s+release\s+([a-z][a-z0-9_-]*)")
     return {m.group(1) for m in pattern.finditer(text)}
 
@@ -168,9 +263,9 @@ def get_registered_release_commands() -> set[str]:
 
 
 def extract_playground_urls(text: str) -> list[str]:
-    """Find playground URLs in the README."""
-    pattern = re.compile(r"https?://[^\s)]+(?:pages\.dev|hf\.space|dataforge\.dev)[^\s)]*")
-    return pattern.findall(text)
+    """Find live playground URLs in the README."""
+    pattern = re.compile(r"https?://[^\s)`]+(?:workers\.dev|pages\.dev|hf\.space)[^\s)`]*")
+    return [match.rstrip(".,;:") for match in pattern.findall(text)]
 
 
 def check_playground_urls(urls: list[str]) -> list[str]:
@@ -213,7 +308,7 @@ def check_unpublished_install_claims(paths: list[Path]) -> list[str]:
                 continue
             errors.append(
                 f"{path.relative_to(PROJECT_ROOT)}:{line_number} has an unqualified "
-                "PyPI install claim for an unpublished DataForge15 package."
+                "PyPI install claim for an unpublished DataForge package."
             )
     return errors
 
@@ -296,6 +391,53 @@ def check_public_claim_boundaries(paths: list[Path]) -> list[str]:
     return errors
 
 
+def check_custom_domain_claims(paths: list[Path]) -> list[str]:
+    """Reject any reference to the removed domain."""
+    errors: list[str] = []
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            display_path = path.relative_to(PROJECT_ROOT)
+        except ValueError:
+            display_path = path
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if not CUSTOM_DOMAIN_PATTERN.search(line):
+                continue
+            errors.append(
+                f"{display_path}:{index + 1} references the removed domain. "
+                "Use the Cloudflare workers.dev playground URL instead."
+            )
+    return errors
+
+
+def check_unshipped_integration_claims(paths: list[Path]) -> list[str]:
+    """Reject Airbyte/Databricks claims unless they are clearly roadmap-only."""
+    errors: list[str] = []
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            display_path = path.relative_to(PROJECT_ROOT)
+        except ValueError:
+            display_path = path
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if not any(pattern.search(line) for pattern in UNSHIPPED_INTEGRATION_PATTERNS):
+                continue
+            previous_line = lines[index - 1] if index > 0 else ""
+            next_line = lines[index + 1] if index + 1 < len(lines) else ""
+            context = f"{previous_line}\n{line}\n{next_line}".lower()
+            if any(qualifier in context for qualifier in UNSHIPPED_INTEGRATION_QUALIFIERS):
+                continue
+            errors.append(
+                f"{display_path}:{index + 1} has an unqualified Airbyte or Databricks "
+                "integration claim without shipped package evidence."
+            )
+    return errors
+
+
 def main() -> None:
     """Run all README truth checks."""
     readme_text = README.read_text(encoding="utf-8")
@@ -340,6 +482,9 @@ def main() -> None:
     errors.extend(check_unpublished_install_claims(RELEASE_TRUTH_DOCS))
     errors.extend(check_design_partner_claims(DESIGN_PARTNER_TRUTH_DOCS))
     errors.extend(check_public_claim_boundaries(PUBLIC_CLAIM_TRUTH_DOCS))
+    errors.extend(check_custom_domain_claims(CUSTOM_DOMAIN_TRUTH_DOCS))
+    errors.extend(check_unshipped_integration_claims(PUBLIC_CLAIM_TRUTH_DOCS))
+    errors.extend(check_claim_ledger())
 
     if errors:
         print("README truth check FAILED:", file=sys.stderr)

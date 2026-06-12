@@ -15,4 +15,4 @@ def test_main_help_runs() -> None:
         timeout=10,
     )
     assert result.returncode == 0
-    assert "DataForge15" in result.stdout or "profile" in result.stdout
+    assert "DataForge" in result.stdout or "profile" in result.stdout

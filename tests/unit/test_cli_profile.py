@@ -169,7 +169,7 @@ class TestProfileCommand:
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
         assert "dataforge" in result.output
-        assert "0.1.0rc1" in result.output
+        assert "0.1.0" in result.output
 
 
 class TestProfileCleanData:

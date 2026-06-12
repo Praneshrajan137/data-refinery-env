@@ -2,11 +2,14 @@
 
 from dataforge.engine.repair import (
     CandidateFix,
+    CandidateRepair,
+    ProofObligation,
     RepairFailure,
     RepairMode,
     RepairPipelineRequest,
     RepairPipelineResult,
     RepairReceipt,
+    RootCause,
     VerifiedFix,
     apply_fixes_to_csv,
     apply_transaction,
@@ -18,11 +21,14 @@ from dataforge.engine.repair import (
 
 __all__ = [
     "CandidateFix",
+    "CandidateRepair",
+    "ProofObligation",
     "RepairFailure",
     "RepairMode",
     "RepairPipelineRequest",
     "RepairPipelineResult",
     "RepairReceipt",
+    "RootCause",
     "VerifiedFix",
     "apply_fixes_to_csv",
     "apply_transaction",

@@ -16,6 +16,7 @@ from typing import Any
 EXPECTED_HF_USER = "Praneshrajan15"
 DEFAULT_KAGGLE_CREDENTIALS = Path.home() / ".kaggle" / "credentials.json"
 STALE_KAGGLE_JSON = Path.home() / ".kaggle" / "kaggle.json"
+CORE_DISTRIBUTION = "dataforge_07"
 
 
 @dataclass(frozen=True)
@@ -232,14 +233,14 @@ def _check_package_boundary() -> DoctorCheck:
     pyproject_path = _project_root() / "pyproject.toml"
     if not pyproject_path.exists():
         try:
-            distribution = importlib_metadata.distribution("dataforge15")
+            distribution = importlib_metadata.distribution(CORE_DISTRIBUTION)
             top_level = distribution.read_text("top_level.txt") or ""
         except importlib_metadata.PackageNotFoundError as exc:
             return DoctorCheck(
                 "core_package_boundary",
                 False,
                 f"Could not read installed package metadata: {exc}",
-                {"distribution": "dataforge15"},
+                {"distribution": CORE_DISTRIBUTION},
             )
         top_level_packages = sorted(line.strip() for line in top_level.splitlines() if line.strip())
         expected_top_level = ["dataforge"]

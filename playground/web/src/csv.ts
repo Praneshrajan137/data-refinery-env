@@ -1,11 +1,10 @@
 import Papa from "papaparse";
 import type {
+  AnalyzeResponse,
   CsvPreview,
   Issue,
   IssueGroup,
   ProblemDetail,
-  ProfileResponse,
-  RepairResponse,
   Severity,
 } from "./types";
 
@@ -110,6 +109,12 @@ export function problemToMessage(problem: ProblemDetail): string {
   if (problem.error === "apply_not_supported") {
     return "Hosted playground repairs are dry-run only.";
   }
+  if (problem.error === "unknown_constraint_id") {
+    return "One or more accepted constraints do not belong to this CSV analysis run.";
+  }
+  if (problem.error === "invalid_accepted_constraint_ids") {
+    return "Accepted constraints must be sent as a JSON array of candidate IDs.";
+  }
   if (problem.error === "file_too_large") {
     return "The uploaded CSV is larger than the hosted playground limit.";
   }
@@ -146,8 +151,7 @@ export function problemToMessage(problem: ProblemDetail): string {
 
 export function buildEvidenceExport(
   datasetName: string,
-  profile: ProfileResponse | null,
-  repair: RepairResponse,
+  analysis: AnalyzeResponse,
 ): string {
   return JSON.stringify(
     {
@@ -155,21 +159,26 @@ export function buildEvidenceExport(
       dataset_name: datasetName,
       generated_at: new Date().toISOString(),
       dry_run: true,
-      profile_meta: profile?.meta ?? null,
-      issue_count: profile?.meta.total_issues ?? null,
-      fixes: repair.fixes,
-      transaction_journal: repair.txn_journal,
-      repair_receipt: repair.receipt ?? null,
-      contract_version: repair.meta.contract_version,
+      source: analysis.source,
+      schema_inference: analysis.schema_inference,
+      risk_summary: analysis.risk_summary,
+      issues: analysis.issues,
+      repairs: analysis.repairs,
+      verification: analysis.verification,
+      transaction_journal: analysis.txn_journal,
+      repair_receipt: analysis.receipt,
+      apply_handoff: analysis.apply_handoff,
+      limitations: analysis.limitations,
+      contract_version: analysis.meta.contract_version,
     },
     null,
     2,
   );
 }
 
-export function formatRows(rows: number[]): string {
+export function formatRows(rows: number[], truncated = false): string {
   if (rows.length <= 5) {
-    return rows.join(", ");
+    return `${rows.join(", ")}${truncated ? "..." : ""}`;
   }
   return `${rows.slice(0, 5).join(", ")}...`;
 }
