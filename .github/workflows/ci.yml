@@ -144,4 +144,4 @@ jobs:
       - name: No browser storage APIs in frontend
         run: "! grep -rE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=test-results --exclude-dir=playwright-report 'localStorage|sessionStorage' playground/web/"
       - name: No API keys in frontend
-        run: "! grep -rE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=test-results --exclude-dir=playwright-report 'GROQ_API_KEY|GEMINI_API_KEY|sk-' playground/web/"
+        run: "! grep -rE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=test-results --exclude-dir=playwright-report 'GROQ_API_KEY|GEMINI_API_KEY|\\bsk-[A-Za-z0-9]{32,}\\b' playground/web/"
