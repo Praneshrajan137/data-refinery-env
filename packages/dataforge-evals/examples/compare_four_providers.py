@@ -38,8 +38,8 @@ def main() -> None:
     missing = [name for name, value in required.items() if not value]
     if missing:
         print(
-            f"Error: Missing provider keys: {missing}\n"
-            "Set them in your environment or .env file before running this example.",
+            "Error: missing one or more required provider credentials.\n"
+            "Set all documented provider environment variables before running this example.",
             file=sys.stderr,
         )
         sys.exit(1)
