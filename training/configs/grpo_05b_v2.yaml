@@ -1,0 +1,183 @@
+schema_version: grpo_05b_v2
+
+environment:
+  resolved_on: "2026-06-09"
+  runtime_target: "Kaggle free GPU P100/T4 or Colab free GPU, fp16"
+  notes:
+    - "V2 preserves the verified v1 stack while changing only reward/prompt emphasis toward balanced recall."
+    - "Set PYTHONUTF8=1 before importing TRL on Windows-style runtimes."
+    - "TRL v0.11 is intentionally unsupported because GRPOTrainer is not part of that release path."
+    - "Kaggle base images may include torchao<0.16; uninstall torchao before PEFT LoRA injection."
+  uninstall_packages:
+    - "torchao"
+  pip_packages:
+    - "trl==1.4.0"
+    - "transformers==5.7.0"
+    - "accelerate==1.13.0"
+    - "peft==0.19.1"
+    - "bitsandbytes==0.49.2"
+    - "datasets==4.8.5"
+    - "huggingface_hub==1.13.0"
+    - "pyyaml==6.0.3"
+    - "pandas==2.3.3"
+    - "tensorboard==2.20.0"
+
+kaggle:
+  auth_mode: "oauth"
+  credentials_path: 'C:\Users\Pranesh\.kaggle\credentials.json'
+
+repos:
+  dataset_repo_template: "{hf_user}/dataforge-sft-trajectories"
+  source_dataset_repo: "Praneshrajan15/dataforge-sft-trajectories"
+  sft_model_repo: "Praneshrajan15/DataForge-0.5B-SFT"
+  grpo_model_repo_template: "{hf_user}/DataForge-0.5B-GRPO"
+  config_filename: grpo_05b_v2.yaml
+  reward_module: training/rewards/dataforge_reward.py
+
+model:
+  base_model: "Qwen/Qwen2.5-0.5B-Instruct"
+  sft_checkpoint: "Praneshrajan15/DataForge-0.5B-SFT"
+  sft_checkpoint_required: true
+  target_model_repo: "Praneshrajan15/DataForge-0.5B-GRPO"
+  model_license: "apache-2.0"
+  trust_remote_code: true
+  torch_dtype: "float16"
+
+lora:
+  enabled: true
+  r: 16
+  alpha: 16
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+
+quantization:
+  load_in_4bit: false
+
+training:
+  output_dir: "/kaggle/working/dataforge-0.5b-grpo-v2"
+  adapter_dir: "/kaggle/working/dataforge-0.5b-grpo-v2-adapter"
+  merged_dir: "/kaggle/working/DataForge-0.5B-GRPO-v2-merged"
+  max_steps: 500
+  num_generations: 4
+  max_completion_length: 256
+  prompt_token_budget: 1280
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  beta: 0.04
+  learning_rate: 0.00001
+  num_iterations: 1
+  save_steps: 50
+  logging_steps: 5
+  report_to: "tensorboard"
+  save_total_limit: 4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  fp16: true
+  bf16: false
+  gradient_checkpointing: true
+  use_cache: false
+
+reward:
+  function: "training.rewards.dataforge_reward:dataforge_reward"
+  prompt_contract_version: "repair_contract_v2"
+  local_stateless: true
+  endpoint_healthcheck_only: true
+  parse_failure_reward: 0.0
+  clean_finish_reward: 1.0
+  posture: "balanced_recall"
+  diagnostics:
+    empty_repair_on_truth_positive: true
+    active_repair_precision_recall: true
+  shaping:
+    strict_f1_weight: 0.65
+    canonicalized_f1_weight: 0.10
+    precision_weight: 0.10
+    recall_weight: 0.15
+    empty_truth_positive_penalty: 0.05
+    schema_case_error_penalty: 0.10
+    wrong_cell_penalty: 0.08
+    wrong_value_penalty: 0.06
+    overrepair_penalty: 0.04
+
+readiness:
+  trajectory_filename: "expert_v4.jsonl"
+  split_manifest_filename: "split_manifest_v4.json"
+  prompt_contract_version: "repair_contract_v2"
+  required_datasets:
+    - "hospital"
+    - "flights"
+    - "beers"
+  auxiliary_datasets:
+    - "hospital_synthetic_deterministic_v1"
+  min_records: 128
+  min_records_per_dataset: 16
+  min_repair_records: 32
+  min_repair_signal_domains: 2
+  min_dirty_records: 0
+  min_dirty_records_per_dataset: 0
+  min_clean_records: 32
+  min_reward_std: 0.05
+  min_per_dataset_reward_std: 0.01
+  max_failure_samples: 25
+  block_on_heldout_leakage: true
+  require_source_provenance: true
+
+training_sequence:
+  stages:
+    - name: "smoke"
+      max_steps: 50
+      allow_upload: false
+      purpose: "Validate imports, dataset contract, balanced-recall reward variance, memory, and logging."
+    - name: "candidate"
+      max_steps: 500
+      allow_upload_after_gate: true
+      purpose: "V2 publish-eligible candidate only if strict held-out gate and F1 >= 0.25 pass."
+    - name: "extended_candidate"
+      max_steps: 1000
+      run_if: "500_step_improves_active_recall_but_misses_0.25_f1"
+      allow_upload_after_gate: true
+      purpose: "Only run when the 500-step candidate improves active recall but misses the v2 quality target."
+  selection_order:
+    - "highest_strict_macro_f1"
+    - "lowest_schema_case_errors"
+    - "lowest_gpu_hours"
+
+release:
+  benchmark_name: "DataForge-Bench-light-verified"
+  benchmark_seeds:
+    - 0
+    - 1
+    - 2
+  min_absolute_f1_gain: 0.03
+  target_strict_macro_f1: 0.25
+  require_parse_success_rate: 0.99
+  require_schema_case_error_count: 0
+  require_not_inferable_slice_f1: 0.95
+  require_eval_diagnostics: true
+  push_only_if_gate_passes: true
+  publish_or_update_public_model_only_after_v2_gate: true
+  attempted_steps_target: 500
+  compute_cost_unit: "gpu_hours"
+
+evaluation:
+  heldout_tasks: 100
+  seeds_start: 10000
+  chunk_width: 4
+  max_new_tokens: 1024
+  source: "pinned_dataforge_registry"
+  datasets:
+    - "hospital"
+    - "flights"
+    - "beers"
+
+documented_not_attempted:
+  models_15b_plus:
+    reason: "0.5B-GRPO v2 must first reach the >=0.25 strict macro-F1 milestone or produce a diagnostic blocker."
+    reproducibility_note: "Do not start 1.5B SFT->GRPO until the 0.5B v2 evidence path is complete."

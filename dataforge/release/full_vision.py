@@ -15,6 +15,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from dataforge.release.model_family import (
+    FAMILY_REPORT_SCHEMA_VERSION,
+    MODEL_FAMILY_SIZES,
+    MODEL_FAMILY_STAGES,
+    PASSING_QUALITY_STATUSES,
+    PUBLIC_ARTIFACT_STATUSES,
+    license_matches,
+    load_model_family_manifest,
+)
+
 SCHEMA_VERSION = "dataforge_full_vision_gate_v1"
 EXPECTED_VERSION = "0.1.0"
 EXPECTED_PACKAGES = (
@@ -24,8 +34,8 @@ EXPECTED_PACKAGES = (
     "dataforge_07_dbt",
     "dataforge_07_agent_patterns",
 )
-EXPECTED_MODEL_SIZES = ("0.5B", "1.5B", "3B", "7B")
-EXPECTED_MODEL_STAGES = ("SFT", "GRPO", "GiGPO")
+EXPECTED_MODEL_SIZES = MODEL_FAMILY_SIZES
+EXPECTED_MODEL_STAGES = MODEL_FAMILY_STAGES
 EXPECTED_DESIGN_PERSONAS = ("marcus", "priya", "shreya", "agent")
 DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
 DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
@@ -571,28 +581,35 @@ def _check_hf_model_family(evidence_root: Path, hf_owner: str) -> FullVisionChec
     """Verify public HF model repos and local quality evidence for the full family."""
     errors: list[str] = []
     repo_results: dict[str, Any] = {}
-    for size in EXPECTED_MODEL_SIZES:
-        for stage in EXPECTED_MODEL_STAGES:
-            repo_id = f"{hf_owner}/DataForge-{size}-{stage}"
-            payload, error = _fetch_json(f"https://huggingface.co/api/models/{repo_id}")
-            if payload is None:
-                repo_results[repo_id] = {"ok": False, "error": error}
-                errors.append(f"{repo_id}: {error}")
-                continue
-            card = payload.get("cardData", {})
-            card = card if isinstance(card, dict) else {}
-            missing_card_fields = [
-                field for field in ("license", "datasets", "base_model") if not card.get(field)
-            ]
-            ok = not missing_card_fields
-            repo_results[repo_id] = {
-                "ok": ok,
-                "sha": payload.get("sha"),
-                "lastModified": payload.get("lastModified"),
-                "missing_card_fields": missing_card_fields,
-            }
-            if not ok:
-                errors.append(f"{repo_id}: missing model-card fields {missing_card_fields}")
+    manifest = load_model_family_manifest()
+    expected_entries = tuple(manifest.entries)
+    expected_repos = {entry.repo_id for entry in expected_entries}
+    for entry in expected_entries:
+        repo_id = entry.repo_id
+        if hf_owner != manifest.hf_owner:
+            repo_id = f"{hf_owner}/DataForge-{entry.size}-{entry.stage}"
+        payload, error = _fetch_json(f"https://huggingface.co/api/models/{repo_id}")
+        if payload is None:
+            repo_results[repo_id] = {"ok": False, "error": error}
+            errors.append(f"{repo_id}: {error}")
+            continue
+        card = payload.get("cardData", {})
+        card = card if isinstance(card, dict) else {}
+        card_errors = _check_model_card_fields(
+            repo_id=repo_id,
+            card=card,
+            expected_base_model=entry.base_model,
+            expected_license=entry.upstream_license,
+            expected_dataset=manifest.dataset_repo,
+        )
+        ok = not card_errors
+        repo_results[repo_id] = {
+            "ok": ok,
+            "sha": payload.get("sha"),
+            "lastModified": payload.get("lastModified"),
+            "card_errors": card_errors,
+        }
+        errors.extend(card_errors)
 
     path = evidence_root / "models" / "model_family_report.json"
     payload, error = _load_json_file(path)
@@ -601,9 +618,9 @@ def _check_hf_model_family(evidence_root: Path, hf_owner: str) -> FullVisionChec
         evidence_metadata: dict[str, Any] = {"path": str(path), "loaded": False}
     else:
         evidence_metadata = {"path": str(path), "loaded": True}
-        if payload.get("schema_version") != "dataforge_model_family_report_v1":
+        if payload.get("schema_version") != FAMILY_REPORT_SCHEMA_VERSION:
             errors.append(
-                "model_family_report schema_version must be dataforge_model_family_report_v1"
+                f"model_family_report schema_version must be {FAMILY_REPORT_SCHEMA_VERSION}"
             )
         models = payload.get("models")
         if not isinstance(models, list):
@@ -612,21 +629,39 @@ def _check_hf_model_family(evidence_root: Path, hf_owner: str) -> FullVisionChec
         entries_by_repo = {
             str(item.get("repo_id", "")): item for item in models if isinstance(item, dict)
         }
-        expected_repos = {
-            f"{hf_owner}/DataForge-{size}-{stage}"
-            for size in EXPECTED_MODEL_SIZES
-            for stage in EXPECTED_MODEL_STAGES
-        }
         missing = sorted(expected_repos - set(entries_by_repo))
         errors.extend(f"missing model evidence: {repo_id}" for repo_id in missing)
+        manifest_by_repo = {entry.repo_id: entry for entry in expected_entries}
         for repo_id in sorted(expected_repos & set(entries_by_repo)):
             item = entries_by_repo[repo_id]
+            entry = manifest_by_repo[repo_id]
+            if item.get("size") != entry.size:
+                errors.append(f"{repo_id}: size must be {entry.size}")
+            if item.get("stage") != entry.stage:
+                errors.append(f"{repo_id}: stage must be {entry.stage}")
+            if item.get("base_model") != entry.base_model:
+                errors.append(f"{repo_id}: base_model must be {entry.base_model}")
+            if item.get("upstream_license") != entry.upstream_license:
+                errors.append(f"{repo_id}: upstream_license must be {entry.upstream_license}")
+            if item.get("artifact_status") not in PUBLIC_ARTIFACT_STATUSES:
+                errors.append(f"{repo_id}: artifact_status must be public")
+            if item.get("quality_status") not in PASSING_QUALITY_STATUSES:
+                errors.append(f"{repo_id}: quality_status must be quality-verified")
             if item.get("verifier_passed") is not True:
                 errors.append(f"{repo_id}: verifier_passed must be true")
-            if item.get("limitations_documented") is not True:
-                errors.append(f"{repo_id}: limitations_documented must be true")
+            limitations = item.get("limitations")
+            if not isinstance(limitations, list) or not limitations:
+                errors.append(f"{repo_id}: limitations must be a non-empty list")
             if not str(item.get("dataset_repo", "")).strip():
                 errors.append(f"{repo_id}: dataset_repo is required")
+            if not str(item.get("training_backend", "")).strip():
+                errors.append(f"{repo_id}: training_backend is required")
+            if not str(item.get("source_git_commit", "")).strip():
+                errors.append(f"{repo_id}: source_git_commit is required")
+            if not str(item.get("dataset_sha", "")).strip():
+                errors.append(f"{repo_id}: dataset_sha is required")
+            if not str(item.get("model_sha", "")).strip():
+                errors.append(f"{repo_id}: model_sha is required")
             for field in ("training_run_url", "model_card_url"):
                 if not _is_https_url(item.get(field)):
                     errors.append(f"{repo_id}: {field} must be an HTTPS URL")
@@ -636,6 +671,7 @@ def _check_hf_model_family(evidence_root: Path, hf_owner: str) -> FullVisionChec
             metrics = item.get("eval_metrics")
             if not isinstance(metrics, dict) or not metrics:
                 errors.append(f"{repo_id}: eval_metrics must be a non-empty object")
+        errors.extend(_model_family_dependency_errors(entries_by_repo, manifest_by_repo))
     return FullVisionCheck(
         name="hf_model_family",
         ok=not errors,
@@ -644,6 +680,64 @@ def _check_hf_model_family(evidence_root: Path, hf_owner: str) -> FullVisionChec
         else "Full HF model family is incomplete.",
         metadata={"repos": repo_results, "evidence": evidence_metadata, "errors": errors},
     )
+
+
+def _check_model_card_fields(
+    *,
+    repo_id: str,
+    card: dict[str, Any],
+    expected_base_model: str,
+    expected_license: str,
+    expected_dataset: str,
+) -> list[str]:
+    """Return errors for required model-card metadata."""
+    errors: list[str] = []
+    for field in ("license", "datasets", "base_model"):
+        if not card.get(field):
+            errors.append(f"{repo_id}: missing model-card field {field}")
+    if card.get("base_model") and card.get("base_model") != expected_base_model:
+        errors.append(f"{repo_id}: base_model must be {expected_base_model}")
+    if card.get("license") and not license_matches(
+        card.get("license"),
+        expected_license,
+        license_name=card.get("license_name"),
+    ):
+        errors.append(f"{repo_id}: license must resolve to {expected_license}")
+    datasets = card.get("datasets")
+    if isinstance(datasets, str):
+        dataset_values = {datasets}
+    elif isinstance(datasets, list):
+        dataset_values = {str(item) for item in datasets}
+    else:
+        dataset_values = set()
+    if datasets and expected_dataset not in dataset_values:
+        errors.append(f"{repo_id}: datasets must include {expected_dataset}")
+    return errors
+
+
+def _model_family_dependency_errors(
+    entries_by_repo: dict[str, Any],
+    manifest_by_repo: dict[str, Any],
+) -> list[str]:
+    """Return v2 evidence dependency errors across SFT -> GRPO -> GiGPO."""
+    errors: list[str] = []
+    for repo_id, entry in manifest_by_repo.items():
+        predecessor_repo = entry.predecessor_repo
+        if predecessor_repo is None:
+            continue
+        item = entries_by_repo.get(repo_id, {})
+        predecessor = entries_by_repo.get(predecessor_repo, {})
+        row_verified = (
+            item.get("artifact_status") in PUBLIC_ARTIFACT_STATUSES
+            and item.get("quality_status") in PASSING_QUALITY_STATUSES
+        )
+        predecessor_verified = (
+            predecessor.get("artifact_status") in PUBLIC_ARTIFACT_STATUSES
+            and predecessor.get("quality_status") in PASSING_QUALITY_STATUSES
+        )
+        if row_verified and not predecessor_verified:
+            errors.append(f"{repo_id}: predecessor {predecessor_repo} must be quality-verified")
+    return errors
 
 
 def run_full_vision_gate(

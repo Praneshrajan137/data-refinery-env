@@ -11,6 +11,8 @@ from typing import Any
 
 import yaml
 
+from dataforge.repair_contract import CONTRACT_VERSION_V2
+
 REQUIRED_PIP_PACKAGES = {
     "trl==1.4.0",
     "transformers==5.7.0",
@@ -27,7 +29,7 @@ REQUIRED_PIP_PACKAGES = {
 REQUIRED_TRAINING_VALUES: dict[str, object] = {
     "num_generations": 4,
     "max_completion_length": 256,
-    "prompt_token_budget": 1024,
+    "prompt_token_budget": 1280,
     "per_device_train_batch_size": 1,
     "gradient_accumulation_steps": 16,
     "beta": 0.04,
@@ -81,7 +83,18 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         raise GrpoConfigError(f"Missing GRPO config: {path}")
     payload = yaml.safe_load(path.read_text(encoding="utf-8"))
     config = _as_mapping(payload, name=str(path))
-    for section in ("environment", "repos", "model", "lora", "training", "reward", "release"):
+    for section in (
+        "environment",
+        "repos",
+        "model",
+        "lora",
+        "training",
+        "reward",
+        "readiness",
+        "training_sequence",
+        "release",
+        "evaluation",
+    ):
         if section not in config:
             raise GrpoConfigError(f"GRPO config is missing required section: {section}")
 
@@ -89,6 +102,9 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
     packages = environment.get("pip_packages")
     if not isinstance(packages, list) or not all(isinstance(item, str) for item in packages):
         raise GrpoConfigError("environment.pip_packages must be a list of exact package pins.")
+    uninstall_packages = environment.get("uninstall_packages")
+    if not isinstance(uninstall_packages, list) or "torchao" not in uninstall_packages:
+        raise GrpoConfigError("GRPO environment.uninstall_packages must include torchao.")
     unpinned = [package for package in packages if "==" not in package]
     if unpinned:
         raise GrpoConfigError("GRPO package pins must be exact: " + ", ".join(unpinned))
@@ -109,6 +125,92 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
     if "max_prompt_length" in training:
         raise GrpoConfigError("Use training.prompt_token_budget instead of max_prompt_length.")
 
+    reward = _as_mapping(config["reward"], name="reward")
+    if reward.get("prompt_contract_version") != CONTRACT_VERSION_V2:
+        raise GrpoConfigError("GRPO reward.prompt_contract_version must be repair_contract_v2.")
+    if reward.get("local_stateless") is not True:
+        raise GrpoConfigError("GRPO reward must remain local_stateless.")
+    if reward.get("parse_failure_reward") != 0.0:
+        raise GrpoConfigError("GRPO parse_failure_reward must be 0.0.")
+
+    readiness = _as_mapping(config["readiness"], name="readiness")
+    schema_version = str(config.get("schema_version", ""))
+    allowed_trajectories = {
+        "expert_v4.jsonl",
+        "expert_v5_repair_curriculum.jsonl",
+        "expert_v6_contract_minimal.jsonl",
+    }
+    if readiness.get("trajectory_filename") not in allowed_trajectories:
+        raise GrpoConfigError(
+            "GRPO readiness must use an approved v4/v5/v6 repair trajectory file."
+        )
+    if readiness.get("split_manifest_filename") != "split_manifest_v4.json":
+        raise GrpoConfigError("GRPO readiness must use split_manifest_v4.json.")
+    if readiness.get("prompt_contract_version") != CONTRACT_VERSION_V2:
+        raise GrpoConfigError("GRPO readiness.prompt_contract_version must be repair_contract_v2.")
+    required_datasets = readiness.get("required_datasets")
+    if required_datasets != ["hospital", "flights", "beers"]:
+        raise GrpoConfigError("GRPO readiness.required_datasets must cover hospital/flights/beers.")
+    auxiliary_datasets = readiness.get("auxiliary_datasets")
+    if "hospital_synthetic_deterministic_v1" not in (auxiliary_datasets or []):
+        raise GrpoConfigError(
+            "GRPO readiness.auxiliary_datasets must include "
+            "hospital_synthetic_deterministic_v1."
+        )
+    if float(readiness.get("min_reward_std", 0.0)) <= 0.0:
+        raise GrpoConfigError("GRPO readiness.min_reward_std must be positive.")
+    if float(readiness.get("min_per_dataset_reward_std", 0.0)) <= 0.0:
+        raise GrpoConfigError("GRPO readiness.min_per_dataset_reward_std must be positive.")
+    if int(readiness.get("min_repair_records", 0)) < 1:
+        raise GrpoConfigError("GRPO readiness.min_repair_records must be >= 1.")
+    if int(readiness.get("min_repair_signal_domains", 0)) < 2:
+        raise GrpoConfigError("GRPO readiness.min_repair_signal_domains must be >= 2.")
+    if int(readiness.get("min_dirty_records_per_dataset", 0)) != 0:
+        raise GrpoConfigError(
+            "GRPO readiness.min_dirty_records_per_dataset must be 0; "
+            "use min_repair_signal_domains for learnable repair coverage."
+        )
+    if readiness.get("require_source_provenance") is not True:
+        raise GrpoConfigError("GRPO readiness.require_source_provenance must be true.")
+
+    sequence = _as_mapping(config["training_sequence"], name="training_sequence")
+    stages = sequence.get("stages")
+    if not isinstance(stages, list) or len(stages) != 3:
+        raise GrpoConfigError("GRPO training_sequence.stages must define smoke/candidate/extended.")
+    stage_by_name = {
+        str(stage.get("name")): _as_mapping(stage, name="training_sequence stage")
+        for stage in stages
+        if isinstance(stage, dict)
+    }
+    expected_steps = (
+        {"smoke": 50, "diagnostic": 250, "candidate": 500}
+        if schema_version == "grpo_05b_v3"
+        else {"smoke": 50, "candidate": 500, "extended_candidate": 1000}
+    )
+    for name, steps in expected_steps.items():
+        stage = stage_by_name.get(name)
+        if stage is None or int(stage.get("max_steps", 0)) != steps:
+            raise GrpoConfigError(f"GRPO training_sequence missing {name} max_steps={steps}.")
+    if stage_by_name["smoke"].get("allow_upload") is not False:
+        raise GrpoConfigError("GRPO smoke stage must not allow upload.")
+    selection_order = sequence.get("selection_order")
+    expected_selection_order = (
+        [
+            "highest_strict_macro_f1",
+            "highest_deterministic_normalization_f1",
+            "lowest_schema_case_errors",
+            "lowest_gpu_hours",
+        ]
+        if schema_version == "grpo_05b_v3"
+        else [
+            "highest_strict_macro_f1",
+            "lowest_schema_case_errors",
+            "lowest_gpu_hours",
+        ]
+    )
+    if selection_order != expected_selection_order:
+        raise GrpoConfigError("GRPO training_sequence.selection_order is stale.")
+
     release = _as_mapping(config["release"], name="release")
     if release.get("benchmark_name") != "DataForge-Bench-light-verified":
         raise GrpoConfigError("release.benchmark_name must be DataForge-Bench-light-verified.")
@@ -116,6 +218,55 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         raise GrpoConfigError("release.min_absolute_f1_gain must be at least 0.03.")
     if release.get("benchmark_seeds") != [0, 1, 2]:
         raise GrpoConfigError("release.benchmark_seeds must be [0, 1, 2].")
+
+    if schema_version == "grpo_05b_v2":
+        kaggle = _as_mapping(config.get("kaggle", {}), name="kaggle")
+        if kaggle.get("auth_mode") != "oauth":
+            raise GrpoConfigError("GRPO v2 requires Kaggle OAuth.")
+        if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
+            raise GrpoConfigError("GRPO v2 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
+        if reward.get("posture") != "balanced_recall":
+            raise GrpoConfigError("GRPO v2 reward.posture must be balanced_recall.")
+        if float(release.get("target_strict_macro_f1", 0.0)) < 0.25:
+            raise GrpoConfigError("GRPO v2 release.target_strict_macro_f1 must be >= 0.25.")
+        if float(release.get("require_not_inferable_slice_f1", 0.0)) < 0.95:
+            raise GrpoConfigError("GRPO v2 must preserve the not-inferable no-op slice.")
+        if release.get("publish_or_update_public_model_only_after_v2_gate") is not True:
+            raise GrpoConfigError("GRPO v2 public model updates must remain gate-blocked.")
+    if schema_version == "grpo_05b_v3":
+        kaggle = _as_mapping(config.get("kaggle", {}), name="kaggle")
+        if kaggle.get("auth_mode") != "oauth":
+            raise GrpoConfigError("GRPO v3 requires Kaggle OAuth.")
+        if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
+            raise GrpoConfigError("GRPO v3 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
+        if readiness.get("trajectory_filename") != "expert_v6_contract_minimal.jsonl":
+            raise GrpoConfigError("GRPO v3 must use the expert_v6_contract_minimal handoff.")
+        if reward.get("posture") != "inferability_aware_repair":
+            raise GrpoConfigError("GRPO v3 reward.posture must be inferability_aware_repair.")
+        if float(release.get("target_strict_macro_f1", 0.0)) < 0.25:
+            raise GrpoConfigError("GRPO v3 release.target_strict_macro_f1 must be >= 0.25.")
+        if float(release.get("require_not_inferable_slice_f1", 0.0)) < 0.95:
+            raise GrpoConfigError("GRPO v3 must preserve the not-inferable no-op slice.")
+        if float(release.get("require_deterministic_normalization_slice_f1", 0.0)) < 0.50:
+            raise GrpoConfigError("GRPO v3 must gate deterministic-normalization active repair.")
+        if release.get("upload_repo_private") is not True:
+            raise GrpoConfigError("GRPO v3 candidate uploads must remain private.")
+        if release.get("publish_or_update_public_model_only_after_v3_gate") is not True:
+            raise GrpoConfigError("GRPO v3 public model updates must remain gate-blocked.")
+
+    evaluation = _as_mapping(config["evaluation"], name="evaluation")
+    if int(evaluation.get("heldout_tasks", 0)) != 100:
+        raise GrpoConfigError("evaluation.heldout_tasks must be 100.")
+    if int(evaluation.get("seeds_start", 0)) != 10000:
+        raise GrpoConfigError("evaluation.seeds_start must be 10000.")
+    if int(evaluation.get("chunk_width", 0)) != 4:
+        raise GrpoConfigError("evaluation.chunk_width must be 4.")
+    if int(evaluation.get("max_new_tokens", 0)) != 1024:
+        raise GrpoConfigError("evaluation.max_new_tokens must be 1024.")
+    if evaluation.get("source") != "pinned_dataforge_registry":
+        raise GrpoConfigError("evaluation.source must be pinned_dataforge_registry.")
+    if evaluation.get("datasets") != ["hospital", "flights", "beers"]:
+        raise GrpoConfigError("evaluation.datasets must cover hospital/flights/beers.")
     return config
 
 

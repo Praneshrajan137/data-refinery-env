@@ -1,0 +1,87 @@
+﻿[{"stream_name":"stdout","time":12.11310522,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 751.0/751.0 kB 23.6 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":12.244960915,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.5/10.5 MB 85.7 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":12.2806515,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 680.7/680.7 kB 34.8 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":13.138816442,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 60.7/60.7 MB 30.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":13.171075028,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 660.6/660.6 kB 36.8 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":13.250354134,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.5/5.5 MB 81.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":13.370156709,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 12.2/12.2 MB 104.1 MB/s eta 0:00:00\n"}
+,{"stream_name":"stderr","time":31.410829855,"data":"ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\n"}
+,{"stream_name":"stderr","time":31.410886193,"data":"dask-cuda 26.2.0 requires cuda-core==0.3.*, but you have cuda-core 1.0.1 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410892572,"data":"dask-cuda 26.2.0 requires numba-cuda\u003c0.23.0,\u003e=0.22.1, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410897569,"data":"distributed-ucxx-cu12 0.48.0 requires numba-cuda[cu12]\u003c0.23.0,\u003e=0.22.1, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410902557,"data":"cuml-cu12 26.2.0 requires numba\u003c0.62.0,\u003e=0.60.0, but you have numba 0.65.1 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410907071,"data":"cuml-cu12 26.2.0 requires numba-cuda[cu12]\u003c0.23.0,\u003e=0.22.1, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410912006,"data":"ucxx-cu12 0.48.0 requires numba-cuda[cu12]\u003c0.23.0,\u003e=0.22.1, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410919223,"data":"tensorflow 2.19.0 requires numpy\u003c2.2.0,\u003e=1.26.0, but you have numpy 2.4.6 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410922066,"data":"tensorflow 2.19.0 requires tensorboard~=2.19.0, but you have tensorboard 2.20.0 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410924852,"data":"cudf-cu12 26.2.1 requires numba\u003c0.62.0,\u003e=0.60.0, but you have numba 0.65.1 which is incompatible.\n"}
+,{"stream_name":"stderr","time":31.410927732,"data":"cudf-cu12 26.2.1 requires numba-cuda[cu12]\u003c0.23.0,\u003e=0.22.2, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stdout","time":41.372182103,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 731.1/731.1 kB 22.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":41.397868418,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 310.7/310.7 kB 19.8 MB/s eta 0:00:00\n"}
+,{"stream_name":"stdout","time":41.995609578,"data":"   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 31.7/31.7 MB 25.4 MB/s eta 0:00:00\n"}
+,{"stream_name":"stderr","time":46.88432491,"data":"ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.\n"}
+,{"stream_name":"stderr","time":46.884388352,"data":"bigframes 2.39.0 requires google-cloud-bigquery-storage\u003c3.0.0,\u003e=2.30.0, which is not installed.\n"}
+,{"stream_name":"stderr","time":46.884393951,"data":"sigstore 4.2.0 requires rich\u003c15,\u003e=13, but you have rich 15.0.0 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884397749,"data":"bigframes 2.39.0 requires rich\u003c14,\u003e=12.4.4, but you have rich 15.0.0 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884401537,"data":"cuml-cu12 26.2.0 requires numba\u003c0.62.0,\u003e=0.60.0, but you have numba 0.65.1 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884405378,"data":"cuml-cu12 26.2.0 requires numba-cuda[cu12]\u003c0.23.0,\u003e=0.22.1, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884408962,"data":"tensorflow 2.19.0 requires numpy\u003c2.2.0,\u003e=1.26.0, but you have numpy 2.4.6 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884412481,"data":"tensorflow 2.19.0 requires tensorboard~=2.19.0, but you have tensorboard 2.20.0 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884416038,"data":"cudf-cu12 26.2.1 requires numba\u003c0.62.0,\u003e=0.60.0, but you have numba 0.65.1 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884419597,"data":"cudf-cu12 26.2.1 requires numba-cuda[cu12]\u003c0.23.0,\u003e=0.22.2, but you have numba-cuda 0.30.2 which is incompatible.\n"}
+,{"stream_name":"stderr","time":46.884432616,"data":"pyiceberg 0.11.1 requires rich\u003c15.0.0,\u003e=10.11.0, but you have rich 15.0.0 which is incompatible.\n"}
+,{"stream_name":"stderr","time":87.287766739,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":87.28782909,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_web_client.py\", line 46, in make_post_request\n"}
+,{"stream_name":"stderr","time":87.287954647,"data":"    with urllib.request.urlopen(req, timeout=timeout) as response:\n"}
+,{"stream_name":"stderr","time":87.289808583,"data":"         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.289832535,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 215, in urlopen\n"}
+,{"stream_name":"stderr","time":87.291119193,"data":"    return opener.open(url, data, timeout)\n"}
+,{"stream_name":"stderr","time":87.29228296,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.292304582,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 521, in open\n"}
+,{"stream_name":"stderr","time":87.292583239,"data":"    response = meth(req, response)\n"}
+,{"stream_name":"stderr","time":87.294122903,"data":"               ^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.294143144,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 630, in http_response\n"}
+,{"stream_name":"stderr","time":87.294658542,"data":"    response = self.parent.error(\n"}
+,{"stream_name":"stderr","time":87.295779467,"data":"               ^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.295796683,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 559, in error\n"}
+,{"stream_name":"stderr","time":87.296097759,"data":"    return self._call_chain(*args)\n"}
+,{"stream_name":"stderr","time":87.29716401,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.297280307,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 492, in _call_chain\n"}
+,{"stream_name":"stderr","time":87.297621081,"data":"    result = func(*args)\n"}
+,{"stream_name":"stderr","time":87.298413924,"data":"             ^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.298515024,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 639, in http_error_default\n"}
+,{"stream_name":"stderr","time":87.298937634,"data":"    raise HTTPError(req.full_url, code, msg, hdrs, fp)\n"}
+,{"stream_name":"stderr","time":87.299215107,"data":"urllib.error.HTTPError: HTTP Error 400: Bad Request\n"}
+,{"stream_name":"stderr","time":87.299293365,"data":"\n"}
+,{"stream_name":"stderr","time":87.299301615,"data":"The above exception was the direct cause of the following exception:\n"}
+,{"stream_name":"stderr","time":87.299343538,"data":"\n"}
+,{"stream_name":"stderr","time":87.299405595,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":87.299490554,"data":"  File \"/kaggle/src/script.py\", line 96, in _load_hf_token\n"}
+,{"stream_name":"stderr","time":87.299718052,"data":"    token = (UserSecretsClient().get_secret(\"HF_TOKEN\") or \"\").strip()\n"}
+,{"stream_name":"stderr","time":87.301832199,"data":"             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.301850121,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_secrets.py\", line 64, in get_secret\n"}
+,{"stream_name":"stderr","time":87.301855931,"data":"    response_json = self.web_client.make_post_request(request_body, self.GET_USER_SECRET_BY_LABEL_ENDPOINT)\n"}
+,{"stream_name":"stderr","time":87.303471855,"data":"                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.303507846,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_web_client.py\", line 58, in make_post_request\n"}
+,{"stream_name":"stderr","time":87.303766833,"data":"    raise ConnectionError(\n"}
+,{"stream_name":"stderr","time":87.303880667,"data":"ConnectionError: Connection error trying to communicate with service.\n"}
+,{"stream_name":"stderr","time":87.303961537,"data":"\n"}
+,{"stream_name":"stderr","time":87.304001706,"data":"The above exception was the direct cause of the following exception:\n"}
+,{"stream_name":"stderr","time":87.304071751,"data":"\n"}
+,{"stream_name":"stderr","time":87.30412351,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":87.304195611,"data":"  File \"/kaggle/src/script.py\", line 664, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":87.304598641,"data":"    raise SystemExit(main())\n"}
+,{"stream_name":"stderr","time":87.305498671,"data":"                     ^^^^^^\n"}
+,{"stream_name":"stderr","time":87.305574926,"data":"  File \"/kaggle/src/script.py\", line 406, in main\n"}
+,{"stream_name":"stderr","time":87.305912695,"data":"    hf_token, hf_token_source = _load_hf_token()\n"}
+,{"stream_name":"stderr","time":87.307248438,"data":"                                ^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":87.307324379,"data":"  File \"/kaggle/src/script.py\", line 98, in _load_hf_token\n"}
+,{"stream_name":"stderr","time":87.307535968,"data":"    raise RuntimeError(\"HF_TOKEN Kaggle secret is required for candidate upload.\") from exc\n"}
+,{"stream_name":"stderr","time":87.30767904,"data":"RuntimeError: HF_TOKEN Kaggle secret is required for candidate upload.\n"}
+,{"stream_name":"stderr","time":92.976808696,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":92.976846658,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":93.248352724,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":93.248385627,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":93.999959598,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":95.522928483,"data":"[NbConvertApp] Writing 397554 bytes to __results__.html\n"}
+]

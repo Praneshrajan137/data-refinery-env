@@ -1,0 +1,340 @@
+{
+  "artifacts": {
+    "split_manifest_path": "training\\kaggle_grpo_candidate_handoff\\split_manifest_v4.json",
+    "trajectory_path": "data\\sft_traj\\expert_v5_repair_curriculum.jsonl"
+  },
+  "blockers": [],
+  "failure_samples": [],
+  "limitations": [
+    "Readiness is local diagnostic evidence only; it does not create a model-quality claim.",
+    "Tokenizer-specific prompt-token enforcement still runs inside the Kaggle notebook."
+  ],
+  "metrics": {
+    "balanced_prompt_records": 768,
+    "clean_by_base_dataset": {
+      "beers": 163,
+      "flights": 162,
+      "hospital": 162
+    },
+    "clean_by_dataset": {
+      "beers": 163,
+      "flights": 162,
+      "hospital": 162
+    },
+    "clean_records": 487,
+    "counts_by_base_dataset": {
+      "beers": 753,
+      "flights": 290,
+      "hospital": 418
+    },
+    "counts_by_dataset": {
+      "beers": 753,
+      "flights": 290,
+      "hospital": 162,
+      "hospital_synthetic_deterministic_v1": 256
+    },
+    "dirty_by_base_dataset": {
+      "beers": 590,
+      "flights": 128,
+      "hospital": 256
+    },
+    "dirty_by_dataset": {
+      "beers": 590,
+      "flights": 128,
+      "hospital_synthetic_deterministic_v1": 256
+    },
+    "dirty_records": 974,
+    "leakage_count": 0,
+    "per_base_dataset": {
+      "beers": {
+        "clean_records": 163,
+        "dirty_records": 590,
+        "records": 753,
+        "reward_probe": {
+          "adversarial_probe_count": 753,
+          "mean_oracle_minus_finish": 0.783533,
+          "oracle_parse_failures": 0,
+          "reward_count": 2259,
+          "reward_std": 0.490986,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        }
+      },
+      "flights": {
+        "clean_records": 162,
+        "dirty_records": 128,
+        "records": 290,
+        "reward_probe": {
+          "adversarial_probe_count": 290,
+          "mean_oracle_minus_finish": 0.441379,
+          "oracle_parse_failures": 0,
+          "reward_count": 870,
+          "reward_std": 0.499618,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        }
+      },
+      "hospital": {
+        "clean_records": 162,
+        "dirty_records": 256,
+        "records": 418,
+        "reward_probe": {
+          "adversarial_probe_count": 418,
+          "mean_oracle_minus_finish": 0.61244,
+          "oracle_parse_failures": 0,
+          "reward_count": 1254,
+          "reward_std": 0.498593,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        }
+      },
+      "hospital_synthetic_deterministic_v1": {
+        "clean_records": 0,
+        "dirty_records": 0,
+        "records": 0,
+        "reward_probe": null
+      }
+    },
+    "per_dataset": {
+      "beers": {
+        "clean_records": 163,
+        "dirty_records": 590,
+        "inferability_counts": {
+          "deterministic_normalization": 590,
+          "external_reference_required": 163
+        },
+        "records": 753,
+        "reward_probe": {
+          "adversarial_probe_count": 753,
+          "mean_oracle_minus_finish": 0.783533,
+          "oracle_parse_failures": 0,
+          "reward_count": 2259,
+          "reward_std": 0.490986,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        },
+        "source_provenance": {
+          "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+          "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+          "domain": "consumer",
+          "eval_rows": 241,
+          "ground_truth_cells": 4362,
+          "n_columns": 11,
+          "n_rows": 2410,
+          "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+          "train_rows": 2169
+        }
+      },
+      "flights": {
+        "clean_records": 162,
+        "dirty_records": 128,
+        "inferability_counts": {
+          "deterministic_normalization": 128,
+          "external_reference_required": 145,
+          "not_inferable_from_prompt": 17
+        },
+        "records": 290,
+        "reward_probe": {
+          "adversarial_probe_count": 290,
+          "mean_oracle_minus_finish": 0.441379,
+          "oracle_parse_failures": 0,
+          "reward_count": 870,
+          "reward_std": 0.499618,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        },
+        "source_provenance": {
+          "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+          "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+          "domain": "aviation",
+          "eval_rows": 238,
+          "ground_truth_cells": 4920,
+          "n_columns": 7,
+          "n_rows": 2376,
+          "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+          "train_rows": 2138
+        }
+      },
+      "hospital": {
+        "clean_records": 162,
+        "dirty_records": 0,
+        "inferability_counts": {
+          "external_reference_required": 145,
+          "not_inferable_from_prompt": 17
+        },
+        "records": 162,
+        "reward_probe": {
+          "adversarial_probe_count": 162,
+          "mean_oracle_minus_finish": 0.0,
+          "oracle_parse_failures": 0,
+          "reward_count": 486,
+          "reward_std": 0.471405,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        },
+        "source_provenance": {
+          "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+          "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+          "domain": "healthcare",
+          "eval_rows": 100,
+          "ground_truth_cells": 509,
+          "n_columns": 20,
+          "n_rows": 1000,
+          "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+          "train_rows": 900
+        }
+      },
+      "hospital_synthetic_deterministic_v1": {
+        "clean_records": 0,
+        "dirty_records": 256,
+        "inferability_counts": {
+          "deterministic_normalization": 256
+        },
+        "records": 256,
+        "reward_probe": {
+          "adversarial_probe_count": 256,
+          "mean_oracle_minus_finish": 1.0,
+          "oracle_parse_failures": 0,
+          "reward_count": 768,
+          "reward_std": 0.471405,
+          "reward_unique_values": [
+            0.0,
+            1.0
+          ],
+          "schema_case_error_count": 0
+        },
+        "source_provenance": {
+          "base_dataset": "hospital",
+          "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+          "collection_method": "synthetic_from_canonical_train_rows",
+          "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+          "domain": "healthcare",
+          "eval_rows": 100,
+          "ground_truth_cells": 509,
+          "n_columns": 20,
+          "n_rows": 1000,
+          "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+          "synthetic_policy": "hospital_format_normalization_v1",
+          "train_rows": 900
+        }
+      }
+    },
+    "records_seen": 1461,
+    "repair_records": 974,
+    "repair_signal_domains": [
+      "beers",
+      "flights",
+      "hospital"
+    ],
+    "reward_probe": {
+      "adversarial_probe_count": 1461,
+      "mean_oracle_minus_finish": 0.666667,
+      "oracle_parse_failures": 0,
+      "reward_count": 4383,
+      "reward_std": 0.496904,
+      "reward_unique_values": [
+        0.0,
+        1.0
+      ],
+      "schema_case_error_count": 0
+    },
+    "valid_prompt_records": 1461
+  },
+  "ok": true,
+  "prompt_dataset_preview": [
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:2:expert_v5_repair_curriculum:abstention_hard_negative:0000"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:7:expert_v5_repair_curriculum:abstention_hard_negative:0001"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:17:expert_v5_repair_curriculum:abstention_hard_negative:0002"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:18:expert_v5_repair_curriculum:abstention_hard_negative:0003"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:19:expert_v5_repair_curriculum:abstention_hard_negative:0004"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:21:expert_v5_repair_curriculum:abstention_hard_negative:0005"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:22:expert_v5_repair_curriculum:abstention_hard_negative:0006"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:24:expert_v5_repair_curriculum:abstention_hard_negative:0007"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:27:expert_v5_repair_curriculum:abstention_hard_negative:0008"
+    },
+    {
+      "dataset": "beers",
+      "dirty": false,
+      "trajectory_id": "beers:easy:42:30:expert_v5_repair_curriculum:abstention_hard_negative:0009"
+    }
+  ],
+  "schema_version": "dataforge_grpo_readiness_report_v1",
+  "settings": {
+    "auxiliary_datasets": [
+      "hospital_synthetic_deterministic_v1"
+    ],
+    "max_failure_samples": 25,
+    "min_clean_records": 128,
+    "min_dirty_records": 0,
+    "min_dirty_records_per_dataset": 0,
+    "min_per_dataset_reward_std": 0.01,
+    "min_records": 640,
+    "min_records_per_dataset": 64,
+    "min_repair_records": 512,
+    "min_repair_signal_domains": 3,
+    "min_reward_std": 0.05,
+    "prompt_contract_version": "repair_contract_v2",
+    "require_source_provenance": true,
+    "required_datasets": [
+      "hospital",
+      "flights",
+      "beers"
+    ],
+    "split_manifest_filename": "split_manifest_v4.json",
+    "trajectory_filename": "expert_v5_repair_curriculum.jsonl"
+  },
+  "status": "pass"
+}

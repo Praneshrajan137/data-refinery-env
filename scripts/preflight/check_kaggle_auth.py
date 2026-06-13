@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,26 @@ LEGACY_KAGGLE_ENV_VARS = (
     "KAGGLE_API_TOKEN",
     "KAGGLE_API_V1_TOKEN",
 )
+OAUTH_REFRESH_WINDOW = timedelta(hours=1)
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+def _parse_expiration(value: Any) -> datetime:
+    if not isinstance(value, str) or not value:
+        raise RuntimeError("Kaggle OAuth credentials are missing access_token_expiration")
+    normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError as exc:
+        raise RuntimeError("Kaggle OAuth access_token_expiration is not ISO-8601") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _refresh_needed(expires_at: datetime, *, now: datetime | None = None) -> bool:
+    current = now or datetime.now(UTC)
+    return expires_at <= current + OAUTH_REFRESH_WINDOW
 
 
 def _load_credentials(path: Path) -> dict[str, Any]:
@@ -48,12 +68,15 @@ def _load_credentials(path: Path) -> dict[str, Any]:
         raise RuntimeError("Kaggle OAuth credentials are missing username")
     if not isinstance(scopes, list) or not scopes:
         raise RuntimeError("Kaggle OAuth credentials are missing scopes")
+    expires_at = _parse_expiration(payload.get("access_token_expiration"))
     return {
         "credentials_present": True,
         "credential_path": str(path),
         "credential_type": "oauth",
         "username": username,
         "scopes_count": len(scopes),
+        "access_token_expires_at": expires_at.isoformat(),
+        "access_token_refresh_recommended": _refresh_needed(expires_at),
         "legacy_kaggle_json_exists": STALE_KAGGLE_JSON.exists(),
         "legacy_kaggle_json_used": False,
         "tokens_printed": False,
@@ -112,6 +135,7 @@ def _run_cli_with_clean_config(
 ) -> dict[str, Any]:
     """Run a read-only Kaggle CLI command with legacy config and env isolated."""
     resolved_cli = _resolve_kaggle_cli(kaggle_cli)
+    refresh_report = _refresh_oauth_access_token_if_needed(kaggle_json)
     command = [
         str(resolved_cli),
         "datasets",
@@ -149,8 +173,35 @@ def _run_cli_with_clean_config(
             "clean_config_dir_used": True,
             "legacy_env_cleared": True,
             "oauth_credentials_file": str(kaggle_json),
+            **refresh_report,
             "tokens_printed": False,
         }
+
+
+def _refresh_oauth_access_token_if_needed(kaggle_json: Path) -> dict[str, Any]:
+    payload = json.loads(kaggle_json.read_text(encoding="utf-8-sig"))
+    expires_at = _parse_expiration(payload.get("access_token_expiration"))
+    if not _refresh_needed(expires_at):
+        return {"oauth_access_token_refreshed": False}
+    try:
+        from kaggle.api.kaggle_api_extended import KaggleApi
+        from kagglesdk.kaggle_creds import KaggleCredentials
+    except ImportError as exc:
+        raise RuntimeError("Kaggle OAuth refresh requires kaggle>=2 with kagglesdk") from exc
+
+    api = KaggleApi()
+    with api.build_kaggle_client() as kaggle:
+        creds = KaggleCredentials.load(client=kaggle, file_path=str(kaggle_json))
+        if creds is None:
+            raise RuntimeError("Kaggle OAuth credentials could not be loaded for refresh")
+        creds.refresh_access_token()
+        creds.save(file_path=str(kaggle_json))
+    refreshed_payload = json.loads(kaggle_json.read_text(encoding="utf-8-sig"))
+    refreshed_expiry = _parse_expiration(refreshed_payload.get("access_token_expiration"))
+    return {
+        "oauth_access_token_refreshed": True,
+        "access_token_expires_at": refreshed_expiry.isoformat(),
+    }
 
 
 def _build_parser() -> argparse.ArgumentParser:

@@ -1,0 +1,822 @@
+{
+  "briefs": [
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 3,
+        "overrepair": 2,
+        "schema_case_error": 1
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "56",
+          "reason": "The new value for index is incorrect.",
+          "row": 55
+        },
+        {
+          "column": "ProviderNumber",
+          "new_value": "10005",
+          "reason": "The new value for ProviderNumber is incorrect.",
+          "row": 56
+        },
+        {
+          "column": "Address1",
+          "new_value": "2505 u s highway 431 north",
+          "reason": "The new value for Address1 is incorrect.",
+          "row": 57
+        },
+        {
+          "column": "Address2",
+          "new_value": "empty",
+          "reason": "The new value for Address2 is empty.",
+          "row": 58
+        }
+      ],
+      "task_index": 1
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "missed_repair": 12,
+        "schema_case_error": 3,
+        "wrong_cell": 1
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Tuple ID",
+          "new_value": "1652",
+          "reason": "The 'Tuple ID' column has been updated to '1652'.",
+          "row": 1651
+        },
+        {
+          "column": "Src",
+          "new_value": "AA-1544-SAN-ORD",
+          "reason": "The 'Src' column has been updated to 'AA-1544-SAN-ORD'.",
+          "row": 1652
+        },
+        {
+          "column": "Src",
+          "new_value": "AA-4344-ORD-DTW",
+          "reason": "The 'Src' column has been updated to 'AA-4344-ORD-DTW'.",
+          "row": 1653
+        },
+        {
+          "column": "Src",
+          "new_value": "AA-1733-ORD-PHX",
+          "reason": "The 'Src' column has been updated to 'AA-1733-ORD-PHX'.",
+          "row": 1654
+        }
+      ],
+      "task_index": 2
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 5,
+        "overrepair": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "abv",
+          "new_value": "0.052",
+          "reason": "The beer name 'Lava Lake Wit' was found to have an abv value of 0.052, which is inconsistent with the expected value of 0.052 for a Witbier.",
+          "row": 657
+        },
+        {
+          "column": "abv",
+          "new_value": "0.06",
+          "reason": "The beer name 'Mountain Livin' Pale Ale' was found to have an abv value of 0.06, which is consistent with the expected value of 0.06 for a Pale Ale.",
+          "row": 658
+        },
+        {
+          "column": "abv",
+          "new_value": "0.052",
+          "reason": "The beer name 'Crazy Mountain Amber Ale' was found to have an abv value of 0.052, which is consistent with the expected value of 0.052 for an Amber Ale.",
+          "row": 659
+        }
+      ],
+      "task_index": 3
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 4,
+        "schema_case_error": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "162",
+          "reason": "The patient's address has been updated.",
+          "row": 161
+        },
+        {
+          "column": "Index",
+          "new_value": "163",
+          "reason": "The patient's address has been updated.",
+          "row": 162
+        },
+        {
+          "column": "Index",
+          "new_value": "164",
+          "reason": "The patient's address has been updated.",
+          "row": 163
+        }
+      ],
+      "task_index": 4
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "overrepair": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "act_arr_time",
+          "new_value": "5:26 p.m.",
+          "reason": "The act_arr_time for flight CO-50-CLE-EWR has been updated to 5:26 PM.",
+          "row": 1433
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "7:10 p.m.",
+          "reason": "The act_arr_time for flight CO-62-IAH-EWR has been updated to 7:10 PM.",
+          "row": 1434
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "12:09 p.m.",
+          "reason": "The act_arr_time for flight CO-1193-EWR-MCO has been updated to 12:09 PM.",
+          "row": 1435
+        }
+      ],
+      "task_index": 5
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 7,
+        "overrepair": 2
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "style",
+          "new_value": "Scottish Ale",
+          "reason": "The style has been changed to Scottish Ale.",
+          "row": 1590
+        },
+        {
+          "column": "style",
+          "new_value": "American Pale Ale (APA)",
+          "reason": "The style has been changed to American Pale Ale (APA).",
+          "row": 1591
+        }
+      ],
+      "task_index": 6
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 2,
+        "schema_case_error": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "513",
+          "reason": "The patient's address has been updated.",
+          "row": 512
+        },
+        {
+          "column": "Index",
+          "new_value": "514",
+          "reason": "The patient's address has been updated.",
+          "row": 513
+        },
+        {
+          "column": "Index",
+          "new_value": "515",
+          "reason": "The patient's address has been updated.",
+          "row": 514
+        }
+      ],
+      "task_index": 7
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "missed_repair": 4,
+        "wrong_value": 4
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "act_arr_time",
+          "new_value": "1:23 p.m.",
+          "reason": "The act_arr_time for flight AA-85-JFK-SFO has been updated to 1:23 PM.",
+          "row": 324
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "",
+          "reason": "The act_arr_time for flight AA-85-JFK-SFO is missing or incorrect.",
+          "row": 325
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "",
+          "reason": "The act_arr_time for flight AA-85-JFK-SFO is missing or incorrect.",
+          "row": 326
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "",
+          "reason": "The act_arr_time for flight AA-85-JFK-SFO is missing or incorrect.",
+          "row": 327
+        }
+      ],
+      "task_index": 8
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 7,
+        "overrepair": 3,
+        "wrong_value": 1
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "abv",
+          "new_value": "0.045",
+          "reason": "The beer name has been changed to 'SummerBright Ale'.",
+          "row": 379
+        },
+        {
+          "column": "abv",
+          "new_value": "0.062%",
+          "reason": "The beer name has been changed to 'Lucky U IPA'.",
+          "row": 380
+        },
+        {
+          "column": "abv",
+          "new_value": "0.054",
+          "reason": "The beer name has been changed to 'Avalanche Ale'.",
+          "row": 381
+        },
+        {
+          "column": "abv",
+          "new_value": "0.05",
+          "reason": "The beer name has been changed to 'You're My Boy, Blue'.",
+          "row": 382
+        }
+      ],
+      "task_index": 9
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "overrepair": 4
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Address1",
+          "new_value": "2505 u s highway 431 north",
+          "reason": "Corrected address to ensure accuracy",
+          "row": 52
+        },
+        {
+          "column": "Address2",
+          "new_value": "",
+          "reason": "Address was already correct, no need to change",
+          "row": 53
+        },
+        {
+          "column": "Address3",
+          "new_value": "",
+          "reason": "Address was already correct, no need to change",
+          "row": 54
+        },
+        {
+          "column": "Address1",
+          "new_value": "2505 u s highway 431 north",
+          "reason": "Corrected address to ensure accuracy",
+          "row": 55
+        }
+      ],
+      "task_index": 10
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "missed_repair": 8,
+        "overrepair": 2,
+        "wrong_value": 1
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "act_arr_time",
+          "new_value": "10:56 a.m.",
+          "reason": "The act_arr_time for flight CO-1088-CLE-IAH has been updated to 10:56 a.m.",
+          "row": 655
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "10:27 a.m.",
+          "reason": "The act_arr_time for flight CO-89-IAH-EWR has been updated to 10:27 a.m.",
+          "row": 656
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "10:01 a.m.",
+          "reason": "The act_arr_time for flight AA-466-IAH-MIA has been updated to 10:01 a.m.",
+          "row": 657
+        }
+      ],
+      "task_index": 11
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 8,
+        "schema_case_error": 4
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Beer-Name",
+          "new_value": "Triangle White Ale",
+          "reason": "The beer name has been replaced with 'Triangle White Ale'.",
+          "row": 2211
+        },
+        {
+          "column": "Beer-Name",
+          "new_value": "Triangle Belgian Golden Ale",
+          "reason": "The beer name has been replaced with 'Triangle Belgian Golden Ale'.",
+          "row": 2212
+        },
+        {
+          "column": "Beer-Name",
+          "new_value": "Troegenator",
+          "reason": "The beer name has been replaced with 'Troegenator'.",
+          "row": 2213
+        },
+        {
+          "column": "Beer-Name",
+          "new_value": "Nugget Nectar",
+          "reason": "The beer name has been replaced with 'Nugget Nectar'.",
+          "row": 2214
+        }
+      ],
+      "task_index": 12
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 3,
+        "schema_case_error": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "503",
+          "reason": "The index value has been updated from '502' to '503'.",
+          "row": 502
+        },
+        {
+          "column": "Index",
+          "new_value": "504",
+          "reason": "The index value has been updated from '503' to '504'.",
+          "row": 503
+        },
+        {
+          "column": "Index",
+          "new_value": "505",
+          "reason": "The index value has been updated from '504' to '505'.",
+          "row": 504
+        }
+      ],
+      "task_index": 13
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "missed_repair": 7,
+        "overrepair": 1,
+        "wrong_value": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "act_arr_time",
+          "new_value": "7:53 p.m.",
+          "reason": "The act_arr_time for flight AA-1007-MIA-PHX has been updated to 7:53 PM.",
+          "row": 679
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "6:35 p.m.",
+          "reason": "The act_arr_time for flight UA-2906-PHL-MCO has been updated to 6:35 PM.",
+          "row": 680
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "7:36 p.m.",
+          "reason": "The act_arr_time for flight UA-938-DEN-ORD has been updated to 7:36 PM.",
+          "row": 681
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "9:49 p.m.",
+          "reason": "The act_arr_time for flight AA-1221-MCO-ORD has been updated to 9:49 PM.",
+          "row": 682
+        }
+      ],
+      "task_index": 14
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 4,
+        "overrepair": 1,
+        "wrong_value": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "abv",
+          "new_value": "0.043",
+          "reason": "The value for 'abv' has been replaced with a new value.",
+          "row": 739
+        },
+        {
+          "column": "abv",
+          "new_value": "0.057999999999999996%",
+          "reason": "The value for 'abv' has been replaced with a new value.",
+          "row": 740
+        },
+        {
+          "column": "abv",
+          "new_value": "0.061%",
+          "reason": "The value for 'abv' has been replaced with a new value.",
+          "row": 741
+        },
+        {
+          "column": "abv",
+          "new_value": "0.045%",
+          "reason": "The value for 'abv' has been replaced with a new value.",
+          "row": 742
+        }
+      ],
+      "task_index": 15
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 7,
+        "schema_case_error": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "385",
+          "reason": "The address '2451 fillingim street' has been replaced with '385'.",
+          "row": 384
+        },
+        {
+          "column": "Index",
+          "new_value": "386",
+          "reason": "The address '2451 fillingim street' has been replaced with '386'.",
+          "row": 385
+        },
+        {
+          "column": "Index",
+          "new_value": "387",
+          "reason": "The address '2451 fillingim street' has been replaced with '387'.",
+          "row": 386
+        }
+      ],
+      "task_index": 16
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "missed_repair": 2,
+        "overrepair": 2,
+        "wrong_value": 2
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "act_arr_time",
+          "new_value": "3:13 p.m.",
+          "reason": "The act_arr_time for flight AA-789-ORD-DEN has been updated to 3:13 p.m.",
+          "row": 1215
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "1:30 p.m.",
+          "reason": "The act_arr_time for flight UA-854-SFO-IAH has been updated to 1:30 p.m.",
+          "row": 1216
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "6:36 p.m.",
+          "reason": "The act_arr_time for flight AA-85-JFK-SFO has been updated to 6:36 p.m.",
+          "row": 1217
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "7:35 p.m.",
+          "reason": "The act_arr_time for flight AA-1640-MIA-MCO has been updated to 7:35 p.m.",
+          "row": 1218
+        }
+      ],
+      "task_index": 17
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 9,
+        "schema_case_error": 4
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Abv",
+          "new_value": "0.05%",
+          "reason": "The beer name 'Angry Orchard Crisp Apple' is missing an abv value.",
+          "row": 123
+        },
+        {
+          "column": "Abv",
+          "new_value": "0.05",
+          "reason": "The beer name 'Angry Orchard Crisp Apple' has a different abv value than the previous row.",
+          "row": 124
+        },
+        {
+          "column": "Abv",
+          "new_value": "0.068",
+          "reason": "The beer name 'Golden One' has a different abv value than the previous row.",
+          "row": 125
+        },
+        {
+          "column": "Abv",
+          "new_value": "0.06",
+          "reason": "The beer name 'Arjuna' has a different abv value than the previous row.",
+          "row": 126
+        }
+      ],
+      "task_index": 18
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 2,
+        "overrepair": 1
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Condition",
+          "new_value": "pneumonia",
+          "reason": "The patient's condition has changed from heart failure to pneumonia.",
+          "row": 82
+        }
+      ],
+      "task_index": 19
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "overrepair": 2
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "sched_arr_time",
+          "new_value": "5:05 p.m.",
+          "reason": "The scheduled arrival time has been updated to 5:05 PM.",
+          "row": 1730
+        },
+        {
+          "column": "sched_arr_time",
+          "new_value": "11:21 a.m.",
+          "reason": "The scheduled arrival time has been updated to 11:21 AM.",
+          "row": 1731
+        }
+      ],
+      "task_index": 20
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 4,
+        "overrepair": 3,
+        "wrong_value": 1
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "abv",
+          "new_value": "0.093",
+          "reason": "The beer name has been changed to 'Snake Handler Double IPA'.",
+          "row": 909
+        },
+        {
+          "column": "abv",
+          "new_value": "0.06",
+          "reason": "The beer name has been changed to 'Coffee Oatmeal Stout'.",
+          "row": 910
+        },
+        {
+          "column": "abv",
+          "new_value": "0.06",
+          "reason": "The beer name has been changed to 'Good People IPA'.",
+          "row": 911
+        },
+        {
+          "column": "abv",
+          "new_value": "0.057999999999999996%",
+          "reason": "The beer name has been changed to 'Good People American Brown Ale'.",
+          "row": 912
+        }
+      ],
+      "task_index": 21
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "missed_repair": 1,
+        "schema_case_error": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "430",
+          "reason": "The patient's address has been updated to '315 w Hickory St'.",
+          "row": 429
+        },
+        {
+          "column": "Index",
+          "new_value": "431",
+          "reason": "The patient's address has been updated to '315w Hickory St'.",
+          "row": 430
+        },
+        {
+          "column": "Index",
+          "new_value": "432",
+          "reason": "The patient's address has been updated to '2801 Debarr Road'.",
+          "row": 431
+        }
+      ],
+      "task_index": 22
+    },
+    {
+      "dataset": "flights",
+      "failure_taxonomy": {
+        "missed_repair": 12,
+        "wrong_value": 4
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "act_arr_time",
+          "new_value": "4:54 p.m.",
+          "reason": "The act_arr_time column value has been updated to '4:54 p.m.'.",
+          "row": 58
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "11:11 a.m.",
+          "reason": "The act_arr_time column value has been updated to '11:11 a.m.'.",
+          "row": 59
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "12/2/11 6:35 a.m.",
+          "reason": "The act_arr_time column value has been updated to '12/2/11 6:35 a.m.'.",
+          "row": 60
+        },
+        {
+          "column": "act_arr_time",
+          "new_value": "7:04 a.m.",
+          "reason": "The act_arr_time column value has been updated to '7:04 a.m.'.",
+          "row": 61
+        }
+      ],
+      "task_index": 23
+    },
+    {
+      "dataset": "beers",
+      "failure_taxonomy": {
+        "missed_repair": 5,
+        "overrepair": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "style",
+          "new_value": "Big Rod Coconut Ale",
+          "reason": "The beer name has been changed to 'Big Rod Coconut Ale'.",
+          "row": 1325
+        },
+        {
+          "column": "style",
+          "new_value": "Gator Tail Brown Ale",
+          "reason": "The beer name has been changed to 'Gator Tail Brown Ale'.",
+          "row": 1326
+        },
+        {
+          "column": "style",
+          "new_value": "Miami Vice IPA",
+          "reason": "The beer name has been changed to 'Miami Vice IPA'.",
+          "row": 1327
+        }
+      ],
+      "task_index": 24
+    },
+    {
+      "dataset": "hospital",
+      "failure_taxonomy": {
+        "schema_case_error": 3
+      },
+      "ground_truth": [],
+      "predicted_repairs": [
+        {
+          "column": "Index",
+          "new_value": "287",
+          "reason": "The patient's address has been updated.",
+          "row": 286
+        },
+        {
+          "column": "Index",
+          "new_value": "288",
+          "reason": "The patient's address has been updated.",
+          "row": 287
+        },
+        {
+          "column": "Index",
+          "new_value": "289",
+          "reason": "The patient's address has been updated.",
+          "row": 288
+        }
+      ],
+      "task_index": 25
+    }
+  ],
+  "dataset_counts": {
+    "beers": 8,
+    "flights": 8,
+    "hospital": 9
+  },
+  "failure_taxonomy_counts": {
+    "missed_repair": 116,
+    "overrepair": 32,
+    "schema_case_error": 30,
+    "wrong_cell": 1,
+    "wrong_value": 19
+  },
+  "headline_findings": [
+    "Schema/case mistakes such as Index, Id, and Abv remain frequent.",
+    "Wrong-cell index/address/provider repairs show weak row-id discipline.",
+    "Beer samples overrepair style or preserve percent/unit text instead of normalizing.",
+    "Flights samples invent, copy, or date-prefix times instead of abstaining."
+  ],
+  "sample_count": 25,
+  "schema_case_columns": {
+    "Abv": 4,
+    "Beer-Name": 4,
+    "Index": 19,
+    "Src": 3
+  },
+  "schema_version": "dataforge_sft_failure_postmortem_v1",
+  "source_section": "sft",
+  "top_predicted_columns": {
+    "Abv": 4,
+    "Address1": 3,
+    "Address2": 2,
+    "Beer-Name": 4,
+    "Index": 19,
+    "ProviderNumber": 1,
+    "Src": 3,
+    "Tuple ID": 1,
+    "abv": 15,
+    "act_arr_time": 22,
+    "sched_arr_time": 2,
+    "style": 5
+  }
+}

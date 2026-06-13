@@ -92,8 +92,9 @@ served as an API-only Hugging Face Docker Space.
   decorative fills.
 - AUX quality: agency, uncertainty, verifier boundaries, abstentions,
   handoffs, and human-required decisions are visible without opening exported
-  JSON. Motion communicates causality/progress and respects
-  `prefers-reduced-motion`.
+  JSON. Motion follows `SPEC_motion_system.md`: it communicates
+  causality/progress, uses real workflow events rather than fake activity, and
+  respects `prefers-reduced-motion`.
 - Hosting: single-worker Space runtime, `PORT` honored, UID 1000, all temporary I/O under a request-local temp directory.
 - Quality gate: `make lint`, `make type`, `make test`, playground smoke tests, and regression smoke must all pass.
 - Contract gate: `make backend-gate` verifies OpenAPI drift, README truth,

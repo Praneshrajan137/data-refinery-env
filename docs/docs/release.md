@@ -106,9 +106,26 @@ consent JSON records. The evidence note records task outcome, timing, trust
 signal, and blocking findings; the consent record is the only place
 permission-to-list is captured.
 
-Before the model-family manifest may mark an HF artifact as passed, each
-training stage must have a verifier report, eval report, complete Hub model
-card, dataset reference, and training run URL.
+Before the full-vision model-family evidence manifest may mark an HF artifact
+as passed, each training stage must have a verifier report, eval report,
+complete Hub model card, dataset reference, and training run URL. The current
+public leaf-verifier evidence covers `DataForge-0.5B-SFT` and
+`DataForge-0.5B-GRPO`; the GRPO row is verified research evidence with strict
+macro F1 `0.1393`, not production-grade quality and not a completed family
+claim.
+The later 0.5B-GRPO v2 Kaggle run completed training and strict eval but is
+diagnostic-only evidence: it stopped at `quality_gate_failed_no_upload` with
+strict macro F1 `0.1212` (not release evidence), parse success `0.99`, schema-case errors `0`, and
+missed the `grpo_f1>=0.25` and `not_inferable_from_prompt_f1>=0.95` gates.
+SFT-v5 and GRPO-v3 are private candidate paths until verifier-passed evidence
+exists.
+The model-family evidence schema is
+`dataforge_model_family_report_v2`: each row must include artifact status,
+quality status, upstream/base license metadata, training backend, training run
+URL, source Git commit, dataset/model Hub SHAs, eval metrics, verifier/eval
+paths, and limitations. GRPO rows depend on verified SFT predecessors, and
+GiGPO rows depend on verified GRPO predecessors. Missing or blocked rows are
+valid roadmap state, but they cannot satisfy the full-vision gate.
 
 ## External Gates
 

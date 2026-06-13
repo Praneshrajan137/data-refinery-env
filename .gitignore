@@ -21,6 +21,7 @@ DESIGN_PARTNERS.md
 .hf-space-stage/
 .hf-space-repo/
 .hf-space-stage-plan/
+.dataforge/canonical_cache/
 .wrangler/
 node_modules/
 playground/web/playwright-report/
@@ -28,3 +29,22 @@ playground/web/test-results/
 data/sft_traj/*.jsonl
 !data/sft_traj/.gitkeep
 training/kaggle/.ipynb_checkpoints/
+
+# Generated ML run payloads and Kaggle handoff bundles. Commit compact reports,
+# configs, and scripts; keep heavyweight weights/checkpoints local or on HF/Kaggle.
+eval/results/**/*.safetensors
+eval/results/**/*.pt
+eval/results/**/*.pth
+eval/results/**/*.bin
+eval/results/**/checkpoint-*/
+eval/results/**/dataforge-cache/
+eval/results/**/dataforge-src/
+eval/results/**/runs/
+eval/results/kaggle_grpo_candidate_heartbeat_output_*/
+eval/results/kaggle_grpo_candidate_v2_probe/
+eval/results/kaggle_grpo_smoke_v*/
+eval/results/kaggle_grpo_v3_smoke_v*/
+eval/results/kaggle_sft_v5_candidate_v*/
+eval/results/kaggle_sft_v6_smoke_v*/
+training/kaggle_*_handoff/
+training/kaggle_*_kernel/

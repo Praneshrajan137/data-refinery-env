@@ -1,0 +1,61 @@
+{
+  "blockers": [],
+  "cache_root": ".dataforge\\canonical_cache",
+  "datasets": [
+    {
+      "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+      "columns": 20,
+      "dataset": "hospital",
+      "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+      "domain": "healthcare",
+      "error": null,
+      "expected_clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+      "expected_columns": 20,
+      "expected_dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+      "expected_rows": 1000,
+      "ground_truth_cells": 509,
+      "rows": 1000,
+      "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+      "status": "pass"
+    },
+    {
+      "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+      "columns": 7,
+      "dataset": "flights",
+      "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+      "domain": "aviation",
+      "error": null,
+      "expected_clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+      "expected_columns": 7,
+      "expected_dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+      "expected_rows": 2376,
+      "ground_truth_cells": 4920,
+      "rows": 2376,
+      "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+      "status": "pass"
+    },
+    {
+      "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+      "columns": 11,
+      "dataset": "beers",
+      "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+      "domain": "consumer",
+      "error": null,
+      "expected_clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+      "expected_columns": 11,
+      "expected_dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+      "expected_rows": 2410,
+      "ground_truth_cells": 4362,
+      "rows": 2410,
+      "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+      "status": "pass"
+    }
+  ],
+  "limitations": [
+    "This verifies canonical source bytes and row/column counts; it is not model-quality evidence.",
+    "Embedded fixtures and unverified cached CSVs are not accepted for release trajectory generation."
+  ],
+  "ok": true,
+  "schema_version": "dataforge_real_world_source_audit_v1",
+  "status": "pass"
+}

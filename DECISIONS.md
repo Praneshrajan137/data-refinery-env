@@ -404,27 +404,25 @@ further and make outreach the sole Week-6+ activity.
 
 ---
 
-## 2026-04-21 - Cloudflare Pages + HF Docker Spaces for the hosted playground
+## 2026-04-21 - Cloudflare Workers Static Assets + HF Docker Spaces for the hosted playground
 **Context**: the playground needs a free-tier host for both a static frontend
 and a Python backend (FastAPI + pandas + dataforge). The choice must survive
 indefinitely on zero-cost infrastructure without maintenance burden.
 **Alternatives**:
-- Vercel + serverless function. Pros: mature DX, fast deploys. Cons: Python
-  serverless functions on Vercel have cold-start latency and dependency size
-  limits that make pandas + z3-solver impractical; free tier has invocation
-  limits that could throttle a public playground.
 - Railway. Pros: great Docker support, generous free tier. Cons: free tier
   has a monthly credit cap ($5/month) that can be exhausted by sustained
   traffic; the project would need to monitor credits or risk downtime.
 - Render. Pros: Docker support, free tier. Cons: free-tier containers spin
   down after 15 minutes and cold-start takes ~30 s; the free plan has limited
   RAM (512 MB) which is tight for pandas + z3.
-- Cloudflare Pages (frontend) + HF Docker Space (backend). Pros: Pages is
-  truly free with global CDN and no invocation limits; HF Spaces support
-  Docker SDK with auto-sleep and no monthly credit cap; the combination
-  survives indefinitely at zero cost. Cons: HF free-tier Spaces have ~15 min
-  sleep timeout and ~30 s cold-start; the frontend must handle this gracefully.
-**Decision**: Cloudflare Pages (frontend) + HF Docker Space (backend).
+- Cloudflare Workers Static Assets (frontend) + HF Docker Space (backend).
+  Pros: Workers Static Assets gives the static React/Vite app a global edge
+  host on the existing Cloudflare account; HF Spaces support Docker SDK with
+  auto-sleep and no monthly credit cap; the combination survives indefinitely
+  at zero cost. Cons: HF free-tier Spaces have ~15 min sleep timeout and
+  ~30 s cold-start; the frontend must handle this gracefully.
+**Decision**: Cloudflare Workers Static Assets (frontend) + HF Docker Space
+(backend).
 **Reasoning**: this is the only combination that (a) has no monthly credit cap,
 (b) supports a full Python + pandas + z3 stack, (c) survives indefinitely
 without human intervention, and (d) provides a global CDN for the static

@@ -6,6 +6,9 @@ environment:
   notes:
     - "Set PYTHONUTF8=1 before importing TRL on Windows-style runtimes."
     - "TRL v0.11 is intentionally unsupported because GRPOTrainer is not part of that release path."
+    - "Kaggle base images may include torchao<0.16; uninstall torchao before PEFT LoRA injection."
+  uninstall_packages:
+    - "torchao"
   pip_packages:
     - "trl==1.4.0"
     - "transformers==5.7.0"
@@ -58,7 +61,7 @@ training:
   max_steps: 500
   num_generations: 4
   max_completion_length: 256
-  prompt_token_budget: 1024
+  prompt_token_budget: 1280
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 16
   beta: 0.04
@@ -78,11 +81,63 @@ training:
 
 reward:
   function: "training.rewards.dataforge_reward:dataforge_reward"
-  prompt_contract_version: "repair_contract_v1"
+  prompt_contract_version: "repair_contract_v2"
   local_stateless: true
   endpoint_healthcheck_only: true
   parse_failure_reward: 0.0
   clean_finish_reward: 1.0
+  shaping:
+    strict_f1_weight: 0.70
+    canonicalized_f1_weight: 0.15
+    precision_weight: 0.10
+    recall_weight: 0.05
+    schema_case_error_penalty: 0.10
+    wrong_cell_penalty: 0.08
+    wrong_value_penalty: 0.06
+    overrepair_penalty: 0.04
+
+readiness:
+  trajectory_filename: "expert_v4.jsonl"
+  split_manifest_filename: "split_manifest_v4.json"
+  prompt_contract_version: "repair_contract_v2"
+  required_datasets:
+    - "hospital"
+    - "flights"
+    - "beers"
+  auxiliary_datasets:
+    - "hospital_synthetic_deterministic_v1"
+  min_records: 128
+  min_records_per_dataset: 16
+  min_repair_records: 32
+  min_repair_signal_domains: 2
+  min_dirty_records: 0
+  min_dirty_records_per_dataset: 0
+  min_clean_records: 32
+  min_reward_std: 0.05
+  min_per_dataset_reward_std: 0.01
+  max_failure_samples: 25
+  block_on_heldout_leakage: true
+  require_source_provenance: true
+
+training_sequence:
+  stages:
+    - name: "smoke"
+      max_steps: 50
+      allow_upload: false
+      purpose: "Validate imports, dataset contract, reward variance, memory, and logging."
+    - name: "candidate"
+      max_steps: 500
+      allow_upload_after_gate: true
+      purpose: "First publish-eligible candidate if strict held-out gate passes."
+    - name: "extended_candidate"
+      max_steps: 1000
+      run_if: "500_step_improves_trend_but_misses_gate"
+      allow_upload_after_gate: true
+      purpose: "Only run when the 500-step candidate trends upward but misses +0.03 F1."
+  selection_order:
+    - "highest_strict_macro_f1"
+    - "lowest_schema_case_errors"
+    - "lowest_gpu_hours"
 
 release:
   benchmark_name: "DataForge-Bench-light-verified"
@@ -97,6 +152,17 @@ release:
   push_only_if_gate_passes: true
   attempted_steps_target: 500
   compute_cost_unit: "gpu_hours"
+
+evaluation:
+  heldout_tasks: 100
+  seeds_start: 10000
+  chunk_width: 4
+  max_new_tokens: 1024
+  source: "pinned_dataforge_registry"
+  datasets:
+    - "hospital"
+    - "flights"
+    - "beers"
 
 documented_not_attempted:
   models_3b_plus:

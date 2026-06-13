@@ -11,10 +11,13 @@ from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
 from dataforge.datasets.registry import DatasetMetadata
 from scripts.data.build_oracle_sft_trajectories import (
     COLLECTION_METHOD,
+    HOSPITAL_SYNTHETIC_DATASET,
     ORACLE_MODEL,
     ORACLE_PROVIDER,
+    SYNTHETIC_COLLECTION_METHOD,
     OracleSettings,
     build_dataset_records,
+    build_hospital_synthetic_records,
     build_split_manifest,
     deterministic_row_split,
 )
@@ -87,6 +90,41 @@ def _dataset(name: str = "flights") -> RealWorldDataset:
                 clean_value="11:08 p.m.",
             ),
         ),
+        dirty_sha256=FIXTURE_DIRTY_SHA256,
+        clean_sha256=FIXTURE_CLEAN_SHA256,
+    )
+
+
+def _hospital_dataset() -> RealWorldDataset:
+    dirty_df = pd.DataFrame(
+        {
+            "ProviderNumber": ["10018", "10019", "10020", "10021"],
+            "HospitalName": ["Alpha", "Beta", "Gamma", "Delta"],
+            "City": ["birmingham", "sheffield", "mobile", "selma"],
+            "State": ["al", "al", "al", "al"],
+            "ZipCode": ["35233", "35660", "36601", "36701"],
+            "PhoneNumber": ["2053258100", "2563861600", "2515550100", "3345550101"],
+            "EmergencyService": ["yes", "no", "yes", "no"],
+        }
+    )
+    clean_df = dirty_df.copy()
+    return RealWorldDataset(
+        metadata=DatasetMetadata(
+            name="hospital",
+            domain="healthcare",
+            n_rows=len(dirty_df.index),
+            n_columns=len(dirty_df.columns),
+            error_types=("synthetic_fixture",),
+            source_urls=("dirty", "clean"),
+            source_revision=FIXTURE_REVISION,
+            dirty_sha256=FIXTURE_DIRTY_SHA256,
+            clean_sha256=FIXTURE_CLEAN_SHA256,
+            citation="fixture citation",
+        ),
+        dirty_df=dirty_df,
+        clean_df=clean_df,
+        canonical_columns=tuple(str(column) for column in clean_df.columns),
+        ground_truth=(),
         dirty_sha256=FIXTURE_DIRTY_SHA256,
         clean_sha256=FIXTURE_CLEAN_SHA256,
     )
@@ -242,6 +280,44 @@ def test_expert_v4_emits_only_deterministic_repairs_and_abstentions() -> None:
     )
 
 
+def test_hospital_synthetic_records_are_split_safe_and_provenance_marked() -> None:
+    dataset = _hospital_dataset()
+    split = deterministic_row_split(
+        dataset_name="hospital",
+        n_rows=len(dataset.dirty_df.index),
+        split_seed=7,
+        eval_fraction=0.25,
+        min_eval_rows=1,
+    )
+
+    records = build_hospital_synthetic_records(
+        dataset,
+        difficulty="easy",
+        split_seed=7,
+        eval_fraction=0.25,
+        min_eval_rows=1,
+        records_per_difficulty=4,
+        schema_version="expert_v4",
+        prompt_contract_version="repair_contract_v2",
+    )
+
+    assert records
+    eval_rows = set(split.eval_rows)
+    for record in records:
+        assert record["dataset"] == HOSPITAL_SYNTHETIC_DATASET
+        assert record["provenance"]["collection_method"] == SYNTHETIC_COLLECTION_METHOD
+        assert record["provenance"]["base_dataset"] == "hospital"
+        assert record["state"]["schema_summary"]["base_dataset"] == "hospital"
+        assert record["inferability"] == "deterministic_normalization"
+        exposed_rows = {int(row["_row"]) for row in record["state"]["target_rows"]}
+        exposed_rows.update(fix["row"] for fix in record["fix"])
+        assert not exposed_rows & eval_rows
+        user_payload = json.loads(record["messages"][1]["content"])
+        assert user_payload["label_source"] == SYNTHETIC_COLLECTION_METHOD
+        assistant_payload = json.loads(record["messages"][-1]["content"])
+        assert assistant_payload["repairs"] == record["fix"]
+
+
 def test_oracle_trajectory_ids_are_stable() -> None:
     kwargs = {
         "difficulty": "easy",
@@ -296,6 +372,10 @@ def test_split_manifest_contains_only_dirty_row_hashes(monkeypatch) -> None:
     assert manifest["collection_method"] == COLLECTION_METHOD
     assert manifest["datasets"][0]["train_rows"] == 3
     assert manifest["datasets"][0]["eval_rows"] == 1
+    assert manifest["datasets"][0]["source_revision"] == FIXTURE_REVISION
+    assert manifest["datasets"][0]["dirty_sha256"] == FIXTURE_DIRTY_SHA256
+    assert manifest["datasets"][0]["clean_sha256"] == FIXTURE_CLEAN_SHA256
+    assert manifest["datasets"][0]["ground_truth_cells"] == len(dataset.ground_truth)
     serialized = json.dumps(manifest, sort_keys=True)
     assert "clean_value" not in serialized
     assert "new_value" not in serialized
@@ -304,3 +384,48 @@ def test_split_manifest_contains_only_dirty_row_hashes(monkeypatch) -> None:
         for row in manifest["datasets"][0][split_name]:
             assert set(row) == {"row", "dirty_row_sha256"}
             assert len(row["dirty_row_sha256"]) == 64
+
+
+def test_split_manifest_tracks_synthetic_hospital_without_labels(monkeypatch) -> None:
+    dataset = _hospital_dataset()
+
+    def fake_loader(name, *, cache_root=None):
+        assert name == "hospital"
+        return dataset
+
+    monkeypatch.setattr(
+        "scripts.data.build_oracle_sft_trajectories.load_real_world_dataset",
+        fake_loader,
+    )
+    settings = OracleSettings(
+        datasets=("hospital",),
+        difficulties=("easy",),
+        split_seed=7,
+        eval_fraction=0.25,
+        min_eval_rows=1,
+        chunk_rows=2,
+        context_window_rows=1,
+        include_noop_records=True,
+        schema_version="expert_v4",
+        prompt_contract_version="repair_contract_v2",
+        max_repairs_per_record=None,
+        min_noop_ratio=0.0,
+        ready_min_records=2,
+        output=Path("unused.jsonl"),
+        manifest_output=Path("unused_manifest.json"),
+        overwrite=True,
+        include_hospital_synthetic=True,
+        hospital_synthetic_records_per_difficulty=4,
+    )
+
+    manifest = build_split_manifest(settings)
+    by_dataset = {entry["dataset"]: entry for entry in manifest["datasets"]}
+
+    assert HOSPITAL_SYNTHETIC_DATASET in by_dataset
+    synthetic = by_dataset[HOSPITAL_SYNTHETIC_DATASET]
+    assert synthetic["base_dataset"] == "hospital"
+    assert synthetic["collection_method"] == SYNTHETIC_COLLECTION_METHOD
+    serialized = json.dumps(synthetic, sort_keys=True)
+    assert "clean_value" not in serialized
+    assert "new_value" not in serialized
+    assert "suggested_value" not in serialized

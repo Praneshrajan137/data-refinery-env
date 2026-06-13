@@ -40,4 +40,4 @@ claims:
     evidence: The full-vision gate requires https://dataforge.praneshrajan15.workers.dev/playground to serve the Cloudflare frontend, point at the expected HF backend, and pass live repair-flow checks.
   - claim: trained_model_family
     status: roadmap
-    evidence: Only the 0.5B SFT smoke artifact has public verifier evidence; GRPO, GiGPO, and larger-family quality claims remain blocked.
+    evidence: training/configs/model_family.yaml defines the gated HF matrix, public leaf-verifier evidence covers 0.5B SFT plus 0.5B GRPO research evidence, the 0.5B-GRPO v2 Kaggle run is preserved as quality_gate_failed_no_upload diagnostic evidence, and SFT-v5/GRPO-v3 remain private candidates; larger SFT/GRPO/GiGPO and full-family quality claims remain blocked.

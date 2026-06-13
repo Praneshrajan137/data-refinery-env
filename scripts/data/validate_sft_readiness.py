@@ -37,6 +37,10 @@ DEFAULT_SPLIT_MANIFEST = Path("data/sft_traj/split_manifest.json")
 DEFAULT_MIN_RECORDS = 32
 DEFAULT_HOLDOUT_RECORDS = 100
 EXPECTED_TRL_PIN = "trl==1.4.0"
+SPLIT_SAFE_COLLECTION_METHODS = {
+    "oracle_from_clean_diff",
+    "synthetic_from_canonical_train_rows",
+}
 INFERABLE_LABELS = {"deterministic_normalization", "context_derivable"}
 INFERABILITY_LABELS = INFERABLE_LABELS | {
     "external_reference_required",
@@ -723,7 +727,7 @@ def validate_records(
             else None,
             record_model,
         )
-        if collection_method == "oracle_from_clean_diff":
+        if collection_method in SPLIT_SAFE_COLLECTION_METHODS:
             if (str(record_provider), record_model) != oracle_teacher:
                 raise SftReadinessError(
                     f"Record {index} oracle teacher {(record_provider, record_model)!r} "

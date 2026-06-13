@@ -142,3 +142,102 @@ def test_gigpo_release_verifier_rejects_failed_gate(tmp_path: Path) -> None:
             ),
             downloader=downloader,
         )
+
+
+def test_gigpo_release_verifier_rejects_wrong_predecessor(tmp_path: Path) -> None:
+    metrics = _metrics()
+    metrics["grpo_model"] = "Praneshrajan15/DataForge-0.5B-GRPO"
+    files = _files(tmp_path, metrics=metrics)
+
+    def downloader(
+        repo_id: str,
+        *,
+        filename: str,
+        repo_type: str | None = None,
+        token: str | None = None,
+    ) -> str:
+        return str(files[filename])
+
+    with pytest.raises(GigpoReleaseVerificationError, match="predecessor"):
+        verify_gigpo_release(
+            model_repo="Praneshrajan15/DataForge-1.5B-GiGPO",
+            api=_FakeApi(
+                {
+                    "README.md",
+                    "config.json",
+                    "model.safetensors",
+                    "tokenizer.json",
+                    "tokenizer_config.json",
+                    "training_metrics.json",
+                    "eval_diagnostics.json",
+                }
+            ),
+            downloader=downloader,
+        )
+
+
+def test_gigpo_release_verifier_uses_qwen_research_license_for_3b(tmp_path: Path) -> None:
+    metrics = _metrics()
+    metrics["model_name"] = "DataForge-3B-GiGPO"
+    metrics["model_license"] = "apache-2.0"
+    metrics["base_model"] = "Qwen/Qwen2.5-3B-Instruct"
+    metrics["grpo_model"] = "Praneshrajan15/DataForge-3B-GRPO"
+    files = _files(tmp_path, metrics=metrics)
+
+    def downloader(
+        repo_id: str,
+        *,
+        filename: str,
+        repo_type: str | None = None,
+        token: str | None = None,
+    ) -> str:
+        return str(files[filename])
+
+    with pytest.raises(GigpoReleaseVerificationError, match="qwen-research"):
+        verify_gigpo_release(
+            model_repo="Praneshrajan15/DataForge-3B-GiGPO",
+            api=_FakeApi(
+                {
+                    "README.md",
+                    "config.json",
+                    "model.safetensors",
+                    "tokenizer.json",
+                    "tokenizer_config.json",
+                    "training_metrics.json",
+                    "eval_diagnostics.json",
+                }
+            ),
+            downloader=downloader,
+        )
+
+
+def test_gigpo_release_verifier_bounds_metric_failure_samples(tmp_path: Path) -> None:
+    metrics = _metrics()
+    metrics["failure_samples"] = [{"i": i} for i in range(26)]
+    files = _files(tmp_path, metrics=metrics)
+
+    def downloader(
+        repo_id: str,
+        *,
+        filename: str,
+        repo_type: str | None = None,
+        token: str | None = None,
+    ) -> str:
+        return str(files[filename])
+
+    with pytest.raises(GigpoReleaseVerificationError, match="bounded"):
+        verify_gigpo_release(
+            model_repo="Praneshrajan15/DataForge-0.5B-GiGPO",
+            api=_FakeApi(
+                {
+                    "README.md",
+                    "config.json",
+                    "model.safetensors",
+                    "tokenizer.json",
+                    "tokenizer_config.json",
+                    "training_metrics.json",
+                    "eval_diagnostics.json",
+                }
+            ),
+            downloader=downloader,
+        )

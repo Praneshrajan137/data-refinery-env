@@ -58,6 +58,9 @@ DEFAULT_CONTEXT_WINDOW_ROWS = 24
 ORACLE_PROVIDER = "oracle"
 ORACLE_MODEL = "clean-diff-v1"
 COLLECTION_METHOD = "oracle_from_clean_diff"
+SYNTHETIC_COLLECTION_METHOD = "synthetic_from_canonical_train_rows"
+HOSPITAL_SYNTHETIC_DATASET = "hospital_synthetic_deterministic_v1"
+HOSPITAL_SYNTHETIC_POLICY = "hospital_format_normalization_v1"
 SPLIT_MANIFEST_SCHEMA = "split_manifest_v1"
 INFERABLE_LABELS = {"deterministic_normalization", "context_derivable"}
 INFERABILITY_LABELS = INFERABLE_LABELS | {
@@ -93,6 +96,8 @@ class OracleSettings:
     train_only_inferable: bool = False
     abstain_noninferable: bool = False
     include_context_derivable: bool = True
+    include_hospital_synthetic: bool = False
+    hospital_synthetic_records_per_difficulty: int = 128
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,6 +256,16 @@ def resolve_settings(args: argparse.Namespace) -> OracleSettings:
         ),
         abstain_noninferable=bool(oracle.get("abstain_noninferable", False)),
         include_context_derivable=bool(oracle.get("include_context_derivable", True)),
+        include_hospital_synthetic=bool(
+            oracle.get("include_hospital_synthetic", False)
+            if args.include_hospital_synthetic is None
+            else cast(bool, args.include_hospital_synthetic)
+        ),
+        hospital_synthetic_records_per_difficulty=(
+            int(oracle.get("hospital_synthetic_records_per_difficulty", 128))
+            if args.hospital_synthetic_records_per_difficulty is None
+            else cast(int, args.hospital_synthetic_records_per_difficulty)
+        ),
         max_repairs_per_record=max_repairs_per_record,
         min_noop_ratio=(
             float(oracle.get("min_noop_ratio", 0.0))
@@ -301,6 +316,8 @@ def validate_settings(settings: OracleSettings) -> None:
         raise ValueError("--min-noop-ratio must be >= 0 and < 1.")
     if settings.ready_min_records < 2:
         raise ValueError("--ready-min-records must be >= 2.")
+    if settings.hospital_synthetic_records_per_difficulty < 1:
+        raise ValueError("--hospital-synthetic-records-per-difficulty must be >= 1.")
 
 
 def deterministic_row_split(
@@ -396,6 +413,215 @@ def _repairs_from_truth(cells: list[GroundTruthCell]) -> list[BenchmarkRepair]:
         )
         for cell in sorted(cells, key=lambda item: (item.row, item.column))
     ]
+
+
+def _hospital_synthetic_dirty_value(column: str, clean_value: str) -> str | None:
+    """Return a deterministic Hospital formatting corruption, when one is defensible."""
+    value = str(clean_value).strip()
+    digits = "".join(char for char in value if char.isdigit())
+    if column == "PhoneNumber" and len(digits) == 10 and value == digits:
+        return f"({digits[:3]}) {digits[3:6]}-{digits[6:]}"
+    if column == "ProviderNumber" and value.isdigit():
+        return f"provider-{value}"
+    if column == "ZipCode" and len(digits) == 5 and value == digits:
+        return f"{digits}-0000"
+    if column == "State" and len(value) == 2 and value.islower():
+        return value.upper()
+    if column == "EmergencyService" and value in {"yes", "no"}:
+        return value.upper()
+    return None
+
+
+def _hospital_synthetic_candidates(
+    dataset: RealWorldDataset,
+    *,
+    train_rows: tuple[int, ...],
+) -> list[tuple[int, str, str, str]]:
+    """Return stable synthetic Hospital repair candidates from canonical train rows."""
+    if dataset.metadata.name != "hospital":
+        return []
+    candidates: list[tuple[int, str, str, str]] = []
+    candidate_columns = (
+        "PhoneNumber",
+        "ProviderNumber",
+        "ZipCode",
+        "State",
+        "EmergencyService",
+    )
+    for row in train_rows:
+        clean_row = dataset.clean_df.iloc[row]
+        for column in candidate_columns:
+            if column not in dataset.clean_df.columns:
+                continue
+            clean_value = str(clean_row[column])
+            dirty_value = _hospital_synthetic_dirty_value(column, clean_value)
+            if dirty_value is None or dirty_value == clean_value:
+                continue
+            candidates.append((row, column, dirty_value, clean_value))
+    return sorted(
+        candidates,
+        key=lambda item: hashlib.sha256(
+            f"{HOSPITAL_SYNTHETIC_POLICY}:{dataset.metadata.source_revision}:"
+            f"{item[0]}:{item[1]}:{item[2]}".encode()
+        ).hexdigest(),
+    )
+
+
+def _clean_row_with_synthetic_dirty_cell(
+    dataset: RealWorldDataset,
+    *,
+    row: int,
+    column: str,
+    dirty_value: str,
+) -> dict[str, str]:
+    """Return one canonical Hospital row with a single synthetic dirty cell."""
+    clean_row = dataset.clean_df.iloc[row]
+    rendered = {str(name): str(clean_row[name]) for name in dataset.canonical_columns}
+    rendered[column] = dirty_value
+    rendered["_row"] = str(row)
+    return rendered
+
+
+def build_hospital_synthetic_records(
+    dataset: RealWorldDataset,
+    *,
+    difficulty: Difficulty,
+    split_seed: int,
+    eval_fraction: float,
+    min_eval_rows: int,
+    records_per_difficulty: int,
+    schema_version: str = EXPERT_V4_SCHEMA,
+    prompt_contract_version: str = CONTRACT_VERSION_V2,
+) -> list[dict[str, Any]]:
+    """Build provenance-marked Hospital repair examples from train rows only."""
+    if dataset.metadata.name != "hospital" or records_per_difficulty <= 0:
+        return []
+    split = deterministic_row_split(
+        dataset_name=dataset.metadata.name,
+        n_rows=len(dataset.dirty_df.index),
+        split_seed=split_seed,
+        eval_fraction=eval_fraction,
+        min_eval_rows=min_eval_rows,
+    )
+    candidates = _hospital_synthetic_candidates(dataset, train_rows=split.train_rows)
+    records: list[dict[str, Any]] = []
+    for chunk_index, (row, column, dirty_value, clean_value) in enumerate(
+        candidates[:records_per_difficulty]
+    ):
+        if row in split.eval_rows:
+            raise RuntimeError("Synthetic Hospital construction attempted to include eval rows.")
+        target_rows = [
+            _clean_row_with_synthetic_dirty_cell(
+                dataset,
+                row=row,
+                column=column,
+                dirty_value=dirty_value,
+            )
+        ]
+        schema_summary = {
+            "dataset": HOSPITAL_SYNTHETIC_DATASET,
+            "base_dataset": dataset.metadata.name,
+            "columns": list(dataset.canonical_columns),
+            "chunk_rows": 1,
+            "target_row_indices": [row],
+            "context_row_indices": [],
+            "difficulty": difficulty,
+            "seed": split_seed,
+            "split": "train",
+            "synthetic_policy": HOSPITAL_SYNTHETIC_POLICY,
+        }
+        repair = BenchmarkRepair(
+            row=row,
+            column=column,
+            new_value=clean_value,
+            reason=(
+                "synthetic deterministic Hospital normalization: "
+                f"canonicalize {column!r} formatting"
+            ),
+        )
+        task_id = f"{HOSPITAL_SYNTHETIC_DATASET}:{difficulty}"
+        record = {
+            "schema_version": schema_version,
+            "trajectory_id": f"{task_id}:{split_seed}:{chunk_index}",
+            "task_id": task_id,
+            "dataset": HOSPITAL_SYNTHETIC_DATASET,
+            "difficulty": difficulty,
+            "seed": split_seed,
+            "chunk_index": chunk_index,
+            "state": {
+                "schema_summary": schema_summary,
+                "target_rows": target_rows,
+                "context_rows": [],
+                "normalization_candidates": [],
+                "split": "train",
+                "heldout_policy": {
+                    "split_seed": split_seed,
+                    "eval_fraction": eval_fraction,
+                    "min_eval_rows": min_eval_rows,
+                },
+            },
+            "tool_calls": [],
+            "diagnosis": [repair.reason],
+            "fix": [repair.model_dump(mode="json")],
+            "messages": render_repair_messages(
+                schema_summary=schema_summary,
+                target_rows=target_rows,
+                context_rows=[],
+                allowed_columns=dataset.canonical_columns,
+                valid_rows=[row],
+                label_source=SYNTHETIC_COLLECTION_METHOD,
+                dataset_note=(
+                    "Synthetic Hospital formatting-normalization examples derived only "
+                    "from canonical training rows; they are auxiliary learning signal, "
+                    "not real-world benchmark evidence."
+                ),
+                metadata={
+                    "base_dataset": dataset.metadata.name,
+                    "synthetic_policy": HOSPITAL_SYNTHETIC_POLICY,
+                    "source_revision": dataset.metadata.source_revision,
+                },
+                repairs=[repair],
+                contract_version=prompt_contract_version,
+            ),
+            "teacher": {"provider": ORACLE_PROVIDER, "model": ORACLE_MODEL},
+            "metrics": {
+                "chunk_precision": 1.0,
+                "chunk_recall": 1.0,
+                "chunk_f1": 1.0,
+                "episode_precision": 1.0,
+                "episode_recall": 1.0,
+                "episode_f1": 1.0,
+                "episode_tp": 1,
+                "episode_fp": 0,
+                "episode_fn": 0,
+                "llm_calls": 0,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "warnings": [],
+            },
+            "provenance": {
+                "citation": dataset.metadata.citation,
+                "source_urls": list(dataset.metadata.source_urls),
+                "collection_method": SYNTHETIC_COLLECTION_METHOD,
+                "base_collection_method": COLLECTION_METHOD,
+                "label_source": "synthetic_dirty_from_clean_train_row",
+                "synthetic_policy": HOSPITAL_SYNTHETIC_POLICY,
+                "base_dataset": dataset.metadata.name,
+                "split": "train",
+                "split_seed": split_seed,
+                "eval_fraction": eval_fraction,
+                "eval_rows": list(split.eval_rows),
+                "prompt_contract_version": prompt_contract_version,
+                "inferability": PROMOTION_SLICE,
+                "source_revision": dataset.metadata.source_revision,
+                "dirty_sha256": dataset.dirty_sha256,
+                "clean_sha256": dataset.clean_sha256,
+            },
+            "prompt_contract_version": prompt_contract_version,
+            "inferability": PROMOTION_SLICE,
+        }
+        records.append(validate_trajectory_record(record))
+    return records
 
 
 def _candidate_keys(
@@ -722,14 +948,46 @@ def build_split_manifest(
         datasets.append(
             {
                 "dataset": dataset.metadata.name,
+                "domain": dataset.metadata.domain,
+                "source_revision": dataset.metadata.source_revision,
+                "dirty_sha256": dataset.dirty_sha256,
+                "clean_sha256": dataset.clean_sha256,
                 "n_rows": len(dataset.dirty_df.index),
                 "n_columns": len(dataset.canonical_columns),
+                "ground_truth_cells": len(dataset.ground_truth),
                 "train_rows": len(split.train_rows),
                 "eval_rows": len(split.eval_rows),
                 "train": _manifest_rows(dataset, split.train_rows),
                 "eval": _manifest_rows(dataset, split.eval_rows),
             }
         )
+        if (
+            dataset.metadata.name == "hospital"
+            and settings.include_hospital_synthetic
+            and settings.schema_version == EXPERT_V4_SCHEMA
+        ):
+            datasets.append(
+                {
+                    "dataset": HOSPITAL_SYNTHETIC_DATASET,
+                    "base_dataset": dataset.metadata.name,
+                    "domain": dataset.metadata.domain,
+                    "source_revision": dataset.metadata.source_revision,
+                    "dirty_sha256": dataset.dirty_sha256,
+                    "clean_sha256": dataset.clean_sha256,
+                    "n_rows": len(dataset.dirty_df.index),
+                    "n_columns": len(dataset.canonical_columns),
+                    "ground_truth_cells": len(dataset.ground_truth),
+                    "train_rows": len(split.train_rows),
+                    "eval_rows": len(split.eval_rows),
+                    "train": _manifest_rows(dataset, split.train_rows),
+                    "eval": _manifest_rows(dataset, split.eval_rows),
+                    "collection_method": SYNTHETIC_COLLECTION_METHOD,
+                    "synthetic_policy": HOSPITAL_SYNTHETIC_POLICY,
+                    "synthetic_records_per_difficulty": (
+                        settings.hospital_synthetic_records_per_difficulty
+                    ),
+                }
+            )
     return {
         "schema_version": SPLIT_MANIFEST_SCHEMA,
         "collection_method": COLLECTION_METHOD,
@@ -741,6 +999,13 @@ def build_split_manifest(
         "train_only_inferable": settings.train_only_inferable,
         "abstain_noninferable": settings.abstain_noninferable,
         "include_context_derivable": settings.include_context_derivable,
+        "include_hospital_synthetic": settings.include_hospital_synthetic,
+        "hospital_synthetic_dataset": HOSPITAL_SYNTHETIC_DATASET
+        if settings.include_hospital_synthetic
+        else None,
+        "hospital_synthetic_policy": HOSPITAL_SYNTHETIC_POLICY
+        if settings.include_hospital_synthetic
+        else None,
         "promotion_slice": PROMOTION_SLICE,
         "split_seed": settings.split_seed,
         "eval_fraction": settings.eval_fraction,
@@ -784,6 +1049,25 @@ def build_oracle_trajectories(
                     max_repairs_per_record=settings.max_repairs_per_record,
                 )
             )
+            if (
+                dataset.metadata.name == "hospital"
+                and settings.include_hospital_synthetic
+                and settings.schema_version == EXPERT_V4_SCHEMA
+            ):
+                records.extend(
+                    build_hospital_synthetic_records(
+                        dataset,
+                        difficulty=difficulty,
+                        split_seed=settings.split_seed,
+                        eval_fraction=settings.eval_fraction,
+                        min_eval_rows=settings.min_eval_rows,
+                        records_per_difficulty=(
+                            settings.hospital_synthetic_records_per_difficulty
+                        ),
+                        schema_version=settings.schema_version,
+                        prompt_contract_version=settings.prompt_contract_version,
+                    )
+                )
     if records and settings.min_noop_ratio > 0.0:
         noop_records = sum(1 for record in records if not record["fix"])
         noop_ratio = noop_records / len(records)
@@ -821,6 +1105,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Emit records only when the selected inferability label is trainable.",
     )
+    parser.add_argument(
+        "--include-hospital-synthetic",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Append provenance-marked deterministic Hospital normalization examples.",
+    )
+    parser.add_argument("--hospital-synthetic-records-per-difficulty", type=int, default=None)
     parser.add_argument("--max-repairs-per-record", type=int, default=None)
     parser.add_argument("--min-noop-ratio", type=float, default=None)
     parser.add_argument("--skip-noop-records", action="store_true")
