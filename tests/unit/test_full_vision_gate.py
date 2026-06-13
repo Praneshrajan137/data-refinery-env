@@ -137,11 +137,8 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
             ],
         },
     )
-    expected_model_repos = [
-        f"Praneshrajan15/DataForge-{size}-{stage}"
-        for size in full_vision.EXPECTED_MODEL_SIZES
-        for stage in full_vision.EXPECTED_MODEL_STAGES
-    ]
+    manifest = full_vision.load_model_family_manifest()
+    expected_model_repos = list(manifest.repo_ids())
     for repo_id in expected_model_repos:
         slug = repo_id.rsplit("/", 1)[1]
         _write_text(tmp_path / "models" / f"{slug}.eval.json")
@@ -149,25 +146,41 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
     _write_json(
         tmp_path / "models" / "model_family_report.json",
         {
-            "schema_version": "dataforge_model_family_report_v1",
+            "schema_version": "dataforge_model_family_report_v2",
+            "hf_owner": "Praneshrajan15",
+            "dataset_repo": manifest.dataset_repo,
+            "manifest_schema_version": manifest.schema_version,
+            "manifest_sha256": manifest.manifest_hash,
             "models": [
                 {
-                    "repo_id": repo_id,
+                    "size": entry.size,
+                    "stage": entry.stage,
+                    "repo_id": entry.repo_id,
+                    "artifact_status": "public",
+                    "quality_status": "quality_improved_verified",
                     "verifier_passed": True,
-                    "dataset_repo": "Praneshrajan15/dataforge-sft-trajectories",
+                    "upstream_license": entry.upstream_license,
+                    "hub_license": entry.hub_license,
+                    "license_name": entry.license_name,
+                    "base_model": entry.base_model,
+                    "predecessor_repo": entry.predecessor_repo,
+                    "dataset_repo": manifest.dataset_repo,
+                    "training_backend": entry.training_backend,
                     "training_run_url": "https://huggingface.co/jobs/Praneshrajan15/example",
-                    "model_card_url": f"https://huggingface.co/{repo_id}",
-                    "eval_report_path": f"models/{repo_id.rsplit('/', 1)[1]}.eval.json",
-                    "verification_report_path": (
-                        f"models/{repo_id.rsplit('/', 1)[1]}.verification.json"
-                    ),
-                    "limitations_documented": True,
+                    "source_git_commit": "abc123def456",
+                    "dataset_sha": "dataset-sha",
+                    "model_sha": "model-sha",
+                    "model_card_url": f"https://huggingface.co/{entry.repo_id}",
+                    "eval_report_path": f"models/{entry.slug}.eval.json",
+                    "verification_report_path": (f"models/{entry.slug}.verification.json"),
                     "eval_metrics": {"macro_f1": 0.5, "parse_success_rate": 1.0},
+                    "limitations": ["verified external release"],
                 }
-                for repo_id in expected_model_repos
+                for entry in manifest.entries
             ],
         },
     )
+    entries_by_repo = {entry.repo_id: entry for entry in manifest.entries}
 
     def fake_fetch_json(url: str, *, timeout_s: float = 20.0) -> tuple[dict[str, Any] | None, str]:
         if "pypi.org/pypi/" in url:
@@ -182,15 +195,20 @@ def test_full_vision_gate_can_pass_with_external_evidence(tmp_path: Path, monkey
                 "",
             )
         if "huggingface.co/api/models/" in url:
+            repo_id = url.rsplit("/api/models/", 1)[1]
+            entry = entries_by_repo[repo_id]
+            card = {
+                "license": entry.hub_license,
+                "datasets": [manifest.dataset_repo],
+                "base_model": entry.base_model,
+            }
+            if entry.license_name:
+                card["license_name"] = entry.license_name
             return (
                 {
                     "sha": "abc123",
                     "lastModified": "2026-06-01T00:00:00Z",
-                    "cardData": {
-                        "license": "apache-2.0",
-                        "datasets": ["Praneshrajan15/dataforge-sft-trajectories"],
-                        "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
-                    },
+                    "cardData": card,
                 },
                 "",
             )

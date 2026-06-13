@@ -15,6 +15,7 @@ import {
   Upload,
   Wrench,
 } from "lucide-react";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -45,6 +46,15 @@ import {
   type ReviewItem,
   type SelectedEvidence,
 } from "./observatory";
+import {
+  motionDurations,
+  motionSprings,
+  panelVariants,
+  stageNodeVariants,
+  variantsForIntensity,
+  workflowStatusToAgentState,
+  type MotionIntensity,
+} from "./motion";
 import {
   PRODUCT_ROUTES,
   routeById,
@@ -84,6 +94,8 @@ type WorkState = "idle" | "loading" | "ready" | "error";
 type SortKey = "severity" | "count" | "column";
 
 function App() {
+  const prefersReducedMotion = useReducedMotion();
+  const motionIntensity: MotionIntensity = prefersReducedMotion ? "reduced" : "standard";
   const runtimeConfig = useMemo(() => getRuntimeConfig(), []);
   const client = useMemo(
     () => new DataForgeClient(runtimeConfig.BACKEND_URL),
@@ -328,121 +340,135 @@ function App() {
   return (
     <ProductShell route={route} onNavigate={navigate}>
       <ProductPageHeader route={route} dataset={dataset} analysis={latestAnalysis} workflowStatus={workflow.status} />
-      {route.id === "home" ? (
-        <HomePage
-          capability={capability}
-          backendState={backendState}
-          streamingEnabled={streamingEnabled}
-          maxUploadBytes={maxUploadBytes}
-          observatory={observatory}
-          onNavigate={navigate}
-        />
-      ) : null}
-      {route.id === "run" ? (
-        <RunPage
-          dataset={dataset}
-          busy={busy}
-          canRun={canRun}
-          maxUploadBytes={maxUploadBytes}
-          capability={capability}
-          advanced={advanced}
-          backendState={backendState}
-          streamingEnabled={streamingEnabled}
-          acceptedConstraintIds={acceptedConstraintIds}
-          analysisState={analysisState}
-          hasEvidence={Boolean(evidenceText)}
-          evidenceText={evidenceText}
-          copyState={copyState}
-          fileInputRef={fileInputRef}
-          problem={problem}
-          latestAnalysis={latestAnalysis}
-          observatory={observatory}
-          onAdvancedChange={setAdvanced}
-          onChooseSample={chooseSample}
-          onFileChange={handleFileChange}
-          onAnalyze={() => void runAnalyze([])}
-          onRerun={() => void runAnalyze(acceptedConstraintIds)}
-          onCancel={cancelAnalyze}
-          onCopy={() => void copyEvidence()}
-          onExport={exportEvidence}
-          onBackendRetry={() => window.location.reload()}
-          onNavigate={navigate}
-          onSelect={setSelectedEvidence}
-        />
-      ) : null}
-      {route.id === "atlas" ? (
-        <AtlasPage
-          stages={workflow.stages}
-          runId={workflow.runId}
-          status={workflow.status}
-          selectedEvidence={selectedEvidence}
-          reviewItems={observatory.reviewQueue}
-          analysis={latestAnalysis}
-          selectedConstraintIds={acceptedConstraintIds}
-          canRerun={canRun && acceptedConstraintIds.length > 0}
-          onToggleConstraint={toggleConstraint}
-          onRerun={() => void runAnalyze(acceptedConstraintIds)}
-          onSelect={setSelectedEvidence}
-          onNavigate={navigate}
-        />
-      ) : null}
-      {route.id === "evidence" ? (
-        <EvidencePage
-          dataset={dataset}
-          preview={dataset?.preview ?? null}
-          state={analysisState}
-          analysis={latestAnalysis}
-          observatory={observatory}
-          issues={visibleIssues}
-          filter={filter}
-          severityFilter={severityFilter}
-          sortKey={sortKey}
-          problem={problem}
-          selectedEvidence={selectedEvidence}
-          allIssues={groupedIssues}
-          onFilterChange={setFilter}
-          onSeverityFilterChange={setSeverityFilter}
-          onSortChange={setSortKey}
-          onSelect={setSelectedEvidence}
-          onNavigate={navigate}
-        />
-      ) : null}
-      {route.id === "repairs" ? (
-        <RepairsPage
-          state={analysisState}
-          analysis={latestAnalysis}
-          dataset={dataset}
-          selectedEvidence={selectedEvidence}
-          issues={groupedIssues}
-          problem={problem}
-          onSelect={setSelectedEvidence}
-          onNavigate={navigate}
-        />
-      ) : null}
-      {route.id === "receipt" ? (
-        <ReceiptPage
-          analysis={latestAnalysis}
-          evidenceText={evidenceText}
-          copyState={copyState}
-          selectedEvidence={selectedEvidence}
-          stages={workflow.stages}
-          issues={groupedIssues}
-          problem={problem}
-          onCopy={() => void copyEvidence()}
-          onExport={exportEvidence}
-          onSelect={setSelectedEvidence}
-          onNavigate={navigate}
-        />
-      ) : null}
-      {route.id === "system" ? (
-        <SystemPage
-          capability={capability}
-          backendState={backendState}
-          streamingEnabled={streamingEnabled}
-          maxUploadBytes={maxUploadBytes}
-          analysis={latestAnalysis}
-        />
-      ) : null}
+      <LayoutGroup id="dataforge-observatory">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={route.id}
+            className="route-motion-frame"
+            data-motion-route={route.id}
+            variants={variantsForIntensity("route", motionIntensity)}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+          >
+            {route.id === "home" ? (
+              <HomePage
+                capability={capability}
+                backendState={backendState}
+                streamingEnabled={streamingEnabled}
+                maxUploadBytes={maxUploadBytes}
+                observatory={observatory}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {route.id === "run" ? (
+              <RunPage
+                dataset={dataset}
+                busy={busy}
+                canRun={canRun}
+                maxUploadBytes={maxUploadBytes}
+                capability={capability}
+                advanced={advanced}
+                backendState={backendState}
+                streamingEnabled={streamingEnabled}
+                acceptedConstraintIds={acceptedConstraintIds}
+                analysisState={analysisState}
+                hasEvidence={Boolean(evidenceText)}
+                evidenceText={evidenceText}
+                copyState={copyState}
+                fileInputRef={fileInputRef}
+                problem={problem}
+                latestAnalysis={latestAnalysis}
+                observatory={observatory}
+                onAdvancedChange={setAdvanced}
+                onChooseSample={chooseSample}
+                onFileChange={handleFileChange}
+                onAnalyze={() => void runAnalyze([])}
+                onRerun={() => void runAnalyze(acceptedConstraintIds)}
+                onCancel={cancelAnalyze}
+                onCopy={() => void copyEvidence()}
+                onExport={exportEvidence}
+                onBackendRetry={() => window.location.reload()}
+                onNavigate={navigate}
+                onSelect={setSelectedEvidence}
+              />
+            ) : null}
+            {route.id === "atlas" ? (
+              <AtlasPage
+                stages={workflow.stages}
+                runId={workflow.runId}
+                status={workflow.status}
+                selectedEvidence={selectedEvidence}
+                reviewItems={observatory.reviewQueue}
+                analysis={latestAnalysis}
+                selectedConstraintIds={acceptedConstraintIds}
+                canRerun={canRun && acceptedConstraintIds.length > 0}
+                onToggleConstraint={toggleConstraint}
+                onRerun={() => void runAnalyze(acceptedConstraintIds)}
+                onSelect={setSelectedEvidence}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {route.id === "evidence" ? (
+              <EvidencePage
+                dataset={dataset}
+                preview={dataset?.preview ?? null}
+                state={analysisState}
+                analysis={latestAnalysis}
+                observatory={observatory}
+                issues={visibleIssues}
+                filter={filter}
+                severityFilter={severityFilter}
+                sortKey={sortKey}
+                problem={problem}
+                selectedEvidence={selectedEvidence}
+                allIssues={groupedIssues}
+                onFilterChange={setFilter}
+                onSeverityFilterChange={setSeverityFilter}
+                onSortChange={setSortKey}
+                onSelect={setSelectedEvidence}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {route.id === "repairs" ? (
+              <RepairsPage
+                state={analysisState}
+                analysis={latestAnalysis}
+                dataset={dataset}
+                selectedEvidence={selectedEvidence}
+                issues={groupedIssues}
+                problem={problem}
+                onSelect={setSelectedEvidence}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {route.id === "receipt" ? (
+              <ReceiptPage
+                analysis={latestAnalysis}
+                evidenceText={evidenceText}
+                copyState={copyState}
+                selectedEvidence={selectedEvidence}
+                stages={workflow.stages}
+                issues={groupedIssues}
+                problem={problem}
+                onCopy={() => void copyEvidence()}
+                onExport={exportEvidence}
+                onSelect={setSelectedEvidence}
+                onNavigate={navigate}
+              />
+            ) : null}
+            {route.id === "system" ? (
+              <SystemPage
+                capability={capability}
+                backendState={backendState}
+                streamingEnabled={streamingEnabled}
+                maxUploadBytes={maxUploadBytes}
+                analysis={latestAnalysis}
+              />
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
+      </LayoutGroup>
     </ProductShell>
   );
 }
@@ -472,11 +498,20 @@ function ProductShell({
               key={item.id}
               href={item.href}
               aria-current={route.id === item.id ? "page" : undefined}
+              className={route.id === item.id ? "product-nav-link product-nav-link--current" : "product-nav-link"}
               onClick={(event) => {
                 event.preventDefault();
                 onNavigate(item.id);
               }}
             >
+              {route.id === item.id ? (
+                <motion.i
+                  className="nav-active-marker"
+                  layoutId="nav-active-marker"
+                  transition={motionSprings.layout}
+                  aria-hidden="true"
+                />
+              ) : null}
               <span>{item.label}</span>
               <small>{item.title}</small>
             </a>
@@ -1163,8 +1198,18 @@ function StageNode({
   onSelect: () => void;
 }) {
   const tone = toneClass(stage.status);
+  const agentState = workflowStatusToAgentState(stage.status);
   return (
-    <li className={`stage-node stage-node--${tone}`}>
+    <motion.li
+      className={`stage-node stage-node--${tone}`}
+      data-agent-motion={agentState}
+      data-workflow-status={stage.status}
+      layout
+      variants={stageNodeVariants}
+      initial={false}
+      animate={stage.status}
+      transition={motionSprings.soft}
+    >
       <button
         type="button"
         className="stage-node-button"
@@ -1172,17 +1217,27 @@ function StageNode({
         onClick={onSelect}
       >
         <span className="stage-index">{String(index + 1).padStart(2, "0")}</span>
-        <span className="stage-icon" aria-hidden="true">
-          {stage.status === "completed" ? (
-            <CheckCircle2 />
-          ) : stage.status === "blocked" || stage.status === "failed" ? (
-            <AlertTriangle />
-          ) : stage.status === "running" ? (
-            <RefreshCw />
-          ) : (
-            <CircleDot />
-          )}
-        </span>
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.span
+            key={stage.status}
+            className="stage-icon"
+            aria-hidden="true"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: motionDurations.fast }}
+          >
+            {stage.status === "completed" ? (
+              <CheckCircle2 />
+            ) : stage.status === "blocked" || stage.status === "failed" ? (
+              <AlertTriangle />
+            ) : stage.status === "running" ? (
+              <RefreshCw />
+            ) : (
+              <CircleDot />
+            )}
+          </motion.span>
+        </AnimatePresence>
         <span className="stage-copy">
           <strong>{stage.label}</strong>
           <small>{formatLabel(stage.status)}</small>
@@ -1191,7 +1246,7 @@ function StageNode({
       </button>
       <p>{stage.summary || stage.description}</p>
       <StageCounts counts={stage.counts} />
-    </li>
+    </motion.li>
   );
 }
 
@@ -1213,7 +1268,15 @@ function ReviewQueue({
   onSelect: (selection: SelectedEvidence) => void;
 }) {
   return (
-    <aside className="review-queue" aria-label="Human review queue">
+    <motion.aside
+      className="review-queue"
+      aria-label="Human review queue"
+      layout
+      variants={panelVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Human Review</p>
@@ -1231,25 +1294,37 @@ function ReviewQueue({
 
       <div className="review-list">
         {items.map((item) => (
-          <button
+          <motion.button
             key={item.id}
             type="button"
             className={`review-item review-item--${item.tone}`}
             aria-label={`${formatLabel(item.kind)} ${item.title}`}
             onClick={() => onSelect(selectionFromReviewItem(item))}
+            layout
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -1 }}
+            whileTap={{ scale: 0.99 }}
+            transition={motionSprings.soft}
           >
             <span>{formatLabel(item.kind)}</span>
             <strong>{item.title}</strong>
             <small>{item.meta}</small>
             <p>{item.detail}</p>
-          </button>
+          </motion.button>
         ))}
       </div>
 
-      <button className="queue-rerun" type="button" disabled={!canRerun} onClick={onRerun}>
+      <motion.button
+        className="queue-rerun"
+        type="button"
+        disabled={!canRerun}
+        onClick={onRerun}
+        whileTap={canRerun ? { scale: 0.99 } : undefined}
+      >
         <RefreshCw aria-hidden="true" />
         Rerun with accepted constraints
-      </button>
+      </motion.button>
 
       <div className="autonomy-boundary" aria-label="Autonomy boundary">
         <BrainCircuit aria-hidden="true" />
@@ -1258,7 +1333,7 @@ function ReviewQueue({
           <p>Analyze, infer, propose, verify. Apply, audit, and revert stay local.</p>
         </div>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -1286,12 +1361,21 @@ function ConstraintReviewControls({
   return (
     <div className="constraint-controls">
       <strong>Accepted constraints</strong>
-      {supported.map((candidate) => (
-        <label key={candidate.candidate_id} className="constraint-toggle">
+      {supported.map((candidate) => {
+        const checked = selected.has(candidate.candidate_id);
+        return (
+        <motion.label
+          key={candidate.candidate_id}
+          className="constraint-toggle"
+          data-decision-state={checked ? "accepted" : "pending"}
+          layout
+          animate={checked ? { scale: 1.006 } : { scale: 1 }}
+          transition={motionSprings.soft}
+        >
           <input
             type="checkbox"
             aria-label={`Accept ${candidate.kind} constraint ${candidate.candidate_id}`}
-            checked={selected.has(candidate.candidate_id)}
+            checked={checked}
             onChange={(event) => onToggleConstraint(candidate.candidate_id, event.target.checked)}
             onFocus={() => onSelect(candidate.candidate_id)}
           />
@@ -1299,8 +1383,9 @@ function ConstraintReviewControls({
             <b>{formatLabel(candidate.kind)}</b>
             <small>{formatConstraintColumns(candidate)} - {formatPercent(candidate.confidence)}</small>
           </span>
-        </label>
-      ))}
+        </motion.label>
+        );
+      })}
     </div>
   );
 }
@@ -1554,22 +1639,46 @@ function ReceiptLens({
       <ReceiptSummary analysis={analysis} />
       <ReceiptHandoff analysis={analysis} />
       <div className="hash-grid">
-        <button type="button" onClick={() => onSelect({ kind: "receipt", id: "source" })}>
+        <motion.button
+          type="button"
+          onClick={() => onSelect({ kind: "receipt", id: "source" })}
+          initial={{ opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.02, duration: motionDurations.fast }}
+        >
           <span>Source hash</span>
           <code>{shortHash(analysis.receipt.source_sha256)}</code>
-        </button>
-        <button type="button" onClick={() => onSelect({ kind: "receipt", id: "patch" })}>
+        </motion.button>
+        <motion.button
+          type="button"
+          onClick={() => onSelect({ kind: "receipt", id: "patch" })}
+          initial={{ opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, duration: motionDurations.fast }}
+        >
           <span>Patch plan</span>
           <code>{analysis.receipt.patch_plan_sha256 ? shortHash(analysis.receipt.patch_plan_sha256) : "none"}</code>
-        </button>
-        <button type="button" onClick={() => onSelect({ kind: "receipt", id: "constraints" })}>
+        </motion.button>
+        <motion.button
+          type="button"
+          onClick={() => onSelect({ kind: "receipt", id: "constraints" })}
+          initial={{ opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: motionDurations.fast }}
+        >
           <span>Accepted constraints</span>
           <code>{analysis.receipt.accepted_constraint_ids.length}</code>
-        </button>
-        <button type="button" onClick={() => onSelect({ kind: "receipt", id: "txn" })}>
+        </motion.button>
+        <motion.button
+          type="button"
+          onClick={() => onSelect({ kind: "receipt", id: "txn" })}
+          initial={{ opacity: 0, y: 3 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.11, duration: motionDurations.fast }}
+        >
           <span>Transaction</span>
           <code>{analysis.txn_journal.txn_id}</code>
-        </button>
+        </motion.button>
       </div>
       <ul className="limitations" aria-label="Playground limitations">
         {analysis.limitations.map((limitation) => (
@@ -1630,26 +1739,41 @@ function EvidenceDock({
 }) {
   const content = resolveDockContent(selectedEvidence, stages, analysis, issues, problem);
   return (
-    <aside className={`evidence-dock evidence-dock--${content.tone}`} aria-label="Evidence dock">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Evidence Dock</p>
-          <h2>{content.title}</h2>
+    <motion.aside
+      className={`evidence-dock evidence-dock--${content.tone}`}
+      aria-label="Evidence dock"
+      layout
+      variants={panelVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
+      <motion.div
+        key={`${content.title}:${content.meta}:${content.tone}`}
+        initial={{ opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: motionDurations.standard, ease: "easeOut" }}
+      >
+        <div className="panel-heading">
+          <div>
+            <p className="eyebrow">Evidence Dock</p>
+            <h2>{content.title}</h2>
+          </div>
+          <span className="quiet-chip">{content.meta}</span>
         </div>
-        <span className="quiet-chip">{content.meta}</span>
-      </div>
-      <p>{content.detail}</p>
-      {content.rows.length > 0 ? (
-        <dl className="dock-facts">
-          {content.rows.map((row) => (
-            <div key={row.label}>
-              <dt>{row.label}</dt>
-              <dd>{row.value}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-    </aside>
+        <p>{content.detail}</p>
+        {content.rows.length > 0 ? (
+          <dl className="dock-facts">
+            {content.rows.map((row) => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+      </motion.div>
+    </motion.aside>
   );
 }
 
@@ -1999,7 +2123,14 @@ function RepairComparison({
       </div>
       <div className="repair-list">
         {repairs.map((fix) => (
-          <article className="repair-row" key={repairKey(fix)}>
+          <motion.article
+            className="repair-row"
+            key={repairKey(fix)}
+            layout
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={motionSprings.soft}
+          >
             <button type="button" className="repair-head" onClick={() => onSelect({ kind: "repair", id: repairKey(fix) })}>
               <span>
                 Row {fix.row}, <code>{fix.column}</code>
@@ -2007,18 +2138,28 @@ function RepairComparison({
               <small>{fix.detector_id} - confidence {formatPercent(fix.confidence)} - source {shortHash(analysis.source.sha256)}</small>
             </button>
             <div className="diff-grid">
-              <div className="diff-cell diff-cell--old">
+              <motion.div
+                className="diff-cell diff-cell--old"
+                initial={{ opacity: 0.85, scale: 0.994 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.03, duration: motionDurations.fast }}
+              >
                 <span>Current</span>
                 <code>{fix.old_value || "(empty)"}</code>
-              </div>
-              <div className="diff-cell diff-cell--new">
+              </motion.div>
+              <motion.div
+                className="diff-cell diff-cell--new"
+                initial={{ opacity: 0.85, scale: 0.994 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.08, duration: motionDurations.fast }}
+              >
                 <span>Proposed</span>
                 <code>{fix.new_value || "(empty)"}</code>
-              </div>
+              </motion.div>
             </div>
             <p>{fix.reason}</p>
             {fix.verifier_reason ? <p className="verifier-note">{fix.verifier_reason}</p> : null}
-          </article>
+          </motion.article>
         ))}
       </div>
     </section>
@@ -2090,7 +2231,14 @@ function FailureList({
 
 function ReceiptSummary({ analysis }: { analysis: AnalyzeResponse }) {
   return (
-    <section className="receipt-summary" aria-label="Repair receipt summary">
+    <motion.section
+      className="receipt-summary"
+      aria-label="Repair receipt summary"
+      variants={panelVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
       <div className="metric-grid metric-grid--four">
         <Metric label="Safety" value={analysis.receipt.safety_verdict} />
         <Metric label="Verifier" value={analysis.receipt.verifier_verdict} />
@@ -2098,34 +2246,47 @@ function ReceiptSummary({ analysis }: { analysis: AnalyzeResponse }) {
         <Metric label="Reversible" value={analysis.receipt.reversible ? "yes" : "no"} />
       </div>
       <p>{analysis.receipt.reason}</p>
-    </section>
+    </motion.section>
   );
 }
 
 function ReceiptHandoff({ analysis }: { analysis: AnalyzeResponse }) {
   return (
-    <section className="handoff-panel" aria-labelledby="handoff-title">
+    <motion.section
+      className="handoff-panel"
+      aria-labelledby="handoff-title"
+      variants={panelVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={{ delay: 0.04, duration: motionDurations.standard }}
+    >
       <div>
         <p className="eyebrow">Handoff Capsule</p>
         <h2 id="handoff-title">Local transaction boundary</h2>
       </div>
       <div className="command-list">
-        <CommandRow label="Dry run" command={analysis.apply_handoff.dry_run_command} />
-        <CommandRow label="Apply" command={analysis.apply_handoff.apply_command} />
-        <CommandRow label="Audit" command={analysis.apply_handoff.audit_command} />
-        <CommandRow label="Revert" command={analysis.apply_handoff.revert_command} />
+        <CommandRow label="Dry run" command={analysis.apply_handoff.dry_run_command} delay={0.04} />
+        <CommandRow label="Apply" command={analysis.apply_handoff.apply_command} delay={0.08} />
+        <CommandRow label="Audit" command={analysis.apply_handoff.audit_command} delay={0.12} />
+        <CommandRow label="Revert" command={analysis.apply_handoff.revert_command} delay={0.16} />
       </div>
       <p>{analysis.apply_handoff.note}</p>
-    </section>
+    </motion.section>
   );
 }
 
-function CommandRow({ label, command }: { label: string; command: string }) {
+function CommandRow({ label, command, delay = 0 }: { label: string; command: string; delay?: number }) {
   return (
-    <div className="command-row">
+    <motion.div
+      className="command-row"
+      initial={{ opacity: 0, y: 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: motionDurations.fast }}
+    >
       <span>{label}</span>
       <code>{command}</code>
-    </div>
+    </motion.div>
   );
 }
 
@@ -2171,32 +2332,51 @@ function ConfidenceBadge({ value }: { value: number }) {
 
 function ProblemBanner({ problem }: { problem: ProblemDetail }) {
   return (
-    <div className="problem-banner" role="alert">
+    <motion.div
+      className="problem-banner"
+      role="alert"
+      initial={{ opacity: 0, y: 3 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={motionSprings.snap}
+    >
       <AlertTriangle aria-hidden="true" />
       <div>
         <strong>{problem.title}</strong>
         <p>{problemToMessage(problem)}</p>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
 function LoadingState({ label }: { label: string }) {
   return (
-    <div className="loading-state" role="status" aria-live="polite">
+    <motion.div
+      className="loading-state"
+      role="status"
+      aria-live="polite"
+      data-agent-motion="acting"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: motionDurations.fast }}
+    >
       <RefreshCw aria-hidden="true" />
       <span>{label}</span>
-    </div>
+    </motion.div>
   );
 }
 
 function EmptyState({ icon, title, body }: { icon: ReactNode; title: string; body: string }) {
   return (
-    <div className="empty-state">
+    <motion.div
+      className="empty-state"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: motionDurations.fast }}
+    >
       {icon}
       <strong>{title}</strong>
       <p>{body}</p>
-    </div>
+    </motion.div>
   );
 }
 

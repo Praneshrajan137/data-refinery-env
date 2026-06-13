@@ -27,10 +27,25 @@ from huggingface_hub import HfApi
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 HF_USER = "Praneshrajan15"
-DATASET_REPO = f"{HF_USER}/dataforge-sft-trajectories"
-SFT_MODEL_REPO = f"{HF_USER}/DataForge-0.5B-SFT"
-BASE_MODEL_ID = "Qwen/Qwen2.5-0.5B-Instruct"
-OUTPUT_DATASET_PATH = "reports/hf_full_eval_latest.json"
+MODEL_SIZE = os.environ.get("DATAFORGE_MODEL_SIZE", "0.5B")
+MODEL_STAGE = os.environ.get("DATAFORGE_MODEL_STAGE", "SFT")
+DATASET_REPO = os.environ.get("DATAFORGE_DATASET_REPO", f"{HF_USER}/dataforge-sft-trajectories")
+TARGET_MODEL_REPO = os.environ.get(
+    "DATAFORGE_TARGET_MODEL_REPO",
+    f"{HF_USER}/DataForge-{MODEL_SIZE}-{MODEL_STAGE}",
+)
+BASELINE_MODEL_ID = os.environ.get("DATAFORGE_BASELINE_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
+BASE_MODEL_ID = os.environ.get("DATAFORGE_BASE_MODEL_ID", BASELINE_MODEL_ID)
+OUTPUT_DATASET_PATH = os.environ.get(
+    "DATAFORGE_OUTPUT_DATASET_PATH",
+    f"reports/hf_full_eval_{MODEL_SIZE.replace('.', '-')}_{MODEL_STAGE.lower()}_latest.json",
+)
+MIN_ABSOLUTE_F1_GAIN = float(
+    os.environ.get(
+        "DATAFORGE_MIN_ABSOLUTE_F1_GAIN",
+        "0.02" if MODEL_STAGE == "GiGPO" else ("0.03" if MODEL_STAGE == "GRPO" else "0.0"),
+    )
+)
 MAX_NEW_TOKENS = 1024
 HELDOUT_TASKS = 100
 SEEDS_START = 10000
@@ -310,41 +325,54 @@ def main() -> None:
         raise RuntimeError("HF_TOKEN secret is required.")
     api = HfApi(token=token)
     dataset_info = api.repo_info(DATASET_REPO, repo_type="dataset", token=token)
-    model_info = api.repo_info(SFT_MODEL_REPO, repo_type="model", token=token)
+    model_info = api.repo_info(TARGET_MODEL_REPO, repo_type="model", token=token)
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID, token=token, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tasks = build_eval_tasks()
-    base_eval = evaluate_model(BASE_MODEL_ID, tokenizer, tasks, token)
-    sft_eval = evaluate_model(SFT_MODEL_REPO, tokenizer, tasks, token)
-    base_f1 = float(base_eval["macro_f1"])
-    sft_f1 = float(sft_eval["macro_f1"])
-    parse_success_rate = float(sft_eval["parse_success_rate"])
-    schema_case_error_count = int(sft_eval["schema_case_error_count"])
+    baseline_eval = evaluate_model(BASELINE_MODEL_ID, tokenizer, tasks, token)
+    target_eval = evaluate_model(TARGET_MODEL_REPO, tokenizer, tasks, token)
+    baseline_f1 = float(baseline_eval["macro_f1"])
+    target_f1 = float(target_eval["macro_f1"])
+    f1_delta = round(target_f1 - baseline_f1, 4)
+    parse_success_rate = float(target_eval["parse_success_rate"])
+    schema_case_error_count = int(target_eval["schema_case_error_count"])
     quality_milestone = (
-        sft_f1 > base_f1 and parse_success_rate >= 0.99 and schema_case_error_count == 0
+        f1_delta >= MIN_ABSOLUTE_F1_GAIN
+        and target_f1 > baseline_f1
+        and parse_success_rate >= 0.99
+        and schema_case_error_count == 0
     )
     release_status = (
         "quality_improved_verified"
         if quality_milestone
-        else ("diagnostic_complete_no_gain" if sft_f1 <= base_f1 else "quality_gate_failed")
+        else ("diagnostic_complete_no_gain" if target_f1 <= baseline_f1 else "quality_gate_failed")
     )
     report = {
         "run_date_utc": datetime.now(UTC).isoformat(),
         "job_runtime_hours": round((time.time() - started) / 3600, 4),
         "device": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "cpu",
+        "model_size": MODEL_SIZE,
+        "model_stage": MODEL_STAGE,
         "dataset_repo": DATASET_REPO,
         "dataset_sha": dataset_info.sha,
-        "model_repo": SFT_MODEL_REPO,
+        "model_repo": TARGET_MODEL_REPO,
         "model_sha": model_info.sha,
         "base_model": BASE_MODEL_ID,
+        "baseline_model": BASELINE_MODEL_ID,
         "heldout_tasks": len(tasks),
         "evaluation_chunk_width": CHUNK_WIDTH,
         "evaluation_max_new_tokens": MAX_NEW_TOKENS,
-        "base_eval": base_eval,
-        "sft_eval": sft_eval,
-        "base_f1": base_f1,
-        "sft_f1": sft_f1,
+        "baseline_eval": baseline_eval,
+        "target_eval": target_eval,
+        "baseline_f1": baseline_f1,
+        "target_f1": target_f1,
+        "f1_delta": f1_delta,
+        "min_absolute_f1_gain": MIN_ABSOLUTE_F1_GAIN,
+        "base_eval": baseline_eval,
+        "sft_eval": target_eval,
+        "base_f1": baseline_f1,
+        "sft_f1": target_f1,
         "parse_success_rate": parse_success_rate,
         "schema_case_error_count": schema_case_error_count,
         "prompt_contract_drift": False,
@@ -355,7 +383,13 @@ def main() -> None:
     output = Path("hf_full_eval_latest.json")
     output.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     timestamp_path = (
-        "reports/hf_full_eval_" + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + ".json"
+        "reports/hf_full_eval_"
+        + MODEL_SIZE.replace(".", "-")
+        + "_"
+        + MODEL_STAGE.lower()
+        + "_"
+        + datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        + ".json"
     )
     api.upload_file(
         path_or_fileobj=str(output),

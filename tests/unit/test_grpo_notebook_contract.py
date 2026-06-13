@@ -51,6 +51,10 @@ def test_grpo_notebook_enforces_corrected_trl_and_prompt_budget_contract() -> No
     assert "max_prompt_length" in source
     assert "trl==0.11" not in source
     assert "dataforge_reward" in source
+    assert "repair_contract_v2" in source
+    assert "expert_v4.jsonl" in source
+    assert "analyze_grpo_readiness" in source
+    assert "grpo_readiness_report.json" in source
     assert "report_to" in source and "tensorboard" in source
 
 
@@ -66,5 +70,21 @@ def test_grpo_notebook_supports_05b_and_15b_gate_before_push() -> None:
     assert "merge_and_unload" in source
     assert "acceptance_gate_passed" in source
     assert "min_absolute_f1_gain" in source
+    assert "DATAFORGE_GRPO_STAGE" in source
+    assert '"smoke"' in source
+    assert "stage_allows_upload" in source
+    assert 'max_steps"] = int(selected_stage["max_steps"])' in source
     assert source.index("if not acceptance_gate_passed") < source.index("api.upload_folder(")
+    assert source.index("if not stage_allows_upload") < source.index("api.upload_folder(")
     assert 'raise RuntimeError("GRPO gate failed' in source
+
+
+def test_grpo_notebook_writes_complete_public_model_card_metadata() -> None:
+    source = _source()
+
+    assert "license:" in source
+    assert "datasets:" in source
+    assert "base_model:" in source
+    assert "model-index:" in source
+    assert "predecessor" in source
+    assert "not production autonomous repair" in source

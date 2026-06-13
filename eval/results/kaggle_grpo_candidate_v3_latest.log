@@ -1,0 +1,55 @@
+﻿[{"stream_name":"stderr","time":2.4806695420000002,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":2.481481811,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_web_client.py\", line 46, in make_post_request\n"}
+,{"stream_name":"stderr","time":2.481489135,"data":"    with urllib.request.urlopen(req, timeout=timeout) as response:\n"}
+,{"stream_name":"stderr","time":2.481491874,"data":"         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.481494219,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 215, in urlopen\n"}
+,{"stream_name":"stderr","time":2.482134462,"data":"    return opener.open(url, data, timeout)\n"}
+,{"stream_name":"stderr","time":2.482160072,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.482165741,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 521, in open\n"}
+,{"stream_name":"stderr","time":2.4826828450000002,"data":"    response = meth(req, response)\n"}
+,{"stream_name":"stderr","time":2.482703575,"data":"               ^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.4827112639999998,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 630, in http_response\n"}
+,{"stream_name":"stderr","time":2.482999635,"data":"    response = self.parent.error(\n"}
+,{"stream_name":"stderr","time":2.4830392,"data":"               ^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.483097606,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 559, in error\n"}
+,{"stream_name":"stderr","time":2.483402344,"data":"    return self._call_chain(*args)\n"}
+,{"stream_name":"stderr","time":2.483474533,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.483494155,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 492, in _call_chain\n"}
+,{"stream_name":"stderr","time":2.483834828,"data":"    result = func(*args)\n"}
+,{"stream_name":"stderr","time":2.4838562619999998,"data":"             ^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.483873017,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 639, in http_error_default\n"}
+,{"stream_name":"stderr","time":2.484162267,"data":"    raise HTTPError(req.full_url, code, msg, hdrs, fp)\n"}
+,{"stream_name":"stderr","time":2.484271705,"data":"urllib.error.HTTPError: HTTP Error 400: Bad Request\n"}
+,{"stream_name":"stderr","time":2.484289192,"data":"\n"}
+,{"stream_name":"stderr","time":2.48429416,"data":"The above exception was the direct cause of the following exception:\n"}
+,{"stream_name":"stderr","time":2.484298154,"data":"\n"}
+,{"stream_name":"stderr","time":2.484302498,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":2.484305945,"data":"  File \"/kaggle/src/script.py\", line 96, in _load_hf_token\n"}
+,{"stream_name":"stderr","time":2.484422377,"data":"    token = (UserSecretsClient().get_secret(\"HF_TOKEN\") or \"\").strip()\n"}
+,{"stream_name":"stderr","time":2.484561516,"data":"             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.4845785510000002,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_secrets.py\", line 64, in get_secret\n"}
+,{"stream_name":"stderr","time":2.484783767,"data":"    response_json = self.web_client.make_post_request(request_body, self.GET_USER_SECRET_BY_LABEL_ENDPOINT)\n"}
+,{"stream_name":"stderr","time":2.485036488,"data":"                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.48504324,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_web_client.py\", line 58, in make_post_request\n"}
+,{"stream_name":"stderr","time":2.485178874,"data":"    raise ConnectionError(\n"}
+,{"stream_name":"stderr","time":2.48518867,"data":"ConnectionError: Connection error trying to communicate with service.\n"}
+,{"stream_name":"stderr","time":2.48519345,"data":"\n"}
+,{"stream_name":"stderr","time":2.485198019,"data":"The above exception was the direct cause of the following exception:\n"}
+,{"stream_name":"stderr","time":2.485202322,"data":"\n"}
+,{"stream_name":"stderr","time":2.485206169,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":2.485216693,"data":"  File \"/kaggle/src/script.py\", line 679, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":2.485456057,"data":"    raise SystemExit(main())\n"}
+,{"stream_name":"stderr","time":2.485550054,"data":"                     ^^^^^^\n"}
+,{"stream_name":"stderr","time":2.485555699,"data":"  File \"/kaggle/src/script.py\", line 380, in main\n"}
+,{"stream_name":"stderr","time":2.48578601,"data":"    hf_token, hf_auth_origin = _load_hf_token()\n"}
+,{"stream_name":"stderr","time":2.485876377,"data":"                                ^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":2.485887339,"data":"  File \"/kaggle/src/script.py\", line 98, in _load_hf_token\n"}
+,{"stream_name":"stderr","time":2.486048117,"data":"    raise RuntimeError(\"HF_TOKEN Kaggle secret is required for candidate upload.\") from exc\n"}
+,{"stream_name":"stderr","time":2.486054625,"data":"RuntimeError: HF_TOKEN Kaggle secret is required for candidate upload.\n"}
+,{"stream_name":"stderr","time":4.834224851,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":4.834285809,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":5.20101701,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":5.201055987,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":6.933525163,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":8.353686472,"data":"[NbConvertApp] Writing 399296 bytes to __results__.html\n"}
+]

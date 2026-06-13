@@ -1,0 +1,440 @@
+{
+  "packages": [
+    {
+      "attestations": true,
+      "name": "dataforge_07",
+      "pypi": {
+        "index": "pypi",
+        "project_url": "https://pypi.org/project/dataforge-07/",
+        "sdist": {
+          "download_url": "https://files.pythonhosted.org/packages/dd/2e/08cc488b6aa7cdd35cc1e0ea7aad94ffc7298072ff40b5521fa0fbc261fc/dataforge_07-0.1.0.tar.gz",
+          "filename": "dataforge_07-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "9948b8192300edd2a8058ee09b7b40d716d5748982e0524b83f21a08204e553f",
+          "package_type": "sdist",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07/0.1.0/dataforge_07-0.1.0.tar.gz/provenance",
+          "sha256": "9948b8192300edd2a8058ee09b7b40d716d5748982e0524b83f21a08204e553f",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:06:51.510250Z"
+        },
+        "wheel": {
+          "download_url": "https://files.pythonhosted.org/packages/47/f9/90e52c2a336688cda8555ef3b50d543bf202c7a2b8f9f008d832983290cf/dataforge_07-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "f30dc5d8da690dad41e596b14e7ec5b49567eed6288a6d8bed6ce31b9d19bbcf",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07/0.1.0/dataforge_07-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "f30dc5d8da690dad41e596b14e7ec5b49567eed6288a6d8bed6ce31b9d19bbcf",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:06:49.826466Z"
+        }
+      },
+      "pypi_fresh_install": true,
+      "pypi_smoke_log_path": "pypi/dataforge_07-pypi-smoke.json",
+      "testpypi": {
+        "index": "testpypi",
+        "project_url": "https://test.pypi.org/project/dataforge-07/",
+        "sdist": {
+          "download_url": "https://test-files.pythonhosted.org/packages/fe/a5/ff21bb4d0350986d630e887da0ede68d10144159c21cbe49189349172d66/dataforge_07-0.1.0.tar.gz",
+          "filename": "dataforge_07-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "29f5002116cc28cc8a3f99ad98239b97dae32b2544a11a9cdb385cc4621ef6ec",
+          "package_type": "sdist",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07/0.1.0/dataforge_07-0.1.0.tar.gz/provenance",
+          "sha256": "29f5002116cc28cc8a3f99ad98239b97dae32b2544a11a9cdb385cc4621ef6ec",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:04:10.116563Z"
+        },
+        "wheel": {
+          "download_url": "https://test-files.pythonhosted.org/packages/dd/fc/556a8c5510b6b8a6b8f22c329dee87760bd926b39c434d1ee75257412b2b/dataforge_07-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "561bd77993f427552397b13fd2eee59dca51ab538b5f6cdff5a64b50a3d598a3",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07/0.1.0/dataforge_07-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "561bd77993f427552397b13fd2eee59dca51ab538b5f6cdff5a64b50a3d598a3",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:04:08.497672Z"
+        }
+      },
+      "testpypi_fresh_install": true,
+      "testpypi_smoke_log_path": "pypi/dataforge_07-testpypi-smoke.json",
+      "trusted_publishing": true,
+      "version": "0.1.0",
+      "workflow_run_url": "https://github.com/Aegis15/dataforge/actions/runs/27430722011"
+    },
+    {
+      "attestations": true,
+      "name": "dataforge_07_mcp",
+      "pypi": {
+        "index": "pypi",
+        "project_url": "https://pypi.org/project/dataforge-07-mcp/",
+        "sdist": {
+          "download_url": "https://files.pythonhosted.org/packages/01/da/7c4275ce74249acdf1fed0f672a24def874c9250986c124ff1fac8c2a866/dataforge_07_mcp-0.1.0.tar.gz",
+          "filename": "dataforge_07_mcp-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "3dd372aed4a113f954e05b4476606e96b36915c8312d2c22092b94aa38a47042",
+          "package_type": "sdist",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-mcp/0.1.0/dataforge_07_mcp-0.1.0.tar.gz/provenance",
+          "sha256": "3dd372aed4a113f954e05b4476606e96b36915c8312d2c22092b94aa38a47042",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-mcp.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-mcp.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:10:50.397186Z"
+        },
+        "wheel": {
+          "download_url": "https://files.pythonhosted.org/packages/de/f9/d67786feede387a090391abf270dfb4a681e933709fb544a4307aff4f4fc/dataforge_07_mcp-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_mcp-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "84062215ee32c80ff4bfa989ec3d30e50413ddebc11cfb7604fdb7676a973d32",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-mcp/0.1.0/dataforge_07_mcp-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "84062215ee32c80ff4bfa989ec3d30e50413ddebc11cfb7604fdb7676a973d32",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-mcp.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-mcp.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:10:49.160682Z"
+        }
+      },
+      "pypi_fresh_install": true,
+      "pypi_smoke_log_path": "pypi/dataforge_07_mcp-pypi-smoke.json",
+      "testpypi": {
+        "index": "testpypi",
+        "project_url": "https://test.pypi.org/project/dataforge-07-mcp/",
+        "sdist": {
+          "download_url": "https://test-files.pythonhosted.org/packages/80/44/0871ab5889f8d07044fd9716045ab5ed32d1933a5836b29bc682efd93be2/dataforge_07_mcp-0.1.0.tar.gz",
+          "filename": "dataforge_07_mcp-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "0536ccee683484e35853dedfb8580016ea55564fbbdc905e57b9fb5a52723a32",
+          "package_type": "sdist",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-mcp/0.1.0/dataforge_07_mcp-0.1.0.tar.gz/provenance",
+          "sha256": "0536ccee683484e35853dedfb8580016ea55564fbbdc905e57b9fb5a52723a32",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-mcp-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-mcp-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:08:58.380696Z"
+        },
+        "wheel": {
+          "download_url": "https://test-files.pythonhosted.org/packages/95/65/44ea6c5394d66e1f912fac2e41976e1c735f7f5c707a4aba98fc26b3aec3/dataforge_07_mcp-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_mcp-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "2718bea040f1e588d5d029a08b6304758ee44a3023902046afd990930b1c6e98",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-mcp/0.1.0/dataforge_07_mcp-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "2718bea040f1e588d5d029a08b6304758ee44a3023902046afd990930b1c6e98",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-mcp-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-mcp-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:08:57.423748Z"
+        }
+      },
+      "testpypi_fresh_install": true,
+      "testpypi_smoke_log_path": "pypi/dataforge_07_mcp-testpypi-smoke.json",
+      "trusted_publishing": true,
+      "version": "0.1.0",
+      "workflow_run_url": "https://github.com/Aegis15/dataforge/actions/runs/27430980186"
+    },
+    {
+      "attestations": true,
+      "name": "dataforge_07_evals",
+      "pypi": {
+        "index": "pypi",
+        "project_url": "https://pypi.org/project/dataforge-07-evals/",
+        "sdist": {
+          "download_url": "https://files.pythonhosted.org/packages/41/09/e7170520f9344916f5644a2491091a027a2cf7f1b16f2c6b767a77e19243/dataforge_07_evals-0.1.0.tar.gz",
+          "filename": "dataforge_07_evals-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "323b6ad55c5c98c8d4b0ce0a22aaa35961246bdbe059815fe57d30cce04decce",
+          "package_type": "sdist",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-evals/0.1.0/dataforge_07_evals-0.1.0.tar.gz/provenance",
+          "sha256": "323b6ad55c5c98c8d4b0ce0a22aaa35961246bdbe059815fe57d30cce04decce",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-evals.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-evals.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:10:28.510011Z"
+        },
+        "wheel": {
+          "download_url": "https://files.pythonhosted.org/packages/d8/3f/089bd452babb2ae9607b57037eca771a7b6fb73511b627f5dbbec78cfe7e/dataforge_07_evals-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_evals-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "5e367297c97a522c4a0747dcd5eefae7d6690cdaf76b412efc6f7b4d0a8c9e61",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-evals/0.1.0/dataforge_07_evals-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "5e367297c97a522c4a0747dcd5eefae7d6690cdaf76b412efc6f7b4d0a8c9e61",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-evals.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-evals.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:10:27.415832Z"
+        }
+      },
+      "pypi_fresh_install": true,
+      "pypi_smoke_log_path": "pypi/dataforge_07_evals-pypi-smoke.json",
+      "testpypi": {
+        "index": "testpypi",
+        "project_url": "https://test.pypi.org/project/dataforge-07-evals/",
+        "sdist": {
+          "download_url": "https://test-files.pythonhosted.org/packages/b5/49/4d25e48de53f57f32235e1466539e03e4595939a7edd5b922d35d80c5d84/dataforge_07_evals-0.1.0.tar.gz",
+          "filename": "dataforge_07_evals-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "ffab8fd317cb1b6259573868a88ba0e76339f88761558d599150fca3abfc1522",
+          "package_type": "sdist",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-evals/0.1.0/dataforge_07_evals-0.1.0.tar.gz/provenance",
+          "sha256": "ffab8fd317cb1b6259573868a88ba0e76339f88761558d599150fca3abfc1522",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-evals-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-evals-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:08:48.008126Z"
+        },
+        "wheel": {
+          "download_url": "https://test-files.pythonhosted.org/packages/47/53/b8cd209c706103ac4c8e8e7fe71defe68b5652df63db262d08d2458374ed/dataforge_07_evals-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_evals-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "1d90e15a05a820e07e5f654777b90cf4271674a7601b169ef7f8d31ce6c89db7",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-evals/0.1.0/dataforge_07_evals-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "1d90e15a05a820e07e5f654777b90cf4271674a7601b169ef7f8d31ce6c89db7",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-evals-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-evals-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-12T17:08:46.484096Z"
+        }
+      },
+      "testpypi_fresh_install": true,
+      "testpypi_smoke_log_path": "pypi/dataforge_07_evals-testpypi-smoke.json",
+      "trusted_publishing": true,
+      "version": "0.1.0",
+      "workflow_run_url": "https://github.com/Aegis15/dataforge/actions/runs/27430980118"
+    },
+    {
+      "attestations": true,
+      "name": "dataforge_07_dbt",
+      "pypi": {
+        "index": "pypi",
+        "project_url": "https://pypi.org/project/dataforge-07-dbt/",
+        "sdist": {
+          "download_url": "https://files.pythonhosted.org/packages/8a/04/43df72e3f9c32574f90fff4e8a9ffed2c0c7d486ce3a229987dc34ff8776/dataforge_07_dbt-0.1.0.tar.gz",
+          "filename": "dataforge_07_dbt-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "ddbf623c788acb04383b97d311e3e4725d3ee2dfbceee5e94db01d1b5163c873",
+          "package_type": "sdist",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-dbt/0.1.0/dataforge_07_dbt-0.1.0.tar.gz/provenance",
+          "sha256": "ddbf623c788acb04383b97d311e3e4725d3ee2dfbceee5e94db01d1b5163c873",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-dbt.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-dbt.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:44:39.705667Z"
+        },
+        "wheel": {
+          "download_url": "https://files.pythonhosted.org/packages/c2/7b/9efb59ac9d7162d8e65dbb2ab4cd2a0c417a03061a1d87256b2fa80ed329/dataforge_07_dbt-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_dbt-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "26f6ba9a1642ab8f8951321bb8c80ef63f85e239ce38f5d4a9011dc2a4a9955f",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-dbt/0.1.0/dataforge_07_dbt-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "26f6ba9a1642ab8f8951321bb8c80ef63f85e239ce38f5d4a9011dc2a4a9955f",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-dbt.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-dbt.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:44:38.733869Z"
+        }
+      },
+      "pypi_fresh_install": true,
+      "pypi_smoke_log_path": "pypi/dataforge_07_dbt-pypi-smoke.json",
+      "testpypi": {
+        "index": "testpypi",
+        "project_url": "https://test.pypi.org/project/dataforge-07-dbt/",
+        "sdist": {
+          "download_url": "https://test-files.pythonhosted.org/packages/e0/c1/934d53634527fef5c031da20fa7759cd316de3d88f4d512c4160450ea2a3/dataforge_07_dbt-0.1.0.tar.gz",
+          "filename": "dataforge_07_dbt-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "97713784b1515d5080fa8c248eb22bbddf96dee60fc00d1a1268041c4360b972",
+          "package_type": "sdist",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-dbt/0.1.0/dataforge_07_dbt-0.1.0.tar.gz/provenance",
+          "sha256": "97713784b1515d5080fa8c248eb22bbddf96dee60fc00d1a1268041c4360b972",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-dbt-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-dbt-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:43:08.763117Z"
+        },
+        "wheel": {
+          "download_url": "https://test-files.pythonhosted.org/packages/dd/3a/3d0f710e67186b26c73a620f9d54dcee334e97ea96a4ab899f600b9fa512/dataforge_07_dbt-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_dbt-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "b3464c218cebf49b0c84e6391d20aaf53a85cb266eee94b572e5d73d61f321cd",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-dbt/0.1.0/dataforge_07_dbt-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "b3464c218cebf49b0c84e6391d20aaf53a85cb266eee94b572e5d73d61f321cd",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-dbt-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-dbt-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:43:07.671676Z"
+        }
+      },
+      "testpypi_fresh_install": true,
+      "testpypi_smoke_log_path": "pypi/dataforge_07_dbt-testpypi-smoke.json",
+      "trusted_publishing": true,
+      "version": "0.1.0",
+      "workflow_run_url": "https://github.com/Aegis15/dataforge/actions/runs/27455573382"
+    },
+    {
+      "attestations": true,
+      "name": "dataforge_07_agent_patterns",
+      "pypi": {
+        "index": "pypi",
+        "project_url": "https://pypi.org/project/dataforge-07-agent-patterns/",
+        "sdist": {
+          "download_url": "https://files.pythonhosted.org/packages/be/52/615049be21f9ab6f7027fd827578da870882aaad96d4c67d450d5d076d5b/dataforge_07_agent_patterns-0.1.0.tar.gz",
+          "filename": "dataforge_07_agent_patterns-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "eea665b2984612c12e00ef79a7f5edec758a74e1312a22acf78d1fd85abea41e",
+          "package_type": "sdist",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-agent-patterns/0.1.0/dataforge_07_agent_patterns-0.1.0.tar.gz/provenance",
+          "sha256": "eea665b2984612c12e00ef79a7f5edec758a74e1312a22acf78d1fd85abea41e",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-agent-patterns.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-agent-patterns.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:44:44.537889Z"
+        },
+        "wheel": {
+          "download_url": "https://files.pythonhosted.org/packages/47/12/40fd74c3a545f0a5b8dcf8ef670f877ada67fbdf0443b2b90b2e33bb0118/dataforge_07_agent_patterns-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_agent_patterns-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "49c4950288f29e03e83278dbdbba672792440086990251467cb68e0e770ac810",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://pypi.org/integrity/dataforge-07-agent-patterns/0.1.0/dataforge_07_agent_patterns-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "49c4950288f29e03e83278dbdbba672792440086990251467cb68e0e770ac810",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-agent-patterns.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-agent-patterns.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:44:43.385222Z"
+        }
+      },
+      "pypi_fresh_install": true,
+      "pypi_smoke_log_path": "pypi/dataforge_07_agent_patterns-pypi-smoke.json",
+      "testpypi": {
+        "index": "testpypi",
+        "project_url": "https://test.pypi.org/project/dataforge-07-agent-patterns/",
+        "sdist": {
+          "download_url": "https://test-files.pythonhosted.org/packages/e0/a9/5d9cc7c703c26f08cd758b87cfaa33a9097cffbb7ee7c3f2dc07255d4536/dataforge_07_agent_patterns-0.1.0.tar.gz",
+          "filename": "dataforge_07_agent_patterns-0.1.0.tar.gz",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "6888a97cdfb9388aece32c1437c0396d65ad938bf39826e21cea7c64b522d586",
+          "package_type": "sdist",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-agent-patterns/0.1.0/dataforge_07_agent_patterns-0.1.0.tar.gz/provenance",
+          "sha256": "6888a97cdfb9388aece32c1437c0396d65ad938bf39826e21cea7c64b522d586",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-agent-patterns-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-agent-patterns-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:42:45.624293Z"
+        },
+        "wheel": {
+          "download_url": "https://test-files.pythonhosted.org/packages/58/71/482a65913292ddf52a50fe38bcd775eaa315b960d26e0116953b2b7e13a5/dataforge_07_agent_patterns-0.1.0-py3-none-any.whl",
+          "filename": "dataforge_07_agent_patterns-0.1.0-py3-none-any.whl",
+          "integrity_predicate_type": "https://docs.pypi.org/attestations/publish/v1",
+          "integrity_subject_sha256": "1c4b94533e7d75f03fb50e9e986528f45f6bf5b72e144db77558b63a0bcbc7f2",
+          "package_type": "bdist_wheel",
+          "provenance_url": "https://test.pypi.org/integrity/dataforge-07-agent-patterns/0.1.0/dataforge_07_agent_patterns-0.1.0-py3-none-any.whl/provenance",
+          "sha256": "1c4b94533e7d75f03fb50e9e986528f45f6bf5b72e144db77558b63a0bcbc7f2",
+          "trusted_publisher": {
+            "identity": "https://github.com/Aegis15/dataforge/.github/workflows/publish-dataforge-agent-patterns-testpypi.yml@refs/heads/main",
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": "publish-dataforge-agent-patterns-testpypi.yml"
+          },
+          "upload_time_iso_8601": "2026-06-13T03:42:44.365734Z"
+        }
+      },
+      "testpypi_fresh_install": true,
+      "testpypi_smoke_log_path": "pypi/dataforge_07_agent_patterns-testpypi-smoke.json",
+      "trusted_publishing": true,
+      "version": "0.1.0",
+      "workflow_run_url": "https://github.com/Aegis15/dataforge/actions/runs/27455573334"
+    }
+  ],
+  "schema_version": "dataforge_pypi_publish_report_v2"
+}

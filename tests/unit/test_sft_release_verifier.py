@@ -585,6 +585,59 @@ def test_release_verifier_can_require_quality_improvement(tmp_path: Path) -> Non
         )
 
 
+def test_release_verifier_uses_manifest_license_for_3b_sft(tmp_path: Path) -> None:
+    metrics = {
+        "model_name": "DataForge-3B-SFT",
+        "model_license": "apache-2.0",
+        "base_model": "Qwen/Qwen2.5-3B-Instruct",
+        "teacher_model": "clean-diff-v1",
+        "dataset_repo": DEFAULT_DATASET_REPO,
+        "training_examples": 29,
+        "kaggle_hours": 0.906,
+        "base_f1": 0.0,
+        "sft_f1": 0.1,
+        "repo_id": "Praneshrajan15/DataForge-3B-SFT",
+        "parse_success_rate": 1.0,
+        "schema_case_error_count": 0,
+        "prompt_contract_drift": False,
+        "heldout_leakage_detected": False,
+    }
+    files = _files(tmp_path, metrics=metrics)
+
+    def downloader(
+        repo_id: str,
+        *,
+        filename: str,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        token: str | None = None,
+    ) -> str:
+        return str(files[(str(repo_type), filename)])
+
+    with pytest.raises(ReleaseVerificationError, match="qwen-research"):
+        verify_sft_release(
+            model_repo="Praneshrajan15/DataForge-3B-SFT",
+            api=_FakeApi(
+                model_files={
+                    "README.md",
+                    "config.json",
+                    "model.safetensors",
+                    "tokenizer.json",
+                    "tokenizer_config.json",
+                    "training_metrics.json",
+                },
+                dataset_files={
+                    "README.md",
+                    "expert_v1.jsonl",
+                    "split_manifest.json",
+                    "sft_05b.yaml",
+                    "MODEL_CARD_TEMPLATE.md",
+                },
+            ),
+            downloader=downloader,
+        )
+
+
 def test_release_verifier_marks_f1_gain_without_gates_as_failed(tmp_path: Path) -> None:
     metrics = {
         "model_name": "DataForge-0.5B-SFT",

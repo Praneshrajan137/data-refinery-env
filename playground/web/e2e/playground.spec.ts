@@ -423,6 +423,28 @@ test("product routes support direct load, navigation, and browser history", asyn
   await expect(page).toHaveURL(/\/playground\/run$/);
 });
 
+test("reduced motion keeps route and workflow state visible without overflow", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/playground/run");
+
+  await expect(page.getByRole("region", { name: "DataForge mission bar" })).toBeVisible();
+  await expect(page.locator(".route-motion-frame")).toHaveAttribute("data-motion-route", "run");
+  await expect(page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches)).resolves.toBe(true);
+
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await page.getByRole("button", { name: "Analyze", exact: true }).click();
+  await page.locator('.product-nav a[href="/playground/atlas"]').click();
+
+  await expect(page.locator("[data-agent-motion]").first()).toBeVisible();
+  await expect(page.locator("[data-workflow-status='completed']").first()).toBeVisible();
+
+  const layout = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    innerWidth: window.innerWidth,
+  }));
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.innerWidth + 1);
+});
+
 for (const colorScheme of ["light", "dark"] as const) {
   test(`DataForge multi-page product supports the full sample flow in ${colorScheme} mode`, async ({ page }) => {
     await allowClipboardWrite(page);

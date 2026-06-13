@@ -1,0 +1,53 @@
+{
+  "artifacts": {
+    "input_path": "training\\kaggle_grpo_candidate_handoff\\expert_v4.jsonl",
+    "output_path": "data\\sft_traj\\expert_v5_repair_curriculum.jsonl",
+    "report_path": "eval\\results\\sft_v5_repair_curriculum_report.json",
+    "split_manifest_path": "training\\kaggle_grpo_candidate_handoff\\split_manifest_v4.json"
+  },
+  "blockers": [],
+  "curriculum_version": "expert_v5_repair_curriculum",
+  "invalid_samples": [],
+  "leakage_samples": [],
+  "limitations": [
+    "Curriculum duplicates records to change training emphasis; it does not alter held-out eval.",
+    "External-reference and not-inferable rows remain no-op abstention examples."
+  ],
+  "metrics": {
+    "deterministic_by_base_dataset": {
+      "beers": 590,
+      "flights": 128,
+      "hospital": 256
+    },
+    "deterministic_repair_records": 974,
+    "hard_negative_by_base_dataset": {
+      "beers": 163,
+      "flights": 162,
+      "hospital": 162
+    },
+    "hard_negative_noop_records": 487,
+    "invalid_count": 0,
+    "leakage_count": 0,
+    "output_records": 1461,
+    "source_shape": {
+      "beers:deterministic_normalization:repair": 590,
+      "beers:external_reference_required:noop": 398,
+      "flights:deterministic_normalization:repair": 12,
+      "flights:external_reference_required:noop": 970,
+      "flights:not_inferable_from_prompt:noop": 86,
+      "hospital:deterministic_normalization:repair": 256,
+      "hospital:external_reference_required:noop": 394,
+      "hospital:not_inferable_from_prompt:noop": 56
+    }
+  },
+  "ok": true,
+  "schema_version": "dataforge_sft_v5_repair_curriculum_report_v1",
+  "settings": {
+    "deterministic_min_per_base_dataset": 128,
+    "deterministic_min_total": 512,
+    "hard_negative_min_total": 128,
+    "max_repeats_per_record": 32,
+    "noop_ratio": 0.5
+  },
+  "status": "pass"
+}

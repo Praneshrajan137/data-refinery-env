@@ -2,7 +2,7 @@
 
 > Status: Draft
 > Owner: DataForge maintainers
-> Last updated: 2026-05-16
+> Last updated: 2026-06-12
 
 ## 1. Purpose
 
@@ -15,26 +15,44 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - [ ] `training/configs/grpo_05b.yaml` and `grpo_15b.yaml` encode the corrected
   TRL v1-era GRPO stack, exact package pins, and free-tier memory limits.
 - [ ] `training/rewards/dataforge_reward.py` scores completions locally through
-  the `repair_contract_v1` parser and exact cell-repair metrics.
-- [ ] `training/kaggle/grpo_kaggle.ipynb` trains with checkpoint resume and
-  blocks upload unless the GRPO release gate passes.
+  the strict `repair_contract_v2` parser, exact cell-repair metrics, and
+  GRPO-only shaping for canonicalized values, precision, and overrepair.
+- [ ] `scripts/model/grpo_readiness_report.py` produces a non-claim diagnostic
+  report for leak-free expert-v4 prompts, dataset balance, parse/schema stats,
+  and reward variance before GPU training.
+- [ ] `scripts/data/audit_real_world_sources.py` verifies canonical source
+  revision, dirty/clean SHA-256, row counts, column counts, and ground-truth
+  cell counts before any regenerated trajectories are considered launchable.
+- [ ] `training/kaggle/grpo_kaggle.ipynb` trains with checkpoint resume,
+  defaults to a 50-step no-upload smoke stage, and blocks upload unless the
+  GRPO release gate passes.
 - [ ] `scripts/bench/refresh_benchmark_table.py` merges Week 4 agents with
   trained-model rows and refreshes README/BENCHMARK_REPORT from JSON evidence.
 - [ ] `scripts/model/verify_grpo_release.py` rejects incomplete or below-gate
   GRPO model repos before docs cite them.
+- [ ] `scripts/remote/kaggle_sft_v5_candidate.py` trains the private SFT-v5
+  repair-curriculum predecessor and writes `sft_v5_candidate_eval_report.json`
+  before any GRPO-v3 smoke, diagnostic, or candidate run can launch.
 
 ## 3. Scope
 
 **IN**:
 
 - 0.5B GRPO from `Praneshrajan15/DataForge-0.5B-SFT` with fp16 LoRA.
+- 0.5B GRPO-v3 from a private, gate-passing
+  `DataForge-0.5B-SFT-v5-candidate` predecessor only.
 - 1.5B GRPO from a verified `DataForge-1.5B-SFT` prerequisite with 4-bit QLoRA.
+- Manifest-driven 3B/7B GRPO policy rows that stay blocked until explicit
+  HF Jobs or equivalent paid GPU evidence exists.
 - DataForge-Bench-light-verified evaluation over seeds `0,1,2`.
 - GPU-hour accounting for free-tier compute.
+- The fixed sequence: 50-step no-upload smoke, 500-step candidate, then
+  1000-step candidate only if the 500-step trend improves but misses the gate.
 
 **OUT**:
 
 - Training or publishing 3B+ models on free tier.
+- GiGPO publication before a same-size GRPO predecessor is verifier-passed.
 - Reward calls to the mutable OpenEnv HTTP singleton during GRPO rollouts.
 - Public quality claims without generated verifier artifacts.
 
@@ -67,10 +85,14 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - Depends on: none.
 - Estimated complexity: S.
 
-### 6.2 Reward function
+### 6.2 Reward and readiness
 
 - Acceptance: exact repairs, no-op finish records, malformed JSON, duplicate
-  repairs, and schema-case errors are scored deterministically without network.
+  repairs, wrong rows, wrong columns, overrepair, canonicalized value matches,
+  and schema-case errors are scored deterministically without network. The
+  readiness report blocks stale v1 prompts, held-out row leakage, weak dataset
+  balance, missing source provenance, low global reward variance, and low
+  per-dataset reward variance.
 - Depends on: `dataforge.repair_contract`.
 - Estimated complexity: M.
 
@@ -92,6 +114,8 @@ checkpoints only when generated evidence proves a real held-out improvement.
 
 - Unit: `tests/unit/test_grpo_configs.py`,
   `tests/unit/test_dataforge_grpo_reward.py`,
+  `tests/unit/test_grpo_contract_parity.py`,
+  `tests/unit/test_grpo_readiness.py`,
   `tests/unit/test_grpo_notebook_contract.py`,
   `tests/unit/test_grpo_benchmark_refresh.py`,
   `tests/unit/test_grpo_release_verifier.py`.
@@ -105,7 +129,8 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - [ ] Section 2 outcomes are met.
 - [ ] Focused GRPO tests pass.
 - [ ] README contains no trained-model quality claim without verifier evidence.
-- [ ] Failed GRPO runs write diagnostics and do not push model repos.
+- [ ] Failed SFT-v5 and GRPO runs write diagnostics and do not push public
+  model repos.
 
 ## Appendix A - Toy Cases
 

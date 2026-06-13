@@ -1,0 +1,168 @@
+schema_version: dataforge_model_family_manifest_v1
+hf_owner: Praneshrajan15
+dataset_repo: Praneshrajan15/dataforge-sft-trajectories
+
+sizes:
+  - size: "0.5B"
+    base_model: Qwen/Qwen2.5-0.5B-Instruct
+    upstream_license: apache-2.0
+    hub_license: apache-2.0
+  - size: "1.5B"
+    base_model: Qwen/Qwen2.5-1.5B-Instruct
+    upstream_license: apache-2.0
+    hub_license: apache-2.0
+  - size: "3B"
+    base_model: Qwen/Qwen2.5-3B-Instruct
+    upstream_license: qwen-research
+    hub_license: other
+    license_name: qwen-research
+    license_link: https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE
+  - size: "7B"
+    base_model: Qwen/Qwen2.5-7B-Instruct
+    upstream_license: apache-2.0
+    hub_license: apache-2.0
+
+stage_gates:
+  - stage: SFT
+    metric: sft_f1
+    predecessor_metric: base_f1
+    min_absolute_f1_gain: 0.0
+    parse_success_min: 0.99
+    schema_case_error_max: 0
+  - stage: GRPO
+    metric: grpo_f1
+    predecessor_metric: sft_f1
+    min_absolute_f1_gain: 0.03
+    parse_success_min: 0.99
+    schema_case_error_max: 0
+  - stage: GiGPO
+    metric: gigpo_f1
+    predecessor_metric: grpo_f1
+    min_absolute_f1_gain: 0.02
+    parse_success_min: 0.99
+    schema_case_error_max: 0
+
+models:
+  - size: "0.5B"
+    stage: SFT
+    compute_backend: kaggle_oauth
+    training_backend: kaggle
+    config_path: training/configs/sft_05b_v4.yaml
+    verifier: scripts/model/verify_sft_release.py
+    artifact_status: public
+    quality_status: quality_improved_verified
+    limitations:
+      - "Smoke-scale warmup checkpoint; current absolute F1 is not a production-quality claim."
+      - "Must remain behind DataForge safety, verifier, and transaction layers."
+  - size: "0.5B"
+    stage: GRPO
+    compute_backend: kaggle_oauth
+    training_backend: kaggle
+    config_path: training/configs/grpo_05b.yaml
+    verifier: scripts/model/verify_grpo_release.py
+    artifact_status: public
+    quality_status: quality_improved_verified
+    limitations:
+      - "Verified 500-step Kaggle GRPO candidate; improves strict held-out macro F1 over the 0.5B SFT predecessor."
+      - "Research artifact only; not a production autonomous repair model."
+  - size: "0.5B"
+    stage: GiGPO
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/gigpo_05b.yaml
+    verifier: scripts/model/verify_gigpo_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "GiGPO requires verified GRPO and paid or grant-backed GPU time."
+  - size: "1.5B"
+    stage: SFT
+    compute_backend: kaggle_oauth
+    training_backend: kaggle
+    config_path: training/configs/sft_15b_v4.yaml
+    verifier: scripts/model/verify_sft_release.py
+    artifact_status: missing
+    quality_status: not_verified
+    limitations:
+      - "No public SFT repo is valid until the same v4 dataset and eval gates pass."
+  - size: "1.5B"
+    stage: GRPO
+    compute_backend: kaggle_oauth
+    training_backend: kaggle
+    config_path: training/configs/grpo_15b.yaml
+    verifier: scripts/model/verify_grpo_release.py
+    artifact_status: missing
+    quality_status: not_verified
+    limitations:
+      - "Requires verified 1.5B SFT predecessor before rollouts or upload."
+  - size: "1.5B"
+    stage: GiGPO
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/gigpo_15b.yaml
+    verifier: scripts/model/verify_gigpo_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "Requires verified 1.5B GRPO predecessor and GiGPO-scale compute."
+  - size: "3B"
+    stage: SFT
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/sft_3b_v4.yaml
+    verifier: scripts/model/verify_sft_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "3B uses Qwen research license metadata and must not be mislabeled Apache."
+      - "Requires explicit HF Jobs or equivalent paid GPU budget."
+  - size: "3B"
+    stage: GRPO
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/grpo_3b.yaml
+    verifier: scripts/model/verify_grpo_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "Requires verified 3B SFT predecessor and +0.03 F1 GRPO gate."
+  - size: "3B"
+    stage: GiGPO
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/gigpo_3b.yaml
+    verifier: scripts/model/verify_gigpo_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "Requires verified 3B GRPO predecessor and GiGPO-scale compute."
+  - size: "7B"
+    stage: SFT
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/sft_7b_v4.yaml
+    verifier: scripts/model/verify_sft_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "Requires paid or grant-backed GPU time before public upload."
+  - size: "7B"
+    stage: GRPO
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/grpo_7b.yaml
+    verifier: scripts/model/verify_grpo_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "Requires verified 7B SFT predecessor and +0.03 F1 GRPO gate."
+  - size: "7B"
+    stage: GiGPO
+    compute_backend: hf_jobs_gpu
+    training_backend: hf_jobs
+    config_path: training/configs/gigpo_7b.yaml
+    verifier: scripts/model/verify_gigpo_release.py
+    artifact_status: blocked
+    quality_status: not_verified
+    limitations:
+      - "Requires verified 7B GRPO predecessor and GiGPO-scale compute."

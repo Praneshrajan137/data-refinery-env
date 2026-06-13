@@ -29,8 +29,10 @@ The gate checks:
 - Marcus, Priya, Shreya, and agent-user design-partner paths have sanitized
   evidence notes, separate consent records, timings, trust signals, and closed
   blocking findings.
-- The full Hugging Face model family has public model cards and verifier-passed
-  quality evidence for SFT, GRPO, and GiGPO stages.
+- The full Hugging Face model family has manifest-backed public model cards,
+  correct upstream license metadata, verifier-passed quality evidence, real
+  eval artifacts, and satisfied predecessor dependencies for every planned
+  training stage.
 
 The evidence manifests are not placeholders. Every referenced log, consent
 record, dbt artifact, eval report, and verifier report must exist under

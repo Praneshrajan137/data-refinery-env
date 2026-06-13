@@ -276,11 +276,26 @@
   "scripts/data/validate_sft_readiness.py": {
     "direct_tests": ["tests/unit/test_sft_readiness.py"]
   },
+  "scripts/data/audit_real_world_sources.py": {
+    "direct_tests": ["tests/unit/test_real_world_source_audit.py"]
+  },
   "scripts/model/verify_sft_release.py": {
     "direct_tests": ["tests/unit/test_sft_release_verifier.py"]
   },
   "scripts/model/verify_grpo_release.py": {
     "direct_tests": ["tests/unit/test_grpo_release_verifier.py"]
+  },
+  "scripts/model/grpo_readiness_report.py": {
+    "direct_tests": ["tests/unit/test_grpo_readiness.py"]
+  },
+  "scripts/model/verify_gigpo_release.py": {
+    "direct_tests": ["tests/unit/test_gigpo_release_verifier.py"]
+  },
+  "scripts/model/verify_model_family.py": {
+    "direct_tests": ["tests/unit/test_model_family_verifier.py"]
+  },
+  "scripts/model/repair_hf_model_card_metadata.py": {
+    "direct_tests": ["tests/unit/test_model_family_verifier.py"]
   },
   "scripts/model/publish_dataset_readme.py": {
     "direct_tests": ["tests/unit/test_sft_release_verifier.py"]
@@ -300,11 +315,32 @@
   "training/configs/grpo_15b.yaml": {
     "direct_tests": ["tests/unit/test_grpo_configs.py"]
   },
+  "training/configs/model_family.yaml": {
+    "direct_tests": ["tests/unit/test_model_family_manifest.py", "tests/unit/test_model_family_verifier.py"]
+  },
   "training/grpo_config.py": {
     "direct_tests": ["tests/unit/test_grpo_configs.py"]
   },
+  "training/grpo_contract.py": {
+    "direct_tests": [
+      "tests/unit/test_dataforge_grpo_reward.py",
+      "tests/unit/test_grpo_contract_parity.py"
+    ]
+  },
+  "training/grpo_readiness.py": {
+    "direct_tests": ["tests/unit/test_grpo_readiness.py"]
+  },
+  "dataforge/release/model_family.py": {
+    "direct_tests": ["tests/unit/test_model_family_manifest.py", "tests/unit/test_model_family_verifier.py", "tests/unit/test_full_vision_gate.py"]
+  },
   "training/rewards/dataforge_reward.py": {
-    "direct_tests": ["tests/unit/test_dataforge_grpo_reward.py"]
+    "direct_tests": [
+      "tests/unit/test_dataforge_grpo_reward.py",
+      "tests/unit/test_grpo_contract_parity.py"
+    ]
+  },
+  "training/gigpo_advantage.py": {
+    "direct_tests": ["tests/unit/test_model_family_manifest.py"]
   },
   "training/kaggle/sft_warmup_kaggle.ipynb": {
     "direct_tests": ["tests/unit/test_sft_notebook_contract.py"]

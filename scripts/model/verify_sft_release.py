@@ -15,6 +15,12 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from dataforge.release.model_family import expected_license_for_repo, license_matches  # noqa: E402
+
 DEFAULT_MODEL_REPO = "Praneshrajan15/DataForge-0.5B-SFT"
 DEFAULT_DATASET_REPO = "Praneshrajan15/dataforge-sft-trajectories"
 DEFAULT_MIN_DATASET_RECORDS = 32
@@ -310,7 +316,13 @@ def _assert_split_manifest_contract(text: str, *, repo_id: str) -> None:
     walk(payload, "manifest")
 
 
-def _validate_metrics(metrics: dict[str, Any], *, model_repo: str, dataset_repo: str) -> None:
+def _validate_metrics(
+    metrics: dict[str, Any],
+    *,
+    model_repo: str,
+    dataset_repo: str,
+    expected_model_license: str,
+) -> None:
     """Validate model-card metrics and repo linkage."""
     missing = sorted(REQUIRED_METRIC_FIELDS - set(metrics))
     if missing:
@@ -327,8 +339,10 @@ def _validate_metrics(metrics: dict[str, Any], *, model_repo: str, dataset_repo:
             "training_metrics dataset_repo="
             f"{metrics['dataset_repo']!r} does not match {dataset_repo!r}."
         )
-    if str(metrics["model_license"]).lower() != "apache-2.0":
-        raise ReleaseVerificationError("model_license must be apache-2.0.")
+    if not license_matches(metrics["model_license"], expected_model_license):
+        raise ReleaseVerificationError(
+            f"model_license must be {expected_model_license} for {model_repo}."
+        )
     for field in ("training_examples", "kaggle_hours", "base_f1", "sft_f1"):
         if not isinstance(metrics[field], int | float):
             raise ReleaseVerificationError(f"training_metrics field {field} must be numeric.")
@@ -489,6 +503,7 @@ def verify_sft_release(
     require_sha_metrics: bool = False,
     require_eval_diagnostics: bool = False,
     require_quality_improvement: bool = False,
+    expected_model_license: str | None = None,
 ) -> ReleaseEvidence:
     """Verify model and dataset release artifacts on Hugging Face."""
     resolved_api: HubApi
@@ -520,7 +535,13 @@ def verify_sft_release(
         token=token,
         downloader=downloader,
     )
-    _validate_metrics(metrics, model_repo=model_repo, dataset_repo=dataset_repo)
+    resolved_expected_license = expected_model_license or expected_license_for_repo(model_repo)
+    _validate_metrics(
+        metrics,
+        model_repo=model_repo,
+        dataset_repo=dataset_repo,
+        expected_model_license=resolved_expected_license,
+    )
     requested_trajectory = _trajectory_filename_from_metrics(metrics, dataset_files)
     required_dataset_files, trajectory_filename, split_manifest_filename = _dataset_contract_files(
         dataset_files,

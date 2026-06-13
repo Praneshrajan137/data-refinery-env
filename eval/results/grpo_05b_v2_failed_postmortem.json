@@ -1,0 +1,513 @@
+{
+  "benchmark_name": "DataForge-Bench-light-verified",
+  "benchmark_seeds": [
+    0,
+    1,
+    2
+  ],
+  "candidate_report": {
+    "attempted_steps": 500,
+    "gate_failures": [
+      "grpo_f1>=0.25",
+      "not_inferable_from_prompt_f1>=0.95"
+    ],
+    "gpu_hours": 4.5318,
+    "gpu_name": "Tesla T4",
+    "metrics": {
+      "f1_delta": 0.1159,
+      "grpo_f1": 0.1212,
+      "parse_success_rate": 0.99,
+      "schema_case_error_count": 0,
+      "sft_f1": 0.0053
+    },
+    "model_repo_created": false,
+    "model_upload_attempted": false,
+    "normalized_status": "quality_gate_failed_no_upload",
+    "public_claim_updated": false,
+    "raw_status": "gate_failed_no_upload",
+    "training_stage": "candidate"
+  },
+  "grpo": {
+    "active_repair": {
+      "by_dataset": {
+        "beers": {
+          "clean_no_op_rate": null,
+          "clean_no_op_tasks": 0,
+          "empty_on_truth_positive": 16,
+          "f1": 0.0066,
+          "fn": 235,
+          "fp": 66,
+          "no_op_tasks": 0,
+          "non_empty_prediction_tasks": 17,
+          "precision": 0.0149,
+          "recall": 0.0042,
+          "tp": 1,
+          "truth_positive_tasks": 33
+        },
+        "flights": {
+          "clean_no_op_rate": 0.7143,
+          "clean_no_op_tasks": 5,
+          "empty_on_truth_positive": 19,
+          "f1": 0.0,
+          "fn": 264,
+          "fp": 32,
+          "no_op_tasks": 7,
+          "non_empty_prediction_tasks": 9,
+          "precision": 0.0,
+          "recall": 0.0,
+          "tp": 0,
+          "truth_positive_tasks": 26
+        },
+        "hospital": {
+          "clean_no_op_rate": 1.0,
+          "clean_no_op_tasks": 7,
+          "empty_on_truth_positive": 27,
+          "f1": 0.0,
+          "fn": 76,
+          "fp": 0,
+          "no_op_tasks": 7,
+          "non_empty_prediction_tasks": 0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "tp": 0,
+          "truth_positive_tasks": 27
+        }
+      },
+      "overall": {
+        "clean_no_op_rate": 0.8571,
+        "clean_no_op_tasks": 12,
+        "empty_on_truth_positive": 62,
+        "f1": 0.003,
+        "fn": 575,
+        "fp": 98,
+        "no_op_tasks": 14,
+        "non_empty_prediction_tasks": 26,
+        "precision": 0.0101,
+        "recall": 0.0017,
+        "tp": 1,
+        "truth_positive_tasks": 86
+      }
+    },
+    "failure_taxonomy": {
+      "missed_repair": 550,
+      "overrepair": 73,
+      "schema_error": 1,
+      "wrong_value": 25
+    },
+    "model_label": "grpo",
+    "parse_success_rate": 0.99,
+    "per_dataset_f1": {
+      "beers": 0.0061,
+      "flights": 0.1515,
+      "hospital": 0.2059
+    },
+    "schema_case_error_count": 0,
+    "slice_scores": {
+      "deterministic_normalization": {
+        "macro_f1": 0.0,
+        "parse_success_rate": 1.0,
+        "schema_case_error_count": 0,
+        "tasks": 20
+      },
+      "external_reference_required": {
+        "macro_f1": 0.003,
+        "parse_success_rate": 0.9848,
+        "schema_case_error_count": 0,
+        "tasks": 66
+      },
+      "not_inferable_from_prompt": {
+        "macro_f1": 0.8571,
+        "parse_success_rate": 1.0,
+        "schema_case_error_count": 0,
+        "tasks": 14
+      }
+    },
+    "task_count": 100
+  },
+  "headline_findings": [
+    "GRPO v2 Failed Candidate fixed parse/schema discipline and removed SFT overrepair.",
+    "GRPO v2 Failed Candidate mostly learned safe abstention; active repair recall remains the next bottleneck.",
+    "GRPO per-dataset strict F1: beers=0.0061, flights=0.1515, hospital=0.2059.",
+    "GRPO failure taxonomy is dominated by missed_repair=550, overrepair=73, schema_error=1, wrong_value=25."
+  ],
+  "paired_task_comparison": {
+    "by_dataset": {
+      "beers": {
+        "unchanged": 33
+      },
+      "flights": {
+        "improved": 5,
+        "unchanged": 28
+      },
+      "hospital": {
+        "improved": 7,
+        "regressed": 1,
+        "unchanged": 26
+      }
+    },
+    "common_tasks": 100,
+    "improved_tasks": 12,
+    "largest_improvements": [
+      {
+        "dataset": "flights",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:flights:10013:0004",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":1433,\"column\":\"act_arr_time\",\"new_value\":\"3:31 p.m.\",\"reason\":\"The new value for act_arr_time is incorrect.\"},{\"row\":1434,\"column\":\"act_arr_time\",\"new_value\":\"5:26 p.m.\",\"reason\":\"The new value for act_arr_time is incorrect.\"},{\"row\":1435,\"column\":\"act_arr_time\",\"new_value\":",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:flights:10013:0004",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:flights:10013:0004"
+      },
+      {
+        "dataset": "flights",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:flights:10058:0019",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":1732,\"column\":\"flight\",\"new_value\":\"UA-3050-PHX-CLT\",\"reason\":\"The flight is currently on a different schedule than the other flights listed.\"},{\"row\":1731,\"column\":\"flight\",\"new_value\":\"UA-5487-SFO-MRY\",\"reason\":\"The flight is currently on a different schedule than the othe",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:flights:10058:0019",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:flights:10058:0019"
+      },
+      {
+        "dataset": "flights",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:flights:10148:0049",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":1909,\"column\":\"act_arr_time\",\"new_value\":\"11:06 a.m.\",\"reason\":\"The new value for act_arr_time is incorrect.\"},{\"row\":1910,\"column\":\"act_arr_time\",\"new_value\":\"6:38 p.m.\",\"reason\":\"The new value for act_arr_time is incorrect.\"},{\"row\":1911,\"column\":\"act_arr_time\",\"new_value\"",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:flights:10148:0049",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:flights:10148:0049"
+      },
+      {
+        "dataset": "flights",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:flights:10193:0064",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":563,\"column\":\"act_arr_time\",\"new_value\":\"10:27 a.m.\",\"reason\":\"The new value for act_arr_time is incorrect.\"},{\"row\":564,\"column\":\"act_arr_time\",\"new_value\":\"10:56 a.m.\",\"reason\":\"The new value for act_arr_time is incorrect.\"},{\"row\":565,\"column\":\"act_arr_time\",\"new_value\":\"",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:flights:10193:0064",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:flights:10193:0064"
+      },
+      {
+        "dataset": "flights",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:flights:10238:0079",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "flights",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":27,\"column\":\"flight\",\"new_value\":\"AA-1007-MIA-PHX\",\"reason\":\"This flight is currently on a different route or has an alternate departure time that does not align with the current repair schedule.\"},{\"row\":26,\"column\":\"flight\",\"new_value\":\"AA-643-MIA-ORD\",\"reason\":\"This fligh",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:flights:10238:0079",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:flights:10238:0079"
+      },
+      {
+        "dataset": "hospital",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:hospital:10027:0009",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":52,\"column\":\"Address1\",\"new_value\":\"2505 u s highway 431 north\",\"reason\":\"The address is incorrect.\",\"why\":\"The correct address should be 2505 U.S. Highway 431 North.\"},{\"row\":53,\"column\":\"Address1\",\"new_value\":\"2505 u s highway 431 north\",\"reason\":\"The address is incorrect.",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:hospital:10027:0009",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:hospital:10027:0009"
+      },
+      {
+        "dataset": "hospital",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:hospital:10072:0024",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":286,\"column\":\"Index\",\"new_value\":\"10016\",\"reason\":\"The patient's condition is surgical infection prevention.\",\"why\":\"This cell already contains the correct value for the 'ProviderNumber' column.\"},{\"row\":287,\"column\":\"Index\",\"new_value\":\"10016\",\"reason\":\"The patient's condit",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "schema_case_error": 4
+          },
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:hospital:10072:0024",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:hospital:10072:0024"
+      },
+      {
+        "dataset": "hospital",
+        "f1_delta": 1.0,
+        "grpo": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 1.0,
+          "failure_taxonomy": {},
+          "fn": 0,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:hospital:10117:0039",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":738,\"column\":\"ProviderNumber\",\"new_value\":\"10035\",\"reason\":\"The patient's address does not match any known hospital records.\",\"why\":\"This is an error as the address provided does not correspond to any hospital records.\"},{\"row\":739,\"column\":\"ProviderNumber\",\"new_value\":\"1003",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "overrepair": 4
+          },
+          "fn": 0,
+          "fp": 4,
+          "task_id": "DataForge-Bench-light-verified:hospital:10117:0039",
+          "tp": 0
+        },
+        "task_id": "DataForge-Bench-light-verified:hospital:10117:0039"
+      }
+    ],
+    "largest_regressions": [
+      {
+        "dataset": "hospital",
+        "f1_delta": -0.3333,
+        "grpo": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"finish\",\"repairs\":[]}",
+          "f1": 0.0,
+          "failure_taxonomy": {
+            "missed_repair": 2
+          },
+          "fn": 2,
+          "fp": 0,
+          "task_id": "DataForge-Bench-light-verified:hospital:10288:0096",
+          "tp": 0
+        },
+        "sft": {
+          "dataset": "hospital",
+          "decoded_preview": "{\"action\":\"submit_repairs\",\"repairs\":[{\"row\":637,\"column\":\"ProviderNumber\",\"new_value\":\"10029\",\"reason\":\"The patient's condition requires surgical infection prevention measures.\"},{\"row\":638,\"column\":\"ProviderNumber\",\"new_value\":\"10029\",\"reason\":\"The patient's condition requires surgical infection prevention measures.\"",
+          "f1": 0.3333,
+          "failure_taxonomy": {
+            "missed_repair": 1,
+            "overrepair": 3
+          },
+          "fn": 1,
+          "fp": 3,
+          "task_id": "DataForge-Bench-light-verified:hospital:10288:0096",
+          "tp": 1
+        },
+        "task_id": "DataForge-Bench-light-verified:hospital:10288:0096"
+      }
+    ],
+    "regressed_tasks": 1,
+    "unchanged_tasks": 87
+  },
+  "run_label": "v2 Failed Candidate",
+  "schema_version": "dataforge_grpo_failure_postmortem_v1",
+  "sft": {
+    "active_repair": {
+      "by_dataset": {
+        "beers": {
+          "clean_no_op_rate": null,
+          "clean_no_op_tasks": 0,
+          "empty_on_truth_positive": 0,
+          "f1": 0.0055,
+          "fn": 235,
+          "fp": 128,
+          "no_op_tasks": 0,
+          "non_empty_prediction_tasks": 33,
+          "precision": 0.0078,
+          "recall": 0.0042,
+          "tp": 1,
+          "truth_positive_tasks": 33
+        },
+        "flights": {
+          "clean_no_op_rate": 0.0,
+          "clean_no_op_tasks": 0,
+          "empty_on_truth_positive": 0,
+          "f1": 0.0,
+          "fn": 264,
+          "fp": 110,
+          "no_op_tasks": 7,
+          "non_empty_prediction_tasks": 33,
+          "precision": 0.0,
+          "recall": 0.0,
+          "tp": 0,
+          "truth_positive_tasks": 26
+        },
+        "hospital": {
+          "clean_no_op_rate": 0.0,
+          "clean_no_op_tasks": 0,
+          "empty_on_truth_positive": 1,
+          "f1": 0.0135,
+          "fn": 75,
+          "fp": 71,
+          "no_op_tasks": 7,
+          "non_empty_prediction_tasks": 33,
+          "precision": 0.0139,
+          "recall": 0.0132,
+          "tp": 1,
+          "truth_positive_tasks": 27
+        }
+      },
+      "overall": {
+        "clean_no_op_rate": 0.0,
+        "clean_no_op_tasks": 0,
+        "empty_on_truth_positive": 1,
+        "f1": 0.0045,
+        "fn": 574,
+        "fp": 309,
+        "no_op_tasks": 14,
+        "non_empty_prediction_tasks": 99,
+        "precision": 0.0064,
+        "recall": 0.0035,
+        "tp": 2,
+        "truth_positive_tasks": 86
+      }
+    },
+    "failure_taxonomy": {
+      "invalid_column": 15,
+      "invalid_row": 4,
+      "missed_repair": 500,
+      "overrepair": 241,
+      "schema_case_error": 56,
+      "truncated_json": 1,
+      "wrong_cell": 4,
+      "wrong_value": 74
+    },
+    "model_label": "sft",
+    "parse_success_rate": 0.8,
+    "per_dataset_f1": {
+      "beers": 0.0061,
+      "flights": 0.0,
+      "hospital": 0.0098
+    },
+    "schema_case_error_count": 56,
+    "slice_scores": {
+      "deterministic_normalization": {
+        "macro_f1": 0.0,
+        "parse_success_rate": 1.0,
+        "schema_case_error_count": 0,
+        "tasks": 20
+      },
+      "external_reference_required": {
+        "macro_f1": 0.0081,
+        "parse_success_rate": 0.7424,
+        "schema_case_error_count": 45,
+        "tasks": 66
+      },
+      "not_inferable_from_prompt": {
+        "macro_f1": 0.0,
+        "parse_success_rate": 0.7857,
+        "schema_case_error_count": 11,
+        "tasks": 14
+      }
+    },
+    "task_count": 100
+  },
+  "v2_target": {
+    "not_inferable_slice_min": 0.95,
+    "parse_success_min": 0.99,
+    "posture": "balanced_recall",
+    "schema_case_error_count": 0,
+    "strict_macro_f1_min": 0.25
+  }
+}

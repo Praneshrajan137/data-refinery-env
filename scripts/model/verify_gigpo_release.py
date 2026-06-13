@@ -14,6 +14,16 @@ from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from dataforge.release.model_family import (  # noqa: E402
+    expected_license_for_repo,
+    expected_predecessor_for_repo,
+    license_matches,
+)
+
 DEFAULT_MODEL_REPO = "Praneshrajan15/DataForge-0.5B-GiGPO"
 REQUIRED_MODEL_FILES = frozenset(
     {
@@ -147,15 +157,27 @@ def _load_json(
     return cast(dict[str, Any], payload)
 
 
-def _validate_metrics(metrics: dict[str, Any]) -> None:
+def _validate_metrics(
+    metrics: dict[str, Any],
+    *,
+    model_repo: str,
+    expected_model_license: str,
+    expected_grpo_model: str | None,
+) -> None:
     """Validate GiGPO release metrics and public gate evidence."""
     missing = sorted(REQUIRED_METRIC_FIELDS - set(metrics))
     if missing:
         raise GigpoReleaseVerificationError(
             "training_metrics.json missing required fields: " + ", ".join(missing)
         )
-    if str(metrics["model_license"]).lower() != "apache-2.0":
-        raise GigpoReleaseVerificationError("model_license must be apache-2.0.")
+    if not license_matches(metrics["model_license"], expected_model_license):
+        raise GigpoReleaseVerificationError(
+            f"model_license must be {expected_model_license} for {model_repo}."
+        )
+    if expected_grpo_model is not None and metrics["grpo_model"] != expected_grpo_model:
+        raise GigpoReleaseVerificationError(
+            f"grpo_model must point to verified predecessor {expected_grpo_model}."
+        )
     if metrics["benchmark_name"] != "DataForge-Bench-light-verified":
         raise GigpoReleaseVerificationError(
             "benchmark_name must be DataForge-Bench-light-verified."
@@ -179,6 +201,8 @@ def _validate_metrics(metrics: dict[str, Any]) -> None:
         raise GigpoReleaseVerificationError("schema_case_error_count must be 0.")
     if not isinstance(metrics["failure_samples"], list):
         raise GigpoReleaseVerificationError("failure_samples must be a list.")
+    if len(metrics["failure_samples"]) > 25:
+        raise GigpoReleaseVerificationError("failure_samples must be bounded.")
 
 
 def _validate_diagnostics(diagnostics: dict[str, Any]) -> None:
@@ -198,6 +222,8 @@ def verify_gigpo_release(
     api: HubApi | None = None,
     downloader: DownloadFile | None = None,
     token: str | None = None,
+    expected_model_license: str | None = None,
+    expected_grpo_model: str | None = None,
 ) -> GigpoReleaseEvidence:
     """Verify a public GiGPO checkpoint before citing it in docs."""
     resolved_api: HubApi
@@ -228,7 +254,16 @@ def verify_gigpo_release(
         token=token,
         downloader=downloader,
     )
-    _validate_metrics(metrics)
+    resolved_expected_license = expected_model_license or expected_license_for_repo(model_repo)
+    resolved_expected_grpo = expected_grpo_model
+    if resolved_expected_grpo is None:
+        resolved_expected_grpo = expected_predecessor_for_repo(model_repo)
+    _validate_metrics(
+        metrics,
+        model_repo=model_repo,
+        expected_model_license=resolved_expected_license,
+        expected_grpo_model=resolved_expected_grpo,
+    )
     diagnostics = _load_json(
         model_repo,
         filename="eval_diagnostics.json",

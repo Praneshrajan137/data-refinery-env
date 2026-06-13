@@ -13,6 +13,8 @@ CONFIG = ROOT / "training" / "configs" / "sft_05b.yaml"
 CONFIG_V2 = ROOT / "training" / "configs" / "sft_05b_v2.yaml"
 CONFIG_V3 = ROOT / "training" / "configs" / "sft_05b_v3.yaml"
 CONFIG_V4 = ROOT / "training" / "configs" / "sft_05b_v4.yaml"
+CONFIG_V5 = ROOT / "training" / "configs" / "sft_05b_v5.yaml"
+CONFIG_V6 = ROOT / "training" / "configs" / "sft_05b_v6.yaml"
 
 
 def _notebook_source() -> str:
@@ -86,6 +88,52 @@ def test_v4_config_requires_contract_repair_handoff() -> None:
     assert config["collection"]["oracle"]["min_abstention_records"] >= 32
     assert config["evaluation"]["promotion_slice"] == "deterministic_normalization"
     assert "context_derivable" in config["evaluation"]["auxiliary_slices"]
+
+
+def test_v5_config_is_private_repair_curriculum_candidate() -> None:
+    config = yaml.safe_load(CONFIG_V5.read_text(encoding="utf-8"))
+
+    assert config["schema_version"] == "sft_05b_v5"
+    assert config["collection"]["schema_version"] == "expert_v4"
+    assert config["collection"]["curriculum_version"] == "expert_v5_repair_curriculum"
+    assert config["repos"]["trajectory_filename"] == "expert_v5_repair_curriculum.jsonl"
+    assert config["repos"]["split_manifest_filename"] == "split_manifest_v4.json"
+    assert config["repos"]["model_repo_template"].endswith("/DataForge-0.5B-SFT-v5-candidate")
+    assert config["release"]["private_candidate_only"] is True
+    assert config["release"]["public_upload_allowed"] is False
+    assert (
+        config["release"]["promote_to_grpo_only_if"]["deterministic_normalization_slice_f1_min"]
+        >= 0.30
+    )
+    assert config["evaluation"]["promotion_slice"] == "deterministic_normalization"
+
+
+def test_v6_config_is_contract_first_private_candidate() -> None:
+    config = yaml.safe_load(CONFIG_V6.read_text(encoding="utf-8"))
+
+    assert config["schema_version"] == "sft_05b_v6"
+    assert config["kaggle"]["auth_mode"] == "oauth"
+    assert config["kaggle"]["credentials_path"] == r"C:\Users\Pranesh\.kaggle\credentials.json"
+    assert config["collection"]["curriculum_version"] == "expert_v6_contract_minimal"
+    assert (
+        config["collection"]["curriculum"]["source_trajectory_filename"]
+        == "expert_v5_repair_curriculum.jsonl"
+    )
+    assert config["collection"]["curriculum"]["max_repairs_per_record"] == 2
+    assert config["repos"]["trajectory_filename"] == "expert_v6_contract_minimal.jsonl"
+    assert config["repos"]["split_manifest_filename"] == "split_manifest_v4.json"
+    assert config["repos"]["model_repo_template"].endswith("/DataForge-0.5B-SFT-v6-candidate")
+    assert config["release"]["private_candidate_only"] is True
+    assert config["release"]["public_upload_allowed"] is False
+    assert config["release"]["require_hf_token_for_candidate"] is True
+    stages = {stage["name"]: stage for stage in config["training_sequence"]["stages"]}
+    assert stages["smoke"]["max_steps"] == 20
+    assert stages["smoke"]["allow_upload_after_gate"] is False
+    assert stages["diagnostic"]["max_steps"] == 60
+    assert stages["diagnostic"]["allow_upload_after_gate"] is False
+    assert stages["candidate"]["max_steps"] == 140
+    assert stages["candidate"]["allow_upload_after_gate"] is True
+    assert stages["candidate"]["require_hf_token"] is True
 
 
 def test_notebook_has_six_main_cells_and_no_placeholder_owner() -> None:

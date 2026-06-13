@@ -14,6 +14,7 @@ SRC_DIR = PROJECT_ROOT / "playground" / "web" / "src"
 COLOR_CSS_PATH = SRC_DIR / "design" / "color-system.generated.css"
 COLOR_JSON_PATH = SRC_DIR / "design" / "color-system.generated.json"
 COLOR_SPEC_PATH = PROJECT_ROOT / "specs" / "SPEC_color_system.md"
+MOTION_SPEC_PATH = PROJECT_ROOT / "specs" / "SPEC_motion_system.md"
 
 
 def test_index_uses_relative_asset_paths_and_config_contract() -> None:
@@ -48,6 +49,9 @@ def test_frontend_stays_storage_free_and_capability_aware() -> None:
     assert "routeFromPathname" in body
     assert "pushState" in body
     assert "popstate" in body
+    assert "MotionConfig" in body
+    assert "useReducedMotion" in body
+    assert "data-agent-motion" in body
 
 
 def test_frontend_has_typed_vite_quality_gates() -> None:
@@ -60,9 +64,52 @@ def test_frontend_has_typed_vite_quality_gates() -> None:
     assert '"typescript"' in body
     assert '"@playwright/test"' in body
     assert '"@axe-core/playwright"' in body
+    assert '"motion"' in body
     assert '"budget"' in body
     assert "Number.POSITIVE_INFINITY" in budget
     assert "Bundle budget is unbounded" in budget
+
+
+def test_frontend_motion_system_contract() -> None:
+    """The Observatory motion system is tokenized, reduced-motion aware, and agent-state complete."""
+    package = json.loads(PACKAGE_PATH.read_text(encoding="utf-8"))
+    motion_source = (SRC_DIR / "motion.ts").read_text(encoding="utf-8")
+    motion_test = (SRC_DIR / "motion.test.ts").read_text(encoding="utf-8")
+    styles = (SRC_DIR / "styles.css").read_text(encoding="utf-8")
+    main = (SRC_DIR / "main.tsx").read_text(encoding="utf-8")
+
+    assert MOTION_SPEC_PATH.exists()
+    assert package["dependencies"]["motion"] == "^12.40.0"
+    assert 'from "motion/react"' in main
+    assert 'reducedMotion="user"' in main
+    assert "motionDurations" in motion_source
+    assert "motionEasings" in motion_source
+    assert "motionSprings" in motion_source
+    assert "workflowEventToMotion" in motion_source
+    assert "reducedRouteVariants" in motion_source
+    assert "@media (prefers-reduced-motion: reduce)" in styles
+    assert "--df-motion-fast" in styles
+    assert "df-rail-sweep" in styles
+    assert "df-agent-breathe" in styles
+    assert "transform" in styles
+    assert "opacity" in styles
+
+    for state in (
+        "thinking",
+        "acting",
+        "waiting",
+        "asking",
+        "uncertain",
+        "confident",
+        "completed",
+        "failed",
+        "interrupted",
+        "delegated",
+        "escalated",
+        "recovered",
+    ):
+        assert f"{state}:" in motion_source
+        assert state in motion_test
 
 
 def test_frontend_uses_generated_color_system_contract() -> None:

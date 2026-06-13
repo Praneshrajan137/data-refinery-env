@@ -1,0 +1,48 @@
+{
+  "ok": true,
+  "package": "dataforge_07_evals",
+  "schema_version": "dataforge_installed_package_smoke_v1",
+  "steps": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-evals",
+        "--version"
+      ],
+      "name": "evals_version",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": "dataforge-evals 0.1.0\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-evals",
+        "list-datasets"
+      ],
+      "name": "evals_list_datasets",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": "                               Available Datasets                               \n\u250f\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513\n\u2503 Dataset ID \u2503 Source               \u2503 Notes                                    \u2503\n\u2521\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2529\n\u2502 synthetic  \u2502 built-in             \u2502 Small deterministic task, no network     \u2502\n\u2502            \u2502                      \u2502 required                                 \u2502\n\u2502 hospital   \u2502 DataForge (optional) \u2502 Raha Hospital benchmark, requires        \u2502\n\u2502            \u2502                      \u2502 dataforge                                \u2502\n\u2502 flights    \u2502 DataForge (optional) \u2502 Raha Flights benchmark, requires         \u2502\n\u2502            \u2502                      \u2502 dataforge                                \u2502\n\u2502 beers      \u2502 DataForge (optional) \u2502 Raha Beers benchmark, requires dataforge \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\nCustom datasets: use --dirty-csv and --clean-csv with any --dataset name.\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-evals",
+        "run",
+        "--agent",
+        "mock",
+        "--dataset",
+        "synthetic",
+        "--trials",
+        "1",
+        "--output",
+        "/tmp/dataforge_07_evals-installed-smoke-o3i3rf1g/evals-smoke.md",
+        "--output-json",
+        "/tmp/dataforge_07_evals-installed-smoke-o3i3rf1g/evals-smoke.json"
+      ],
+      "name": "evals_mock_run",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": "                            dataforge-evals Summary                             \n\u250f\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2533\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2513\n\u2503       \u2503           \u2503        \u2503            \u2503 Quota      \u2503 Runtime    \u2503          \u2503\n\u2503 Agent \u2503 Dataset   \u2503 Trials \u2503 F1         \u2503 Units      \u2503 (s)        \u2503 Failures \u2503\n\u2521\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2547\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2529\n\u2502 mock  \u2502 synthetic \u2502 1/1    \u2502 1.0000 \u00b1   \u2502 0.0000     \u2502 0.84       \u2502 none     \u2502\n\u2502       \u2502           \u2502        \u2502 0.0000     \u2502            \u2502            \u2502          \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\nReport written to \n/tmp/dataforge_07_evals-installed-smoke-o3i3rf1g/evals-smoke.md\n"
+    }
+  ],
+  "workdir": "/tmp/dataforge_07_evals-installed-smoke-o3i3rf1g"
+}

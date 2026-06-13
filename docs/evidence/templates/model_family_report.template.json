@@ -1,19 +1,40 @@
 {
-  "schema_version": "dataforge_model_family_report_v1",
+  "schema_version": "dataforge_model_family_report_v2",
+  "hf_owner": "Praneshrajan15",
+  "dataset_repo": "Praneshrajan15/dataforge-sft-trajectories",
+  "manifest_schema_version": "dataforge_model_family_manifest_v1",
+  "manifest_sha256": "",
   "models": [
     {
+      "size": "0.5B",
+      "stage": "SFT",
       "repo_id": "Praneshrajan15/DataForge-0.5B-SFT",
+      "artifact_status": "public",
+      "quality_status": "quality_improved_verified",
       "verifier_passed": true,
-      "dataset_repo": "",
-      "training_run_url": "",
-      "model_card_url": "",
-      "eval_report_path": "",
-      "verification_report_path": "",
-      "limitations_documented": true,
+      "upstream_license": "apache-2.0",
+      "hub_license": "apache-2.0",
+      "license_name": null,
+      "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "predecessor_repo": null,
+      "dataset_repo": "Praneshrajan15/dataforge-sft-trajectories",
+      "training_backend": "kaggle",
+      "training_run_url": "https://example.invalid/replace-with-real-run",
+      "source_git_commit": "",
+      "dataset_sha": "",
+      "model_sha": "",
+      "model_card_url": "https://huggingface.co/Praneshrajan15/DataForge-0.5B-SFT",
+      "eval_report_path": "models/DataForge-0.5B-SFT.eval.json",
+      "verification_report_path": "models/DataForge-0.5B-SFT.verification.json",
       "eval_metrics": {
-        "macro_f1": null,
-        "parse_success_rate": null
-      }
+        "base_f1": null,
+        "sft_f1": null,
+        "parse_success_rate": null,
+        "schema_case_error_count": null
+      },
+      "limitations": [
+        "Template only. Do not copy into docs/evidence/models/model_family_report.json until every field points at real evidence."
+      ]
     }
   ]
 }

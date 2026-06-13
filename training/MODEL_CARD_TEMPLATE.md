@@ -12,6 +12,19 @@ datasets:
 - {dataset_repo}
 metrics:
 - f1
+model-index:
+- name: {model_name}
+  results:
+  - task:
+      type: text-generation
+      name: DataForge repair planning
+    dataset:
+      name: DataForge SFT trajectories
+      type: {dataset_repo}
+    metrics:
+    - type: macro_f1
+      name: Held-out macro F1
+      value: {sft_f1}
 ---
 
 # {model_name}

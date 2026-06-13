@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "package": "dataforge_07_mcp",
+  "schema_version": "dataforge_installed_package_smoke_v1",
+  "steps": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-mcp",
+        "--help"
+      ],
+      "name": "mcp_help",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": "usage: dataforge-mcp [-h] {serve} ...\n\npositional arguments:\n  {serve}\n    serve     Start the MCP server.\n\noptions:\n  -h, --help  show this help message and exit\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-mcp",
+        "serve"
+      ],
+      "name": "mcp_stdio_tools",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": "stdio MCP tool smoke passed"
+    }
+  ],
+  "workdir": "/tmp/dataforge_07_mcp-installed-smoke-1i4hhd8i"
+}

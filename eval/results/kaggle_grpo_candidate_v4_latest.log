@@ -1,0 +1,55 @@
+﻿[{"stream_name":"stderr","time":3.363501296,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":3.363593351,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_web_client.py\", line 46, in make_post_request\n"}
+,{"stream_name":"stderr","time":3.36360205,"data":"    with urllib.request.urlopen(req, timeout=timeout) as response:\n"}
+,{"stream_name":"stderr","time":3.363800653,"data":"         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.363809486,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 215, in urlopen\n"}
+,{"stream_name":"stderr","time":3.365051353,"data":"    return opener.open(url, data, timeout)\n"}
+,{"stream_name":"stderr","time":3.365133105,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.365148636,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 521, in open\n"}
+,{"stream_name":"stderr","time":3.365681444,"data":"    response = meth(req, response)\n"}
+,{"stream_name":"stderr","time":3.365737726,"data":"               ^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.365753198,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 630, in http_response\n"}
+,{"stream_name":"stderr","time":3.36606056,"data":"    response = self.parent.error(\n"}
+,{"stream_name":"stderr","time":3.366069049,"data":"               ^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.366080962,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 559, in error\n"}
+,{"stream_name":"stderr","time":3.3663623129999998,"data":"    return self._call_chain(*args)\n"}
+,{"stream_name":"stderr","time":3.366413266,"data":"           ^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.366417726,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 492, in _call_chain\n"}
+,{"stream_name":"stderr","time":3.366696316,"data":"    result = func(*args)\n"}
+,{"stream_name":"stderr","time":3.366714662,"data":"             ^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.366726223,"data":"  File \"/usr/lib/python3.12/urllib/request.py\", line 639, in http_error_default\n"}
+,{"stream_name":"stderr","time":3.36697398,"data":"    raise HTTPError(req.full_url, code, msg, hdrs, fp)\n"}
+,{"stream_name":"stderr","time":3.36705101,"data":"urllib.error.HTTPError: HTTP Error 400: Bad Request\n"}
+,{"stream_name":"stderr","time":3.367062548,"data":"\n"}
+,{"stream_name":"stderr","time":3.367066931,"data":"The above exception was the direct cause of the following exception:\n"}
+,{"stream_name":"stderr","time":3.367070886,"data":"\n"}
+,{"stream_name":"stderr","time":3.367074358,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":3.367091971,"data":"  File \"/kaggle/src/script.py\", line 106, in _load_hf_token\n"}
+,{"stream_name":"stderr","time":3.367351143,"data":"    token = (client.get_secret(label) or \"\").strip()\n"}
+,{"stream_name":"stderr","time":3.36736594,"data":"             ^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.367370336,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_secrets.py\", line 64, in get_secret\n"}
+,{"stream_name":"stderr","time":3.367477811,"data":"    response_json = self.web_client.make_post_request(request_body, self.GET_USER_SECRET_BY_LABEL_ENDPOINT)\n"}
+,{"stream_name":"stderr","time":3.367722587,"data":"                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.367785638,"data":"  File \"/usr/local/lib/python3.12/dist-packages/kaggle_web_client.py\", line 58, in make_post_request\n"}
+,{"stream_name":"stderr","time":3.367902444,"data":"    raise ConnectionError(\n"}
+,{"stream_name":"stderr","time":3.367910485,"data":"ConnectionError: Connection error trying to communicate with service.\n"}
+,{"stream_name":"stderr","time":3.367914266,"data":"\n"}
+,{"stream_name":"stderr","time":3.367917476,"data":"The above exception was the direct cause of the following exception:\n"}
+,{"stream_name":"stderr","time":3.367920959,"data":"\n"}
+,{"stream_name":"stderr","time":3.367924208,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":3.367927641,"data":"  File \"/kaggle/src/script.py\", line 693, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":3.3681654979999998,"data":"    raise SystemExit(main())\n"}
+,{"stream_name":"stderr","time":3.368250921,"data":"                     ^^^^^^\n"}
+,{"stream_name":"stderr","time":3.368256464,"data":"  File \"/kaggle/src/script.py\", line 394, in main\n"}
+,{"stream_name":"stderr","time":3.3685047949999998,"data":"    hf_token, hf_auth_origin = _load_hf_token()\n"}
+,{"stream_name":"stderr","time":3.368580692,"data":"                                ^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.368591128,"data":"  File \"/kaggle/src/script.py\", line 114, in _load_hf_token\n"}
+,{"stream_name":"stderr","time":3.368732618,"data":"    raise RuntimeError(\"hf_hub_upload_credential_unavailable\") from last_error\n"}
+,{"stream_name":"stderr","time":3.369474349,"data":"RuntimeError: hf_hub_upload_credential_unavailable\n"}
+,{"stream_name":"stderr","time":5.637027027,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":5.637067556,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":5.995991648,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":5.996030877,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":7.795044562,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":9.157636674,"data":"[NbConvertApp] Writing 401412 bytes to __results__.html\n"}
+]
