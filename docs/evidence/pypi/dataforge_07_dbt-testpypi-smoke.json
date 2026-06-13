@@ -1,0 +1,37 @@
+{
+  "ok": true,
+  "package": "dataforge_07_dbt",
+  "schema_version": "dataforge_installed_package_smoke_v1",
+  "steps": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-dbt",
+        "--help"
+      ],
+      "name": "dbt_help",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": "usage: dataforge-dbt [-h] --relation RELATION --column COLUMN --mode\n                     {dry_run,apply,refuse} [--input-csv INPUT_CSV]\n                     --target-path TARGET_PATH [--project-dir PROJECT_DIR]\n                     [--select SELECT] [--run-dbt]\n                     [--profiles-path PROFILES_PATH]\n                     [--profile-name PROFILE_NAME] [--row-id ROW_ID]\n\noptions:\n  -h, --help            show this help message and exit\n  --relation RELATION\n  --column COLUMN\n  --mode {dry_run,apply,refuse}\n  --input-csv INPUT_CSV\n  --target-path TARGET_PATH\n  --project-dir PROJECT_DIR\n  --select SELECT\n  --run-dbt\n  --profiles-path PROFILES_PATH\n  --profile-name PROFILE_NAME\n  --row-id ROW_ID       Stable row identity column.\n"
+    },
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/dataforge-dbt",
+        "--relation",
+        "main.amounts",
+        "--column",
+        "amount",
+        "--mode",
+        "dry_run",
+        "--input-csv",
+        "/tmp/dataforge_07_dbt-installed-smoke-t8dyi8ca/amounts.csv",
+        "--target-path",
+        "/tmp/dataforge_07_dbt-installed-smoke-t8dyi8ca/target"
+      ],
+      "name": "dbt_dry_run",
+      "returncode": 0,
+      "stderr_tail": "WARNING:dataforge_dbt:DATAFORGE_DBT issue relation=main.amounts column=amount row=3 type=decimal_shift severity=review confidence=0.95 reason=Value 1020 in column 'amount' appears to be ~10x the typical value (median ~103)\n",
+      "stdout_tail": ""
+    }
+  ],
+  "workdir": "/tmp/dataforge_07_dbt-installed-smoke-t8dyi8ca"
+}

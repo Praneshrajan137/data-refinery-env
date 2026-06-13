@@ -150,6 +150,9 @@ def test_generate_publish_report_uses_public_metadata_and_smoke_logs(
     assert all(item.trusted_publishing for item in report.packages)
     assert all(item.attestations for item in report.packages)
     for item in report.packages:
+        normalized = item.name.replace("_", "-")
+        assert item.pypi.project_url == f"https://pypi.org/project/{normalized}/"
+        assert item.testpypi.project_url == f"https://test.pypi.org/project/{normalized}/"
         assert item.pypi.wheel.sha256 == _hash("pypi", item.name, "wheel")
         assert item.pypi.sdist.sha256 == _hash("pypi", item.name, "sdist")
         assert (

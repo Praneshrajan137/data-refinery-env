@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "package": "dataforge_07_agent_patterns",
+  "schema_version": "dataforge_installed_package_smoke_v1",
+  "steps": [
+    {
+      "command": [
+        "/opt/hostedtoolcache/Python/3.12.13/x64/bin/python",
+        "-c",
+        "\nfrom dataforge_agent_patterns import (\n    ConstitutionalFilter,\n    ConstitutionalRule,\n    ReversibleTransaction,\n)\n\nrule = ConstitutionalRule(\n    rule_id=\"no-delete\",\n    description=\"Reject delete actions.\",\n    predicate=lambda action: action != \"delete\",\n)\nverdict = ConstitutionalFilter([rule]).evaluate(\"delete\")\nassert verdict.allowed is False\nstate = []\ntx = ReversibleTransaction()\n\n@tx.wrap(\"append\")\ndef append_item(value):\n    state.append(value)\n    return value, lambda: state.pop()\n\nassert append_item(\"x\") == \"x\"\ntx.rollback_last()\nassert state == []\n"
+      ],
+      "name": "agent_patterns_import_contract",
+      "returncode": 0,
+      "stderr_tail": "",
+      "stdout_tail": ""
+    }
+  ],
+  "workdir": "/tmp/dataforge_07_agent_patterns-installed-smoke-skazkyii"
+}

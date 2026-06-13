@@ -59,7 +59,7 @@ def _run(command: list[str | os.PathLike[str]], *, cwd: Path, log: Path) -> None
         cwd=cwd,
         text=True,
         capture_output=True,
-        timeout=180,
+        timeout=600,
         check=False,
     )
     with log.open("a", encoding="utf-8") as handle:

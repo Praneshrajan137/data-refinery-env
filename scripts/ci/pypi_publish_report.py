@@ -480,9 +480,11 @@ def _build_index_evidence(
         simple_payload=simple_payload,
         expected_workflow=expected_workflow,
     )
+    index_host = "https://test.pypi.org" if index == "testpypi" else "https://pypi.org"
+    normalized_package = package.replace("_", "-")
     return IndexEvidence(
         index=index,
-        project_url=f"{project_base_url.replace('/pypi', '')}/project/{package}/",
+        project_url=f"{index_host}/project/{normalized_package}/",
         wheel=wheel,
         sdist=sdist,
     )

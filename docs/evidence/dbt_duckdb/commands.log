@@ -1,0 +1,437 @@
+$ C:\Users\Pranesh\OneDrive\Music\OpenEnv RL\data_quality_env\.venv\Scripts\python.exe -m venv C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\python.exe -m pip install --upgrade pip
+Requirement already satisfied: pip in c:\users\pranesh\appdata\local\temp\dataforge-dbt-proof-xdzybs3m\.venv\lib\site-packages (25.0.1)
+Collecting pip
+  Using cached pip-26.1.2-py3-none-any.whl.metadata (4.6 kB)
+Using cached pip-26.1.2-py3-none-any.whl (1.8 MB)
+Installing collected packages: pip
+  Attempting uninstall: pip
+    Found existing installation: pip 25.0.1
+    Uninstalling pip-25.0.1:
+      Successfully uninstalled pip-25.0.1
+Successfully installed pip-26.1.2
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\python.exe -m pip install dataforge_07_dbt
+Collecting dataforge_07_dbt
+  Using cached dataforge_07_dbt-0.1.0-py3-none-any.whl.metadata (4.8 kB)
+Collecting dataforge_07<0.2,>=0.1.0 (from dataforge_07_dbt)
+  Using cached dataforge_07-0.1.0-py3-none-any.whl.metadata (19 kB)
+Collecting dbt-duckdb<1.11,>=1.8 (from dataforge_07_dbt)
+  Using cached dbt_duckdb-1.10.1-py3-none-any.whl.metadata (38 kB)
+Collecting duckdb>=1.1 (from dataforge_07_dbt)
+  Using cached duckdb-1.5.3-cp312-cp312-win_amd64.whl.metadata (4.2 kB)
+Collecting pydantic>=2.7 (from dataforge_07_dbt)
+  Using cached pydantic-2.13.4-py3-none-any.whl.metadata (109 kB)
+Collecting PyYAML>=6.0 (from dataforge_07_dbt)
+  Using cached pyyaml-6.0.3-cp312-cp312-win_amd64.whl.metadata (2.4 kB)
+Collecting typer<0.25,>=0.24 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached typer-0.24.2-py3-none-any.whl.metadata (15 kB)
+Collecting rich>=13.7 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached rich-15.0.0-py3-none-any.whl.metadata (18 kB)
+Collecting textual<9,>=8.2 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached textual-8.2.7-py3-none-any.whl.metadata (9.1 kB)
+Collecting z3-solver>=4.13 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached z3_solver-4.16.0.0-py3-none-win_amd64.whl.metadata (778 bytes)
+Collecting pandas>=2.2 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached pandas-3.0.3-cp312-cp312-win_amd64.whl.metadata (19 kB)
+Collecting httpx>=0.27 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+Collecting python-dotenv>=1.0 (from dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached python_dotenv-1.2.2-py3-none-any.whl.metadata (27 kB)
+Collecting dbt-common<2,>=1 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_common-1.38.0-py3-none-any.whl.metadata (5.0 kB)
+Collecting dbt-adapters<2,>=1 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_adapters-1.24.2-py3-none-any.whl.metadata (4.6 kB)
+Collecting dbt-core>=1.8.0 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_core-1.11.11-py3-none-any.whl.metadata (4.4 kB)
+Collecting agate<2.0,>=1.0 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached agate-1.14.2-py3-none-any.whl.metadata (3.1 kB)
+Collecting dbt-protos<2.0,>=1.0.291 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_protos-1.0.514-py3-none-any.whl.metadata (859 bytes)
+Collecting mashumaro<3.18,>=3.9 (from mashumaro[msgpack]<3.18,>=3.9->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached mashumaro-3.17-py3-none-any.whl.metadata (118 kB)
+Collecting protobuf<7.0,>=6.0 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached protobuf-6.33.6-cp310-abi3-win_amd64.whl.metadata (593 bytes)
+Collecting pytz>=2015.7 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached pytz-2026.2-py2.py3-none-any.whl.metadata (22 kB)
+Collecting typing-extensions<5.0,>=4.0 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+Collecting Babel>=2.0 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached babel-2.18.0-py3-none-any.whl.metadata (2.2 kB)
+Collecting isodate>=0.5.4 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached isodate-0.7.2-py3-none-any.whl.metadata (11 kB)
+Collecting leather>=0.3.2 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached leather-0.4.1-py3-none-any.whl.metadata (3.0 kB)
+Collecting parsedatetime!=2.5,>=2.1 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached parsedatetime-2.6-py3-none-any.whl.metadata (4.7 kB)
+Collecting python-slugify>=1.2.1 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached python_slugify-8.0.4-py2.py3-none-any.whl.metadata (8.5 kB)
+Collecting pytimeparse>=1.1.5 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached pytimeparse-1.1.8-py2.py3-none-any.whl.metadata (3.4 kB)
+Collecting tzdata>=2023.3 (from agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached tzdata-2026.2-py2.py3-none-any.whl.metadata (1.4 kB)
+Collecting agate<2.0,>=1.0 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached agate-1.9.1-py2.py3-none-any.whl.metadata (3.2 kB)
+Collecting colorama<0.5,>=0.3.9 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached colorama-0.4.6-py2.py3-none-any.whl.metadata (17 kB)
+Collecting deepdiff<9.0,>=7.0 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached deepdiff-8.6.2-py3-none-any.whl.metadata (8.8 kB)
+Collecting jinja2<4,>=3.1.3 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+Collecting jsonschema<5.0,>=4.0 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached jsonschema-4.26.0-py3-none-any.whl.metadata (7.6 kB)
+Collecting pathspec<1.1,>=0.9 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached pathspec-1.0.4-py3-none-any.whl.metadata (13 kB)
+Collecting python-dateutil<3.0,>=2.0 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+Collecting requests<3.0.0 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached requests-2.34.2-py3-none-any.whl.metadata (4.8 kB)
+Collecting orderly-set<6,>=5.4.1 (from deepdiff<9.0,>=7.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached orderly_set-5.5.0-py3-none-any.whl.metadata (6.6 kB)
+Collecting MarkupSafe>=2.0 (from jinja2<4,>=3.1.3->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached markupsafe-3.0.3-cp312-cp312-win_amd64.whl.metadata (2.8 kB)
+Collecting attrs>=22.2.0 (from jsonschema<5.0,>=4.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+Collecting jsonschema-specifications>=2023.03.6 (from jsonschema<5.0,>=4.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting referencing>=0.28.4 (from jsonschema<5.0,>=4.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached referencing-0.37.0-py3-none-any.whl.metadata (2.8 kB)
+Collecting rpds-py>=0.25.0 (from jsonschema<5.0,>=4.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached rpds_py-2026.5.1-cp312-cp312-win_amd64.whl.metadata (4.2 kB)
+Collecting msgpack>=0.5.6 (from mashumaro[msgpack]<3.18,>=3.9->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached msgpack-1.2.0-cp312-cp312-win_amd64.whl.metadata (8.4 kB)
+Collecting six>=1.5 (from python-dateutil<3.0,>=2.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+Collecting charset_normalizer<4,>=2 (from requests<3.0.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached charset_normalizer-3.4.7-cp312-cp312-win_amd64.whl.metadata (41 kB)
+Collecting idna<4,>=2.5 (from requests<3.0.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached idna-3.18-py3-none-any.whl.metadata (6.1 kB)
+Collecting urllib3<3,>=1.26 (from requests<3.0.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+Collecting certifi>=2023.5.7 (from requests<3.0.0->dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached certifi-2026.5.20-py3-none-any.whl.metadata (2.5 kB)
+Collecting markdown-it-py>=2.1.0 (from markdown-it-py[linkify]>=2.1.0->textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached markdown_it_py-4.2.0-py3-none-any.whl.metadata (7.4 kB)
+Collecting mdit-py-plugins (from textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached mdit_py_plugins-0.6.1-py3-none-any.whl.metadata (2.9 kB)
+Collecting platformdirs<5,>=3.6.0 (from textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached platformdirs-4.10.0-py3-none-any.whl.metadata (5.5 kB)
+Collecting pygments<3.0.0,>=2.19.2 (from textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached pygments-2.20.0-py3-none-any.whl.metadata (2.5 kB)
+Collecting click>=8.2.1 (from typer<0.25,>=0.24->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached click-8.4.1-py3-none-any.whl.metadata (2.6 kB)
+Collecting shellingham>=1.3.0 (from typer<0.25,>=0.24->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached shellingham-1.5.4-py2.py3-none-any.whl.metadata (3.5 kB)
+Collecting annotated-doc>=0.0.2 (from typer<0.25,>=0.24->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached annotated_doc-0.0.4-py3-none-any.whl.metadata (6.6 kB)
+Collecting daff>=1.3.46 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached daff-1.4.2-py3-none-any.whl.metadata (10 kB)
+Collecting dbt-extractor<=0.6,>=0.5.0 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_extractor-0.6.0-cp39-abi3-win_amd64.whl.metadata (4.6 kB)
+Collecting dbt-semantic-interfaces<0.10,>=0.9.0 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_semantic_interfaces-0.9.0-py3-none-any.whl.metadata (2.6 kB)
+INFO: pip is looking at multiple versions of dbt-core to determine which version is compatible with other requirements. This could take a while.
+Collecting dbt-core>=1.8.0 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_core-1.11.10-py3-none-any.whl.metadata (4.4 kB)
+Collecting dbt-adapters<2,>=1 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_adapters-1.23.0-py3-none-any.whl.metadata (4.6 kB)
+Collecting dbt-core>=1.8.0 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_core-1.11.9-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.11.8-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.11.7-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.11.6-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.11.5-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.11.4-py3-none-any.whl.metadata (4.4 kB)
+INFO: pip is still looking at multiple versions of dbt-core to determine which version is compatible with other requirements. This could take a while.
+  Using cached dbt_core-1.11.3-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.11.2-py3-none-any.whl.metadata (4.4 kB)
+  Using cached dbt_core-1.10.22-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.21-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.20-py3-none-any.whl.metadata (4.2 kB)
+INFO: This is taking longer than usual. You might need to provide the dependency resolver with stricter constraints to reduce runtime. See https://pip.pypa.io/warnings/backtracking for guidance. If you want to abort this run, press Ctrl + C.
+  Using cached dbt_core-1.10.19-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.18-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.17-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.16-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.15-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.13-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.11-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.10-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.9-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.8-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.7-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.6-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.5-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.4-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.3-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.2-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.1-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.10.0-py3-none-any.whl.metadata (4.2 kB)
+  Using cached dbt_core-1.9.10-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.9-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.8-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.7-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.6-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.5-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.4-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.3-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.2-py3-none-any.whl.metadata (4.0 kB)
+  Using cached dbt_core-1.9.1-py3-none-any.whl.metadata (3.8 kB)
+  Using cached dbt_core-1.9.0-py3-none-any.whl.metadata (3.8 kB)
+  Using cached dbt_core-1.8.9-py3-none-any.whl.metadata (3.9 kB)
+Collecting logbook<1.6,>=1.5 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached Logbook-1.5.3.tar.gz (85 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting networkx<4.0,>=2.3 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached networkx-3.6.1-py3-none-any.whl.metadata (6.8 kB)
+Collecting dbt-core>=1.8.0 (from dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached dbt_core-1.8.8-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.7-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.6-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.5-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.4-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.3-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.2-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.1-py3-none-any.whl.metadata (3.9 kB)
+  Using cached dbt_core-1.8.0-py3-none-any.whl.metadata (3.9 kB)
+Collecting mashumaro[msgpack]<3.18,>=3.9 (from dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached mashumaro-3.16-py3-none-any.whl.metadata (118 kB)
+Collecting mashumaro<3.18,>=3.9 (from mashumaro[msgpack]<3.18,>=3.9->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached mashumaro-3.14-py3-none-any.whl.metadata (114 kB)
+Collecting packaging>20.9 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+Collecting pathspec<1.1,>=0.9 (from dbt-common<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached pathspec-0.12.1-py3-none-any.whl.metadata (21 kB)
+Collecting snowplow-tracker<2.0,>=1.0.2 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached snowplow_tracker-1.1.0-py3-none-any.whl.metadata (5.7 kB)
+Collecting sqlparse<0.6.0,>=0.5.5 (from dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached sqlparse-0.5.5-py3-none-any.whl.metadata (4.7 kB)
+Collecting importlib-metadata<9,>=6.0 (from dbt-semantic-interfaces<0.10,>=0.9.0->dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached importlib_metadata-8.9.0-py3-none-any.whl.metadata (4.5 kB)
+Collecting more-itertools<11.0,>=8.0 (from dbt-semantic-interfaces<0.10,>=0.9.0->dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached more_itertools-10.8.0-py3-none-any.whl.metadata (39 kB)
+Collecting zipp>=3.20 (from importlib-metadata<9,>=6.0->dbt-semantic-interfaces<0.10,>=0.9.0->dbt-core>=1.8.0->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached zipp-4.1.0-py3-none-any.whl.metadata (3.6 kB)
+Collecting annotated-types>=0.6.0 (from pydantic>=2.7->dataforge_07_dbt)
+  Using cached annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.4 (from pydantic>=2.7->dataforge_07_dbt)
+  Using cached pydantic_core-2.46.4-cp312-cp312-win_amd64.whl.metadata (6.7 kB)
+Collecting typing-inspection>=0.4.2 (from pydantic>=2.7->dataforge_07_dbt)
+  Using cached typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+Collecting anyio (from httpx>=0.27->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached anyio-4.13.0-py3-none-any.whl.metadata (4.5 kB)
+Collecting httpcore==1.* (from httpx>=0.27->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+Collecting h11>=0.16 (from httpcore==1.*->httpx>=0.27->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+Collecting mdurl~=0.1 (from markdown-it-py>=2.1.0->markdown-it-py[linkify]>=2.1.0->textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached mdurl-0.1.2-py3-none-any.whl.metadata (1.6 kB)
+Collecting linkify-it-py<3,>=1 (from markdown-it-py[linkify]>=2.1.0->textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached linkify_it_py-2.1.0-py3-none-any.whl.metadata (8.5 kB)
+Collecting uc-micro-py (from linkify-it-py<3,>=1->markdown-it-py[linkify]>=2.1.0->textual<9,>=8.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached uc_micro_py-2.0.0-py3-none-any.whl.metadata (2.2 kB)
+Collecting numpy>=1.26.0 (from pandas>=2.2->dataforge_07<0.2,>=0.1.0->dataforge_07_dbt)
+  Using cached numpy-2.4.6-cp312-cp312-win_amd64.whl.metadata (6.6 kB)
+Collecting text-unidecode>=1.3 (from python-slugify>=1.2.1->agate<2.0,>=1.0->dbt-adapters<2,>=1->dbt-duckdb<1.11,>=1.8->dataforge_07_dbt)
+  Using cached text_unidecode-1.3-py2.py3-none-any.whl.metadata (2.4 kB)
+Using cached dataforge_07_dbt-0.1.0-py3-none-any.whl (11 kB)
+Using cached dataforge_07-0.1.0-py3-none-any.whl (214 kB)
+Using cached dbt_duckdb-1.10.1-py3-none-any.whl (85 kB)
+Using cached dbt_adapters-1.24.2-py3-none-any.whl (176 kB)
+Using cached dbt_common-1.38.0-py3-none-any.whl (88 kB)
+Using cached agate-1.9.1-py2.py3-none-any.whl (95 kB)
+Using cached colorama-0.4.6-py2.py3-none-any.whl (25 kB)
+Using cached dbt_protos-1.0.514-py3-none-any.whl (238 kB)
+Using cached deepdiff-8.6.2-py3-none-any.whl (91 kB)
+Using cached isodate-0.7.2-py3-none-any.whl (22 kB)
+Using cached jinja2-3.1.6-py3-none-any.whl (134 kB)
+Using cached jsonschema-4.26.0-py3-none-any.whl (90 kB)
+Using cached protobuf-6.33.6-cp310-abi3-win_amd64.whl (437 kB)
+Using cached dbt_core-1.11.11-py3-none-any.whl (1.1 MB)
+Using cached mashumaro-3.14-py3-none-any.whl (92 kB)
+Using cached click-8.4.1-py3-none-any.whl (116 kB)
+Using cached dbt_extractor-0.6.0-cp39-abi3-win_amd64.whl (277 kB)
+Using cached dbt_semantic_interfaces-0.9.0-py3-none-any.whl (147 kB)
+Using cached importlib_metadata-8.9.0-py3-none-any.whl (27 kB)
+Using cached more_itertools-10.8.0-py3-none-any.whl (69 kB)
+Using cached networkx-3.6.1-py3-none-any.whl (2.1 MB)
+Using cached orderly_set-5.5.0-py3-none-any.whl (13 kB)
+Using cached pathspec-0.12.1-py3-none-any.whl (31 kB)
+Using cached pydantic-2.13.4-py3-none-any.whl (472 kB)
+Using cached pydantic_core-2.46.4-cp312-cp312-win_amd64.whl (2.1 MB)
+Using cached python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+Using cached pyyaml-6.0.3-cp312-cp312-win_amd64.whl (154 kB)
+Using cached requests-2.34.2-py3-none-any.whl (73 kB)
+Using cached charset_normalizer-3.4.7-cp312-cp312-win_amd64.whl (159 kB)
+Using cached idna-3.18-py3-none-any.whl (65 kB)
+Using cached snowplow_tracker-1.1.0-py3-none-any.whl (44 kB)
+Using cached sqlparse-0.5.5-py3-none-any.whl (46 kB)
+Using cached textual-8.2.7-py3-none-any.whl (731 kB)
+Using cached platformdirs-4.10.0-py3-none-any.whl (22 kB)
+Using cached pygments-2.20.0-py3-none-any.whl (1.2 MB)
+Using cached typer-0.24.2-py3-none-any.whl (55 kB)
+Using cached typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+Using cached urllib3-2.7.0-py3-none-any.whl (131 kB)
+Using cached annotated_doc-0.0.4-py3-none-any.whl (5.3 kB)
+Using cached annotated_types-0.7.0-py3-none-any.whl (13 kB)
+Using cached attrs-26.1.0-py3-none-any.whl (67 kB)
+Using cached babel-2.18.0-py3-none-any.whl (10.2 MB)
+Using cached certifi-2026.5.20-py3-none-any.whl (134 kB)
+Using cached daff-1.4.2-py3-none-any.whl (144 kB)
+Using cached duckdb-1.5.3-cp312-cp312-win_amd64.whl (13.1 MB)
+Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
+Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
+Using cached h11-0.16.0-py3-none-any.whl (37 kB)
+Using cached jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Using cached leather-0.4.1-py3-none-any.whl (30 kB)
+Using cached markdown_it_py-4.2.0-py3-none-any.whl (91 kB)
+Using cached mdurl-0.1.2-py3-none-any.whl (10.0 kB)
+Using cached linkify_it_py-2.1.0-py3-none-any.whl (19 kB)
+Using cached markupsafe-3.0.3-cp312-cp312-win_amd64.whl (15 kB)
+Using cached msgpack-1.2.0-cp312-cp312-win_amd64.whl (71 kB)
+Using cached packaging-26.2-py3-none-any.whl (100 kB)
+Using cached pandas-3.0.3-cp312-cp312-win_amd64.whl (9.8 MB)
+Using cached numpy-2.4.6-cp312-cp312-win_amd64.whl (12.3 MB)
+Using cached parsedatetime-2.6-py3-none-any.whl (42 kB)
+Using cached python_dotenv-1.2.2-py3-none-any.whl (22 kB)
+Using cached python_slugify-8.0.4-py2.py3-none-any.whl (10 kB)
+Using cached pytimeparse-1.1.8-py2.py3-none-any.whl (10.0 kB)
+Using cached pytz-2026.2-py2.py3-none-any.whl (510 kB)
+Using cached referencing-0.37.0-py3-none-any.whl (26 kB)
+Using cached rich-15.0.0-py3-none-any.whl (310 kB)
+Using cached rpds_py-2026.5.1-cp312-cp312-win_amd64.whl (229 kB)
+Using cached shellingham-1.5.4-py2.py3-none-any.whl (9.8 kB)
+Using cached six-1.17.0-py2.py3-none-any.whl (11 kB)
+Using cached text_unidecode-1.3-py2.py3-none-any.whl (78 kB)
+Using cached typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+Using cached tzdata-2026.2-py2.py3-none-any.whl (349 kB)
+Using cached z3_solver-4.16.0.0-py3-none-win_amd64.whl (16.4 MB)
+Using cached zipp-4.1.0-py3-none-any.whl (10 kB)
+Using cached anyio-4.13.0-py3-none-any.whl (114 kB)
+Using cached mdit_py_plugins-0.6.1-py3-none-any.whl (66 kB)
+Using cached uc_micro_py-2.0.0-py3-none-any.whl (6.4 kB)
+Installing collected packages: z3-solver, text-unidecode, pytz, pytimeparse, parsedatetime, leather, daff, zipp, urllib3, uc-micro-py, tzdata, typing-extensions, sqlparse, six, shellingham, rpds-py, PyYAML, python-slugify, python-dotenv, pygments, protobuf, platformdirs, pathspec, packaging, orderly-set, numpy, networkx, msgpack, more-itertools, mdurl, MarkupSafe, isodate, idna, h11, duckdb, dbt-extractor, colorama, charset_normalizer, certifi, Babel, attrs, annotated-types, annotated-doc, typing-inspection, requests, referencing, python-dateutil, pydantic-core, mashumaro, markdown-it-py, linkify-it-py, jinja2, importlib-metadata, httpcore, deepdiff, dbt-protos, click, anyio, agate, snowplow-tracker, rich, pydantic, pandas, mdit-py-plugins, jsonschema-specifications, httpx, typer, textual, jsonschema, dbt-semantic-interfaces, dbt-common, dataforge_07, dbt-adapters, dbt-core, dbt-duckdb, dataforge_07_dbt
+
+Successfully installed Babel-2.18.0 MarkupSafe-3.0.3 PyYAML-6.0.3 agate-1.9.1 annotated-doc-0.0.4 annotated-types-0.7.0 anyio-4.13.0 attrs-26.1.0 certifi-2026.5.20 charset_normalizer-3.4.7 click-8.4.1 colorama-0.4.6 daff-1.4.2 dataforge_07-0.1.0 dataforge_07_dbt-0.1.0 dbt-adapters-1.24.2 dbt-common-1.38.0 dbt-core-1.11.11 dbt-duckdb-1.10.1 dbt-extractor-0.6.0 dbt-protos-1.0.514 dbt-semantic-interfaces-0.9.0 deepdiff-8.6.2 duckdb-1.5.3 h11-0.16.0 httpcore-1.0.9 httpx-0.28.1 idna-3.18 importlib-metadata-8.9.0 isodate-0.7.2 jinja2-3.1.6 jsonschema-4.26.0 jsonschema-specifications-2025.9.1 leather-0.4.1 linkify-it-py-2.1.0 markdown-it-py-4.2.0 mashumaro-3.14 mdit-py-plugins-0.6.1 mdurl-0.1.2 more-itertools-10.8.0 msgpack-1.2.0 networkx-3.6.1 numpy-2.4.6 orderly-set-5.5.0 packaging-26.2 pandas-3.0.3 parsedatetime-2.6 pathspec-0.12.1 platformdirs-4.10.0 protobuf-6.33.6 pydantic-2.13.4 pydantic-core-2.46.4 pygments-2.20.0 python-dateutil-2.9.0.post0 python-dotenv-1.2.2 python-slugify-8.0.4 pytimeparse-1.1.8 pytz-2026.2 referencing-0.37.0 requests-2.34.2 rich-15.0.0 rpds-py-2026.5.1 shellingham-1.5.4 six-1.17.0 snowplow-tracker-1.1.0 sqlparse-0.5.5 text-unidecode-1.3 textual-8.2.7 typer-0.24.2 typing-extensions-4.15.0 typing-inspection-0.4.2 tzdata-2026.2 uc-micro-py-2.0.0 urllib3-2.7.0 z3-solver-4.16.0.0 zipp-4.1.0
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\python.exe -m dbt.cli.main seed --project-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project --profiles-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\profiles
+03:57:11  Running with dbt=1.11.11
+03:57:11  Registered adapter: duckdb=1.10.1
+03:57:11  Unable to do partial parsing because saved manifest not found. Starting full parse.
+03:57:16  Found 1 model, 1 seed, 3 data tests, 485 macros
+03:57:16  
+03:57:16  Concurrency: 1 threads (target='dev')
+03:57:16  
+03:57:25  1 of 1 START seed file main.dirty_decimal_shift ................................ [RUN]
+03:57:25  1 of 1 OK loaded seed file main.dirty_decimal_shift ............................ [INSERT 6 in 0.07s]
+03:57:25  
+03:57:25  Finished running 1 seed in 0 hours 0 minutes and 8.49 seconds (8.49s).
+03:57:25  
+03:57:25  Completed successfully
+03:57:25  
+03:57:25  Done. PASS=1 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=1
+<frozen runpy>:128: RuntimeWarning: 'dbt.cli.main' found in sys.modules after import of package 'dbt.cli', but prior to execution of 'dbt.cli.main'; this may result in unpredictable behaviour
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\python.exe -m dbt.cli.main run --project-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project --profiles-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\profiles
+03:57:30  Running with dbt=1.11.11
+03:57:30  Registered adapter: duckdb=1.10.1
+03:57:30  Found 1 model, 1 seed, 3 data tests, 485 macros
+03:57:30  
+03:57:30  Concurrency: 1 threads (target='dev')
+03:57:30  
+03:57:31  1 of 1 START sql table model main.example_with_dirty_data ...................... [RUN]
+03:57:31  1 of 1 OK created sql table model main.example_with_dirty_data ................. [OK in 0.14s]
+03:57:31  
+03:57:31  Finished running 1 table model in 0 hours 0 minutes and 0.33 seconds (0.33s).
+03:57:31  
+03:57:31  Completed successfully
+03:57:31  
+03:57:31  Done. PASS=1 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=1
+<frozen runpy>:128: RuntimeWarning: 'dbt.cli.main' found in sys.modules after import of package 'dbt.cli', but prior to execution of 'dbt.cli.main'; this may result in unpredictable behaviour
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\python.exe -m dbt.cli.main test --project-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project --profiles-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\profiles
+03:57:36  Running with dbt=1.11.11
+03:57:36  Registered adapter: duckdb=1.10.1
+03:57:36  Found 1 model, 1 seed, 3 data tests, 485 macros
+03:57:36  
+03:57:36  Concurrency: 1 threads (target='dev')
+03:57:36  
+03:57:37  1 of 3 START test not_null_example_with_dirty_data_column_x .................... [RUN]
+03:57:37  1 of 3 PASS not_null_example_with_dirty_data_column_x .......................... [PASS in 0.11s]
+03:57:37  2 of 3 START test not_null_example_with_dirty_data_id .......................... [RUN]
+03:57:37  2 of 3 PASS not_null_example_with_dirty_data_id ................................ [PASS in 0.02s]
+03:57:37  3 of 3 START test unique_example_with_dirty_data_id ............................ [RUN]
+03:57:37  3 of 3 PASS unique_example_with_dirty_data_id .................................. [PASS in 0.01s]
+03:57:37  
+03:57:37  Finished running 3 data tests in 0 hours 0 minutes and 0.28 seconds (0.28s).
+03:57:37  
+03:57:37  Completed successfully
+03:57:37  
+03:57:37  Done. PASS=3 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=3
+<frozen runpy>:128: RuntimeWarning: 'dbt.cli.main' found in sys.modules after import of package 'dbt.cli', but prior to execution of 'dbt.cli.main'; this may result in unpredictable behaviour
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\dataforge-dbt.exe --relation main.example_with_dirty_data --column column_x --target-path C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project\target --project-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project --profiles-path C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\profiles\profiles.yml --profile-name dataforge_dbt_fresh_env --row-id id --mode dry_run
+WARNING:dataforge_dbt:DATAFORGE_DBT issue relation=main.example_with_dirty_data column=column_x row=5 type=decimal_shift severity=review confidence=0.95 reason=Value 1000 in column 'column_x' appears to be ~10x the typical value (median ~100.5)
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\dataforge-dbt.exe --relation main.example_with_dirty_data --column column_x --target-path C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project\target --project-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project --profiles-path C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\profiles\profiles.yml --profile-name dataforge_dbt_fresh_env --row-id id --mode refuse
+WARNING:dataforge_dbt:DATAFORGE_DBT issue relation=main.example_with_dirty_data column=column_x row=5 type=decimal_shift severity=review confidence=0.95 reason=Value 1000 in column 'column_x' appears to be ~10x the typical value (median ~100.5)
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\dataforge-dbt.exe --relation main.example_with_dirty_data --column column_x --target-path C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project\target --project-dir C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project --profiles-path C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\profiles\profiles.yml --profile-name dataforge_dbt_fresh_env --row-id id --mode apply
+WARNING:dataforge_dbt:DATAFORGE_DBT issue relation=main.example_with_dirty_data column=column_x row=5 type=decimal_shift severity=review confidence=0.95 reason=Value 1000 in column 'column_x' appears to be ~10x the typical value (median ~100.5)
+INFO:dataforge_dbt:DATAFORGE_DBT transaction_written path=C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project\target\dataforge_txns\dataforge-dbt-main_example_with_dirty_data-20260613035741.jsonl
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\dataforge.exe audit txn-2026-06-13-3e67a0 --search-root C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project\target --json
+{
+  "errors": [],
+  "event_count": 2,
+  "head_sha256": "1e79acda7711f2e9a8193bbfa4ee37cd4c23949e201e1c4b563bba38290581ae",
+  "log_path": "C:\\Users\\Pranesh\\AppData\\Local\\Temp\\dataforge-dbt-proof-xdzybs3m\\dbt_project\\target\\.dataforge\\transactions\\txn-2026-06-13-3e67a0.jsonl",
+  "schema_name": "transaction_journal_v2",
+  "schema_version": 2,
+  "txn_id": "txn-2026-06-13-3e67a0",
+  "verdict": "verified"
+}
+
+[exit 0]
+
+$ C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\.venv\Scripts\dataforge.exe revert txn-2026-06-13-3e67a0 --search-root C:\Users\Pranesh\AppData\Local\Temp\dataforge-dbt-proof-xdzybs3m\dbt_project\target --json
+{
+  "audit_verdict": "verified",
+  "backend": "duckdb",
+  "expected_source_sha256": "be1dbd0f87a4f08db383fe78e362aec2e2bd6c15557bd2c0c80d3fe9ecc4cce0",
+  "ok": true,
+  "restored_source_sha256": null,
+  "revert_event_sha256": "641dc28a25fe87c509828a71f6f8ec737c06dafeae0accc53b5d160e395ae901",
+  "reverted_at": "2026-06-13T03:57:43.233154+00:00",
+  "schema_version": "repair_revert_receipt_v1",
+  "source_kind": "table_store",
+  "source_path": "warehouse://duckdb?database=C:\\Users\\Pranesh\\AppData\\Local\\Temp\\dataforge-dbt-proof-xdzybs3m\\dataforge_dbt.duckdb&relation=main.example_with_dirty_data",
+  "txn_id": "txn-2026-06-13-3e67a0"
+}
+
+[exit 0]
+
