@@ -7,6 +7,11 @@ import type {
   ProblemDetail,
   Severity,
 } from "./types";
+import {
+  SAFETY_REVERT_EXPLANATION,
+  localCommands,
+  selectPrimaryRepairMoment,
+} from "./productLoop";
 
 export const DEFAULT_MAX_UPLOAD_BYTES = 1_048_576;
 const PREVIEW_ROWS = 5;
@@ -153,12 +158,24 @@ export function buildEvidenceExport(
   datasetName: string,
   analysis: AnalyzeResponse,
 ): string {
+  const primaryRepairMoment = selectPrimaryRepairMoment(analysis);
   return JSON.stringify(
     {
+      schema_version: "dataforge_playground_receipt_v2",
       product: "DataForge Playground",
       dataset_name: datasetName,
       generated_at: new Date().toISOString(),
       dry_run: true,
+      primary_repair_note: primaryRepairMoment.note,
+      primary_repair_moment: primaryRepairMoment,
+      safety_revert_explanation: SAFETY_REVERT_EXPLANATION,
+      local_commands: localCommands(analysis),
+      hashes: {
+        source_sha256: analysis.source.sha256,
+        patch_plan_sha256: analysis.receipt.patch_plan_sha256,
+        constraints_artifact_sha256: analysis.receipt.constraints_artifact_sha256,
+        post_sha256: analysis.receipt.post_sha256,
+      },
       source: analysis.source,
       schema_inference: analysis.schema_inference,
       risk_summary: analysis.risk_summary,
@@ -167,6 +184,7 @@ export function buildEvidenceExport(
       verification: analysis.verification,
       transaction_journal: analysis.txn_journal,
       repair_receipt: analysis.receipt,
+      raw_receipt: analysis.receipt,
       apply_handoff: analysis.apply_handoff,
       limitations: analysis.limitations,
       contract_version: analysis.meta.contract_version,

@@ -9,23 +9,14 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from dataforge.repair_contract import parse_repair_action
+from dataforge.repair_contract import CONTRACT_VERSION_V3, SYSTEM_PROMPT_V3, parse_repair_action
 
 CURRICULUM_VERSION = "expert_v6_contract_minimal"
 REPORT_SCHEMA_VERSION = "dataforge_sft_v6_contract_minimal_curriculum_report_v1"
 DEFAULT_INPUT = Path("data/sft_traj/expert_v5_repair_curriculum.jsonl")
 DEFAULT_OUTPUT = Path("data/sft_traj/expert_v6_contract_minimal.jsonl")
 DEFAULT_REPORT = Path("eval/results/sft_v6_contract_minimal_curriculum_report.json")
-CONTRACT_FIRST_SYSTEM_PROMPT = (
-    "You repair tabular data by proposing exact cell replacements. "
-    "Output exactly one compact JSON object and nothing else. "
-    'Use {"action":"finish","repairs":[]} when no cells should be changed. '
-    'Use {"action":"submit_repairs","repairs":[{"row":0,"column":"column","new_value":"value"}]} '
-    "only when a cell should be changed. Each repair object must have exactly row, "
-    "column, and new_value keys. The column value must exactly match one string from "
-    "allowed_columns, and row must be an integer from valid_rows. No prose, comments, "
-    "wrappers, or extra keys."
-)
+CONTRACT_FIRST_SYSTEM_PROMPT = SYSTEM_PROMPT_V3
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -106,6 +97,17 @@ def _with_minimal_assistant(
         if message.get("role") == "system":
             message["content"] = CONTRACT_FIRST_SYSTEM_PROMPT
             continue
+        if message.get("role") == "user":
+            user_payload = json.loads(str(message["content"]))
+            if not isinstance(user_payload, dict):
+                raise ValueError("user message content must decode to an object.")
+            user_payload["contract_version"] = CONTRACT_VERSION_V3
+            message["content"] = json.dumps(
+                user_payload,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            continue
         if message.get("role") == "assistant":
             message["content"] = json.dumps(
                 minimal_assistant,
@@ -115,6 +117,7 @@ def _with_minimal_assistant(
             break
     payload["messages"] = messages
     payload["fix"] = repairs
+    payload["prompt_contract_version"] = CONTRACT_VERSION_V3
     payload["curriculum_version"] = CURRICULUM_VERSION
     payload["curriculum_source_version"] = str(record.get("curriculum_version", "expert_v5"))
     payload["curriculum_role"] = f"contract_minimal_{action}"
@@ -143,6 +146,10 @@ def build_contract_minimal_curriculum(
                 max_repairs_per_record=max_repairs_per_record,
             )
             user_payload = _user_payload(minimal)
+            if user_payload.get("contract_version") != CONTRACT_VERSION_V3:
+                counts["user_contract_version_mismatches"] += 1
+            if minimal.get("prompt_contract_version") != CONTRACT_VERSION_V3:
+                counts["record_contract_version_mismatches"] += 1
             assistant = _message(minimal, "assistant")
             content = str(assistant["content"])
             parsed = parse_repair_action(
@@ -197,6 +204,10 @@ def build_contract_minimal_curriculum(
         blockers.append("system_reason_field_mentions_present")
     if counts["system_wrapper_mentions"]:
         blockers.append("system_wrapper_mentions_present")
+    if counts["user_contract_version_mismatches"]:
+        blockers.append("user_contract_version_mismatches_present")
+    if counts["record_contract_version_mismatches"]:
+        blockers.append("record_contract_version_mismatches_present")
 
     report = {
         "schema_version": REPORT_SCHEMA_VERSION,
@@ -212,6 +223,8 @@ def build_contract_minimal_curriculum(
             "assistant_reason_fields": counts["assistant_reason_fields"],
             "system_reason_field_mentions": counts["system_reason_field_mentions"],
             "system_wrapper_mentions": counts["system_wrapper_mentions"],
+            "user_contract_version_mismatches": counts["user_contract_version_mismatches"],
+            "record_contract_version_mismatches": counts["record_contract_version_mismatches"],
             "shape": {key: value for key, value in sorted(counts.items()) if ":" in key},
             "invalid_count": len(invalid_samples),
             "parse_failure_count": len(parse_failures),

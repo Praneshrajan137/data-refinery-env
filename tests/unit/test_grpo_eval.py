@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from dataforge.repair_contract import CONTRACT_VERSION_V3
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
 from dataforge.datasets.registry import DATASET_REGISTRY
 from training.grpo_contract import TruthCell
@@ -81,6 +82,23 @@ def test_heldout_task_manifest_is_deterministic_and_label_safe(monkeypatch, tmp_
     assert manifest_a["tasks"][0]["prompt_hash"]
     assert "ground_truth" not in manifest_a["tasks"][0]
     assert "hidden_ground_truth" not in manifest_a["tasks"][0]
+
+
+def test_heldout_tasks_can_use_contract_minimal_v3(monkeypatch, tmp_path: Path) -> None:
+    def fake_loader(name: str, **kwargs: object) -> RealWorldDataset:
+        return _fake_dataset(name)
+
+    monkeypatch.setattr("training.grpo_eval.load_real_world_dataset", fake_loader)
+
+    tasks, _ = build_heldout_tasks(
+        datasets=("hospital",),
+        heldout_tasks=1,
+        cache_root=tmp_path,
+        contract_version=CONTRACT_VERSION_V3,
+    )
+
+    assert tasks[0].prompt["contract_version"] == CONTRACT_VERSION_V3
+    assert '"reason"' not in tasks[0].messages[0]["content"]
 
 
 def _task(*, truth: list[TruthCell] | None = None) -> GrpoEvalTask:

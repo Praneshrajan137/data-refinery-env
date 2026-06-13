@@ -114,6 +114,7 @@ def test_v6_config_is_contract_first_private_candidate() -> None:
     assert config["schema_version"] == "sft_05b_v6"
     assert config["kaggle"]["auth_mode"] == "oauth"
     assert config["kaggle"]["credentials_path"] == r"C:\Users\Pranesh\.kaggle\credentials.json"
+    assert config["collection"]["prompt_contract_version"] == "repair_contract_v3"
     assert config["collection"]["curriculum_version"] == "expert_v6_contract_minimal"
     assert (
         config["collection"]["curriculum"]["source_trajectory_filename"]

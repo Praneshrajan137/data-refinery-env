@@ -203,6 +203,7 @@ def build_heldout_tasks(
     seeds_start: int = DEFAULT_SEEDS_START,
     chunk_width: int = DEFAULT_CHUNK_WIDTH,
     cache_root: Path | None = None,
+    contract_version: str = CONTRACT_VERSION_V2,
 ) -> tuple[list[GrpoEvalTask], dict[str, Any]]:
     """Build deterministic strict held-out tasks from pinned source bytes."""
     if heldout_tasks < 1:
@@ -252,7 +253,7 @@ def build_heldout_tasks(
                 context_rows=[],
                 allowed_columns=dataset.canonical_columns,
                 valid_rows=valid_rows,
-                contract_version=CONTRACT_VERSION_V2,
+                contract_version=contract_version,
             )
             user_payload = json.loads(messages[1]["content"])
             task_id = f"{BENCHMARK_NAME}:{dataset_name}:{seed}:{len(tasks):04d}"

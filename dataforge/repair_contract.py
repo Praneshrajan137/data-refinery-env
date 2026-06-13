@@ -12,9 +12,10 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 
 CONTRACT_VERSION_V1 = "repair_contract_v1"
 CONTRACT_VERSION_V2 = "repair_contract_v2"
+CONTRACT_VERSION_V3 = "repair_contract_v3"
 CONTRACT_VERSION = CONTRACT_VERSION_V2
 
-SYSTEM_PROMPT = (
+SYSTEM_PROMPT_V2 = (
     "You repair tabular data by proposing exact cell replacements. "
     "Rows must be absolute row ids from valid_rows and columns must exactly match one of "
     "the allowed_columns values. "
@@ -25,6 +26,17 @@ SYSTEM_PROMPT = (
     'Use {"action":"finish","repairs":[]} when no cells should be changed. '
     "Do not wrap the JSON in markdown code fences."
 )
+SYSTEM_PROMPT_V3 = (
+    "You repair tabular data by proposing exact cell replacements. "
+    "Output exactly one compact JSON object and nothing else. "
+    'Use {"action":"finish","repairs":[]} when no cells should be changed. '
+    'Use {"action":"submit_repairs","repairs":[{"row":0,"column":"Column","new_value":"value"}]} '
+    "only when a cell should be changed. Each repair object must have exactly row, "
+    "column, and new_value keys. The column value must exactly match one string from "
+    "allowed_columns, and row must be an integer from valid_rows. No prose, comments, "
+    "wrappers, or extra keys."
+)
+SYSTEM_PROMPT = SYSTEM_PROMPT_V2
 
 _JSON_FENCE_RE = re.compile(r"```(?:json)?\s*\n?(.*?)\n?\s*```", re.DOTALL)
 
@@ -170,6 +182,13 @@ def build_repair_user_payload(
     return payload
 
 
+def system_prompt_for_contract(contract_version: str) -> str:
+    """Return the system prompt for a versioned repair contract."""
+    if contract_version == CONTRACT_VERSION_V3:
+        return SYSTEM_PROMPT_V3
+    return SYSTEM_PROMPT_V2
+
+
 def render_repair_messages(
     *,
     schema_summary: Mapping[str, Any],
@@ -189,7 +208,7 @@ def render_repair_messages(
     When repairs are provided, an assistant message is appended for SFT.
     """
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt_for_contract(contract_version)},
         {
             "role": "user",
             "content": json.dumps(
@@ -210,23 +229,26 @@ def render_repair_messages(
         },
     ]
     if repairs is not None:
-        repair_fixes = [
-            RepairFix(
-                row=repair.row,
-                column=repair.column,
-                new_value=repair.new_value,
-                reason=repair.reason,
-            )
-            for repair in repairs
-        ]
+        repair_fixes = [RepairFix(row=repair.row, column=repair.column, new_value=repair.new_value, reason=repair.reason) for repair in repairs]
+        if contract_version == CONTRACT_VERSION_V3:
+            repair_payloads: list[dict[str, Any]] = [
+                {"row": fix.row, "column": fix.column, "new_value": fix.new_value}
+                for fix in repair_fixes
+            ]
+            assistant_payload: dict[str, Any] = {
+                "action": "submit_repairs" if repair_payloads else "finish",
+                "repairs": repair_payloads,
+            }
+        else:
+            assistant_payload = RepairAction(
+                action="submit_repairs" if repair_fixes else "finish",
+                repairs=repair_fixes,
+            ).model_dump(mode="json")
         messages.append(
             {
                 "role": "assistant",
                 "content": json.dumps(
-                    RepairAction(
-                        action="submit_repairs" if repair_fixes else "finish",
-                        repairs=repair_fixes,
-                    ).model_dump(mode="json"),
+                    assistant_payload,
                     sort_keys=True,
                     separators=(",", ":"),
                 ),

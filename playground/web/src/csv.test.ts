@@ -75,7 +75,19 @@ describe("result shaping", () => {
         reasons: ["No current detector findings were reported for this CSV."],
       },
       issues: [],
-      repairs: [],
+      repairs: [
+        {
+          row: 5,
+          column: "rating",
+          old_value: "45.0",
+          new_value: "4.5",
+          detector_id: "decimal_shift",
+          reason: "Value 45 in column rating appears to be ~10x the typical value.",
+          confidence: 0.94,
+          provenance: "heuristic",
+          verifier_reason: "All proposed fixes passed structural verification.",
+        },
+      ],
       verification: {
         safety_verdict: "allow",
         verifier_verdict: "accept",
@@ -89,7 +101,7 @@ describe("result shaping", () => {
         created_at: "2026-05-20T12:00:00Z",
         source_name: "sample.csv",
         source_sha256: "a".repeat(64),
-        fixes_count: 0,
+        fixes_count: 1,
         applied: false,
         events: [{ event_type: "created" }],
         note: "Dry run.",
@@ -107,14 +119,14 @@ describe("result shaping", () => {
         safety_verdict: "allow",
         verifier_verdict: "accept",
         issues_count: 0,
-        fixes_count: 0,
+        fixes_count: 1,
         candidate_provenance: [],
         root_causes: [],
         candidate_repairs: [],
         proof_obligations: [],
         accepted_constraint_ids: [],
         constraints_artifact_sha256: null,
-        patch_plan_sha256: null,
+        patch_plan_sha256: "b".repeat(64),
         revert_command: "dataforge revert txn-demo",
         limitations: ["Hosted analysis is stateless and dry-run only."],
         reason: "Dry run completed without mutating the source file.",
@@ -138,11 +150,23 @@ describe("result shaping", () => {
 
     expect(payload).toMatchObject({
       product: "DataForge Playground",
+      schema_version: "dataforge_playground_receipt_v2",
       dataset_name: "sample.csv",
       dry_run: true,
       contract_version: "repair_contract_v2",
+      primary_repair_note: "Row 6 rating: 45.0 -> 4.5 passed safety and verifier gates.",
+      local_commands: {
+        apply: "dataforge repair path/to/sample.csv --apply",
+        revert: "dataforge revert txn-demo",
+      },
+      hashes: {
+        source_sha256: "a".repeat(64),
+        patch_plan_sha256: "b".repeat(64),
+      },
       source: { sha256: "a".repeat(64) },
       repair_receipt: { txn_id: "txn-demo" },
+      raw_receipt: { txn_id: "txn-demo" },
     });
+    expect(payload.safety_revert_explanation.join(" ")).toContain("post-state hash");
   });
 });

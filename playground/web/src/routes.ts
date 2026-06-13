@@ -1,19 +1,11 @@
 export const PRODUCT_ROUTES = [
   {
-    id: "home",
-    path: "/",
-    href: "/playground/",
-    label: "Home",
-    title: "Operations home",
-    description: "Product posture, backend state, dry-run boundary, and quick start.",
-  },
-  {
     id: "run",
     path: "/run",
     href: "/playground/run",
-    label: "Run",
-    title: "Analyze command center",
-    description: "Load a CSV, start or cancel analysis, and rerun accepted constraints.",
+    label: "Loop",
+    title: "CSV repair loop",
+    description: "Upload a CSV, profile it, review issues, inspect verified repairs, export a receipt, and understand safe revert.",
   },
   {
     id: "atlas",
@@ -69,7 +61,7 @@ export interface ProductRoute {
 }
 
 const ROUTE_BY_PATH: Map<string, ProductRoute> = new Map(
-  PRODUCT_ROUTES.map((route) => [route.path, route]),
+  [["/", PRODUCT_ROUTES[0]], ...PRODUCT_ROUTES.map((route) => [route.path, route] as const)],
 );
 const ROUTE_BY_ID: Map<ProductRouteId, ProductRoute> = new Map(
   PRODUCT_ROUTES.map((route) => [route.id, route]),
@@ -80,7 +72,7 @@ export function routeFromPathname(pathname: string): ProductRoute {
     ? pathname.slice("/playground".length)
     : pathname;
   const normalized = normalizeRoutePath(withoutBase);
-  return ROUTE_BY_PATH.get(normalized) ?? routeById("home");
+  return ROUTE_BY_PATH.get(normalized) ?? routeById("run");
 }
 
 export function routeById(id: ProductRouteId): ProductRoute {

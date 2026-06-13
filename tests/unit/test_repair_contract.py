@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from dataforge.repair_contract import (
     CONTRACT_VERSION,
     CONTRACT_VERSION_V2,
+    CONTRACT_VERSION_V3,
     RepairFix,
     parse_repair_action,
     render_repair_messages,
@@ -45,6 +46,29 @@ def test_render_repair_messages_uses_canonical_payload_shape() -> None:
     assert assistant_payload == {
         "action": "submit_repairs",
         "repairs": [{"row": 0, "column": "Score", "new_value": "4.5", "reason": "decimal shift"}],
+    }
+
+
+def test_render_repair_messages_supports_contract_minimal_v3_shape() -> None:
+    messages = render_repair_messages(
+        schema_summary={"dataset": "synthetic", "columns": ["Score"]},
+        target_rows=[{"_row": 0, "Score": "45"}],
+        context_rows=[],
+        allowed_columns=["Score"],
+        repairs=[RepairFix(row=0, column="Score", new_value="4.5", reason="decimal shift")],
+        contract_version=CONTRACT_VERSION_V3,
+    )
+
+    assert '"reason"' not in messages[0]["content"]
+    assert "markdown" not in messages[0]["content"].lower()
+    assert "code fence" not in messages[0]["content"].lower()
+    user_payload = json.loads(messages[1]["content"])
+    assistant_payload = json.loads(messages[2]["content"])
+
+    assert user_payload["contract_version"] == CONTRACT_VERSION_V3
+    assert assistant_payload == {
+        "action": "submit_repairs",
+        "repairs": [{"row": 0, "column": "Score", "new_value": "4.5"}],
     }
 
 

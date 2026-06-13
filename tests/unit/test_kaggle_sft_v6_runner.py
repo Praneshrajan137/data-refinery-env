@@ -23,6 +23,8 @@ def test_sft_v6_runner_validates_contract_minimal_curriculum_report(tmp_path: Pa
                     "assistant_reason_fields": 0,
                     "system_reason_field_mentions": 0,
                     "system_wrapper_mentions": 0,
+                    "user_contract_version_mismatches": 0,
+                    "record_contract_version_mismatches": 0,
                     "parse_failure_count": 0,
                 },
             }
@@ -47,6 +49,8 @@ def test_sft_v6_runner_accepts_generated_curriculum_report_shape(tmp_path: Path)
                     "assistant_reason_fields": 0,
                     "system_reason_field_mentions": 0,
                     "system_wrapper_mentions": 0,
+                    "user_contract_version_mismatches": 0,
+                    "record_contract_version_mismatches": 0,
                     "parse_failure_count": 0,
                 },
             }
@@ -102,6 +106,7 @@ def test_sft_v6_runner_upload_is_private_after_promotion_gate() -> None:
     assert "smoke_complete_no_upload" in source or "complete_no_upload" in source
     assert "pass_upload_blocked_missing_hf_token" in source
     assert "pass_uploaded_private_candidate" in source
+    assert 'contract_version=str(config["collection"]["prompt_contract_version"])' in source
     assert "private=True" in source
     assert "public_claim_updated" in source
     assert source.index("sft_v6_promotion_gate_failures(") < source.index("api.upload_folder(")

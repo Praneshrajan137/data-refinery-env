@@ -232,6 +232,10 @@ def _validate_curriculum_report(path: Path) -> dict[str, Any]:
         blockers.append("system_reason_field_mentions_present")
     if int(metrics.get("system_wrapper_mentions", -1)) != 0:
         blockers.append("system_wrapper_mentions_present")
+    if int(metrics.get("user_contract_version_mismatches", -1)) != 0:
+        blockers.append("user_contract_version_mismatches_present")
+    if int(metrics.get("record_contract_version_mismatches", -1)) != 0:
+        blockers.append("record_contract_version_mismatches_present")
     if int(metrics.get("parse_failure_count", -1)) != 0:
         blockers.append("parse_failures_present")
     if blockers:
@@ -560,6 +564,7 @@ def main() -> int:
         seeds_start=int(eval_cfg["seeds_start"]),
         chunk_width=int(eval_cfg["chunk_width"]),
         cache_root=WORK_ROOT / "dataforge-cache",
+        contract_version=str(config["collection"]["prompt_contract_version"]),
     )
     _log_event("heldout_tasks_ready", task_count=len(tasks))
     merged_dir = Path(config["training"]["merged_dir"])

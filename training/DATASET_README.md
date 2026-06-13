@@ -51,9 +51,10 @@ is not a performance-improvement claim.
   `curriculum_version: expert_v5_repair_curriculum`.
 - `expert_v6_contract_minimal.jsonl`: contract-minimal follow-up curriculum
   generated from SFT-v5 after the private SFT-v5 candidate failed quality
-  gates. It removes assistant `reason` fields, caps repair targets per example,
-  and keeps no-op abstention examples so the next SFT run attacks parse/schema
-  drift before GRPO-v3.
+  gates using `contract_minimal_curriculum`. It moves the handoff to
+  `repair_contract_v3`, removes assistant `reason` fields, caps repair targets
+  per example, and keeps no-op abstention examples so the next SFT run attacks
+  parse/schema drift before GRPO-v3.
 - `split_manifest.json`: deterministic train/eval row manifest containing row
   ids and dirty-row SHA-256 hashes only; it contains no clean labels, suggested
   values, or repair targets.
@@ -72,7 +73,8 @@ is not a performance-improvement claim.
   preserved as failed diagnostic evidence after strict held-out eval showed
   parse/schema drift and insufficient active repair signal.
 - `sft_05b_v6.yaml`: private contract-first candidate configuration over
-  `expert_v6_contract_minimal.jsonl`. It uses staged Kaggle modes and may feed
+  `expert_v6_contract_minimal.jsonl` with the contract-minimal
+  `repair_contract_v3` prompt. It uses staged Kaggle modes and may feed
   GRPO-v3 only after `sft_v6_candidate_eval_report.json` has
   `promote_to_grpo: true` and points to an uploaded private checkpoint;
   otherwise GRPO-v3 stays blocked.

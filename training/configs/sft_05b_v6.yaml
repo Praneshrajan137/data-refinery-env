@@ -122,7 +122,7 @@ training_sequence:
 collection:
   schema_version: "expert_v4"
   curriculum_version: "expert_v6_contract_minimal"
-  prompt_contract_version: "repair_contract_v2"
+  prompt_contract_version: "repair_contract_v3"
   max_trajectories: 4000
   min_episode_f1: 1.0
   collection_methods:
