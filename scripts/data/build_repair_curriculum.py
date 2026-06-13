@@ -115,7 +115,9 @@ def _with_curriculum_metadata(
     return payload
 
 
-def _round_robin(records: list[dict[str, Any]], target_count: int, max_repeats: int) -> list[dict[str, Any]]:
+def _round_robin(
+    records: list[dict[str, Any]], target_count: int, max_repeats: int
+) -> list[dict[str, Any]]:
     selected: list[dict[str, Any]] = []
     if not records or target_count <= 0:
         return selected
@@ -164,7 +166,9 @@ def build_curriculum(
             inferability = str(record.get("inferability", ""))
             fix_count = _fix_count(record)
             input_counts[f"{base_dataset}:{inferability}:{'repair' if fix_count else 'noop'}"] += 1
-            heldout_rows = set(eval_rows.get(dataset, set())) | set(eval_rows.get(base_dataset, set()))
+            heldout_rows = set(eval_rows.get(dataset, set())) | set(
+                eval_rows.get(base_dataset, set())
+            )
             touched_rows = _rows_from_payload(payload, "target_rows") | _rows_from_payload(
                 payload, "context_rows"
             )
@@ -232,7 +236,9 @@ def build_curriculum(
             deterministic_selected_by_base[base_dataset] += 1
 
     deterministic_total = sum(deterministic_selected_by_base.values())
-    hard_negative_target = max(hard_negative_min_total, int(round(deterministic_total * noop_ratio)))
+    hard_negative_target = max(
+        hard_negative_min_total, int(round(deterministic_total * noop_ratio))
+    )
     hard_negative_selected_by_base: Counter[str] = Counter()
     hard_negative_datasets = sorted(hard_negative_by_base)
     if hard_negative_datasets:
@@ -349,7 +355,9 @@ def write_curriculum(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        "".join(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in records),
+        "".join(
+            json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in records
+        ),
         encoding="utf-8",
     )
     report["artifacts"] = {

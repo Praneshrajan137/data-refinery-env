@@ -38,7 +38,7 @@ def test_sft_v5_runner_accepts_hf_secret_env_label(monkeypatch) -> None:
     token, source, error = kaggle_sft_v5_candidate._load_hf_token()
 
     assert token == "hf_example"
-    assert source == "environment:HF"
+    assert source == "environment"
     assert error == ""
 
 

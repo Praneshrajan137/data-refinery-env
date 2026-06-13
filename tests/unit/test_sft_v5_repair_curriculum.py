@@ -31,9 +31,7 @@ def _record(
         "context_rows": [],
     }
     fixes = (
-        [{"row": row, "column": "Name", "new_value": "Alice", "reason": "oracle"}]
-        if repair
-        else []
+        [{"row": row, "column": "Name", "new_value": "Alice", "reason": "oracle"}] if repair else []
     )
     return {
         "schema_version": "expert_v4",

@@ -25,11 +25,7 @@ DEFAULT_GRPO_CONFIG = ROOT / "training" / "configs" / "grpo_05b.yaml"
 DEFAULT_SFT_PREDECESSOR_REPORT = ROOT / "eval" / "results" / "sft_v6_candidate_eval_report.json"
 SFT_PREDECESSOR_REPORT_NAME = "sft_v6_candidate_eval_report.json"
 DEFAULT_SMOKE_REPORT = (
-    ROOT
-    / "eval"
-    / "results"
-    / "kaggle_grpo_smoke_v10_report"
-    / "kaggle_grpo_smoke_report.json"
+    ROOT / "eval" / "results" / "kaggle_grpo_smoke_v10_report" / "kaggle_grpo_smoke_report.json"
 )
 DEFAULT_SMOKE_VALIDATION = (
     ROOT / "eval" / "results" / "kaggle_grpo_smoke_v10_report" / "smoke_validation.json"
@@ -100,7 +96,9 @@ def _is_excluded(path: Path) -> bool:
     parts = set(Path(relative).parts)
     if any(part in parts for part in SOURCE_EXCLUDES):
         return True
-    return any(relative == exclude or relative.startswith(f"{exclude}/") for exclude in SOURCE_EXCLUDES)
+    return any(
+        relative == exclude or relative.startswith(f"{exclude}/") for exclude in SOURCE_EXCLUDES
+    )
 
 
 def _write_source_zip(path: Path) -> int:
@@ -160,8 +158,7 @@ def _copy_v3_predecessor_report(
         return None
     if not report_path.exists():
         raise FileNotFoundError(
-            "GRPO v3 handoff requires an SFT-v6 eval report before launch: "
-            f"{report_path}"
+            f"GRPO v3 handoff requires an SFT-v6 eval report before launch: {report_path}"
         )
     _copy_file(report_path, dataset_dir / SFT_PREDECESSOR_REPORT_NAME)
     return SFT_PREDECESSOR_REPORT_NAME
@@ -284,7 +281,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--split-manifest", type=Path, default=DEFAULT_SPLIT_MANIFEST)
     parser.add_argument("--readiness-report", type=Path, default=DEFAULT_READINESS_REPORT)
     parser.add_argument("--grpo-config", type=Path, default=DEFAULT_GRPO_CONFIG)
-    parser.add_argument("--sft-predecessor-report", type=Path, default=DEFAULT_SFT_PREDECESSOR_REPORT)
+    parser.add_argument(
+        "--sft-predecessor-report", type=Path, default=DEFAULT_SFT_PREDECESSOR_REPORT
+    )
     parser.add_argument("--smoke-report", type=Path, default=DEFAULT_SMOKE_REPORT)
     parser.add_argument("--smoke-validation", type=Path, default=DEFAULT_SMOKE_VALIDATION)
     return parser

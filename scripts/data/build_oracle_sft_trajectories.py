@@ -1061,9 +1061,7 @@ def build_oracle_trajectories(
                         split_seed=settings.split_seed,
                         eval_fraction=settings.eval_fraction,
                         min_eval_rows=settings.min_eval_rows,
-                        records_per_difficulty=(
-                            settings.hospital_synthetic_records_per_difficulty
-                        ),
+                        records_per_difficulty=(settings.hospital_synthetic_records_per_difficulty),
                         schema_version=settings.schema_version,
                         prompt_contract_version=settings.prompt_contract_version,
                     )

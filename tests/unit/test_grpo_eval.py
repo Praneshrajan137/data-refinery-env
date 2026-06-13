@@ -102,12 +102,18 @@ def _task(*, truth: list[TruthCell] | None = None) -> GrpoEvalTask:
 
 def test_eval_scores_exact_finish_and_schema_case_errors() -> None:
     exact = '{"action":"submit_repairs","repairs":[{"row":0,"column":"Name","new_value":"Alice"}]}'
-    wrong_case = '{"action":"submit_repairs","repairs":[{"row":0,"column":"name","new_value":"Alice"}]}'
+    wrong_case = (
+        '{"action":"submit_repairs","repairs":[{"row":0,"column":"name","new_value":"Alice"}]}'
+    )
     finish = '{"action":"finish","repairs":[]}'
 
     exact_summary, _ = evaluate_completions([_task()], lambda task: exact, model_label="grpo")
-    case_summary, case_diag = evaluate_completions([_task()], lambda task: wrong_case, model_label="grpo")
-    clean_summary, _ = evaluate_completions([_task(truth=[])], lambda task: finish, model_label="grpo")
+    case_summary, case_diag = evaluate_completions(
+        [_task()], lambda task: wrong_case, model_label="grpo"
+    )
+    clean_summary, _ = evaluate_completions(
+        [_task(truth=[])], lambda task: finish, model_label="grpo"
+    )
 
     assert exact_summary["macro_f1"] == 1.0
     assert exact_summary["parse_success_rate"] == 1.0

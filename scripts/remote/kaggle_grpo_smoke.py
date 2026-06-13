@@ -23,6 +23,7 @@ INPUT_ROOT = Path(os.environ.get("DATAFORGE_GRPO_INPUT", str(DEFAULT_INPUT_ROOT)
 WORK_ROOT = Path("/kaggle/working")
 SOURCE_ROOT = WORK_ROOT / "dataforge-src"
 REPORT_PATH = WORK_ROOT / "kaggle_grpo_smoke_report.json"
+HF_DOWNLOAD_CREDENTIAL_UNAVAILABLE = "not_available_public_download"
 TRAJECTORY_INPUT_FILES = {
     "expert_v4.jsonl",
     "expert_v5_repair_curriculum.jsonl",
@@ -97,13 +98,13 @@ def _load_hf_token(*, required: bool = False) -> tuple[str | None, str]:
         token = (UserSecretsClient().get_secret("HF_TOKEN") or "").strip()
     except Exception as exc:  # pragma: no cover - exercised only inside Kaggle
         if required:
-            raise RuntimeError("HF_TOKEN Kaggle secret is required for GRPO smoke.") from exc
-        return None, "not_available_public_download"
+            raise RuntimeError("hf_hub_download_credential_unavailable") from exc
+        return None, HF_DOWNLOAD_CREDENTIAL_UNAVAILABLE
     if not token:
         if required:
-            raise RuntimeError("HF_TOKEN Kaggle secret is empty.")
-        return None, "not_available_public_download"
-    return token, "kaggle_secret"
+            raise RuntimeError("hf_hub_download_credential_unavailable")
+        return None, HF_DOWNLOAD_CREDENTIAL_UNAVAILABLE
+    return token, "kaggle_secrets"
 
 
 def _extract_source() -> None:
@@ -145,10 +146,12 @@ def _extract_source() -> None:
 def _install_stack(config: dict[str, Any]) -> None:
     packages = [str(package) for package in config["environment"]["pip_packages"]]
     uninstall_packages = [
-        str(package)
-        for package in config["environment"].get("uninstall_packages", ["torchao"])
+        str(package) for package in config["environment"].get("uninstall_packages", ["torchao"])
     ]
-    if any(package.startswith("trl==") and package.split("==", 1)[1].startswith("0.11") for package in packages):
+    if any(
+        package.startswith("trl==") and package.split("==", 1)[1].startswith("0.11")
+        for package in packages
+    ):
         raise RuntimeError("TRL v0.11 is not a valid GRPOTrainer target.")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pyyaml==6.0.3"])
     if uninstall_packages:
@@ -220,7 +223,9 @@ def _prepare_dataset(config: dict[str, Any]) -> tuple[Any, dict[str, Any], int]:
     )
 
     trajectory_name = str(config["readiness"].get("trajectory_filename", "expert_v4.jsonl"))
-    manifest_name = str(config["readiness"].get("split_manifest_filename", "split_manifest_v4.json"))
+    manifest_name = str(
+        config["readiness"].get("split_manifest_filename", "split_manifest_v4.json")
+    )
     records = _load_jsonl(INPUT_ROOT / trajectory_name)
     split_eval_rows, split_source = load_split_manifest(INPUT_ROOT / manifest_name)
     readiness_settings = GrpoReadinessSettings.from_config(config)
@@ -303,7 +308,9 @@ def _count_prompt_tokens(tokenizer: Any, messages: list[dict[str, str]]) -> int:
     return _input_id_count(encoded)
 
 
-def _enforce_prompt_budget(train_dataset: Any, tokenizer: Any, prompt_token_budget: int) -> tuple[Any, int]:
+def _enforce_prompt_budget(
+    train_dataset: Any, tokenizer: Any, prompt_token_budget: int
+) -> tuple[Any, int]:
     def enforce(record: dict[str, Any]) -> dict[str, Any]:
         messages = [dict(message) for message in record["prompt"]]
         payload = json.loads(messages[1]["content"])
@@ -337,7 +344,9 @@ def main() -> int:
     if selected_stage_name != "smoke":
         raise RuntimeError("This entrypoint is restricted to the no-upload smoke stage.")
     selected_stage = stage_by_name[selected_stage_name]
-    if bool(selected_stage.get("allow_upload_after_gate", selected_stage.get("allow_upload", False))):
+    if bool(
+        selected_stage.get("allow_upload_after_gate", selected_stage.get("allow_upload", False))
+    ):
         raise RuntimeError("Smoke stage must not allow upload.")
     config["training"]["max_steps"] = int(selected_stage["max_steps"])
     predecessor_blockers = _sft_v6_predecessor_blockers(config)
@@ -381,7 +390,7 @@ def main() -> int:
             "GRPO smoke requires a T4-or-newer Kaggle GPU for the installed PyTorch wheel; "
             f"received {torch.cuda.get_device_name(0)} with capability sm_{capability[0]}{capability[1]}."
         )
-    hf_token, hf_token_source = _load_hf_token(required=False)
+    hf_token, hf_auth_origin = _load_hf_token(required=False)
     if hf_token:
         os.environ["HF_TOKEN"] = hf_token
         os.environ["HUGGING_FACE_HUB_TOKEN"] = hf_token
@@ -452,7 +461,9 @@ def main() -> int:
         "status": "pass",
         "run_date_utc": datetime.now(UTC).isoformat(),
         "training_stage": selected_stage_name,
-        "attempted_steps": int(getattr(train_result, "global_step", config["training"]["max_steps"])),
+        "attempted_steps": int(
+            getattr(train_result, "global_step", config["training"]["max_steps"])
+        ),
         "configured_max_steps": int(config["training"]["max_steps"]),
         "gpu_name": torch.cuda.get_device_name(0),
         "gpu_hours": round((time.time() - started_at) / 3600.0, 4),
@@ -467,10 +478,18 @@ def main() -> int:
         "model_upload_attempted": False,
         "model_repo_created": False,
         "public_claim_updated": False,
-        "hf_token_source": hf_token_source,
+        "hf_hub_download_credential": "available"
+        if hf_token
+        else HF_DOWNLOAD_CREDENTIAL_UNAVAILABLE,
+        "hf_hub_download_credential_origin": hf_auth_origin if hf_token else "unavailable",
     }
     _write_report(report)
-    print(json.dumps({key: report[key] for key in ("status", "attempted_steps", "gpu_name", "gpu_hours")}, sort_keys=True))
+    print(
+        json.dumps(
+            {key: report[key] for key in ("status", "attempted_steps", "gpu_name", "gpu_hours")},
+            sort_keys=True,
+        )
+    )
     return 0
 
 

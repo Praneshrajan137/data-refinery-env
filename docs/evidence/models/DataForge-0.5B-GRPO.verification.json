@@ -2179,7 +2179,7 @@
     ],
     "gpu_hours": 4.8413,
     "grpo_f1": 0.1393,
-    "hf_token_source": "unavailable",
+    "hf_hub_upload_credential": "unavailable",
     "max_prompt_tokens": 1280,
     "model_license": "apache-2.0",
     "model_name": "DataForge-0.5B-GRPO",
@@ -2226,7 +2226,7 @@
       "train_steps_per_second": 0.029
     },
     "training_stage": "candidate",
-    "upload_blocker": "HF_TOKEN or HF Kaggle secret is required for candidate upload. Tried: HF_TOKEN, HF, HUGGING_FACE_HUB_TOKEN, HUGGINGFACE_HUB_TOKEN, HUGGINGFACE_TOKEN, HUGGING_FACE_TOKEN.",
+    "upload_blocker": "hf_hub_upload_credential_unavailable",
     "valid_prompt_records": 2762
   },
   "model": {

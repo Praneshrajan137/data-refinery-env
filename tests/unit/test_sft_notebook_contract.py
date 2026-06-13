@@ -101,7 +101,10 @@ def test_v5_config_is_private_repair_curriculum_candidate() -> None:
     assert config["repos"]["model_repo_template"].endswith("/DataForge-0.5B-SFT-v5-candidate")
     assert config["release"]["private_candidate_only"] is True
     assert config["release"]["public_upload_allowed"] is False
-    assert config["release"]["promote_to_grpo_only_if"]["deterministic_normalization_slice_f1_min"] >= 0.30
+    assert (
+        config["release"]["promote_to_grpo_only_if"]["deterministic_normalization_slice_f1_min"]
+        >= 0.30
+    )
     assert config["evaluation"]["promotion_slice"] == "deterministic_normalization"
 
 
@@ -112,7 +115,10 @@ def test_v6_config_is_contract_first_private_candidate() -> None:
     assert config["kaggle"]["auth_mode"] == "oauth"
     assert config["kaggle"]["credentials_path"] == r"C:\Users\Pranesh\.kaggle\credentials.json"
     assert config["collection"]["curriculum_version"] == "expert_v6_contract_minimal"
-    assert config["collection"]["curriculum"]["source_trajectory_filename"] == "expert_v5_repair_curriculum.jsonl"
+    assert (
+        config["collection"]["curriculum"]["source_trajectory_filename"]
+        == "expert_v5_repair_curriculum.jsonl"
+    )
     assert config["collection"]["curriculum"]["max_repairs_per_record"] == 2
     assert config["repos"]["trajectory_filename"] == "expert_v6_contract_minimal.jsonl"
     assert config["repos"]["split_manifest_filename"] == "split_manifest_v4.json"

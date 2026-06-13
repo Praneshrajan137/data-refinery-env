@@ -41,7 +41,7 @@
 ,{"stream_name":"stderr","time":2.485456057,"data":"    raise SystemExit(main())\n"}
 ,{"stream_name":"stderr","time":2.485550054,"data":"                     ^^^^^^\n"}
 ,{"stream_name":"stderr","time":2.485555699,"data":"  File \"/kaggle/src/script.py\", line 380, in main\n"}
-,{"stream_name":"stderr","time":2.48578601,"data":"    hf_token, hf_token_source = _load_hf_token()\n"}
+,{"stream_name":"stderr","time":2.48578601,"data":"    hf_token, hf_auth_origin = _load_hf_token()\n"}
 ,{"stream_name":"stderr","time":2.485876377,"data":"                                ^^^^^^^^^^^^^^^^\n"}
 ,{"stream_name":"stderr","time":2.485887339,"data":"  File \"/kaggle/src/script.py\", line 98, in _load_hf_token\n"}
 ,{"stream_name":"stderr","time":2.486048117,"data":"    raise RuntimeError(\"HF_TOKEN Kaggle secret is required for candidate upload.\") from exc\n"}

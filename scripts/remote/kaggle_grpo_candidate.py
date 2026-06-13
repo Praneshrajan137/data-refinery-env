@@ -11,6 +11,7 @@ import subprocess
 import sys
 import time
 import zipfile
+from contextlib import suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
@@ -28,6 +29,7 @@ HF_SECRET_LABELS = (
     "HUGGINGFACE_TOKEN",
     "HUGGING_FACE_TOKEN",
 )
+HF_UPLOAD_CREDENTIAL_UNAVAILABLE = "hf_hub_upload_credential_unavailable"
 
 TRAJECTORY_INPUT_FILES = {
     "expert_v4.jsonl",
@@ -122,11 +124,11 @@ def _load_hf_token() -> tuple[str, str]:
     for label in HF_SECRET_LABELS:
         token = (os.environ.get(label) or "").strip()
         if token:
-            return token, f"environment:{label}"
+            return token, "environment"
     try:
         from kaggle_secrets import UserSecretsClient
     except Exception as exc:  # pragma: no cover - exercised only inside Kaggle
-        raise RuntimeError("HF_TOKEN or HF Kaggle secret is required for candidate upload.") from exc
+        raise RuntimeError(HF_UPLOAD_CREDENTIAL_UNAVAILABLE) from exc
     client = UserSecretsClient()
     token = ""
     last_error: Exception | None = None
@@ -137,11 +139,10 @@ def _load_hf_token() -> tuple[str, str]:
             last_error = exc
             continue
         if token:
-            return token, f"kaggle_secret:{label}"
+            return token, "kaggle_secrets"
     if not token:
-        labels = ", ".join(HF_SECRET_LABELS)
-        raise RuntimeError(f"HF_TOKEN or HF Kaggle secret is required for candidate upload. Tried: {labels}.") from last_error
-    return token, "kaggle_secret"
+        raise RuntimeError(HF_UPLOAD_CREDENTIAL_UNAVAILABLE) from last_error
+    return token, "kaggle_secrets"
 
 
 def _extract_source() -> None:
@@ -182,10 +183,12 @@ def _extract_source() -> None:
 def _install_stack(config: dict[str, Any]) -> None:
     packages = [str(package) for package in config["environment"]["pip_packages"]]
     uninstall_packages = [
-        str(package)
-        for package in config["environment"].get("uninstall_packages", ["torchao"])
+        str(package) for package in config["environment"].get("uninstall_packages", ["torchao"])
     ]
-    if any(package.startswith("trl==") and package.split("==", 1)[1].startswith("0.11") for package in packages):
+    if any(
+        package.startswith("trl==") and package.split("==", 1)[1].startswith("0.11")
+        for package in packages
+    ):
         raise RuntimeError("TRL v0.11 is not a valid GRPOTrainer target.")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pyyaml==6.0.3"])
     if uninstall_packages:
@@ -271,7 +274,9 @@ def _prepare_dataset(config: dict[str, Any]) -> tuple[Any, dict[str, Any], int]:
     )
 
     trajectory_name = str(config["readiness"].get("trajectory_filename", "expert_v4.jsonl"))
-    manifest_name = str(config["readiness"].get("split_manifest_filename", "split_manifest_v4.json"))
+    manifest_name = str(
+        config["readiness"].get("split_manifest_filename", "split_manifest_v4.json")
+    )
     records = _load_jsonl(INPUT_ROOT / trajectory_name)
     split_eval_rows, split_source = load_split_manifest(INPUT_ROOT / manifest_name)
     readiness_report = analyze_grpo_readiness(
@@ -337,7 +342,9 @@ def _count_prompt_tokens(tokenizer: Any, messages: list[dict[str, str]]) -> int:
     return _input_id_count(encoded)
 
 
-def _enforce_prompt_budget(train_dataset: Any, tokenizer: Any, prompt_token_budget: int) -> tuple[Any, int]:
+def _enforce_prompt_budget(
+    train_dataset: Any, tokenizer: Any, prompt_token_budget: int
+) -> tuple[Any, int]:
     def enforce(record: dict[str, Any]) -> dict[str, Any]:
         messages = [dict(message) for message in record["prompt"]]
         payload = json.loads(messages[1]["content"])
@@ -404,8 +411,7 @@ def main() -> int:
     started_at = time.time()
     upload_attempted = False
     hf_token: str | None = None
-    hf_token_source = "unavailable"
-    hf_token_error = ""
+    hf_auth_origin = "unavailable"
     _log_event("candidate_start", stage=os.environ.get("DATAFORGE_GRPO_STAGE", "candidate"))
     _extract_source()
     _log_event("source_extracted", input_root=str(INPUT_ROOT))
@@ -460,9 +466,8 @@ def main() -> int:
         }
     )
     try:
-        hf_token, hf_token_source = _load_hf_token()
-    except RuntimeError as exc:
-        hf_token_error = str(exc)
+        hf_token, hf_auth_origin = _load_hf_token()
+    except RuntimeError:
         _log_event("hf_token_unavailable_preflight")
         _write_report(
             {
@@ -473,14 +478,14 @@ def main() -> int:
                 "model_upload_attempted": False,
                 "model_repo_created": False,
                 "public_claim_updated": False,
-                "upload_blocker": hf_token_error,
+                "upload_blocker": HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
                 "note": "Training and strict held-out eval will continue; upload remains blocked unless a token is visible after the gate.",
             }
         )
     if hf_token:
         os.environ["HF_TOKEN"] = hf_token
         os.environ["HUGGING_FACE_HUB_TOKEN"] = hf_token
-        _log_event("hf_token_available_preflight", source=hf_token_source)
+        _log_event("hf_token_available_preflight", origin=hf_auth_origin)
     _log_event("install_stack_start")
     _install_stack(config)
     _log_event("install_stack_done")
@@ -739,7 +744,7 @@ def main() -> int:
         "readiness_blockers": readiness_report["blockers"],
         "smoke_validation": smoke_validation,
         "train_metrics": train_metrics,
-        "hf_token_source": hf_token_source,
+        "hf_hub_upload_credential": "available" if hf_token else "unavailable",
         "upload_repo_private": bool(config["release"].get("upload_repo_private", False)),
     }
     (merged_dir / "training_metrics.json").write_text(
@@ -789,16 +794,13 @@ def main() -> int:
     verify_local_grpo_artifact_dir(merged_dir, model_repo=target_model_repo)
     _log_event("local_artifact_verified")
     upload_token = hf_token
-    upload_token_source = hf_token_source
-    upload_blocker = hf_token_error
+    upload_auth_origin = hf_auth_origin
     if not upload_token:
-        try:
-            upload_token, upload_token_source = _load_hf_token()
-        except RuntimeError as exc:
-            upload_blocker = str(exc)
+        with suppress(RuntimeError):
+            upload_token, upload_auth_origin = _load_hf_token()
     if not upload_token:
-        metrics["hf_token_source"] = "unavailable"
-        metrics["upload_blocker"] = upload_blocker
+        metrics["hf_hub_upload_credential"] = "unavailable"
+        metrics["upload_blocker"] = HF_UPLOAD_CREDENTIAL_UNAVAILABLE
         (merged_dir / "training_metrics.json").write_text(
             json.dumps(metrics, indent=2, sort_keys=True),
             encoding="utf-8",
@@ -816,7 +818,7 @@ def main() -> int:
                 "public_claim_updated": False,
                 "model_repo": target_model_repo,
                 "merged_dir": str(merged_dir),
-                "upload_blocker": upload_blocker,
+                "upload_blocker": HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
                 "training_metrics": metrics,
                 "total_runtime_hours": round((time.time() - started_at) / 3600.0, 4),
             }
@@ -831,7 +833,8 @@ def main() -> int:
             )
         )
         return 0
-    metrics["hf_token_source"] = upload_token_source
+    metrics["hf_hub_upload_credential"] = "available"
+    _log_event("hf_upload_credential_available", origin=upload_auth_origin)
     (merged_dir / "training_metrics.json").write_text(
         json.dumps(metrics, indent=2, sort_keys=True),
         encoding="utf-8",

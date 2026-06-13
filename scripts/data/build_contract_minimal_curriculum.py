@@ -70,7 +70,9 @@ def _assistant_payload(record: Mapping[str, Any]) -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
-def _minimal_repairs(payload: Mapping[str, Any], *, max_repairs_per_record: int) -> list[dict[str, Any]]:
+def _minimal_repairs(
+    payload: Mapping[str, Any], *, max_repairs_per_record: int
+) -> list[dict[str, Any]]:
     repairs = payload.get("repairs")
     if not isinstance(repairs, list):
         return []
@@ -162,7 +164,9 @@ def build_contract_minimal_curriculum(
                 continue
             repairs = parsed.action.repairs if parsed.action is not None else []
             action = parsed.action.action if parsed.action is not None else "unknown"
-            counts[f"{minimal.get('dataset', 'unknown')}:{minimal.get('inferability', 'unknown')}:{action}"] += 1
+            counts[
+                f"{minimal.get('dataset', 'unknown')}:{minimal.get('inferability', 'unknown')}:{action}"
+            ] += 1
             counts[f"action:{action}"] += 1
             counts["repair_cells"] += len(repairs)
             if '"reason"' in content:
@@ -237,7 +241,9 @@ def write_contract_minimal_curriculum(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        "".join(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in selected),
+        "".join(
+            json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in selected
+        ),
         encoding="utf-8",
     )
     report["artifacts"] = {

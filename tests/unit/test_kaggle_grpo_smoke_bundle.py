@@ -24,7 +24,9 @@ def test_kaggle_grpo_smoke_bundle_is_private_and_no_upload(monkeypatch, tmp_path
     report = prepare_kaggle_grpo_smoke.build_bundles(
         dataset_dir=dataset_dir,
         kernel_dir=kernel_dir,
-        trajectory=_write(tmp_path / "expert_v4_candidate.jsonl", '{"schema_version":"expert_v4"}\n'),
+        trajectory=_write(
+            tmp_path / "expert_v4_candidate.jsonl", '{"schema_version":"expert_v4"}\n'
+        ),
         split_manifest=_write(tmp_path / "split_manifest_v4_candidate.json"),
         readiness_report=_write(tmp_path / "grpo_readiness_05b_candidate.json"),
         grpo_config=_write(tmp_path / "grpo_05b.yaml", "schema_version: grpo_05b_v1\n"),
@@ -98,10 +100,13 @@ def test_prompt_token_counter_handles_mapping_chat_template_output() -> None:
             assert add_generation_prompt is True
             return {"input_ids": [1, 2, 3, 4, 5]}
 
-    assert kaggle_grpo_smoke._count_prompt_tokens(
-        MappingTokenizer(),
-        [{"role": "user", "content": "hello"}],
-    ) == 5
+    assert (
+        kaggle_grpo_smoke._count_prompt_tokens(
+            MappingTokenizer(),
+            [{"role": "user", "content": "hello"}],
+        )
+        == 5
+    )
 
 
 def test_prompt_token_counter_handles_object_chat_template_output() -> None:
@@ -118,10 +123,13 @@ def test_prompt_token_counter_handles_object_chat_template_output() -> None:
             assert add_generation_prompt is True
             return Tokenized(input_ids=[1, 2, 3, 4])
 
-    assert kaggle_grpo_smoke._count_prompt_tokens(
-        ObjectTokenizer(),
-        [{"role": "user", "content": "hello"}],
-    ) == 4
+    assert (
+        kaggle_grpo_smoke._count_prompt_tokens(
+            ObjectTokenizer(),
+            [{"role": "user", "content": "hello"}],
+        )
+        == 4
+    )
 
 
 def test_prompt_token_counter_handles_plain_token_list_and_fallback() -> None:
@@ -142,11 +150,17 @@ def test_prompt_token_counter_handles_plain_token_list_and_fallback() -> None:
             assert add_special_tokens is True
             return {"input_ids": [1, 2, 3, 4, 5, 6]}
 
-    assert kaggle_grpo_smoke._count_prompt_tokens(
-        PlainTemplateTokenizer(),
-        [{"role": "user", "content": "hello"}],
-    ) == 3
-    assert kaggle_grpo_smoke._count_prompt_tokens(
-        FallbackTokenizer(),
-        [{"role": "system", "content": "rules"}, {"role": "user", "content": "hello"}],
-    ) == 6
+    assert (
+        kaggle_grpo_smoke._count_prompt_tokens(
+            PlainTemplateTokenizer(),
+            [{"role": "user", "content": "hello"}],
+        )
+        == 3
+    )
+    assert (
+        kaggle_grpo_smoke._count_prompt_tokens(
+            FallbackTokenizer(),
+            [{"role": "system", "content": "rules"}, {"role": "user", "content": "hello"}],
+        )
+        == 6
+    )

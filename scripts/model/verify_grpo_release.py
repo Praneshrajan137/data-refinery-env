@@ -290,7 +290,13 @@ def verify_local_grpo_artifact_dir(
     expected_sft_model: str | None = None,
 ) -> GrpoReleaseEvidence:
     """Verify merged GRPO artifacts before a Kaggle upload touches the Hub."""
-    files = tuple(sorted(path.relative_to(model_dir).as_posix() for path in model_dir.rglob("*") if path.is_file()))
+    files = tuple(
+        sorted(
+            path.relative_to(model_dir).as_posix()
+            for path in model_dir.rglob("*")
+            if path.is_file()
+        )
+    )
     missing = sorted(REQUIRED_MODEL_FILES - set(files))
     if missing:
         raise GrpoReleaseVerificationError(
@@ -302,10 +308,18 @@ def verify_local_grpo_artifact_dir(
     metrics = json.loads((model_dir / "training_metrics.json").read_text(encoding="utf-8"))
     diagnostics = json.loads((model_dir / "eval_diagnostics.json").read_text(encoding="utf-8"))
     manifest = json.loads((model_dir / "eval_task_manifest.json").read_text(encoding="utf-8"))
-    if not isinstance(metrics, dict) or not isinstance(diagnostics, dict) or not isinstance(manifest, dict):
+    if (
+        not isinstance(metrics, dict)
+        or not isinstance(diagnostics, dict)
+        or not isinstance(manifest, dict)
+    ):
         raise GrpoReleaseVerificationError("local GRPO artifacts must be JSON objects.")
-    if metrics.get("eval_task_manifest_sha256") != _sha256_file(model_dir / "eval_task_manifest.json"):
-        raise GrpoReleaseVerificationError("eval_task_manifest_sha256 does not match artifact bytes.")
+    if metrics.get("eval_task_manifest_sha256") != _sha256_file(
+        model_dir / "eval_task_manifest.json"
+    ):
+        raise GrpoReleaseVerificationError(
+            "eval_task_manifest_sha256 does not match artifact bytes."
+        )
     resolved_expected_license = expected_model_license or expected_license_for_repo(model_repo)
     resolved_expected_sft = expected_sft_model
     if resolved_expected_sft is None:

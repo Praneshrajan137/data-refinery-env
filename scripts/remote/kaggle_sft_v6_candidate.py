@@ -28,6 +28,7 @@ HF_SECRET_LABELS = (
     "HUGGINGFACE_TOKEN",
     "HUGGING_FACE_TOKEN",
 )
+HF_UPLOAD_CREDENTIAL_UNAVAILABLE = "hf_hub_upload_credential_unavailable"
 
 
 def _has_sft_inputs(file_names: set[str]) -> bool:
@@ -137,31 +138,29 @@ def _load_hf_token() -> tuple[str | None, str, str]:
     for label in HF_SECRET_LABELS:
         token = (os.environ.get(label) or "").strip()
         if token:
-            return token, f"environment:{label}", ""
+            return token, "environment", ""
     try:
         from kaggle_secrets import UserSecretsClient
-    except Exception as exc:  # pragma: no cover - exercised only inside Kaggle
-        return None, "unavailable", f"Kaggle secrets unavailable: {exc}"
+    except Exception:  # pragma: no cover - exercised only inside Kaggle
+        return None, "unavailable", HF_UPLOAD_CREDENTIAL_UNAVAILABLE
     client = UserSecretsClient()
-    last_error: Exception | None = None
     for label in HF_SECRET_LABELS:
         try:
             token = (client.get_secret(label) or "").strip()
-        except Exception as exc:  # pragma: no cover - exercised only inside Kaggle
-            last_error = exc
+        except Exception:  # pragma: no cover - exercised only inside Kaggle
             continue
         if token:
-            return token, f"kaggle_secret:{label}", ""
-    labels = ", ".join(HF_SECRET_LABELS)
-    suffix = f" Last error: {last_error}" if last_error else ""
-    return None, "unavailable", f"No HF token found. Tried: {labels}.{suffix}"
+            return token, "kaggle_secrets", ""
+    return None, "unavailable", HF_UPLOAD_CREDENTIAL_UNAVAILABLE
 
 
 def _install_stack(config: dict[str, Any]) -> None:
     env_cfg = config["environment"]
     uninstall_packages = [
         str(package)
-        for package in env_cfg.get("uninstall_packages", ["torchvision", "torchaudio", "torchtext", "torchao"])
+        for package in env_cfg.get(
+            "uninstall_packages", ["torchvision", "torchaudio", "torchtext", "torchao"]
+        )
     ]
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "pyyaml==6.0.3"])
     if uninstall_packages:
@@ -413,11 +412,11 @@ def main() -> int:
             "curriculum_report": curriculum_report,
         }
     )
-    hf_token, hf_token_source, hf_token_error = _load_hf_token()
+    hf_token, hf_auth_origin, hf_token_error = _load_hf_token()
     if hf_token:
         os.environ["HF_TOKEN"] = hf_token
         os.environ["HUGGING_FACE_HUB_TOKEN"] = hf_token
-        _log_event("hf_token_available_preflight", source=hf_token_source)
+        _log_event("hf_token_available_preflight", origin=hf_auth_origin)
     else:
         _log_event("hf_token_unavailable_preflight")
     if selected_stage["require_hf_token"] and not hf_token:
@@ -430,7 +429,7 @@ def main() -> int:
                 "model_upload_attempted": False,
                 "model_repo_created": False,
                 "public_claim_updated": False,
-                "upload_blocker": hf_token_error,
+                "upload_blocker": HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
                 "note": "SFT-v6 candidate stage requires a visible HF token before GPU work because promotion requires a private checkpoint upload.",
             }
         )
@@ -501,7 +500,10 @@ def main() -> int:
     model.config.use_cache = False
     if quant_cfg is not None:
         prepare_kwargs: dict[str, Any] = {}
-        if "use_gradient_checkpointing" in inspect.signature(prepare_model_for_kbit_training).parameters:
+        if (
+            "use_gradient_checkpointing"
+            in inspect.signature(prepare_model_for_kbit_training).parameters
+        ):
             prepare_kwargs["use_gradient_checkpointing"] = bool(
                 config["training"].get("gradient_checkpointing", True)
             )
@@ -653,7 +655,7 @@ def main() -> int:
         "curriculum_report": curriculum_report,
         "train_metrics": train_metrics,
         "trainable_dtype_changes": trainable_dtype_changes[:50],
-        "hf_token_source": hf_token_source,
+        "hf_hub_upload_credential": "available" if hf_token else "unavailable",
         "private_candidate_only": True,
         "public_claim_updated": False,
     }
@@ -741,7 +743,7 @@ def main() -> int:
             model_uploaded=False,
             training_metrics=metrics,
             artifacts={"merged_dir": str(merged_dir), "adapter_dir": str(adapter_dir)},
-            upload_blocker=hf_token_error,
+            upload_blocker=HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
         )
         _save_promotion_report(merged_dir, promotion_report)
         _write_report(
@@ -758,7 +760,7 @@ def main() -> int:
                 "public_claim_updated": False,
                 "model_repo": model_repo,
                 "merged_dir": str(merged_dir),
-                "upload_blocker": hf_token_error,
+                "upload_blocker": HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
                 "promotion_report": promotion_report,
             }
         )
@@ -814,7 +816,11 @@ def main() -> int:
             "total_runtime_hours": round((time.time() - started_at) / 3600.0, 4),
         }
     )
-    print(json.dumps({"status": "pass_uploaded_private_candidate", "repo": model_repo}, sort_keys=True))
+    print(
+        json.dumps(
+            {"status": "pass_uploaded_private_candidate", "repo": model_repo}, sort_keys=True
+        )
+    )
     return 0
 
 

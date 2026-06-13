@@ -26,7 +26,9 @@ def test_kaggle_grpo_candidate_bundle_is_private_publish_eligible_and_clean(
     report = prepare_kaggle_grpo_candidate.build_bundles(
         dataset_dir=dataset_dir,
         kernel_dir=kernel_dir,
-        trajectory=_write(tmp_path / "expert_v4_candidate.jsonl", '{"schema_version":"expert_v4"}\n'),
+        trajectory=_write(
+            tmp_path / "expert_v4_candidate.jsonl", '{"schema_version":"expert_v4"}\n'
+        ),
         split_manifest=_write(tmp_path / "split_manifest_v4_candidate.json"),
         readiness_report=_write(tmp_path / "grpo_readiness_05b_candidate.json"),
         grpo_config=_write(tmp_path / "grpo_05b.yaml", "schema_version: grpo_05b_v1\n"),

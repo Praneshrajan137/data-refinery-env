@@ -87,7 +87,9 @@ def _is_excluded(path: Path) -> bool:
     parts = set(Path(relative).parts)
     if any(part in parts for part in SOURCE_EXCLUDES):
         return True
-    return any(relative == exclude or relative.startswith(f"{exclude}/") for exclude in SOURCE_EXCLUDES)
+    return any(
+        relative == exclude or relative.startswith(f"{exclude}/") for exclude in SOURCE_EXCLUDES
+    )
 
 
 def _write_source_zip(path: Path) -> int:

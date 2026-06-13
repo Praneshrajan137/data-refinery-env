@@ -45,9 +45,7 @@ def test_grpo_05b_config_uses_supported_v1_stack_and_free_tier_hparams() -> None
     assert config["readiness"]["trajectory_filename"] == "expert_v4.jsonl"
     assert config["readiness"]["split_manifest_filename"] == "split_manifest_v4.json"
     assert config["readiness"]["required_datasets"] == ["hospital", "flights", "beers"]
-    assert config["readiness"]["auxiliary_datasets"] == [
-        "hospital_synthetic_deterministic_v1"
-    ]
+    assert config["readiness"]["auxiliary_datasets"] == ["hospital_synthetic_deterministic_v1"]
     assert config["readiness"]["require_source_provenance"] is True
     assert config["readiness"]["min_repair_records"] == 32
     assert config["readiness"]["min_repair_signal_domains"] == 2

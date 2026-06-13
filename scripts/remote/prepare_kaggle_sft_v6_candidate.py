@@ -20,7 +20,9 @@ DEFAULT_DATASET_DIR = ROOT / "training" / "kaggle_sft_v6_handoff"
 DEFAULT_KERNEL_DIR = ROOT / "training" / "kaggle_sft_v6_kernel"
 DEFAULT_TRAJECTORY = ROOT / "data" / "sft_traj" / "expert_v6_contract_minimal.jsonl"
 DEFAULT_SPLIT_MANIFEST = ROOT / "data" / "sft_traj" / "split_manifest_v4_candidate.json"
-DEFAULT_CURRICULUM_REPORT = ROOT / "eval" / "results" / "sft_v6_contract_minimal_curriculum_report.json"
+DEFAULT_CURRICULUM_REPORT = (
+    ROOT / "eval" / "results" / "sft_v6_contract_minimal_curriculum_report.json"
+)
 DEFAULT_SFT_CONFIG = ROOT / "training" / "configs" / "sft_05b_v6.yaml"
 SFT_SCRIPT = ROOT / "scripts" / "remote" / "kaggle_sft_v6_candidate.py"
 DATASET_ID = "praneshrajan15/dataforge-sft-v6-handoff"
@@ -72,7 +74,9 @@ def _copy_file(source: Path, target: Path) -> None:
 def _write_kernel_script(source: Path, target: Path, *, default_stage: str) -> None:
     if default_stage not in VALID_STAGES:
         valid = ", ".join(VALID_STAGES)
-        raise ValueError(f"Unsupported SFT-v6 default stage: {default_stage}. Valid stages: {valid}")
+        raise ValueError(
+            f"Unsupported SFT-v6 default stage: {default_stage}. Valid stages: {valid}"
+        )
     if not source.exists():
         raise FileNotFoundError(source)
     marker = 'os.environ.get("DATAFORGE_SFT_STAGE", "smoke")'
@@ -104,7 +108,9 @@ def _is_excluded(path: Path) -> bool:
     parts = set(Path(relative).parts)
     if any(part in parts for part in SOURCE_EXCLUDES):
         return True
-    return any(relative == exclude or relative.startswith(f"{exclude}/") for exclude in SOURCE_EXCLUDES)
+    return any(
+        relative == exclude or relative.startswith(f"{exclude}/") for exclude in SOURCE_EXCLUDES
+    )
 
 
 def _write_source_zip(path: Path) -> int:

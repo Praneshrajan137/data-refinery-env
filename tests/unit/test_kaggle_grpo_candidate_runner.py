@@ -44,14 +44,16 @@ def test_candidate_runner_upload_is_after_local_verifier() -> None:
     assert "GRPO diagnostic stage must run exactly 250" in source
     assert "GRPO candidate stage must run exactly 500" in source
     assert "verify_local_grpo_artifact_dir(merged_dir" in source
-    assert source.index("verify_local_grpo_artifact_dir(merged_dir") < source.index("api.upload_folder(")
+    assert source.index("verify_local_grpo_artifact_dir(merged_dir") < source.index(
+        "api.upload_folder("
+    )
     assert "quality_gate_failed_no_upload" in source
     assert "return 0" in source[source.index("quality_gate_failed_no_upload") :]
     assert "diagnostic_complete_no_upload" in source
     assert "blocked_missing_sft_v6_predecessor" in source
     assert "sft_v6_candidate_eval_report.json" in source
     assert "pass_upload_blocked_missing_hf_token" in source
-    assert "HF_TOKEN or HF Kaggle secret is required for candidate upload" in source
+    assert "hf_hub_upload_credential_unavailable" in source
     assert '"HF"' in source
     assert "target_strict_macro_f1" in source
     assert "require_not_inferable_slice_f1" in source
@@ -67,4 +69,4 @@ def test_candidate_runner_accepts_hf_secret_env_label(monkeypatch) -> None:
     token, source = kaggle_grpo_candidate._load_hf_token()
 
     assert token == "hf_example"
-    assert source == "environment:HF"
+    assert source == "environment"

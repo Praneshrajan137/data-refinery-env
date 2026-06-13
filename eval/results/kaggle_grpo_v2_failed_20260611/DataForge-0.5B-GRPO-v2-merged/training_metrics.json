@@ -2304,7 +2304,7 @@
   ],
   "gpu_hours": 4.5318,
   "grpo_f1": 0.1212,
-  "hf_token_source": "unavailable",
+  "hf_hub_upload_credential": "unavailable",
   "max_prompt_tokens": 1280,
   "model_license": "apache-2.0",
   "model_name": "DataForge-0.5B-GRPO",

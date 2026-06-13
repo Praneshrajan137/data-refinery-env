@@ -57,7 +57,9 @@ def test_kaggle_sft_v6_bundle_is_private_staged_and_clean(monkeypatch, tmp_path:
     assert sft_manifest["default_stage"] == "smoke"
     assert sft_manifest["trajectory_file"] == "expert_v6_contract_minimal.jsonl"
     assert sft_manifest["split_manifest_file"] == "split_manifest_v4.json"
-    assert sft_manifest["curriculum_report_file"] == "sft_v6_contract_minimal_curriculum_report.json"
+    assert (
+        sft_manifest["curriculum_report_file"] == "sft_v6_contract_minimal_curriculum_report.json"
+    )
     assert (dataset_dir / "expert_v6_contract_minimal.jsonl").exists()
     assert (dataset_dir / "split_manifest_v4.json").exists()
     assert (kernel_dir / "dataforge-0-5b-sft-v6-candidate.py").exists()

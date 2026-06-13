@@ -151,9 +151,7 @@ def test_grpo_release_verifier_accepts_complete_gated_release(tmp_path: Path) ->
 
     evidence = verify_grpo_release(
         model_repo="Praneshrajan15/DataForge-0.5B-GRPO",
-        api=_FakeApi(
-            _required_files()
-        ),
+        api=_FakeApi(_required_files()),
         downloader=downloader,
     )
 
@@ -180,9 +178,7 @@ def test_grpo_release_verifier_rejects_failed_gate(tmp_path: Path) -> None:
     with pytest.raises(GrpoReleaseVerificationError, match="acceptance gate"):
         verify_grpo_release(
             model_repo="Praneshrajan15/DataForge-0.5B-GRPO",
-            api=_FakeApi(
-                _required_files()
-            ),
+            api=_FakeApi(_required_files()),
             downloader=downloader,
         )
 
@@ -204,9 +200,7 @@ def test_grpo_release_verifier_rejects_wrong_predecessor(tmp_path: Path) -> None
     with pytest.raises(GrpoReleaseVerificationError, match="predecessor"):
         verify_grpo_release(
             model_repo="Praneshrajan15/DataForge-1.5B-GRPO",
-            api=_FakeApi(
-                _required_files()
-            ),
+            api=_FakeApi(_required_files()),
             downloader=downloader,
         )
 
@@ -231,9 +225,7 @@ def test_grpo_release_verifier_uses_qwen_research_license_for_3b(tmp_path: Path)
     with pytest.raises(GrpoReleaseVerificationError, match="qwen-research"):
         verify_grpo_release(
             model_repo="Praneshrajan15/DataForge-3B-GRPO",
-            api=_FakeApi(
-                _required_files()
-            ),
+            api=_FakeApi(_required_files()),
             downloader=downloader,
         )
 
@@ -255,9 +247,7 @@ def test_grpo_release_verifier_bounds_metric_failure_samples(tmp_path: Path) -> 
     with pytest.raises(GrpoReleaseVerificationError, match="bounded"):
         verify_grpo_release(
             model_repo="Praneshrajan15/DataForge-0.5B-GRPO",
-            api=_FakeApi(
-                _required_files()
-            ),
+            api=_FakeApi(_required_files()),
             downloader=downloader,
         )
 

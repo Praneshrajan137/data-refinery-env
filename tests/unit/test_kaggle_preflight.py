@@ -90,9 +90,7 @@ def test_kaggle_preflight_reports_near_expiry_oauth_token(
             {
                 "refresh_token": "masked-refresh-token",
                 "access_token": "masked-access-token",
-                "access_token_expiration": (
-                    datetime.now(UTC) + timedelta(minutes=30)
-                ).isoformat(),
+                "access_token_expiration": (datetime.now(UTC) + timedelta(minutes=30)).isoformat(),
                 "username": "dataforge-maintainer",
                 "scopes": ["read"],
             }
@@ -139,9 +137,7 @@ def test_kaggle_cli_preflight_refreshes_near_expiry_before_cli(
     ) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(command, 0, stdout="dataset,count\n", stderr="")
 
-    monkeypatch.setattr(
-        check_kaggle_auth, "_refresh_oauth_access_token_if_needed", fake_refresh
-    )
+    monkeypatch.setattr(check_kaggle_auth, "_refresh_oauth_access_token_if_needed", fake_refresh)
 
     report = check_kaggle_auth.check_kaggle_auth(
         kaggle_json=credentials,
