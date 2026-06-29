@@ -61,3 +61,18 @@ def test_coverage_policy_accepts_single_pyproject_threshold(tmp_path: Path) -> N
         )
         == []
     )
+
+
+def test_canonical_gate_provisions_every_required_optional_surface() -> None:
+    """Required optional checks must have their dependencies installed first."""
+    workflow = (backend_gate.PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    canonical_job = workflow.split("  canonical-backend-gate:", 1)[1].split(
+        "  test-map-validate:", 1
+    )[0]
+
+    assert 'pip install -e "./dataforge-mcp[dev]"' in canonical_job
+    assert "pip install -r docs/requirements.txt" in canonical_job
+    assert "pip install -r playground/api/requirements.txt" in canonical_job
+    assert "backend_gate.py --require-optional" in canonical_job

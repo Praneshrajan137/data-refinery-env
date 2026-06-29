@@ -103,9 +103,9 @@ pandas = [
 playground = [
     "pandas>=2.2",
     "fastapi>=0.136.1",
-    "starlette>=1.0.1,<2",
+    "starlette>=1.3.1,<2",
     "uvicorn[standard]>=0.35",
-    "python-multipart>=0.0.27",
+    "python-multipart>=0.0.31",
     "slowapi>=0.1.9",
 ]
 openenv = [
@@ -180,6 +180,10 @@ exclude = [
     "^[^/]*\\.py$",          # loose root-level scripts (hackathon legacy)
     "^(training|playground|benchmark_results|datasets)/",
 ]
+
+[[tool.mypy.overrides]]
+module = ["torch", "torch.*", "transformers", "transformers.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "8.0"
