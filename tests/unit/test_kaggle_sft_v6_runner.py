@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -161,6 +163,14 @@ def test_sft_runner_accepts_v9_action_envelope_curriculum_report(
 
 
 def test_sft_v8_records_to_dataset_uses_conversational_prompt_completion(monkeypatch) -> None:
+    class _FakeDataset(list[dict[str, object]]):
+        @classmethod
+        def from_list(cls, rows: list[dict[str, object]]) -> _FakeDataset:
+            return cls(rows)
+
+    datasets_module = ModuleType("datasets")
+    datasets_module.Dataset = _FakeDataset  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "datasets", datasets_module)
     monkeypatch.setattr(kaggle_sft_v6_candidate, "DEFAULT_SFT_VERSION", "v8")
     records = [
         {
