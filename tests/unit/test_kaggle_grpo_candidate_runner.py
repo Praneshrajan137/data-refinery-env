@@ -50,8 +50,9 @@ def test_candidate_runner_upload_is_after_local_verifier() -> None:
     assert "quality_gate_failed_no_upload" in source
     assert "return 0" in source[source.index("quality_gate_failed_no_upload") :]
     assert "diagnostic_complete_no_upload" in source
-    assert "blocked_missing_sft_v6_predecessor" in source
-    assert "sft_v6_candidate_eval_report.json" in source
+    assert "blocked_missing_sft_predecessor" in source
+    assert "sft_v7_candidate_eval_report.json" in source
+    assert "sft_v9_candidate_eval_report.json" in source
     assert "pass_upload_blocked_missing_hf_token" in source
     assert "hf_hub_upload_credential_unavailable" in source
     assert '"HF"' in source

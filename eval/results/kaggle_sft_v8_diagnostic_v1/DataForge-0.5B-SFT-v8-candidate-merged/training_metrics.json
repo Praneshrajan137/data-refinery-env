@@ -1,0 +1,558 @@
+{
+  "attempted_steps": 40,
+  "base_f1": 0.0,
+  "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+  "candidate_label": "SFT-v8",
+  "configured_max_steps": 40,
+  "curriculum_report": {
+    "artifacts": {
+      "input_path": "data\\sft_traj\\expert_v6_contract_minimal.jsonl",
+      "output_path": "data\\sft_traj\\expert_v8_schema_distill.jsonl",
+      "report_path": "eval\\results\\sft_v8_schema_distill_curriculum_report.json"
+    },
+    "blockers": [],
+    "curriculum_version": "expert_v8_schema_distill",
+    "invalid_samples": [],
+    "label_mask_audit": {
+      "completion_column": "single compact assistant JSON action",
+      "method": "structural_prompt_completion_split",
+      "ok": true,
+      "prompt_contains_roles": [
+        "system",
+        "user"
+      ],
+      "runner_required": "Kaggle runner must pass completion_only_loss=True to TRL SFTConfig."
+    },
+    "limitations": [
+      "This curriculum changes the SFT training interface only; strict held-out eval remains unchanged.",
+      "Product-grade JSON reliability still requires a constrained decoding track; raw-model eval remains reported separately."
+    ],
+    "metrics": {
+      "completion_code_fence_count": 0,
+      "completion_parse_failure_count": 0,
+      "completion_reason_text_count": 0,
+      "finish_ratio": 0.4796,
+      "finish_records": 1174,
+      "finish_with_repairs": 0,
+      "invalid_count": 0,
+      "legacy_messages_present": 0,
+      "output_records": 2448,
+      "prompt_completion_records": 2448,
+      "record_contract_version_mismatches": 0,
+      "repair_cells": 1966,
+      "shape": {
+        "action:finish": 1174,
+        "action:submit_repairs": 1274,
+        "beers:deterministic_normalization:submit_repairs": 590,
+        "beers:external_reference_required:finish": 326,
+        "flights:deterministic_normalization:submit_repairs": 128,
+        "flights:external_reference_required:finish": 290,
+        "flights:not_inferable_from_prompt:finish": 34,
+        "hospital:external_reference_required:finish": 290,
+        "hospital:not_inferable_from_prompt:finish": 34,
+        "hospital_synthetic_deterministic_v1:deterministic_normalization:submit_repairs": 256,
+        "schema_micro_drill:deterministic_normalization:submit_repairs": 300,
+        "schema_micro_drill:not_inferable_from_prompt:finish": 200
+      },
+      "submit_ratio": 0.5204,
+      "submit_repair_records": 1274,
+      "training_format_mismatches": 0,
+      "user_contract_version_mismatches": 0,
+      "validation_failure_count": 0
+    },
+    "ok": true,
+    "schema_version": "dataforge_sft_v8_schema_distill_curriculum_report_v1",
+    "settings": {
+      "finish_copies": 2,
+      "finish_micro_drills": 200,
+      "submit_micro_drills": 300,
+      "submit_repair_copies": 1
+    },
+    "status": "pass",
+    "validation_failures": []
+  },
+  "dataset_shape": {
+    "beers:deterministic_normalization:repair": 590,
+    "beers:external_reference_required:noop": 326,
+    "flights:deterministic_normalization:repair": 128,
+    "flights:external_reference_required:noop": 290,
+    "flights:not_inferable_from_prompt:noop": 34,
+    "hospital:external_reference_required:noop": 290,
+    "hospital:not_inferable_from_prompt:noop": 34,
+    "hospital_synthetic_deterministic_v1:deterministic_normalization:repair": 256,
+    "schema_micro_drill:deterministic_normalization:repair": 300,
+    "schema_micro_drill:not_inferable_from_prompt:noop": 200
+  },
+  "evaluation_tracks": {
+    "product_constrained": {
+      "claim_policy": "parse reliability must be measured separately from raw-model F1 before product claims",
+      "decoding": "json_schema_or_grammar_constrained",
+      "enabled": true,
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "action": {
+                "const": "finish"
+              },
+              "repairs": {
+                "maxItems": 0,
+                "type": "array"
+              }
+            }
+          },
+          {
+            "properties": {
+              "action": {
+                "const": "submit_repairs"
+              },
+              "repairs": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "column": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "new_value": {
+                      "type": "string"
+                    },
+                    "row": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "row",
+                    "column",
+                    "new_value"
+                  ],
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            }
+          }
+        ],
+        "required": [
+          "action",
+          "repairs"
+        ],
+        "title": "DataForge repair_contract_v3 action",
+        "type": "object"
+      },
+      "status": "schema_metadata_recorded_decoder_not_run_in_sft_candidate"
+    },
+    "raw_research": {
+      "base_eval": {
+        "canonicalized_macro_f1": 0.0,
+        "completion_artifacts": {
+          "code_fence_count": 0,
+          "code_fence_rate": 0.0,
+          "reason_text_count": 0,
+          "reason_text_rate": 0.0
+        },
+        "dataset_f1": {
+          "beers": 0.0,
+          "flights": 0.0,
+          "hospital": 0.0
+        },
+        "failure_taxonomy": {
+          "finish_with_repairs": 26,
+          "invalid_column": 1,
+          "missed_repair": 574,
+          "overrepair": 106,
+          "schema_case_error": 6,
+          "schema_error": 73,
+          "wrong_cell": 50,
+          "wrong_value": 2
+        },
+        "macro_f1": 0.0,
+        "mean_f1": 0.0,
+        "parse_error_counts": {
+          "finish_with_repairs": 26,
+          "invalid_column": 1,
+          "schema_error": 73
+        },
+        "parse_success_rate": 0.0,
+        "schema_case_error_count": 6,
+        "slice_scores": {
+          "deterministic_normalization": {
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.0,
+            "schema_case_error_count": 0,
+            "tasks": 20
+          },
+          "external_reference_required": {
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.0,
+            "schema_case_error_count": 5,
+            "tasks": 66
+          },
+          "not_inferable_from_prompt": {
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.0,
+            "schema_case_error_count": 1,
+            "tasks": 14
+          }
+        },
+        "tasks": 100
+      },
+      "claim_policy": "research evidence only",
+      "decoding": "unconstrained_greedy",
+      "enabled": true,
+      "sft_eval": {
+        "canonicalized_macro_f1": 0.0,
+        "completion_artifacts": {
+          "code_fence_count": 0,
+          "code_fence_rate": 0.0,
+          "reason_text_count": 0,
+          "reason_text_rate": 0.0
+        },
+        "dataset_f1": {
+          "beers": 0.0,
+          "flights": 0.0,
+          "hospital": 0.0
+        },
+        "failure_taxonomy": {
+          "duplicate_cell": 16,
+          "finish_with_repairs": 33,
+          "missed_repair": 572,
+          "overrepair": 116,
+          "schema_case_error": 26,
+          "schema_error": 64,
+          "wrong_cell": 41,
+          "wrong_value": 4
+        },
+        "macro_f1": 0.0,
+        "mean_f1": 0.0,
+        "parse_error_counts": {
+          "finish_with_repairs": 33,
+          "schema_error": 64
+        },
+        "parse_success_rate": 0.03,
+        "schema_case_error_count": 26,
+        "slice_scores": {
+          "deterministic_normalization": {
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.05,
+            "schema_case_error_count": 0,
+            "tasks": 20
+          },
+          "external_reference_required": {
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.0303,
+            "schema_case_error_count": 22,
+            "tasks": 66
+          },
+          "not_inferable_from_prompt": {
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.0,
+            "schema_case_error_count": 4,
+            "tasks": 14
+          }
+        },
+        "tasks": 100
+      }
+    }
+  },
+  "f1_delta": 0.0,
+  "gpu_hours": 0.2543,
+  "grpo_consumer_label": "GRPO-v4",
+  "hf_hub_upload_credential": "unavailable",
+  "label_mask_audit": {
+    "completion_label_policy": "supervised",
+    "completion_only_loss_required": true,
+    "failures": [],
+    "max_completion_tokens": 49,
+    "max_full_tokens": 2532,
+    "max_prompt_tokens": 2485,
+    "max_seq_length": 1536,
+    "ok": true,
+    "prompt_label_policy": "ignored_by_trl_prompt_completion_collator",
+    "sampled_records": 32,
+    "training_format": "prompt_completion"
+  },
+  "model_license": "apache-2.0",
+  "model_name": "DataForge-0.5B-SFT-v8-candidate",
+  "model_repo": "Praneshrajan15/DataForge-0.5B-SFT-v8-candidate",
+  "parse_success_rate": 0.03,
+  "private_candidate_only": true,
+  "promotion_gate_passed": false,
+  "public_claim_updated": false,
+  "quality_gate_failures": [
+    "sft_f1>=0.1",
+    "parse_success_rate>=0.99",
+    "schema_case_error_count<=0",
+    "deterministic_normalization_f1>=0.3",
+    "not_inferable_from_prompt_f1>=0.9"
+  ],
+  "records_seen": 2448,
+  "run_date_utc": "2026-06-13T17:47:08.477619+00:00",
+  "schema_case_error_count": 26,
+  "sft_f1": 0.0,
+  "train_metrics": {
+    "total_flos": 3985855773081600.0,
+    "train_loss": 0.5336059212684632,
+    "train_runtime": 914.8806,
+    "train_samples_per_second": 1.399,
+    "train_steps_per_second": 0.044
+  },
+  "trainable_dtype_changes": [
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.k_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.k_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.v_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.v_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.o_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.0.self_attn.o_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.k_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.k_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.v_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.v_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.o_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.1.self_attn.o_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.k_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.k_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.v_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.v_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.o_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.2.self_attn.o_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.k_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.k_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.v_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.v_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.o_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.3.self_attn.o_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.k_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.k_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.v_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.v_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.o_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.4.self_attn.o_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.k_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.k_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.v_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.v_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.o_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.5.self_attn.o_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.6.self_attn.q_proj.lora_A.default.weight",
+      "to_dtype": "torch.float32"
+    },
+    {
+      "from_dtype": "torch.bfloat16",
+      "name": "base_model.model.model.layers.6.self_attn.q_proj.lora_B.default.weight",
+      "to_dtype": "torch.float32"
+    }
+  ],
+  "training_stage": "smoke",
+  "valid_train_records": 2448
+}

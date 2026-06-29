@@ -6,10 +6,13 @@ import json
 from pathlib import Path
 from urllib.parse import quote
 
+import pytest
 from typer.testing import CliRunner
 
 from dataforge.cli import app
 from dataforge.stores import PatchPlan, parse_table_store_uri
+from dataforge.stores.csv import CSVStore
+from dataforge.stores.sql import ensure_safe_relation, quote_identifier, sql_literal
 
 runner = CliRunner()
 
@@ -64,6 +67,27 @@ def test_cloud_warehouse_dry_run_emits_non_mutating_patch_plan() -> None:
     assert plan.operations == ()
 
 
+def test_sql_helpers_reject_unsafe_identifiers_and_escape_literals() -> None:
+    assert ensure_safe_relation("main.customers") == "main.customers"
+    assert quote_identifier("amount") == '"amount"'
+    assert sql_literal("Bob's") == "'Bob''s'"
+
+    with pytest.raises(ValueError, match="Unsafe relation"):
+        ensure_safe_relation("main.customers; drop table customers")
+    with pytest.raises(ValueError, match="Unsafe column"):
+        quote_identifier("amount;drop")
+
+
+def test_csv_store_apply_requires_transaction_inputs(tmp_path: Path) -> None:
+    csv_path = tmp_path / "amounts.csv"
+    csv_path.write_text("id,amount\n1,100\n", encoding="utf-8")
+    store = CSVStore(csv_path)
+    plan = store.build_patch_plan([], schema=None, safety_verdict="allow")
+
+    with pytest.raises(ValueError, match="requires source bytes and fixes"):
+        store.apply_patch_plan(plan)
+
+
 def test_duckdb_repair_apply_audit_and_revert_round_trip(
     tmp_path: Path,
     monkeypatch,
@@ -80,6 +104,7 @@ def test_duckdb_repair_apply_audit_and_revert_round_trip(
     assert dry_plan.backend == "duckdb"
     assert dry_plan.apply_supported is True
     assert len(dry_plan.operations) == 1
+    assert PatchPlan.model_validate_json(dry_plan.canonical_json()).sha256() == dry_plan.sha256()
     assert _amount_for(database_path, "4") == "1020"
 
     apply = runner.invoke(app, ["repair", uri, "--apply", "--json"])

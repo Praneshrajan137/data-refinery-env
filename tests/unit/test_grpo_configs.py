@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CONFIG_05B = ROOT / "training" / "configs" / "grpo_05b.yaml"
 CONFIG_05B_V2 = ROOT / "training" / "configs" / "grpo_05b_v2.yaml"
 CONFIG_05B_V3 = ROOT / "training" / "configs" / "grpo_05b_v3.yaml"
+CONFIG_05B_V4 = ROOT / "training" / "configs" / "grpo_05b_v4.yaml"
 CONFIG_15B = ROOT / "training" / "configs" / "grpo_15b.yaml"
 
 
@@ -110,18 +111,19 @@ def test_grpo_05b_v2_config_preserves_v1_stack_and_targets_balanced_recall() -> 
     assert config["release"]["publish_or_update_public_model_only_after_v2_gate"] is True
 
 
-def test_grpo_05b_v3_config_uses_sft_v6_predecessor_and_stronger_gates() -> None:
-    """The v3 config must consume SFT-v6 predecessor evidence before another 500-step run."""
+def test_grpo_05b_v3_config_uses_sft_v7_predecessor_and_stronger_gates() -> None:
+    """The v3 config must consume SFT-v7 predecessor evidence before another 500-step run."""
     config = load_grpo_config(CONFIG_05B_V3)
 
     assert config["schema_version"] == "grpo_05b_v3"
     assert config["kaggle"]["auth_mode"] == "oauth"
     assert config["kaggle"]["credentials_path"] == r"C:\Users\Pranesh\.kaggle\credentials.json"
     assert config["repos"]["config_filename"] == "grpo_05b_v3.yaml"
-    assert config["model"]["sft_checkpoint"].endswith("/DataForge-0.5B-SFT-v6-candidate")
+    assert config["model"]["sft_checkpoint"].endswith("/DataForge-0.5B-SFT-v7-candidate")
     assert config["model"]["target_model_repo"].endswith("/DataForge-0.5B-GRPO-v3-candidate")
     assert config["training"]["output_dir"].endswith("dataforge-0.5b-grpo-v3")
-    assert config["readiness"]["trajectory_filename"] == "expert_v6_contract_minimal.jsonl"
+    assert config["readiness"]["trajectory_filename"] == "expert_v7_parse_latch.jsonl"
+    assert config["readiness"]["prompt_contract_version"] == "repair_contract_v3"
     assert config["readiness"]["min_repair_signal_domains"] == 3
     assert config["reward"]["posture"] == "inferability_aware_repair"
     stages = {stage["name"]: stage for stage in config["training_sequence"]["stages"]}
@@ -141,6 +143,37 @@ def test_grpo_05b_v3_config_uses_sft_v6_predecessor_and_stronger_gates() -> None
     assert config["release"]["require_deterministic_normalization_slice_f1"] == pytest.approx(0.50)
     assert config["release"]["upload_repo_private"] is True
     assert config["release"]["publish_or_update_public_model_only_after_v3_gate"] is True
+
+
+def test_grpo_05b_v4_config_uses_sft_v9_predecessor_and_same_final_gates() -> None:
+    """The v4 config must consume SFT-v9 action-envelope evidence before GRPO."""
+    config = load_grpo_config(CONFIG_05B_V4)
+
+    assert config["schema_version"] == "grpo_05b_v4"
+    assert config["kaggle"]["auth_mode"] == "oauth"
+    assert config["kaggle"]["credentials_path"] == r"C:\Users\Pranesh\.kaggle\credentials.json"
+    assert config["repos"]["config_filename"] == "grpo_05b_v4.yaml"
+    assert config["model"]["sft_checkpoint"].endswith("/DataForge-0.5B-SFT-v9-candidate")
+    assert config["model"]["target_model_repo"].endswith("/DataForge-0.5B-GRPO-v4-candidate")
+    assert config["training"]["output_dir"].endswith("dataforge-0.5b-grpo-v4")
+    assert config["readiness"]["trajectory_filename"] == "expert_v9_action_envelope.jsonl"
+    assert config["readiness"]["prompt_contract_version"] == "repair_contract_v3"
+    assert config["reward"]["posture"] == "inferability_aware_repair"
+    stages = {stage["name"]: stage for stage in config["training_sequence"]["stages"]}
+    assert stages["smoke"]["max_steps"] == 50
+    assert stages["diagnostic"]["max_steps"] == 250
+    assert stages["candidate"]["max_steps"] == 500
+    assert config["training_sequence"]["selection_order"] == [
+        "highest_strict_macro_f1",
+        "highest_deterministic_normalization_f1",
+        "lowest_schema_case_errors",
+        "lowest_gpu_hours",
+    ]
+    assert config["release"]["target_strict_macro_f1"] == pytest.approx(0.25)
+    assert config["release"]["require_not_inferable_slice_f1"] == pytest.approx(0.95)
+    assert config["release"]["require_deterministic_normalization_slice_f1"] == pytest.approx(0.50)
+    assert config["release"]["upload_repo_private"] is True
+    assert config["release"]["publish_or_update_public_model_only_after_v4_gate"] is True
 
 
 def test_grpo_kwargs_map_prompt_budget_only_when_trl_supports_it() -> None:

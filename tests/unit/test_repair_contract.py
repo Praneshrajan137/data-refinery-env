@@ -13,9 +13,11 @@ from dataforge.repair_contract import (
     RepairFix,
     parse_repair_action,
     render_repair_messages,
+    repair_action_json_schema,
     repair_failure_taxonomy,
     score_repair_fixes,
     score_repair_fixes_canonicalized,
+    validate_repair_action_json_schema_payload,
 )
 
 
@@ -62,6 +64,8 @@ def test_render_repair_messages_supports_contract_minimal_v3_shape() -> None:
     assert '"reason"' not in messages[0]["content"]
     assert "markdown" not in messages[0]["content"].lower()
     assert "code fence" not in messages[0]["content"].lower()
+    assert "start with { and end with }" in messages[0]["content"]
+    assert "Never put repairs in a finish action" in messages[0]["content"]
     user_payload = json.loads(messages[1]["content"])
     assistant_payload = json.loads(messages[2]["content"])
 
@@ -118,7 +122,83 @@ def test_parse_repair_action_v2_enforces_columns_rows_and_explicit_action() -> N
     assert bad_column.error_kind == "invalid_column"
     assert bad_column.diagnostics["schema_case_error"] is True
     assert bad_row.error_kind == "invalid_row"
-    assert nonempty_finish.error_kind == "schema_error"
+    assert nonempty_finish.error_kind == "finish_with_repairs"
+    assert nonempty_finish.diagnostics["repair_count"] == 1
+    assert nonempty_finish.action is not None
+    assert nonempty_finish.action.repairs[0].column == "Score"
+
+
+def test_repair_action_json_schema_models_v3_action_latch() -> None:
+    schema = repair_action_json_schema(allowed_columns=["Score"], valid_rows=[0, 1])
+
+    assert schema["additionalProperties"] is False
+    finish_branch, submit_branch = schema["oneOf"]
+    assert finish_branch["properties"]["action"] == {"const": "finish"}
+    assert finish_branch["properties"]["repairs"]["maxItems"] == 0
+    repair_schema = submit_branch["properties"]["repairs"]["items"]
+    assert submit_branch["properties"]["action"] == {"const": "submit_repairs"}
+    assert repair_schema["additionalProperties"] is False
+    assert repair_schema["required"] == ["row", "column", "new_value"]
+    assert repair_schema["properties"]["row"]["enum"] == [0, 1]
+    assert repair_schema["properties"]["column"]["enum"] == ["Score"]
+
+
+def test_strict_repair_action_schema_validator_rejects_invalid_envelopes() -> None:
+    valid_finish = {"action": "finish", "repairs": []}
+    valid_one = {
+        "action": "submit_repairs",
+        "repairs": [{"row": 0, "column": "Score", "new_value": "4.5"}],
+    }
+    valid_two = {
+        "action": "submit_repairs",
+        "repairs": [
+            {"row": 0, "column": "Score", "new_value": "4.5"},
+            {"row": 1, "column": "Phone", "new_value": "217"},
+        ],
+    }
+    invalid_cases = {
+        "row_object": {"_row": "0", "Score": "4.5"},
+        "bare_repair": {"row": 0, "column": "Score", "new_value": "4.5"},
+        "finish_with_repairs": {
+            "action": "finish",
+            "repairs": [{"row": 0, "column": "Score", "new_value": "4.5"}],
+        },
+        "extra_key": {
+            "action": "submit_repairs",
+            "repairs": [{"row": 0, "column": "Score", "new_value": "4.5", "reason": "no"}],
+        },
+        "wrong_case_column": {
+            "action": "submit_repairs",
+            "repairs": [{"row": 0, "column": "score", "new_value": "4.5"}],
+        },
+        "invalid_row": {
+            "action": "submit_repairs",
+            "repairs": [{"row": 99, "column": "Score", "new_value": "4.5"}],
+        },
+    }
+
+    assert validate_repair_action_json_schema_payload(
+        valid_finish,
+        allowed_columns=["Score", "Phone"],
+        valid_rows=[0, 1],
+    ).ok
+    assert validate_repair_action_json_schema_payload(
+        valid_one,
+        allowed_columns=["Score", "Phone"],
+        valid_rows=[0, 1],
+    ).ok
+    assert validate_repair_action_json_schema_payload(
+        valid_two,
+        allowed_columns=["Score", "Phone"],
+        valid_rows=[0, 1],
+    ).ok
+    for payload in invalid_cases.values():
+        result = validate_repair_action_json_schema_payload(
+            payload,
+            allowed_columns=["Score", "Phone"],
+            valid_rows=[0, 1],
+        )
+        assert result.ok is False
 
 
 def test_parse_repair_action_deduplicates_cells_last_write_wins() -> None:

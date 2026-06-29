@@ -1,0 +1,9 @@
+{
+  "error": "SFT-v7 curriculum report blocked: system_wrapper_mentions_present",
+  "error_type": "RuntimeError",
+  "model_repo_created": false,
+  "model_upload_attempted": false,
+  "public_claim_updated": false,
+  "schema_version": "dataforge_kaggle_sft_v7_candidate_report_v1",
+  "status": "runtime_error"
+}

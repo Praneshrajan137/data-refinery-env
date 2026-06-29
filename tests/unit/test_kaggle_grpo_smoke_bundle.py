@@ -52,7 +52,7 @@ def test_kaggle_grpo_smoke_bundle_is_private_and_no_upload(monkeypatch, tmp_path
     assert all(".kaggle" not in name and "credentials" not in name for name in names)
 
 
-def test_kaggle_grpo_smoke_bundle_uses_configured_v6_curriculum_and_predecessor(
+def test_kaggle_grpo_smoke_bundle_uses_configured_v7_curriculum_and_predecessor(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
@@ -64,8 +64,8 @@ def test_kaggle_grpo_smoke_bundle_uses_configured_v6_curriculum_and_predecessor(
         dataset_dir=dataset_dir,
         kernel_dir=kernel_dir,
         trajectory=_write(
-            tmp_path / "expert_v6_contract_minimal.jsonl",
-            '{"schema_version":"expert_v4","curriculum_version":"expert_v6_contract_minimal"}\n',
+            tmp_path / "expert_v7_parse_latch.jsonl",
+            '{"schema_version":"expert_v4","curriculum_version":"expert_v7_parse_latch"}\n',
         ),
         split_manifest=_write(tmp_path / "split_manifest_v4_candidate.json"),
         readiness_report=_write(tmp_path / "grpo_readiness_05b_candidate.json"),
@@ -73,21 +73,58 @@ def test_kaggle_grpo_smoke_bundle_uses_configured_v6_curriculum_and_predecessor(
             tmp_path / "grpo_05b_v3.yaml",
             "schema_version: grpo_05b_v3\n"
             "readiness:\n"
-            "  trajectory_filename: expert_v6_contract_minimal.jsonl\n"
+            "  trajectory_filename: expert_v7_parse_latch.jsonl\n"
             "  split_manifest_filename: split_manifest_v4.json\n",
         ),
         sft_predecessor_report=_write(
-            tmp_path / "sft_v6_candidate_eval_report.json",
+            tmp_path / "sft_v7_candidate_eval_report.json",
             '{"ok":true,"status":"pass","promote_to_grpo":true}\n',
         ),
     )
 
     smoke_manifest = json.loads((dataset_dir / "smoke_manifest.json").read_text())
-    assert (dataset_dir / "expert_v6_contract_minimal.jsonl").exists()
-    assert (dataset_dir / "sft_v6_candidate_eval_report.json").exists()
+    assert (dataset_dir / "expert_v7_parse_latch.jsonl").exists()
+    assert (dataset_dir / "sft_v7_candidate_eval_report.json").exists()
     assert not (dataset_dir / "expert_v4.jsonl").exists()
-    assert smoke_manifest["trajectory_file"] == "expert_v6_contract_minimal.jsonl"
-    assert smoke_manifest["sft_predecessor_report_file"] == "sft_v6_candidate_eval_report.json"
+    assert smoke_manifest["trajectory_file"] == "expert_v7_parse_latch.jsonl"
+    assert smoke_manifest["sft_predecessor_report_file"] == "sft_v7_candidate_eval_report.json"
+
+
+def test_kaggle_grpo_smoke_bundle_uses_v9_predecessor_for_v4(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(prepare_kaggle_grpo_smoke, "SOURCE_ROOTS", ("pyproject.toml",))
+    dataset_dir = tmp_path / "dataset"
+    kernel_dir = tmp_path / "kernel"
+
+    prepare_kaggle_grpo_smoke.build_bundles(
+        dataset_dir=dataset_dir,
+        kernel_dir=kernel_dir,
+        trajectory=_write(
+            tmp_path / "expert_v9_action_envelope.jsonl",
+            '{"schema_version":"expert_v4","curriculum_version":"expert_v9_action_envelope"}\n',
+        ),
+        split_manifest=_write(tmp_path / "split_manifest_v4_candidate.json"),
+        readiness_report=_write(tmp_path / "grpo_readiness_05b_candidate.json"),
+        grpo_config=_write(
+            tmp_path / "grpo_05b_v4.yaml",
+            "schema_version: grpo_05b_v4\n"
+            "readiness:\n"
+            "  trajectory_filename: expert_v9_action_envelope.jsonl\n"
+            "  split_manifest_filename: split_manifest_v4.json\n",
+        ),
+        sft_predecessor_report=_write(
+            tmp_path / "sft_v9_candidate_eval_report.json",
+            '{"ok":true,"status":"pass","promote_to_grpo":true}\n',
+        ),
+    )
+
+    smoke_manifest = json.loads((dataset_dir / "smoke_manifest.json").read_text())
+    assert (dataset_dir / "expert_v9_action_envelope.jsonl").exists()
+    assert (dataset_dir / "sft_v9_candidate_eval_report.json").exists()
+    assert smoke_manifest["trajectory_file"] == "expert_v9_action_envelope.jsonl"
+    assert smoke_manifest["sft_predecessor_report_file"] == "sft_v9_candidate_eval_report.json"
 
 
 def test_prompt_token_counter_handles_mapping_chat_template_output() -> None:

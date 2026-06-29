@@ -1,8 +1,16 @@
 # Quickstart
 
-This walkthrough takes about five minutes from a fresh checkout.
+This walkthrough takes about five minutes.
 
 ## 1. Install
+
+For the released CLI/library package:
+
+```bash
+python -m pip install dataforge_07
+```
+
+For development from this source checkout:
 
 ```bash
 python3.12 -m venv .venv
@@ -20,7 +28,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-The PyPI package is not published yet. After PyPI publication, install the DataForge distribution with `python -m pip install dataforge_07`; the installed import namespace and CLI command remain `dataforge`.
+The installed import namespace and CLI command remain `dataforge`.
 
 ## 2. Profile the hospital fixture
 

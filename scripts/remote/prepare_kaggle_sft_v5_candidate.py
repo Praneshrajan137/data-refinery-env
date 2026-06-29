@@ -48,6 +48,8 @@ SOURCE_EXCLUDES = (
     "training/kaggle_sft_v5_kernel",
     "training/kaggle_sft_v6_handoff",
     "training/kaggle_sft_v6_kernel",
+    "training/kaggle_sft_v7_handoff",
+    "training/kaggle_sft_v7_kernel",
     "training/kaggle_dataset_v3.zip",
 )
 

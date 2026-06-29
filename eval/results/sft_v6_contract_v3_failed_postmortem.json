@@ -1,0 +1,27 @@
+{
+  "schema_version": "dataforge_sft_v6_contract_v3_failed_postmortem_v1",
+  "status": "quality_gate_failed_no_upload",
+  "candidate": "DataForge-0.5B-SFT-v6-candidate",
+  "kaggle_kernel": "praneshrajan15/dataforge-0-5b-sft-v6-candidate",
+  "evidence_dir": "eval/results/kaggle_sft_v6_diagnostic_v2_contract_v3",
+  "summary": "SFT-v6 repair_contract_v3 fixed reason leakage and schema-case drift, but failed parse/action consistency and active repair.",
+  "metrics": {
+    "strict_macro_f1": 0.0202,
+    "parse_success_rate": 0.19,
+    "schema_case_error_count": 0,
+    "active_repair_recall": 0.0,
+    "reason_text_count": 0,
+    "code_fence_count": 19,
+    "parse_failures": 81
+  },
+  "failure_taxonomy": {
+    "missed_repair": 576,
+    "schema_error": 80,
+    "truncated_json": 1
+  },
+  "decision": {
+    "promote_to_grpo": false,
+    "run_candidate": false,
+    "next_move": "Build SFT-v7 parse-latch curriculum before any GRPO or public upload."
+  }
+}

@@ -15,7 +15,7 @@ from typing import Any, cast
 
 import httpx
 
-from dataforge_evals.agents.base import AgentRunResult, Fix, Task, Usage
+from dataforge_evals.agents.base import AgentRunResult, AgentTask, AgentTaskInput, Fix, Usage
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class ChatProviderAgent(ABC):
     def headers(self) -> dict[str, str]:
         """Return provider-specific HTTP headers including authentication."""
 
-    def payload(self, task: Task) -> dict[str, object]:
+    def payload(self, task: AgentTask) -> dict[str, object]:
         """Build an OpenAI-compatible chat-completions payload.
 
         Args:
@@ -155,7 +155,7 @@ class ChatProviderAgent(ABC):
     def _post_with_backoff(self, payload: dict[str, object]) -> dict[str, object]:
         """Post a request, retrying 429s with exponential backoff for this provider only.
 
-        Does NOT fall back to another provider — fallback would contaminate
+        Does NOT fall back to another provider - fallback would contaminate
         the comparison across a multi-agent evaluation.
 
         Args:
@@ -184,7 +184,7 @@ class ChatProviderAgent(ABC):
                 if attempt == self._max_retries - 1:
                     response.raise_for_status()
                 logger.warning(
-                    "HTTP 429 from %s — waiting %.0f seconds for quota reset (attempt %d/%d)",
+                    "HTTP 429 from %s - waiting %.0f seconds for quota reset (attempt %d/%d)",
                     self.provider,
                     delay,
                     attempt + 1,
@@ -304,7 +304,7 @@ class ChatProviderAgent(ABC):
                 )
         return fixes
 
-    def run(self, task: Task) -> AgentRunResult:
+    def run(self, task: AgentTaskInput) -> AgentRunResult:
         """Run the provider adapter and return proposed fixes plus usage.
 
         Args:

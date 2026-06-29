@@ -1,0 +1,46 @@
+{
+  "schema_version": "dataforge_sft_v7_smoke_postmortem_v1",
+  "status": "quality_gate_failed_no_upload",
+  "run": {
+    "kaggle_kernel": "praneshrajan15/dataforge-0-5b-sft-v7-candidate",
+    "kaggle_dataset": "praneshrajan15/dataforge-sft-v7-handoff",
+    "stage": "smoke",
+    "configured_max_steps": 20,
+    "attempted_steps": 20,
+    "gpu": "Tesla T4",
+    "gpu_hours": 0.0992
+  },
+  "metrics": {
+    "strict_macro_f1": 0.0,
+    "parse_success_rate": 0.01,
+    "schema_case_error_count": 7,
+    "deterministic_normalization_f1": 0.0,
+    "not_inferable_from_prompt_f1": 0.0,
+    "active_repair_recall": 0.0,
+    "active_repair_precision": 0.0,
+    "code_fence_rate": 0.0,
+    "reason_text_rate": 0.0
+  },
+  "failure_taxonomy": {
+    "finish_with_repairs": 28,
+    "schema_error": 71,
+    "missed_repair": 574,
+    "overrepair": 112,
+    "schema_case_error": 7,
+    "wrong_cell": 71,
+    "wrong_value": 2
+  },
+  "decision": {
+    "promote_to_grpo": false,
+    "public_upload_allowed": false,
+    "next_stage": "sft_v7_diagnostic",
+    "next_stage_max_steps": 120,
+    "why": "The 20-step smoke validated the runner and no-upload evidence path, but quality remains too low to promote. Run the planned no-upload diagnostic before deciding whether SFT-v7 is viable or needs another curriculum revision."
+  },
+  "artifacts": {
+    "report": "eval/results/kaggle_sft_v7_smoke_v2/kaggle_sft_v7_candidate_report.json",
+    "promotion_report": "eval/results/kaggle_sft_v7_smoke_v2/sft_v7_candidate_eval_report.json",
+    "diagnostics": "eval/results/kaggle_sft_v7_smoke_v2/DataForge-0.5B-SFT-v7-candidate-merged/eval_diagnostics.json",
+    "log": "eval/results/kaggle_sft_v7_smoke_v2.log"
+  }
+}

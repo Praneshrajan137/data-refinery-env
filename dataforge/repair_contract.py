@@ -29,9 +29,11 @@ SYSTEM_PROMPT_V2 = (
 SYSTEM_PROMPT_V3 = (
     "You repair tabular data by proposing exact cell replacements. "
     "Output exactly one compact JSON object and nothing else. "
+    "The response must start with { and end with }. "
     'Use {"action":"finish","repairs":[]} when no cells should be changed. '
     'Use {"action":"submit_repairs","repairs":[{"row":0,"column":"Column","new_value":"value"}]} '
-    "only when a cell should be changed. Each repair object must have exactly row, "
+    "only when a cell should be changed. Never put repairs in a finish action. "
+    "Each repair object must have exactly row, "
     "column, and new_value keys. The column value must exactly match one string from "
     "allowed_columns, and row must be an integer from valid_rows. No prose, comments, "
     "wrappers, or extra keys."
@@ -106,6 +108,7 @@ class RepairParseResult(BaseModel):
             "parse_failure",
             "truncated_json",
             "schema_error",
+            "finish_with_repairs",
             "invalid_column",
             "invalid_row",
         ]
@@ -189,6 +192,142 @@ def system_prompt_for_contract(contract_version: str) -> str:
     return SYSTEM_PROMPT_V2
 
 
+def repair_action_json_schema(
+    *,
+    allowed_columns: Sequence[str] | None = None,
+    valid_rows: Sequence[int] | None = None,
+) -> dict[str, Any]:
+    """Return the strict repair-action JSON Schema used by constrained decoding."""
+    row_schema: dict[str, Any] = {"type": "integer", "minimum": 0}
+    if valid_rows is not None:
+        row_schema = {"type": "integer", "enum": [int(row) for row in valid_rows]}
+    column_schema: dict[str, Any] = {"type": "string", "minLength": 1}
+    if allowed_columns is not None:
+        column_schema = {"type": "string", "enum": [str(column) for column in allowed_columns]}
+    repair_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["row", "column", "new_value"],
+        "properties": {
+            "row": row_schema,
+            "column": column_schema,
+            "new_value": {"type": "string"},
+        },
+    }
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "DataForge repair_contract_v3 action",
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["action", "repairs"],
+        "oneOf": [
+            {
+                "properties": {
+                    "action": {"const": "finish"},
+                    "repairs": {"type": "array", "maxItems": 0},
+                }
+            },
+            {
+                "properties": {
+                    "action": {"const": "submit_repairs"},
+                    "repairs": {"type": "array", "minItems": 1, "items": repair_schema},
+                }
+            },
+        ],
+    }
+
+
+def validate_repair_action_json_schema_payload(
+    payload: object,
+    *,
+    allowed_columns: Sequence[str] | None = None,
+    valid_rows: Sequence[int] | None = None,
+) -> RepairParseResult:
+    """Validate one payload against the strict v3 action-envelope schema.
+
+    ``parse_repair_action`` remains backward-compatible with legacy repair
+    artifacts. Product constrained decoding needs the narrower v3 envelope:
+    exactly action/repairs at the top level and exactly row/column/new_value in
+    each repair.
+    """
+    if not isinstance(payload, dict):
+        return RepairParseResult(
+            ok=False,
+            error_kind="schema_error",
+            error_message="repair action payload must be a JSON object",
+        )
+    if set(payload) != {"action", "repairs"}:
+        return RepairParseResult(
+            ok=False,
+            error_kind="schema_error",
+            error_message="repair action must contain exactly action and repairs",
+        )
+    action = payload.get("action")
+    repairs = payload.get("repairs")
+    if action not in {"finish", "submit_repairs"}:
+        return RepairParseResult(
+            ok=False,
+            error_kind="schema_error",
+            error_message="action must be finish or submit_repairs",
+        )
+    if not isinstance(repairs, list):
+        return RepairParseResult(
+            ok=False,
+            error_kind="schema_error",
+            error_message="repairs must be a JSON array",
+        )
+    if action == "finish" and repairs:
+        return RepairParseResult(
+            ok=False,
+            error_kind="finish_with_repairs",
+            error_message="finish actions must not include repairs",
+            diagnostics={"repair_count": len(repairs)},
+        )
+    if action == "submit_repairs" and not repairs:
+        return RepairParseResult(
+            ok=False,
+            error_kind="schema_error",
+            error_message="submit_repairs actions must include at least one repair",
+        )
+    for repair in repairs:
+        if not isinstance(repair, dict):
+            return RepairParseResult(
+                ok=False,
+                error_kind="schema_error",
+                error_message="each repair must be a JSON object",
+            )
+        if set(repair) != {"row", "column", "new_value"}:
+            return RepairParseResult(
+                ok=False,
+                error_kind="schema_error",
+                error_message="each repair must contain exactly row, column, and new_value",
+            )
+        if not isinstance(repair["row"], int) or repair["row"] < 0:
+            return RepairParseResult(
+                ok=False,
+                error_kind="invalid_row",
+                error_message="repair row must be a non-negative integer",
+            )
+        if not isinstance(repair["column"], str) or not repair["column"]:
+            return RepairParseResult(
+                ok=False,
+                error_kind="invalid_column",
+                error_message="repair column must be a non-empty string",
+            )
+        if not isinstance(repair["new_value"], str):
+            return RepairParseResult(
+                ok=False,
+                error_kind="schema_error",
+                error_message="repair new_value must be a string",
+            )
+    return parse_repair_action(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")),
+        allowed_columns=allowed_columns,
+        valid_rows=valid_rows,
+        require_explicit_action=True,
+    )
+
+
 def render_repair_messages(
     *,
     schema_summary: Mapping[str, Any],
@@ -229,7 +368,15 @@ def render_repair_messages(
         },
     ]
     if repairs is not None:
-        repair_fixes = [RepairFix(row=repair.row, column=repair.column, new_value=repair.new_value, reason=repair.reason) for repair in repairs]
+        repair_fixes = [
+            RepairFix(
+                row=repair.row,
+                column=repair.column,
+                new_value=repair.new_value,
+                reason=repair.reason,
+            )
+            for repair in repairs
+        ]
         if contract_version == CONTRACT_VERSION_V3:
             repair_payloads: list[dict[str, Any]] = [
                 {"row": fix.row, "column": fix.column, "new_value": fix.new_value}
@@ -336,6 +483,24 @@ def parse_repair_action(
                 error_message="repair payload must include an explicit action",
             )
         payload = {**payload, "action": "submit_repairs"}
+    if (
+        payload.get("action") == "finish"
+        and isinstance(payload.get("repairs"), list)
+        and payload["repairs"]
+    ):
+        diagnostics["repair_count"] = len(payload["repairs"])
+        diagnostic_action: RepairAction | None = None
+        try:
+            diagnostic_action = RepairAction.model_validate({**payload, "action": "submit_repairs"})
+        except ValidationError:
+            diagnostic_action = None
+        return RepairParseResult(
+            ok=False,
+            action=diagnostic_action,
+            error_kind="finish_with_repairs",
+            error_message="finish actions must not include repairs",
+            diagnostics=diagnostics,
+        )
     try:
         action = RepairAction.model_validate(payload)
     except ValidationError as exc:

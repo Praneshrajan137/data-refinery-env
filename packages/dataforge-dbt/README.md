@@ -3,22 +3,27 @@
 Run DataForge checks from a dbt model post-hook and keep the audit artifacts in your dbt `target/` directory.
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install dataforge_07_dbt
 ```
 
 ## Quick start
 
 ### 1. Install the Python dependency
 
-The PyPI package is not published yet. Install from this source checkout:
+Install the published package:
+
+```bash
+python -m pip install dataforge_07_dbt
+```
+
+For development from this source checkout:
 
 ```bash
 python -m pip install -e ".[dev]"
 ```
 
-After PyPI publication, `pip install dataforge_07_dbt` will install the
-integration plus the supported `dbt-duckdb` adapter path for the free local
-integration-test warehouse.
+The package installs the integration plus the supported `dbt-duckdb` adapter
+path for the free local integration-test warehouse.
 
 ### 2. Add the dbt package
 
@@ -134,9 +139,9 @@ The test project includes a seed CSV with a known decimal-shift anomaly and asse
 
 ## Publishing
 
-The package is not published yet. The intended release path is PyPI Trusted
-Publishing after repository ownership is configured; do not add PyPI API tokens
-to GitHub Secrets.
+The package is published as `dataforge_07_dbt` with PyPI Trusted Publishing
+evidence. Future releases should continue to use Trusted Publishing; do not add
+PyPI API tokens to GitHub Secrets.
 
 ## When this is the wrong tool
 

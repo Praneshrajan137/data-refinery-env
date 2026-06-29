@@ -1,0 +1,204 @@
+{
+  "entries": [
+    {
+      "blockers": [],
+      "claim": "The dataforge_07 package family is published with Trusted Publishing evidence and fresh-install smoke logs.",
+      "claim_policy": "May be cited as shipped package evidence for version 0.1.0 only.",
+      "evidence_paths": [
+        "docs/evidence/pypi/publish_report.json"
+      ],
+      "id": "pypi_package_family_0_1_0",
+      "public_claim_allowed": true,
+      "status": "shipped",
+      "surface": "release"
+    },
+    {
+      "blockers": [],
+      "claim": "The dbt DuckDB integration has fresh-install proof for dry-run/apply/refuse/audit/revert behavior.",
+      "claim_policy": "May be cited as dbt DuckDB proof; not as cloud warehouse apply evidence.",
+      "evidence_paths": [
+        "docs/evidence/dbt_duckdb/fresh_env_report.json"
+      ],
+      "id": "dbt_duckdb_fresh_install",
+      "public_claim_allowed": true,
+      "status": "beta",
+      "surface": "dbt"
+    },
+    {
+      "blockers": [],
+      "claim": "CSV and DuckDB repairs follow detector, safety, SMT, transaction, audit, and revert gates.",
+      "claim_policy": "May be cited as verified repair pipeline behavior, bounded to shipped detector families and local/DuckDB backends.",
+      "evidence_paths": [
+        "tests/unit/test_table_store_patch_plan.py",
+        "tests/unit/test_repair_contract.py",
+        "tests/unit/test_transactions.py",
+        "tests/unit/test_smt_verifier.py",
+        "tests/unit/test_safety_filter.py"
+      ],
+      "id": "verified_repair_core",
+      "public_claim_allowed": true,
+      "status": "beta",
+      "surface": "core"
+    },
+    {
+      "blockers": [],
+      "claim": "The Cloudflare Workers playground is a dry-run beta surface backed by the Hugging Face Space API.",
+      "claim_policy": "May be cited as hosted beta playground evidence only; no autonomous or persistent repair claim.",
+      "evidence_paths": [
+        "tests/integration/test_playground_smoke.py",
+        "docs/claims.yaml"
+      ],
+      "id": "workers_playground_beta",
+      "public_claim_allowed": true,
+      "status": "beta",
+      "surface": "playground"
+    },
+    {
+      "blockers": [],
+      "claim": "DataForge-0.5B-SFT has public verifier evidence as a smoke/research checkpoint.",
+      "claim_policy": "May be cited as public SFT verifier evidence, not as production model quality.",
+      "evidence_paths": [
+        "docs/evidence/models/DataForge-0.5B-SFT.verification.json"
+      ],
+      "id": "model_05b_sft_public_research",
+      "public_claim_allowed": true,
+      "status": "verified_research",
+      "surface": "models"
+    },
+    {
+      "blockers": [],
+      "claim": "DataForge-0.5B-GRPO v1 improved strict macro F1 from 0.0053 to 0.1393 with parse 1.0 and schema-case errors 0.",
+      "claim_policy": "May be cited only as verified research evidence; not production quality and not a full-family claim.",
+      "evidence_paths": [
+        "docs/evidence/models/DataForge-0.5B-GRPO.verification.json",
+        "eval/results/model_family_public_verified_20260609.json"
+      ],
+      "id": "model_05b_grpo_v1_public_research",
+      "metrics": {
+        "f1_delta": 0.134,
+        "parse_success_rate": 1.0,
+        "schema_case_error_count": 0,
+        "strict_macro_f1": 0.1393
+      },
+      "public_claim_allowed": true,
+      "status": "verified_research",
+      "surface": "models"
+    },
+    {
+      "blockers": [
+        "grpo_f1>=0.25",
+        "not_inferable_from_prompt_f1>=0.95"
+      ],
+      "claim": "0.5B-GRPO v2 completed training and strict eval but failed quality gates and did not upload.",
+      "claim_policy": "Diagnostic evidence only; must not be cited as a model win.",
+      "evidence_paths": [
+        "eval/results/kaggle_grpo_v2_failed_20260611/kaggle_grpo_candidate_report.json",
+        "eval/results/grpo_05b_v2_failed_postmortem.json"
+      ],
+      "id": "model_05b_grpo_v2_failed_diagnostic",
+      "metrics": {
+        "parse_success_rate": 0.99,
+        "schema_case_error_count": 0,
+        "strict_macro_f1": 0.1212
+      },
+      "public_claim_allowed": false,
+      "status": "failed_diagnostic",
+      "surface": "models"
+    },
+    {
+      "blockers": [
+        "sft_f1>=0.1",
+        "parse_success_rate>=0.99",
+        "schema_case_error_count<=0",
+        "deterministic_normalization_f1>=0.3",
+        "not_inferable_from_prompt_f1>=0.9",
+        "private_candidate_upload_required"
+      ],
+      "claim": "SFT-v8 schema-distill smoke completed but failed predecessor gates; GRPO-v4 remains blocked.",
+      "claim_policy": "Diagnostic evidence only; do not continue SFT-v8 rungs or launch GRPO-v4 from this predecessor.",
+      "evidence_paths": [
+        "eval/results/kaggle_sft_v8_diagnostic_v1/kaggle_sft_v8_candidate_report.json",
+        "eval/results/kaggle_sft_v8_diagnostic_v1/sft_v8_candidate_eval_report.json",
+        "eval/results/kaggle_sft_v8_diagnostic_v1/DataForge-0.5B-SFT-v8-candidate-merged/eval_diagnostics.json",
+        "eval/results/sft_v8_smoke_v1_postmortem.json"
+      ],
+      "id": "model_05b_sft_v8_failed_smoke",
+      "metrics": {
+        "attempted_steps": 40,
+        "gpu_hours": 0.2543,
+        "parse_success_rate": 0.03,
+        "schema_case_error_count": 26,
+        "strict_macro_f1": 0.0
+      },
+      "public_claim_allowed": false,
+      "status": "failed_diagnostic",
+      "surface": "models"
+    },
+    {
+      "blockers": [
+        "sft_v9_candidate_eval_report_absent",
+        "private_checkpoint_absent",
+        "promote_to_grpo_absent"
+      ],
+      "claim": "SFT-v9 action-envelope has a passing local curriculum/preflight artifact. Kaggle smoke v1 failed before training on an over-strict P100 capability guard; smoke v2 with the P100-compatible runner is currently running.",
+      "claim_policy": "Private preflight, infrastructure-failure, and running-smoke evidence only; do not cite as a model-quality win or GRPO predecessor.",
+      "evidence_paths": [
+        "eval/results/sft_v9_action_envelope_curriculum_report.json",
+        "eval/results/kaggle_sft_v9_smoke_launch_v1/launch_report.json",
+        "eval/results/kaggle_sft_v9_smoke_v1_failure/failure_report.json",
+        "eval/results/kaggle_sft_v9_smoke_v2_relaunch/launch_report.json",
+        "scripts/data/build_action_envelope_curriculum.py",
+        "training/configs/sft_05b_v9.yaml"
+      ],
+      "id": "model_05b_sft_v9_private_candidate_preflight",
+      "metrics": {
+        "completion_parse_success_rate": 1.0,
+        "finish_records": 1874,
+        "heldout_leakage_count": 0,
+        "kaggle_smoke_failed_version": 1,
+        "kaggle_smoke_kernel_version": 2,
+        "negative_contrast_target_leakage_count": 0,
+        "output_records": 3848,
+        "submit_repair_records": 1974
+      },
+      "public_claim_allowed": false,
+      "status": "smoke_submitted",
+      "surface": "models"
+    },
+    {
+      "blockers": [
+        "missing_gate_passing_sft_v9_predecessor",
+        "sft_v9_promote_to_grpo_absent"
+      ],
+      "claim": "GRPO-v4 is staged but blocked until a private SFT-v9 or later predecessor passes promotion gates.",
+      "claim_policy": "Planning/config evidence only; no training or model-quality claim.",
+      "evidence_paths": [
+        "training/configs/grpo_05b_v4.yaml"
+      ],
+      "id": "model_05b_grpo_v4_blocked",
+      "public_claim_allowed": false,
+      "status": "blocked",
+      "surface": "models"
+    },
+    {
+      "blockers": [
+        "design_partner_manifest_absent",
+        "full_model_family_report_absent",
+        "credentialed_cloud_apply_conformance_absent"
+      ],
+      "claim": "The full original DataForge vision remains gated on external validation and full-family evidence.",
+      "claim_policy": "May be cited only as roadmap/blocker state.",
+      "evidence_paths": [
+        "CONTRIBUTORS.md",
+        "docs/evidence/README.md"
+      ],
+      "id": "full_vision_external_gates",
+      "public_claim_allowed": false,
+      "status": "blocked",
+      "surface": "release"
+    }
+  ],
+  "north_star": "DataForge is a verified, reversible data-repair pipeline; models may propose repairs only when evidence shows they improve quality without bypassing safety.",
+  "schema_version": "dataforge_evidence_ledger_v1",
+  "updated_at_utc": "2026-06-26T00:00:00Z"
+}

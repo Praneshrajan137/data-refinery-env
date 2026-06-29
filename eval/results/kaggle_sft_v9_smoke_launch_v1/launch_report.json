@@ -1,0 +1,89 @@
+{
+  "schema_version": "dataforge_kaggle_sft_v9_smoke_launch_v1",
+  "created_at_utc": "2026-06-28T10:03:24.2808913Z",
+  "status": "submitted_status_read_limited",
+  "stage": "smoke",
+  "model_lineage": "DataForge-0.5B-SFT-v9",
+  "purpose": "Private SFT-v9 action-envelope smoke run after local curriculum and product-constrained preflight passed.",
+  "public_claim_update_allowed": false,
+  "grpo_unlocked": false,
+  "dataset": {
+    "id": "praneshrajan15/dataforge-sft-v9-handoff",
+    "visibility": "private",
+    "operation": "created",
+    "url": "https://www.kaggle.com/datasets/praneshrajan15/dataforge-sft-v9-handoff"
+  },
+  "kernel": {
+    "id": "praneshrajan15/dataforge-0-5b-sft-v9-candidate",
+    "visibility": "private",
+    "operation": "pushed",
+    "pushed_version": 1,
+    "url": "https://www.kaggle.com/code/praneshrajan15/dataforge-0-5b-sft-v9-candidate",
+    "accelerator": "gpu",
+    "machine_shape": "NvidiaTeslaT4"
+  },
+  "local_handoff_manifest": {
+    "path": "training/kaggle_sft_v9_handoff/sft_v9_manifest.json",
+    "source_file_count": 248,
+    "default_stage": "smoke",
+    "training_format": "prompt_completion",
+    "completion_only_loss_required": true,
+    "product_constrained_preflight_required": true,
+    "files": {
+      "expert_v9_action_envelope.jsonl": {
+        "bytes": 43200883,
+        "sha256": "55376cc1dbf363354bc358b74a91547e9245ddf99c8006fd2924823e4936cae0"
+      },
+      "sft_05b_v9.yaml": {
+        "bytes": 8587,
+        "sha256": "e997a4b1d0f13549dccf3f8d37a1393647aa92c0c921a66ebaaf7b054458cddb"
+      },
+      "sft_v9_action_envelope_curriculum_report.json": {
+        "bytes": 4052,
+        "sha256": "fe94858c0368f46a271e8129ffac5eced942856b62925a7a216192026aac48e3"
+      },
+      "source.zip": {
+        "bytes": 1304561,
+        "sha256": "c6177b71cef136dab2fddbf89694c461abf856c5d4e328f70666a51cb6d8e738"
+      },
+      "split_manifest_v4.json": {
+        "bytes": 982493,
+        "sha256": "6456b9a0807c530060b71147eb82b8d049620eea0be27369b29c553a501f927e"
+      }
+    }
+  },
+  "local_preflight": {
+    "curriculum_report": "eval/results/sft_v9_action_envelope_curriculum_report.json",
+    "completion_parse_success_rate": 1.0,
+    "heldout_leakage_count": 0,
+    "finish_with_repairs": 0,
+    "negative_contrast_target_leakage_count": 0,
+    "output_records": 3848,
+    "submit_repair_records": 1974,
+    "finish_records": 1874
+  },
+  "kaggle_auth": {
+    "method": "oauth_access_token_from_refreshed_credentials_json",
+    "credentials_file": "C:/Users/Pranesh/.kaggle/credentials.json",
+    "token_recorded": false
+  },
+  "status_probe": {
+    "attempted": true,
+    "result": "read_limited_for_private_kernel",
+    "kernel_status_command": "kaggle kernels status praneshrajan15/dataforge-0-5b-sft-v9-candidate",
+    "kernel_status_exit_code": 1,
+    "kernel_status_summary": "Kaggle CLI returned Permission 'kernels.get' denied for the private kernel after accepting the push.",
+    "kernel_list_exit_code": 1,
+    "kernel_list_summary": "Kaggle CLI returned 401 Unauthorized for ListKernels.",
+    "dataset_list_exit_code": 0,
+    "dataset_list_summary": "Search returned no datasets immediately after private dataset creation; dataset creation command provided a private dataset URL."
+  },
+  "decision": {
+    "next_step": "Wait for the Kaggle smoke to finish, then pull targeted JSON reports only and decide whether SFT-v9 may proceed to diagnostic.",
+    "blocked_actions": [
+      "Do not run GRPO-v4.",
+      "Do not publish or update public Hugging Face models.",
+      "Do not claim SFT-v9 model quality until a smoke/diagnostic evaluation report exists."
+    ]
+  }
+}

@@ -11,11 +11,13 @@ from __future__ import annotations
 
 import io
 import json
+import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+import playground.api.app as playground_api
 from playground.api.app import (
     MAX_UPLOAD_BYTES,
     MAX_UPLOAD_CELLS,
@@ -50,6 +52,20 @@ def _hospital_csv_bytes() -> bytes:
 def _ndjson_events(text: str) -> list[dict[str, object]]:
     """Parse a complete NDJSON response body into workflow events."""
     return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def _assert_problem_response(response, *, status: int, error: str) -> dict[str, object]:
+    """Assert a stable RFC 9457 problem response and return its body."""
+    assert response.status_code == status
+    assert response.headers["content-type"].startswith("application/problem+json")
+    body = response.json()
+    assert body["type"].endswith(f"/{error}")
+    assert body["title"]
+    assert body["status"] == status
+    assert body["detail"]
+    assert body["error"] == error
+    assert "id,amount" not in json.dumps(body)
+    return body
 
 
 def _stable_analyze_payload(payload: dict[str, object]) -> dict[str, object]:
@@ -320,10 +336,7 @@ def test_analyze_malformed_csv_returns_problem_detail(client: TestClient) -> Non
         "/api/analyze",
         files={"file": ("broken.csv", io.BytesIO(b'id,name\n1,"unterminated'), "text/csv")},
     )
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"] == "invalid_csv"
-    assert body["status"] == 400
+    _assert_problem_response(response, status=400, error="invalid_csv")
 
 
 @pytest.mark.integration
@@ -466,10 +479,7 @@ def test_malformed_csv_returns_stable_problem_detail(client: TestClient) -> None
         files={"file": ("broken.csv", io.BytesIO(b'id,name\n1,"unterminated'), "text/csv")},
     )
 
-    assert response.status_code == 400
-    body = response.json()
-    assert body["error"] == "invalid_csv"
-    assert body["status"] == 400
+    body = _assert_problem_response(response, status=400, error="invalid_csv")
     assert body["request_id"] == response.headers["x-dataforge-request-id"]
 
 
@@ -481,8 +491,18 @@ def test_empty_csv_returns_stable_problem_detail(client: TestClient) -> None:
         files={"file": ("empty.csv", io.BytesIO(b""), "text/csv")},
     )
 
-    assert response.status_code == 400
-    assert response.json()["error"] == "empty_csv"
+    _assert_problem_response(response, status=400, error="empty_csv")
+
+
+@pytest.mark.integration
+def test_unsupported_file_type_returns_problem_detail(client: TestClient) -> None:
+    """Non-CSV uploads fail with stable problem details."""
+    response = client.post(
+        "/api/profile",
+        files={"file": ("payload.json", io.BytesIO(b'{"secret":"nope"}'), "application/json")},
+    )
+
+    _assert_problem_response(response, status=415, error="unsupported_file_type")
 
 
 @pytest.mark.integration
@@ -587,6 +607,40 @@ def test_repair_advanced_unavailable_without_provider_key(client: TestClient) ->
 
 
 @pytest.mark.integration
+def test_repair_apply_request_returns_problem_detail(client: TestClient) -> None:
+    """Hosted playground apply remains unsupported and machine-readable."""
+    response = client.post(
+        "/api/repair",
+        params={"dry_run": "false"},
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+
+    _assert_problem_response(response, status=400, error="apply_not_supported")
+
+
+@pytest.mark.integration
+def test_request_timeout_returns_problem_detail(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pipeline timeouts return RFC 9457 problem details without raw CSV data."""
+
+    def slow_profile_upload(*_args: object, **_kwargs: object) -> object:
+        time.sleep(0.05)
+        return object()
+
+    monkeypatch.setattr(playground_api, "REQUEST_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(playground_api, "_profile_upload", slow_profile_upload)
+
+    response = client.post(
+        "/api/profile",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+
+    _assert_problem_response(response, status=504, error="request_timeout")
+
+
+@pytest.mark.integration
 def test_rate_limit_returns_429_on_eleventh_post(client: TestClient) -> None:
     """The in-memory rate limiter rejects the eleventh POST within a minute."""
     csv_bytes = _hospital_csv_bytes()
@@ -602,6 +656,5 @@ def test_rate_limit_returns_429_on_eleventh_post(client: TestClient) -> None:
         "/api/profile",
         files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
     )
-    assert response.status_code == 429
+    _assert_problem_response(response, status=429, error="rate_limit_exceeded")
     assert response.headers["retry-after"] == "60"
-    assert response.json()["error"] == "rate_limit_exceeded"

@@ -6,8 +6,8 @@ claims:
     status: beta
     evidence: DuckDB table-store tests cover patch-plan hashing, preflight row-count guards, transaction journaling, and rollback SQL.
   - claim: dbt_aware_receipts
-    status: experimental
-    evidence: Core dbt manifest tests map generic tests into DataForge constraints; external adapter dispatch remains experimental.
+    status: beta
+    evidence: Core dbt manifest tests map generic tests into DataForge constraints; docs/evidence/dbt_duckdb/fresh_env_report.json proves the published dataforge_07_dbt package through dbt seed/run/test, dry-run/apply/refuse, audit, and revert in a fresh PyPI install.
   - claim: mcp_integration
     status: beta
     evidence: MCP stdio tests expose dry-run repair receipts and keep apply behind explicit tool enablement.
@@ -33,11 +33,11 @@ claims:
     status: roadmap
     evidence: CONTRIBUTORS.md marks the design-partner gate as not met.
   - claim: final_dataforge07_pypi_distribution
-    status: roadmap
-    evidence: The full-vision gate requires PyPI/TestPyPI publication evidence for the dataforge_07 distribution family, which installs the dataforge CLI/import namespace.
+    status: shipped
+    evidence: docs/evidence/pypi/publish_report.json records PyPI/TestPyPI publication, Trusted Publishing attestations, artifact hashes, provenance URLs, and fresh-install smoke logs for dataforge_07, dataforge_07_mcp, dataforge_07_evals, dataforge_07_dbt, and dataforge_07_agent_patterns.
   - claim: workers_dev_playground
-    status: roadmap
-    evidence: The full-vision gate requires https://dataforge.praneshrajan15.workers.dev/playground to serve the Cloudflare frontend, point at the expected HF backend, and pass live repair-flow checks.
+    status: beta
+    evidence: The full-vision gate verifies https://dataforge.praneshrajan15.workers.dev/playground serves the Cloudflare frontend, points at the expected HF backend, and passes live repair-flow checks.
   - claim: trained_model_family
     status: roadmap
-    evidence: training/configs/model_family.yaml defines the gated HF matrix, public leaf-verifier evidence covers 0.5B SFT plus 0.5B GRPO research evidence, the 0.5B-GRPO v2 Kaggle run is preserved as quality_gate_failed_no_upload diagnostic evidence, and SFT-v5/GRPO-v3 remain private candidates; larger SFT/GRPO/GiGPO and full-family quality claims remain blocked.
+    evidence: docs/evidence/ledger.json is the canonical claim index; public leaf-verifier evidence covers 0.5B SFT plus 0.5B GRPO research evidence, 0.5B-GRPO v2 is preserved as quality_gate_failed_no_upload diagnostic evidence, SFT-v5/v6/v7/v8 are failed or blocked private diagnostic lineages, SFT-v9 is only a private action-envelope curriculum/preflight candidate whose first Kaggle smoke failed before training on a P100 capability guard and whose fixed smoke v2 is running, GRPO-v4 is blocked until SFT-v9-or-later has a promoted private checkpoint, and larger SFT/GRPO/GiGPO plus full-family quality claims remain blocked.

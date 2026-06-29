@@ -1,4 +1,4 @@
-"""Grader correctness tests — the grader is the sole source of truth.
+"""Grader correctness tests - the grader is the sole source of truth.
 
 Test cases derived from SPEC_dataforge_evals.md Appendix A and the
 implementation plan's required coverage list.
@@ -83,7 +83,7 @@ class TestGradeFixes:
         assert grade.f1 == 0.0
 
     def test_wrong_value_on_right_cell_counts_fp_and_fn(self) -> None:
-        """Spec A.3: right cell, wrong value — both FP and FN."""
+        """Spec A.3: right cell, wrong value - both FP and FN."""
         truth = (GroundTruthCell(row=0, column="Score", dirty_value="45", clean_value="4.5"),)
         fixes = [Fix(row=0, column="Score", new_value="5.0", reason="wrong")]
 

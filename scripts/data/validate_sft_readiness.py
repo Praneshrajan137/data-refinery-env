@@ -603,9 +603,7 @@ def _validate_prompt_contract(
         raise SftReadinessError(f"Record {index} target_rows drift between state and prompt.")
     parse_result = parse_repair_action(
         str(assistant_message.get("content", "")),
-        allowed_columns=cast(list[str], user_map["allowed_columns"])
-        if strict_contract
-        else None,
+        allowed_columns=cast(list[str], user_map["allowed_columns"]) if strict_contract else None,
         valid_rows=cast(list[int], user_map["valid_rows"])
         if strict_contract and isinstance(user_map.get("valid_rows"), list)
         else None,

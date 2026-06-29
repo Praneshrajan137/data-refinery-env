@@ -10,11 +10,15 @@ import json
 import time
 from pathlib import Path
 
-from dataforge_evals.agents.base import AgentRunResult, Fix, Task, Usage
+import pytest
+
+from dataforge_evals import AgentTaskInput
+from dataforge_evals.agents.base import AgentRunResult, AgentTask, Fix, Task, Usage
 from dataforge_evals.agents.mock import MockAgent
 from dataforge_evals.agents.provider_base import ProviderError
 from dataforge_evals.harness import HarnessConfig, run_harness
 from dataforge_evals.report import render_markdown, write_report
+from dataforge_evals.tasks import load_synthetic_task
 
 
 class BrokenAgent:
@@ -55,7 +59,7 @@ class SlowAgent:
     def run(self, task: Task) -> list[Fix]:
         """Block indefinitely to test timeout enforcement."""
         time.sleep(300)
-        return []  # pragma: no cover â€” should be interrupted
+        return []  # pragma: no cover - should be interrupted
 
 
 class PartialAgent:
@@ -337,3 +341,21 @@ class TestHarness:
         record = run.records[0]
         assert record.status == "failed"
         assert "ground_truth" in (record.failure_message or "")
+
+    def test_mock_oracle_refuses_label_hidden_task_view(self) -> None:
+        """Oracle adapters must not accidentally run on the normal public task view."""
+        task = load_synthetic_task()
+        hidden = AgentTask(
+            name=task.name,
+            dirty_df=task.dirty_df,
+            canonical_columns=task.canonical_columns,
+            metadata=task.metadata,
+            inferability=task.inferability,
+        )
+
+        with pytest.raises(ValueError, match="requires a full Task"):
+            MockAgent().run(hidden)
+
+    def test_agent_task_input_is_publicly_exported(self) -> None:
+        """External adapters can type against the same union the harness uses."""
+        assert AgentTaskInput == AgentTask | Task

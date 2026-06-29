@@ -1,0 +1,20 @@
+[{"stream_name":"stdout","time":1.648081183,"data":"{\"event\": \"sft_v7_candidate_start\"}\n"}
+,{"stream_name":"stdout","time":3.820982191,"data":"{\"event\": \"source_extracted\", \"input_root\": \"/kaggle/input/datasets/praneshrajan15/dataforge-sft-v7-handoff\"}\n"}
+,{"stream_name":"stdout","time":3.9022757009999998,"data":"{\"allow_upload_after_gate\": false, \"event\": \"stage_selected\", \"max_steps\": 20, \"stage\": \"smoke\"}\n"}
+,{"stream_name":"stderr","time":3.909115767,"data":"Traceback (most recent call last):\n"}
+,{"stream_name":"stderr","time":3.9091573349999997,"data":"  File \"/kaggle/src/script.py\", line 899, in \u003cmodule\u003e\n"}
+,{"stream_name":"stderr","time":3.909441583,"data":"    raise SystemExit(main())\n"}
+,{"stream_name":"stderr","time":3.909466697,"data":"                     ^^^^^^\n"}
+,{"stream_name":"stderr","time":3.909472444,"data":"  File \"/kaggle/src/script.py\", line 439, in main\n"}
+,{"stream_name":"stderr","time":3.9097333,"data":"    curriculum_report = _validate_curriculum_report(\n"}
+,{"stream_name":"stderr","time":3.909780573,"data":"                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"}
+,{"stream_name":"stderr","time":3.909874768,"data":"  File \"/kaggle/src/script.py\", line 270, in _validate_curriculum_report\n"}
+,{"stream_name":"stderr","time":3.910045788,"data":"    raise RuntimeError(f\"{spec['candidate_label']} curriculum report blocked: \" + \", \".join(blockers))\n"}
+,{"stream_name":"stderr","time":3.9100986300000002,"data":"RuntimeError: SFT-v7 curriculum report blocked: system_wrapper_mentions_present\n"}
+,{"stream_name":"stderr","time":7.049242716,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":7.049272602,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":7.655431338,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":7.655464194,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":10.726386903,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":12.684243638,"data":"[NbConvertApp] Writing 442611 bytes to __results__.html\n"}
+]

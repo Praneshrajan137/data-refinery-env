@@ -71,16 +71,37 @@ def test_observability_instruments_and_redacts(monkeypatch) -> None:
 
     assert observability.configure_fastapi_observability(app, service_name="test") is True
     with observability.repair_stage_span(
-        "dataforge.repair.test",
+        "detect",
         row_count=3,
         authorization="Bearer secret",
         row_values=["sensitive"],
+        source_bytes=b"id,name\n1,Alice\n",
+        api_key="secret",
+        payload={"raw": "dataset"},
     ):
         pass
 
     assert app.state.dataforge_service_name == "test"
     assert ("instrument_app", app) in calls
     assert ("tracer_provider", "provider") in calls
-    assert ("span", "dataforge.repair.test") in calls
+    assert ("span", "dataforge.repair.detect") in calls
+    assert ("dataforge.repair.stage", "detect") in calls
     assert ("row_count", 3) in calls
-    assert not any(key == "authorization" for key, _value in calls)
+    assert not any(
+        key in {"authorization", "row_values", "source_bytes", "api_key", "payload"}
+        for key, _value in calls
+    )
+
+
+def test_repair_telemetry_vocabulary_is_frozen() -> None:
+    """Repair lifecycle telemetry uses the documented public stage names."""
+    assert {
+        "detect",
+        "propose",
+        "safety_gate",
+        "smt_verify",
+        "transaction_create",
+        "transaction_apply",
+        "receipt",
+        "revert",
+    } == observability.REPAIR_TELEMETRY_STAGES

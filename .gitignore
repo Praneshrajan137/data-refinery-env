@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.audit-venv/
 .env
 .pytest_cache/
 .hypothesis/
@@ -17,6 +18,7 @@ dist/
 .ipynb_checkpoints/
 prompt.md
 compat_output.txt
+tmp*.csv
 DESIGN_PARTNERS.md
 .hf-space-stage/
 .hf-space-repo/

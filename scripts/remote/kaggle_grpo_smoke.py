@@ -28,8 +28,14 @@ TRAJECTORY_INPUT_FILES = {
     "expert_v4.jsonl",
     "expert_v5_repair_curriculum.jsonl",
     "expert_v6_contract_minimal.jsonl",
+    "expert_v7_parse_latch.jsonl",
+    "expert_v8_schema_distill.jsonl",
+    "expert_v9_action_envelope.jsonl",
 }
-SFT_V6_PREDECESSOR_REPORT = "sft_v6_candidate_eval_report.json"
+SFT_PREDECESSOR_REPORTS = {
+    "grpo_05b_v3": ("sft_v7_candidate_eval_report.json", "sft_v7", "GRPO-v3"),
+    "grpo_05b_v4": ("sft_v9_candidate_eval_report.json", "sft_v9", "GRPO-v4"),
+}
 
 
 def _has_smoke_inputs(file_names: set[str]) -> bool:
@@ -195,21 +201,30 @@ def _load_config() -> dict[str, Any]:
     return cast(dict[str, Any], payload)
 
 
-def _sft_v6_predecessor_blockers(config: dict[str, Any]) -> list[str]:
-    if str(config.get("schema_version", "")) != "grpo_05b_v3":
-        return []
-    report_path = INPUT_ROOT / SFT_V6_PREDECESSOR_REPORT
+def _sft_predecessor_blockers(config: dict[str, Any]) -> tuple[list[str], str]:
+    predecessor = SFT_PREDECESSOR_REPORTS.get(str(config.get("schema_version", "")))
+    if predecessor is None:
+        return [], "GRPO"
+    report_name, label, grpo_label = predecessor
+    report_path = INPUT_ROOT / report_name
     if not report_path.exists():
-        return ["missing_sft_v6_candidate_eval_report"]
+        return [f"missing_{label}_candidate_eval_report"], grpo_label
     report = _load_json(report_path)
     status = str(report.get("status", ""))
     ok = report.get("ok")
     promotion_gate = report.get("promote_to_grpo", report.get("promotion_gate_passed"))
     blockers: list[str] = []
     if ok is not True and status not in {"pass", "promote_to_grpo", "promotion_gate_passed"}:
-        blockers.append("sft_v6_candidate_report_not_pass")
+        blockers.append(f"{label}_candidate_report_not_pass")
     if promotion_gate is not True:
-        blockers.append("sft_v6_candidate_not_promoted_to_grpo")
+        blockers.append(f"{label}_candidate_not_promoted_to_grpo")
+    return blockers, grpo_label
+
+
+def _sft_v7_predecessor_blockers(config: dict[str, Any]) -> list[str]:
+    if str(config.get("schema_version", "")) != "grpo_05b_v3":
+        return []
+    blockers, _label = _sft_predecessor_blockers(config)
     return blockers
 
 
@@ -349,18 +364,19 @@ def main() -> int:
     ):
         raise RuntimeError("Smoke stage must not allow upload.")
     config["training"]["max_steps"] = int(selected_stage["max_steps"])
-    predecessor_blockers = _sft_v6_predecessor_blockers(config)
+    predecessor_blockers, grpo_label = _sft_predecessor_blockers(config)
     if predecessor_blockers:
+        status = f"blocked_missing_sft_predecessor_for_{config.get('schema_version', 'grpo')}"
         report = {
             "schema_version": "dataforge_kaggle_grpo_smoke_report_v1",
-            "status": "blocked_missing_sft_v6_predecessor",
+            "status": status,
             "blockers": predecessor_blockers,
             "training_stage": selected_stage_name,
             "configured_max_steps": int(config["training"]["max_steps"]),
             "model_upload_attempted": False,
             "model_repo_created": False,
             "public_claim_updated": False,
-            "note": "GRPO-v3 requires a verified SFT-v6 candidate eval report before spending GPU time.",
+            "note": f"{grpo_label} requires a verified SFT predecessor candidate eval report before spending GPU time.",
         }
         _write_report(report)
         print(

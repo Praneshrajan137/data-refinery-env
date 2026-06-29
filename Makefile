@@ -27,7 +27,7 @@ help:
 	@echo "  release-gate  Build, audit, offline-install, and smoke-test the wheel"
 	@echo "  playground-release-check  Verify deployed Playground checklist"
 	@echo "  sft-preflight Validate SFT JSONL/config before launching Kaggle"
-	@echo "  coverage      Run tests with coverage (fails at <90%)"
+	@echo "  coverage      Run tests with coverage using pyproject.toml policy"
 	@echo "  bench         Run pytest-benchmark suites"
 	@echo "  bench-free    Run the real-world benchmark scripts and regenerate reports"
 	@echo "  mutation      Run mutmut on dataforge/ (target: >=85%)"
@@ -83,7 +83,7 @@ sft-preflight:
 	$(PYTHON) scripts/data/validate_sft_readiness.py
 
 coverage:
-	$(PYTHON) -m pytest tests/ --cov=dataforge --cov-report=term-missing --cov-report=html --cov-fail-under=90
+	$(PYTHON) -m pytest tests/ --cov=dataforge --cov-report=term-missing --cov-report=html
 
 bench:
 	$(PYTHON) -m pytest tests/benchmarks/ --benchmark-only --benchmark-autosave

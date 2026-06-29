@@ -12,8 +12,8 @@ assert disclosure.visible_tools(task_difficulty=2) == ("search",)
 The package is intentionally independent from `dataforge`. Runtime imports are
 limited to the Python standard library, `pydantic`, and lazily imported `z3`
 inside `SMTVerifiedAction`.
-It is not published to PyPI yet; use the local verification source install
-until Trusted Publishing ownership is configured.
+It is published as `dataforge_07_agent_patterns`; use the local verification
+source install for development changes.
 
 ## Primitives
 
@@ -34,6 +34,5 @@ python -m pytest
 python -m build
 ```
 
-PyPI publishing should use GitHub Actions Trusted Publishing after a pending
-publisher is configured for `dataforge_07_agent_patterns`; do not add PyPI API
-tokens.
+PyPI publishing should continue to use GitHub Actions Trusted Publishing for
+`dataforge_07_agent_patterns`; do not add PyPI API tokens.

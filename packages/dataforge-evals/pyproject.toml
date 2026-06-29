@@ -42,7 +42,7 @@ dev = [
 all = ["dataforge_07_evals[dataforge,dev]"]
 hf = [
     "transformers>=4.44",
-    "torch>=2.3",
+    "torch>=2.12",
     "accelerate>=0.33",
 ]
 

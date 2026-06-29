@@ -15,6 +15,9 @@ CONFIG_V3 = ROOT / "training" / "configs" / "sft_05b_v3.yaml"
 CONFIG_V4 = ROOT / "training" / "configs" / "sft_05b_v4.yaml"
 CONFIG_V5 = ROOT / "training" / "configs" / "sft_05b_v5.yaml"
 CONFIG_V6 = ROOT / "training" / "configs" / "sft_05b_v6.yaml"
+CONFIG_V7 = ROOT / "training" / "configs" / "sft_05b_v7.yaml"
+CONFIG_V8 = ROOT / "training" / "configs" / "sft_05b_v8.yaml"
+CONFIG_V9 = ROOT / "training" / "configs" / "sft_05b_v9.yaml"
 
 
 def _notebook_source() -> str:
@@ -134,6 +137,102 @@ def test_v6_config_is_contract_first_private_candidate() -> None:
     assert stages["diagnostic"]["allow_upload_after_gate"] is False
     assert stages["candidate"]["max_steps"] == 140
     assert stages["candidate"]["allow_upload_after_gate"] is True
+    assert stages["candidate"]["require_hf_token"] is True
+
+
+def test_v7_config_is_parse_latch_private_candidate() -> None:
+    config = yaml.safe_load(CONFIG_V7.read_text(encoding="utf-8"))
+
+    assert config["schema_version"] == "sft_05b_v7"
+    assert config["collection"]["prompt_contract_version"] == "repair_contract_v3"
+    assert config["collection"]["curriculum_version"] == "expert_v7_parse_latch"
+    assert config["collection"]["curriculum"]["source_trajectory_filename"] == (
+        "expert_v6_contract_minimal.jsonl"
+    )
+    assert config["collection"]["curriculum"]["submit_repair_copies"] == 2
+    assert config["collection"]["curriculum"]["finish_copies"] == 1
+    assert config["repos"]["trajectory_filename"] == "expert_v7_parse_latch.jsonl"
+    assert config["repos"]["model_repo_template"].endswith("/DataForge-0.5B-SFT-v7-candidate")
+    assert config["release"]["private_candidate_only"] is True
+    assert config["release"]["public_upload_allowed"] is False
+    assert (
+        config["release"]["promotion_report_schema"] == "dataforge_sft_v7_candidate_eval_report_v1"
+    )
+    stages = {stage["name"]: stage for stage in config["training_sequence"]["stages"]}
+    assert stages["smoke"]["max_steps"] == 20
+    assert stages["diagnostic"]["max_steps"] == 120
+    assert stages["candidate"]["max_steps"] == 240
+    assert stages["candidate"]["require_hf_token"] is True
+
+
+def test_v8_config_is_schema_distill_prompt_completion_candidate() -> None:
+    config = yaml.safe_load(CONFIG_V8.read_text(encoding="utf-8"))
+
+    assert config["schema_version"] == "sft_05b_v8"
+    assert config["collection"]["prompt_contract_version"] == "repair_contract_v3"
+    assert config["collection"]["curriculum_version"] == "expert_v8_schema_distill"
+    assert config["collection"]["curriculum"]["source_trajectory_filename"] == (
+        "expert_v6_contract_minimal.jsonl"
+    )
+    assert config["collection"]["curriculum"]["training_format"] == "prompt_completion"
+    assert config["training"]["dataset_format"] == "prompt_completion"
+    assert config["training"]["completion_only_loss"] is True
+    assert config["training"]["assistant_only_loss"] is False
+    assert config["training"]["packing"] is False
+    assert config["repos"]["trajectory_filename"] == "expert_v8_schema_distill.jsonl"
+    assert config["repos"]["model_repo_template"].endswith("/DataForge-0.5B-SFT-v8-candidate")
+    assert config["release"]["private_candidate_only"] is True
+    assert config["release"]["public_upload_allowed"] is False
+    assert config["release"]["grpo_consumer_label"] == "GRPO-v4"
+    assert (
+        config["release"]["promotion_report_schema"] == "dataforge_sft_v8_candidate_eval_report_v1"
+    )
+    tracks = config["evaluation"]["report_tracks"]
+    assert tracks["raw_research"]["decoding"] == "unconstrained_greedy"
+    assert tracks["product_constrained"]["decoding"] == "json_schema_or_grammar_constrained"
+    stages = {stage["name"]: stage for stage in config["training_sequence"]["stages"]}
+    assert stages["smoke"]["max_steps"] == 40
+    assert stages["diagnostic"]["max_steps"] == 180
+    assert stages["candidate"]["max_steps"] == 360
+    assert stages["candidate"]["require_hf_token"] is True
+
+
+def test_v9_config_is_action_envelope_prompt_completion_candidate() -> None:
+    config = yaml.safe_load(CONFIG_V9.read_text(encoding="utf-8"))
+
+    assert config["schema_version"] == "sft_05b_v9"
+    assert config["collection"]["prompt_contract_version"] == "repair_contract_v3"
+    assert config["collection"]["curriculum_version"] == "expert_v9_action_envelope"
+    assert config["collection"]["curriculum"]["source_trajectory_filename"] == (
+        "expert_v8_schema_distill.jsonl"
+    )
+    assert config["collection"]["curriculum"]["output_trajectory_filename"] == (
+        "expert_v9_action_envelope.jsonl"
+    )
+    assert config["collection"]["curriculum"]["training_format"] == "prompt_completion"
+    assert config["collection"]["curriculum"]["require_negative_contrast_examples"] is True
+    assert config["collection"]["curriculum"]["require_negative_contrast_not_supervised"] is True
+    assert config["training"]["dataset_format"] == "prompt_completion"
+    assert config["training"]["completion_only_loss"] is True
+    assert config["training"]["assistant_only_loss"] is False
+    assert config["training"]["packing"] is False
+    assert config["repos"]["trajectory_filename"] == "expert_v9_action_envelope.jsonl"
+    assert config["repos"]["model_repo_template"].endswith("/DataForge-0.5B-SFT-v9-candidate")
+    assert config["release"]["private_candidate_only"] is True
+    assert config["release"]["public_upload_allowed"] is False
+    assert config["release"]["grpo_consumer_label"] == "GRPO-v4"
+    assert (
+        config["release"]["promotion_report_schema"] == "dataforge_sft_v9_candidate_eval_report_v1"
+    )
+    tracks = config["evaluation"]["report_tracks"]
+    assert tracks["raw_research"]["decoding"] == "unconstrained_greedy"
+    assert tracks["product_constrained"]["decoding"] == "json_schema_or_grammar_constrained"
+    assert tracks["product_constrained"]["prototype_status"].endswith("_runs_locally")
+    assert config["evaluation"]["smoke_gate"]["constrained_product_parse_min"] == 0.99
+    stages = {stage["name"]: stage for stage in config["training_sequence"]["stages"]}
+    assert stages["smoke"]["max_steps"] == 40
+    assert stages["diagnostic"]["max_steps"] == 180
+    assert stages["candidate"]["max_steps"] == 360
     assert stages["candidate"]["require_hf_token"] is True
 
 

@@ -10,23 +10,34 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 README = PROJECT_ROOT / "README.md"
 CONTRIBUTORS = PROJECT_ROOT / "CONTRIBUTORS.md"
 CLAIM_LEDGER = PROJECT_ROOT / "docs" / "claims.yaml"
+EVIDENCE_LEDGER = PROJECT_ROOT / "docs" / "evidence" / "ledger.json"
+PUBLISH_REPORT = PROJECT_ROOT / "docs" / "evidence" / "pypi" / "publish_report.json"
 CLAIM_LEDGER_STATUSES = frozenset({"shipped", "beta", "experimental", "roadmap"})
 RELEASE_TRUTH_DOCS = [
     README,
     PROJECT_ROOT / "META_CONTEXT.md",
     PROJECT_ROOT / "docs" / "docs" / "index.md",
     PROJECT_ROOT / "docs" / "docs" / "quickstart.md",
+    PROJECT_ROOT / "docs" / "docs" / "architecture.md",
+    PROJECT_ROOT / "docs" / "docs" / "release.md",
     PROJECT_ROOT / "dataforge-mcp" / "README.md",
+    PROJECT_ROOT / "packages" / "dataforge-evals" / "README.md",
+    PROJECT_ROOT / "packages" / "dataforge-dbt" / "README.md",
+    PROJECT_ROOT / "packages" / "dataforge-agent-patterns" / "README.md",
 ]
 DESIGN_PARTNER_TRUTH_DOCS = [
     README,
@@ -44,21 +55,51 @@ PUBLIC_CLAIM_TRUTH_DOCS = [
 CUSTOM_DOMAIN_TRUTH_DOCS = sorted(
     set(RELEASE_TRUTH_DOCS + DESIGN_PARTNER_TRUTH_DOCS + PUBLIC_CLAIM_TRUTH_DOCS)
 )
-UNPUBLISHED_DISTS = (
+PUBLISHED_DISTS = (
     "dataforge_07",
     "dataforge_07_dbt",
     "dataforge_07_evals",
     "dataforge_07_mcp",
     "dataforge_07_agent_patterns",
 )
-PUBLISHED_QUALIFIERS = (
-    "after publication",
-    "after pypi publication",
-    "blocked until",
-    "before",
-    "only when",
-    "once published",
-    "when published",
+PUBLISHED_DIST_PYPROJECTS = {
+    "dataforge_07": PROJECT_ROOT / "pyproject.toml",
+    "dataforge_07_mcp": PROJECT_ROOT / "dataforge-mcp" / "pyproject.toml",
+    "dataforge_07_evals": PROJECT_ROOT / "packages" / "dataforge-evals" / "pyproject.toml",
+    "dataforge_07_dbt": PROJECT_ROOT / "packages" / "dataforge-dbt" / "pyproject.toml",
+    "dataforge_07_agent_patterns": PROJECT_ROOT
+    / "packages"
+    / "dataforge-agent-patterns"
+    / "pyproject.toml",
+}
+EXPECTED_PUBLISH_WORKFLOWS = {
+    "dataforge_07": {"pypi": "publish-dataforge.yml", "testpypi": "publish-testpypi.yml"},
+    "dataforge_07_mcp": {
+        "pypi": "publish-dataforge-mcp.yml",
+        "testpypi": "publish-dataforge-mcp-testpypi.yml",
+    },
+    "dataforge_07_evals": {
+        "pypi": "publish-dataforge-evals.yml",
+        "testpypi": "publish-dataforge-evals-testpypi.yml",
+    },
+    "dataforge_07_dbt": {
+        "pypi": "publish-dataforge-dbt.yml",
+        "testpypi": "publish-dataforge-dbt-testpypi.yml",
+    },
+    "dataforge_07_agent_patterns": {
+        "pypi": "publish-dataforge-agent-patterns.yml",
+        "testpypi": "publish-dataforge-agent-patterns-testpypi.yml",
+    },
+}
+PUBLISH_ATTESTATION_PREDICATE = "https://docs.pypi.org/attestations/publish/v1"
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+STALE_PUBLICATION_PATTERNS = (
+    re.compile(r"\bnot published(?:\s+to\s+pypi)?\s+yet\b", re.IGNORECASE),
+    re.compile(r"\bafter\s+pypi\s+publication\b", re.IGNORECASE),
+    re.compile(r"\bafter\s+publication\b", re.IGNORECASE),
+    re.compile(r"\bpending\s+trusted\s+publishers?\b", re.IGNORECASE),
+    re.compile(r"\btestpypi-only\b", re.IGNORECASE),
+    re.compile(r"\breal\s+pypi\s+remains\s+blocked\b", re.IGNORECASE),
 )
 DESIGN_PARTNER_NOT_MET_MARKER = "Design Partner Gate: NOT MET"
 DESIGN_PARTNER_CLAIM_PATTERNS = (
@@ -209,6 +250,269 @@ def check_claim_ledger(path: Path = CLAIM_LEDGER) -> list[str]:
     return errors
 
 
+def check_evidence_ledger(path: Path = EVIDENCE_LEDGER) -> list[str]:
+    """Verify the canonical evidence ledger can back public claim prose."""
+    try:
+        from scripts.evidence.evidence_ledger import validate_ledger
+    except ImportError as exc:
+        return [f"could not import evidence ledger validator: {exc}"]
+    return validate_ledger(path)
+
+
+def _project_version(path: Path) -> str:
+    """Return the local project version from a pyproject.toml file."""
+    payload = tomllib.loads(path.read_text(encoding="utf-8"))
+    project = payload.get("project")
+    if not isinstance(project, dict):
+        return ""
+    return str(project.get("version", "")).strip()
+
+
+def _display_path(path: Path) -> Path:
+    """Return a compact display path when possible."""
+    try:
+        return path.relative_to(PROJECT_ROOT)
+    except ValueError:
+        return path
+
+
+def _check_smoke_log(
+    package: dict[str, object],
+    *,
+    package_name: str,
+    field: str,
+    display_path: Path,
+) -> list[str]:
+    """Verify a referenced smoke log exists and is valid JSON."""
+    raw_log_path = package.get(field)
+    if not isinstance(raw_log_path, str) or not raw_log_path:
+        return [f"{display_path} package {package_name} is missing {field}."]
+    log_path = PROJECT_ROOT / "docs" / "evidence" / raw_log_path
+    if not log_path.exists():
+        return [f"{display_path} package {package_name} references missing {raw_log_path}."]
+    try:
+        json.loads(log_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"{raw_log_path} is not valid JSON: {exc}"]
+    return []
+
+
+def _check_trusted_publisher(
+    *,
+    publisher: object,
+    package_name: str,
+    index_name: str,
+    artifact_name: str,
+    display_path: Path,
+) -> list[str]:
+    """Verify one artifact's Trusted Publisher identity."""
+    errors: list[str] = []
+    expected_workflow = EXPECTED_PUBLISH_WORKFLOWS[package_name][index_name]
+    if not isinstance(publisher, dict):
+        return [
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "is missing trusted_publisher."
+        ]
+    expected_identity = (
+        f"https://github.com/Aegis15/dataforge/.github/workflows/"
+        f"{expected_workflow}@refs/heads/main"
+    )
+    expected_values = {
+        "repository": "Aegis15/dataforge",
+        "ref": "refs/heads/main",
+        "workflow": expected_workflow,
+        "identity": expected_identity,
+        "oidc_issuer": "https://token.actions.githubusercontent.com",
+    }
+    for field, expected in expected_values.items():
+        if publisher.get(field) != expected:
+            errors.append(
+                f"{display_path} package {package_name} {index_name} {artifact_name} "
+                f"has trusted_publisher.{field} != {expected!r}."
+            )
+    return errors
+
+
+def _check_publish_artifact(
+    *,
+    artifact: object,
+    package_name: str,
+    index_name: str,
+    artifact_name: str,
+    display_path: Path,
+) -> list[str]:
+    """Verify wheel/sdist artifact evidence."""
+    if not isinstance(artifact, dict):
+        return [f"{display_path} package {package_name} {index_name} is missing {artifact_name}."]
+    errors: list[str] = []
+    filename = artifact.get("filename")
+    if not isinstance(filename, str) or not filename:
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "is missing filename."
+        )
+    sha256 = artifact.get("sha256")
+    if not isinstance(sha256, str) or not SHA256_PATTERN.fullmatch(sha256):
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "has invalid sha256."
+        )
+    if artifact.get("integrity_subject_sha256") != sha256:
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "has mismatched integrity_subject_sha256."
+        )
+    if artifact.get("integrity_predicate_type") != PUBLISH_ATTESTATION_PREDICATE:
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "is missing the PyPI publish attestation predicate."
+        )
+    provenance_url = artifact.get("provenance_url")
+    expected_host = (
+        "https://pypi.org/integrity/"
+        if index_name == "pypi"
+        else "https://test.pypi.org/integrity/"
+    )
+    if not isinstance(provenance_url, str) or not provenance_url.startswith(expected_host):
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "has invalid provenance_url."
+        )
+    download_url = artifact.get("download_url")
+    if not isinstance(download_url, str) or not download_url.startswith("https://"):
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "has invalid download_url."
+        )
+    if not isinstance(artifact.get("upload_time_iso_8601"), str):
+        errors.append(
+            f"{display_path} package {package_name} {index_name} {artifact_name} "
+            "is missing upload_time_iso_8601."
+        )
+    errors.extend(
+        _check_trusted_publisher(
+            publisher=artifact.get("trusted_publisher"),
+            package_name=package_name,
+            index_name=index_name,
+            artifact_name=artifact_name,
+            display_path=display_path,
+        )
+    )
+    return errors
+
+
+def _check_publish_index(
+    *,
+    index_payload: object,
+    package_name: str,
+    index_name: str,
+    display_path: Path,
+) -> list[str]:
+    """Verify one package's PyPI or TestPyPI evidence block."""
+    if not isinstance(index_payload, dict):
+        return [f"{display_path} package {package_name} is missing {index_name} metadata."]
+    errors: list[str] = []
+    if index_payload.get("index") != index_name:
+        errors.append(f"{display_path} package {package_name} has wrong {index_name}.index.")
+    project_url = index_payload.get("project_url")
+    expected_project_host = (
+        "https://pypi.org/project/" if index_name == "pypi" else "https://test.pypi.org/project/"
+    )
+    if not isinstance(project_url, str) or not project_url.startswith(expected_project_host):
+        errors.append(
+            f"{display_path} package {package_name} {index_name} has invalid project_url."
+        )
+    for artifact_name in ("wheel", "sdist"):
+        errors.extend(
+            _check_publish_artifact(
+                artifact=index_payload.get(artifact_name),
+                package_name=package_name,
+                index_name=index_name,
+                artifact_name=artifact_name,
+                display_path=display_path,
+            )
+        )
+    return errors
+
+
+def check_pypi_publish_report(path: Path = PUBLISH_REPORT) -> list[str]:
+    """Verify the generated PyPI/TestPyPI evidence covers every public package."""
+    errors: list[str] = []
+    display_path = _display_path(path)
+    if not path.exists():
+        return [f"{display_path} is missing."]
+    try:
+        raw_payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return [f"{display_path} is not valid JSON: {exc}"]
+    if not isinstance(raw_payload, dict):
+        return [f"{display_path} must be a JSON object."]
+    if raw_payload.get("schema_version") != "dataforge_pypi_publish_report_v2":
+        errors.append(f"{display_path} has an unexpected schema_version.")
+    raw_packages = raw_payload.get("packages")
+    if not isinstance(raw_packages, list):
+        return [f"{display_path} must contain a packages list."]
+    packages = {
+        str(package.get("name", "")).strip(): package
+        for package in raw_packages
+        if isinstance(package, dict)
+    }
+    missing = set(PUBLISHED_DISTS) - set(packages)
+    extra = set(packages) - set(PUBLISHED_DISTS)
+    if missing:
+        errors.append(f"{display_path} is missing package evidence for {sorted(missing)}.")
+    if extra:
+        errors.append(f"{display_path} has unexpected package evidence for {sorted(extra)}.")
+    for name in PUBLISHED_DISTS:
+        package = packages.get(name)
+        if not isinstance(package, dict):
+            continue
+        expected_version = _project_version(PUBLISHED_DIST_PYPROJECTS[name])
+        if package.get("version") != expected_version:
+            errors.append(
+                f"{display_path} package {name} version does not match local "
+                f"pyproject version {expected_version}."
+            )
+        for field in ("pypi", "testpypi"):
+            errors.extend(
+                _check_publish_index(
+                    index_payload=package.get(field),
+                    package_name=name,
+                    index_name=field,
+                    display_path=display_path,
+                )
+            )
+        for field in (
+            "attestations",
+            "pypi_fresh_install",
+            "testpypi_fresh_install",
+            "trusted_publishing",
+        ):
+            if package.get(field) is not True:
+                errors.append(f"{display_path} package {name} has {field} != true.")
+        if not str(package.get("workflow_run_url", "")).startswith(
+            "https://github.com/Aegis15/dataforge/actions/runs/"
+        ):
+            errors.append(f"{display_path} package {name} is missing workflow_run_url.")
+        errors.extend(
+            _check_smoke_log(
+                package,
+                package_name=name,
+                field="pypi_smoke_log_path",
+                display_path=display_path,
+            )
+        )
+        errors.extend(
+            _check_smoke_log(
+                package,
+                package_name=name,
+                field="testpypi_smoke_log_path",
+                display_path=display_path,
+            )
+        )
+    return errors
+
+
 def extract_subcommands_from_readme(text: str) -> set[str]:
     """Find all DataForge CLI subcommand references in the README."""
     pattern = re.compile(r"\bdataforge(?:15)?\s+([a-z][a-z0-9_-]*)")
@@ -291,24 +595,22 @@ def check_playground_urls(urls: list[str]) -> list[str]:
     return errors
 
 
-def check_unpublished_install_claims(paths: list[Path]) -> list[str]:
-    """Reject unqualified PyPI install claims for packages not yet published."""
+def check_stale_publication_claims(paths: list[Path]) -> list[str]:
+    """Reject stale docs that describe already-published packages as unpublished."""
     errors: list[str] = []
-    install_pattern = re.compile(
-        rf"\bpip\s+install\b[^\n`]*(?:{'|'.join(re.escape(name) for name in UNPUBLISHED_DISTS)})"
-    )
     for path in paths:
         if not path.exists():
             continue
+        try:
+            display_path = path.relative_to(PROJECT_ROOT)
+        except ValueError:
+            display_path = path
         for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            lowered = line.lower()
-            if not install_pattern.search(line):
-                continue
-            if any(qualifier in lowered for qualifier in PUBLISHED_QUALIFIERS):
+            if not any(pattern.search(line) for pattern in STALE_PUBLICATION_PATTERNS):
                 continue
             errors.append(
-                f"{path.relative_to(PROJECT_ROOT)}:{line_number} has an unqualified "
-                "PyPI install claim for an unpublished DataForge package."
+                f"{display_path}:{line_number} describes a published DataForge package "
+                "or release surface as unpublished."
             )
     return errors
 
@@ -479,12 +781,14 @@ def main() -> None:
     playground_urls = extract_playground_urls(readme_text)
     url_errors = check_playground_urls(playground_urls)
     errors.extend(url_errors)
-    errors.extend(check_unpublished_install_claims(RELEASE_TRUTH_DOCS))
+    errors.extend(check_pypi_publish_report())
+    errors.extend(check_stale_publication_claims(RELEASE_TRUTH_DOCS))
     errors.extend(check_design_partner_claims(DESIGN_PARTNER_TRUTH_DOCS))
     errors.extend(check_public_claim_boundaries(PUBLIC_CLAIM_TRUTH_DOCS))
     errors.extend(check_custom_domain_claims(CUSTOM_DOMAIN_TRUTH_DOCS))
     errors.extend(check_unshipped_integration_claims(PUBLIC_CLAIM_TRUTH_DOCS))
     errors.extend(check_claim_ledger())
+    errors.extend(check_evidence_ledger())
 
     if errors:
         print("README truth check FAILED:", file=sys.stderr)

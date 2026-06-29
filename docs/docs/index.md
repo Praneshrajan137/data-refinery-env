@@ -7,9 +7,9 @@ changes through safety and verification gates, and records applied fixes in a
 reversible transaction log.
 
 The PyPI/TestPyPI distribution family is `dataforge_07*` because the
-unqualified `dataforge` project name is occupied by unrelated packages. Install
-from this source checkout for now. After publication, `pip install dataforge_07`
-will install the `dataforge` import namespace and `dataforge` CLI.
+unqualified `dataforge` project name is occupied by unrelated packages.
+`pip install dataforge_07` installs the `dataforge` import namespace and
+`dataforge` CLI.
 
 The current checkout is an alpha meant for local CSV profiling, repair
 experiments, benchmarks, and training/evaluation research. It is not a
@@ -32,6 +32,8 @@ it does not claim design-partner or customer validation evidence yet.
 - Benchmark scripts and generated reports for Hospital, Flights, and Beers.
 - A React playground deployed through Cloudflare Workers Static Assets, backed
   by a Hugging Face Docker Space API.
+- Published PyPI/TestPyPI packages for the core CLI, MCP server, eval harness,
+  dbt adapter, and reusable agent patterns.
 
 The current verified public playground is
 `https://dataforge.praneshrajan15.workers.dev/playground`; the API backend is

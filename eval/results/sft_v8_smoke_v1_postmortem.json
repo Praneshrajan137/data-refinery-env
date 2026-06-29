@@ -1,0 +1,48 @@
+{
+  "candidate": "SFT-v8",
+  "decision": "block_diagnostic_candidate_and_grpo_v4",
+  "evidence_paths": {
+    "diagnostics": "eval/results/kaggle_sft_v8_diagnostic_v1/DataForge-0.5B-SFT-v8-candidate-merged/eval_diagnostics.json",
+    "kaggle_report": "eval/results/kaggle_sft_v8_diagnostic_v1/kaggle_sft_v8_candidate_report.json",
+    "promotion_report": "eval/results/kaggle_sft_v8_diagnostic_v1/sft_v8_candidate_eval_report.json",
+    "training_metrics": "eval/results/kaggle_sft_v8_diagnostic_v1/DataForge-0.5B-SFT-v8-candidate-merged/training_metrics.json"
+  },
+  "metrics": {
+    "attempted_steps": 40,
+    "dataset_f1": {
+      "beers": 0.0,
+      "flights": 0.0,
+      "hospital": 0.0
+    },
+    "failure_taxonomy": {
+      "duplicate_cell": 16,
+      "finish_with_repairs": 33,
+      "missed_repair": 572,
+      "overrepair": 116,
+      "schema_case_error": 26,
+      "schema_error": 64,
+      "wrong_cell": 41,
+      "wrong_value": 4
+    },
+    "gpu_hours": 0.2543,
+    "label_mask_audit_ok": true,
+    "parse_success_rate": 0.03,
+    "schema_case_error_count": 26,
+    "strict_macro_f1": 0.0
+  },
+  "next_action": [
+    "Do not run SFT-v8 diagnostic or candidate rungs from this smoke checkpoint.",
+    "Do not run GRPO-v4 because promote_to_grpo is false and the private predecessor was not uploaded.",
+    "Revise the next SFT cycle around action-envelope imitation and/or product constrained-decoding repair quality, while keeping raw research metrics separate."
+  ],
+  "public_claim_policy": "SFT-v8 is failed diagnostic evidence only. It is not a public release, not a model-quality improvement, and not a GRPO predecessor.",
+  "root_cause": [
+    "Prompt-completion shape and label-mask audit passed, so prompt-token supervision leakage is no longer the primary explanation.",
+    "The 0.5B model still emits row-object completions and finish actions with non-empty repairs, which means the action envelope is not latched.",
+    "More SFT-v8 steps would likely spend free-tier compute on a failing interface rather than fixing the generation boundary."
+  ],
+  "run": "kaggle_sft_v8_smoke_v1",
+  "schema_version": "dataforge_sft_v8_smoke_postmortem_v1",
+  "status": "failed_diagnostic_evidence",
+  "training_stage": "smoke"
+}

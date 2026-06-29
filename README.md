@@ -16,9 +16,10 @@ OpenEnv-compatible training environment, the SFT warmup workflow, a local MCP
 server package, and playground/demo sources. Warehouse integrations and
 production model-quality claims remain future work.
 
-Before any public release, review `THREAT_MODEL.md` and `docs/docs/release.md`.
-They define the security, supply-chain, and evidence gates that separate the
-current alpha from the full original DataForge vision.
+For release work, review `THREAT_MODEL.md` and `docs/docs/release.md`. They
+define the security, supply-chain, and evidence gates that separate the current
+public package/playground surface from the remaining full original DataForge
+vision.
 
 ## Current Status
 
@@ -41,16 +42,18 @@ Shipped in the current worktree:
   read-only `ROOT_CAUSE`
 - Causal root-cause analyzer for cascading data-quality errors
 - Standalone `dataforge-mcp` package exposing DataForge tools over MCP
+- Published `dataforge_07`, `dataforge_07_mcp`, `dataforge_07_evals`,
+  `dataforge_07_dbt`, and `dataforge_07_agent_patterns` packages on PyPI and
+  TestPyPI, with fresh-install smoke logs and Trusted Publishing evidence
+- Verified Cloudflare Workers playground backed by the Hugging Face Space API
+- Published dbt DuckDB adapter proof from a fresh PyPI install
 - Week 9 SFT oracle trajectory workflow, readiness gate, Kaggle notebook, and
   release verifier
 - Separate Gradio model-demo Space source for the published 0.5B SFT smoke
   checkpoint
 
-Not shipped yet:
+Not claimed yet:
 
-- published `dataforge_07`, `dataforge_07_mcp`, `dataforge_07_evals`,
-  `dataforge_07_dbt`, and `dataforge_07_agent_patterns` packages
-- committed production verification for the Cloudflare Workers playground
 - warehouse-native or external adapter packages
 - credentialed Snowflake, BigQuery, or Databricks apply/revert conformance
 - design-partner, pilot-user, or customer validation evidence is not yet claimed
@@ -155,16 +158,21 @@ experiments:
   `scripts/remote/kaggle_sft_v5_candidate.py` package and run the private
   SFT-v5 Kaggle candidate. Its report is preserved as failed diagnostic
   evidence, not a GRPO predecessor.
-- `training/configs/sft_05b_v6.yaml` defines the next private contract-first
-  candidate over `expert_v6_contract_minimal.jsonl`. The staged Kaggle path
+- `training/configs/sft_05b_v6.yaml` defines the completed private
+  contract-first diagnostic over `expert_v6_contract_minimal.jsonl`. The staged Kaggle path
   defaults to a 20-step smoke, then a 60-step no-upload diagnostic, and only
   allows candidate promotion if `sft_v6_candidate_eval_report.json` has
   `promote_to_grpo: true` and the private checkpoint was uploaded.
-- `scripts/remote/prepare_kaggle_sft_v6_candidate.py` and
-  `scripts/remote/kaggle_sft_v6_candidate.py` package and run the SFT-v6
-  candidate. Candidate mode requires a visible HF token before GPU work because
-  GRPO-v3 may only consume an uploaded private predecessor.
-- `training/configs/grpo_05b_v3.yaml` consumes the SFT-v6 candidate and runs a
+- `training/configs/sft_05b_v7.yaml` defines the next private parse-latch
+  candidate over `expert_v7_parse_latch.jsonl`. It exists because the
+  contract-v3 SFT-v6 diagnostic removed `reason` leakage and schema-case
+  errors, but still failed parse/action consistency and active repair.
+- `scripts/remote/prepare_kaggle_sft_v7_candidate.py` packages the current
+  SFT-v7 parse-latch Kaggle rung on top of the versioned SFT runner. Candidate
+  mode requires a visible HF token before GPU work because GRPO-v3 may only
+  consume an uploaded private predecessor.
+- `training/configs/grpo_05b_v3.yaml` consumes only a promoted SFT-v7
+  parse-latch predecessor and runs a
   50-step smoke, 250-step no-upload diagnostic, and 500-step gated candidate.
   It targets strict macro F1 `>=0.25`, parse success `>=0.99`, schema-case
   errors `0`, not-inferable F1 `>=0.95`, and deterministic-normalization F1
@@ -205,11 +213,37 @@ a release win.
 The private 0.5B-SFT-v5 repair-curriculum candidate also completed as
 diagnostic evidence and correctly blocked GRPO-v3: strict macro F1 stayed at
 `0.002`, parse success was `0.6`, schema-case errors were `108`, and
-`promote_to_grpo` is `false`. The next training direction is SFT-v6 on the
-`expert_v6_contract_minimal` curriculum, which keeps the held-out eval
-unchanged while stripping noisy `reason` fields and capping repair targets to
-reduce contract drift before GRPO-v3. No public claim is upgraded unless the
-private v6 predecessor and later GRPO gates pass.
+`promote_to_grpo` is `false`. The later SFT-v6 contract-first, SFT-v7
+parse-latch, and SFT-v8 schema-distill attempts are preserved as failed
+diagnostic evidence, not model wins. SFT-v6 removed `reason` leakage but failed
+parse/action consistency; SFT-v7 still failed the action envelope; SFT-v8 fixed
+the prompt-completion shape and label-mask audit but the 40-step smoke still
+failed predecessor gates: strict macro F1 `0.0`, parse success `0.03`,
+schema-case errors `26`, and `promote_to_grpo: false`. Do not run GRPO-v4 from
+this lineage; the next model work must revise the action-envelope/product
+constrained-decoding boundary while keeping raw research metrics separate from
+product parse reliability.
+
+That next step is staged as private SFT-v9 action-envelope work, not another
+GRPO run. The local SFT-v9 curriculum/preflight at
+`eval/results/sft_v9_action_envelope_curriculum_report.json` passes with 3,848
+prompt-completion records, completion parse success `1.0`, held-out leakage
+`0`, `finish_with_repairs` `0`, and zero negative-contrast target leakage.
+This is only a launch preflight; GRPO-v4 remains blocked until a future
+`sft_v9_candidate_eval_report.json` has `promote_to_grpo: true` and a private
+checkpoint exists.
+The private Kaggle smoke has been submitted as kernel version `1` and is
+recorded at `eval/results/kaggle_sft_v9_smoke_launch_v1/launch_report.json`;
+that run failed before training on an over-strict P100 capability guard and is
+preserved at `eval/results/kaggle_sft_v9_smoke_v1_failure/failure_report.json`.
+Smoke v2 with the fixed P100-compatible runner is now running and recorded at
+`eval/results/kaggle_sft_v9_smoke_v2_relaunch/launch_report.json`. This is
+infrastructure/running-job evidence, not completed model-quality evidence.
+
+`docs/evidence/ledger.json` is the canonical claim index for release, product,
+model, diagnostic, blocked, and roadmap evidence. Use
+`python scripts/evidence/evidence_ledger.py` before changing public claim
+wording.
 
 The planned HF model-family matrix is now manifest-driven in
 `training/configs/model_family.yaml`. It covers the `0.5B`, `1.5B`, `3B`, and
@@ -230,8 +264,14 @@ After GRPO eval evidence exists:
 ## MCP Server
 
 The nested `dataforge-mcp/` source directory builds the standalone
-`dataforge_07_mcp` distribution. It is not published yet, so install it from
-source while release ownership is pending:
+`dataforge_07_mcp` distribution. Install the released package with:
+
+```bash
+python -m pip install dataforge_07_mcp
+dataforge-mcp serve
+```
+
+For local development from this checkout:
 
 ```bash
 cd dataforge-mcp
@@ -309,11 +349,11 @@ candidates remain review evidence until verifier support is added. Use
 use deterministic CI flags such as `--accept cnd-... --no-tui --json`.
 
 `make backend-gate` is the release-quality backend check: lint, format, strict
-mypy, root tests, MCP tests, README truth, benchmark truth, OpenAPI snapshot
-drift, secret scan, dependency audit availability, SBOM generation
-availability, and package build availability for both `dataforge_07` and
-`dataforge_07_mcp`. The gate covers the core `dataforge_07` distribution and
-release surfaces; the historical
+mypy, side-package lint/format/type checks, root tests, side-package tests,
+README truth, benchmark truth, OpenAPI snapshot drift, secret scan, dependency
+audit availability, SBOM generation availability, and package build
+availability for the `dataforge_07*` distribution family. The gate covers the
+core `dataforge_07` distribution and release surfaces; the historical
 `data_quality_env` namespace remains source-tree regression coverage, not part
 of the `dataforge` wheel or source distribution.
 
@@ -339,12 +379,13 @@ with `pip --no-index --find-links`, then runs profile, repair dry-run, apply,
 constraint review, audit, revert, and post-revert audit from outside the source
 checkout.
 
-Configure pending trusted publishers for `dataforge_07` on TestPyPI and PyPI
-before tagging. The real PyPI workflow refuses pre-release metadata and should
-only run after trusted publishing, attestations, and fresh-install evidence are
-verified. `dataforge release full-vision --json` is expected to fail until PyPI
-publication evidence, dbt-duckdb proof, not yet met design-partner evidence,
-and model-family evidence are real.
+The `dataforge_07*` packages have PyPI/TestPyPI publication evidence under
+`docs/evidence/pypi/`, including Trusted Publishing attestations and
+fresh-install smoke logs. The real PyPI workflow refuses pre-release metadata
+and should only run after trusted publishing, attestations, and fresh-install
+evidence are verified for future releases. `dataforge release full-vision
+--json` is expected to fail while design-partner evidence is not met and full
+HF model-family evidence remains incomplete.
 
 Windows setup:
 

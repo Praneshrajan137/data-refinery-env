@@ -33,9 +33,9 @@ class Grade(BaseModel):
     """Exact-match repair score for one evaluated run.
 
     Attributes:
-        tp: True positives — fixes that exactly match a ground-truth correction.
-        fp: False positives — fixes that do not match any ground-truth correction.
-        fn: False negatives — ground-truth corrections not matched by any fix.
+        tp: True positives - fixes that exactly match a ground-truth correction.
+        fp: False positives - fixes that do not match any ground-truth correction.
+        fn: False negatives - ground-truth corrections not matched by any fix.
         precision: TP / (TP + FP), or 0.0 when no predictions are made.
         recall: TP / (TP + FN), or 0.0 when no ground truth exists.
         f1: Harmonic mean of precision and recall, or 0.0 when both are zero.
