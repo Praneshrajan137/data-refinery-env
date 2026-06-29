@@ -180,7 +180,9 @@ def _micro_record(index: int, *, action_kind: str) -> dict[str, Any]:
         "schema_version": "expert_v4",
         "dataset": "schema_micro_drill",
         "difficulty": "schema",
-        "inferability": "not_inferable_from_prompt" if action_kind == "finish" else "deterministic_normalization",
+        "inferability": "not_inferable_from_prompt"
+        if action_kind == "finish"
+        else "deterministic_normalization",
         "prompt_contract_version": CONTRACT_VERSION_V3,
         "training_format": "prompt_completion",
         "curriculum_version": CURRICULUM_VERSION,
@@ -221,14 +223,26 @@ def _validate_record(
     completion = record.get("completion")
     if not isinstance(prompt, list) or len(prompt) != 2:
         return "prompt_shape_error", {"index": index, "trajectory_id": record.get("trajectory_id")}
-    if [message.get("role") for message in prompt if isinstance(message, dict)] != ["system", "user"]:
+    if [message.get("role") for message in prompt if isinstance(message, dict)] != [
+        "system",
+        "user",
+    ]:
         return "prompt_role_error", {"index": index, "trajectory_id": record.get("trajectory_id")}
     if not isinstance(completion, str) or not completion:
-        return "completion_shape_error", {"index": index, "trajectory_id": record.get("trajectory_id")}
+        return "completion_shape_error", {
+            "index": index,
+            "trajectory_id": record.get("trajectory_id"),
+        }
     if "```" in completion:
-        return "completion_code_fence", {"index": index, "trajectory_id": record.get("trajectory_id")}
+        return "completion_code_fence", {
+            "index": index,
+            "trajectory_id": record.get("trajectory_id"),
+        }
     if "reason" in completion.lower():
-        return "completion_reason_text", {"index": index, "trajectory_id": record.get("trajectory_id")}
+        return "completion_reason_text", {
+            "index": index,
+            "trajectory_id": record.get("trajectory_id"),
+        }
     user_message = cast(Mapping[str, Any], prompt[1])
     if completion in str(user_message.get("content", "")):
         return "completion_leaked_into_user_prompt", {
@@ -417,8 +431,7 @@ def write_schema_distill_curriculum(
     report_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         "".join(
-            json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
-            for record in selected
+            json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in selected
         ),
         encoding="utf-8",
     )

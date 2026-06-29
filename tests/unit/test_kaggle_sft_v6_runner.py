@@ -242,7 +242,9 @@ def test_sft_v8_sft_config_requires_completion_only_loss(monkeypatch) -> None:
 class _FakeTokenizer:
     def apply_chat_template(self, messages, *, tokenize=False, add_generation_prompt=False):
         assert tokenize is False
-        text = "".join(f"<{message['role']}>{message['content']}</{message['role']}>" for message in messages)
+        text = "".join(
+            f"<{message['role']}>{message['content']}</{message['role']}>" for message in messages
+        )
         if add_generation_prompt:
             text += "<assistant>"
         return text

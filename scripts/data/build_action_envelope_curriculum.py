@@ -87,7 +87,10 @@ def _completion_repairs(record: Mapping[str, Any]) -> list[dict[str, Any]]:
     )
     if not parsed.ok or parsed.action is None:
         raise ValueError(f"source completion is not a valid action: {parsed.error_kind}")
-    if str(record.get("inferability")) in {"external_reference_required", "not_inferable_from_prompt"}:
+    if str(record.get("inferability")) in {
+        "external_reference_required",
+        "not_inferable_from_prompt",
+    }:
         return []
     return [
         {"row": repair.row, "column": repair.column, "new_value": repair.new_value}
@@ -127,9 +130,9 @@ def _negative_contrasts(user_payload: Mapping[str, Any]) -> list[dict[str, str]]
         },
         {
             "kind": "finish_with_repairs",
-            "output": _compact_action([{"row": row, "column": column, "new_value": "clean"}]).replace(
-                '"submit_repairs"', '"finish"', 1
-            ),
+            "output": _compact_action(
+                [{"row": row, "column": column, "new_value": "clean"}]
+            ).replace('"submit_repairs"', '"finish"', 1),
             "why_invalid": "finish must have repairs=[]",
         },
         {
@@ -141,7 +144,9 @@ def _negative_contrasts(user_payload: Mapping[str, Any]) -> list[dict[str, str]]
         },
         {
             "kind": "invalid_row",
-            "output": _compact_action([{"row": invalid_row, "column": column, "new_value": "clean"}]),
+            "output": _compact_action(
+                [{"row": invalid_row, "column": column, "new_value": "clean"}]
+            ),
             "why_invalid": "row must be one of valid_rows",
         },
         {
@@ -241,14 +246,18 @@ def _micro_record(index: int, *, action_kind: str) -> dict[str, Any]:
             {"row": row + 1, "column": "status", "new_value": "ok"},
         ]
         user_payload = _micro_user_payload(row=row, values={"value": "clen", "status": "o k"})
-        user_payload["target_rows"].append({"_row": str(row + 1), "value": "clean", "status": "o k"})
+        user_payload["target_rows"].append(
+            {"_row": str(row + 1), "value": "clean", "status": "o k"}
+        )
     else:  # pragma: no cover - guarded by callers
         raise ValueError(f"Unknown action envelope drill: {action_kind}")
     return {
         "schema_version": "expert_v4",
         "dataset": "action_envelope_micro_drill",
         "difficulty": "schema",
-        "inferability": "not_inferable_from_prompt" if action_kind == "finish" else "deterministic_normalization",
+        "inferability": "not_inferable_from_prompt"
+        if action_kind == "finish"
+        else "deterministic_normalization",
         "prompt_contract_version": CONTRACT_VERSION_V3,
         "training_format": "prompt_completion",
         "curriculum_version": CURRICULUM_VERSION,
@@ -291,14 +300,26 @@ def _validate_record(
     completion = record.get("completion")
     if not isinstance(prompt, list) or len(prompt) != 2:
         return "prompt_shape_error", {"index": index, "trajectory_id": record.get("trajectory_id")}
-    if [message.get("role") for message in prompt if isinstance(message, dict)] != ["system", "user"]:
+    if [message.get("role") for message in prompt if isinstance(message, dict)] != [
+        "system",
+        "user",
+    ]:
         return "prompt_role_error", {"index": index, "trajectory_id": record.get("trajectory_id")}
     if not isinstance(completion, str) or not completion:
-        return "completion_shape_error", {"index": index, "trajectory_id": record.get("trajectory_id")}
+        return "completion_shape_error", {
+            "index": index,
+            "trajectory_id": record.get("trajectory_id"),
+        }
     if "```" in completion:
-        return "completion_code_fence", {"index": index, "trajectory_id": record.get("trajectory_id")}
+        return "completion_code_fence", {
+            "index": index,
+            "trajectory_id": record.get("trajectory_id"),
+        }
     if "reason" in completion.lower():
-        return "completion_reason_text", {"index": index, "trajectory_id": record.get("trajectory_id")}
+        return "completion_reason_text", {
+            "index": index,
+            "trajectory_id": record.get("trajectory_id"),
+        }
     user_message = cast(Mapping[str, Any], prompt[1])
     if completion in str(user_message.get("content", "")):
         return "completion_leaked_into_user_prompt", {
@@ -425,7 +446,9 @@ def build_action_envelope_curriculum(
     finish_records = counts["action:finish"]
     submit_ratio = round(submit_records / output_records, 4) if output_records else 0.0
     finish_ratio = round(finish_records / output_records, 4) if output_records else 0.0
-    parse_success = round(counts["completion_parse_ok"] / output_records, 4) if output_records else 0.0
+    parse_success = (
+        round(counts["completion_parse_ok"] / output_records, 4) if output_records else 0.0
+    )
 
     blockers: list[str] = []
     if invalid_samples:
@@ -553,8 +576,7 @@ def write_action_envelope_curriculum(
     report_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         "".join(
-            json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
-            for record in selected
+            json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n" for record in selected
         ),
         encoding="utf-8",
     )
@@ -574,8 +596,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--submit-repair-copies", type=int, default=1)
     parser.add_argument("--finish-copies", type=int, default=1)
-    parser.add_argument("--submit-envelope-drills", type=int, default=DEFAULT_SUBMIT_ENVELOPE_DRILLS)
-    parser.add_argument("--finish-envelope-drills", type=int, default=DEFAULT_FINISH_ENVELOPE_DRILLS)
+    parser.add_argument(
+        "--submit-envelope-drills", type=int, default=DEFAULT_SUBMIT_ENVELOPE_DRILLS
+    )
+    parser.add_argument(
+        "--finish-envelope-drills", type=int, default=DEFAULT_FINISH_ENVELOPE_DRILLS
+    )
     return parser
 
 

@@ -169,7 +169,10 @@ def test_sft_v8_report_targets_grpo_v4_lineage() -> None:
     assert report["schema_version"] == "dataforge_sft_v8_candidate_eval_report_v1"
     assert report["promote_to_grpo"] is False
     assert "SFT-v8 is a private schema-distill predecessor candidate" in report["limitations"][0]
-    assert "GRPO-v4 may consume this report only when promote_to_grpo is true" in report["limitations"][1]
+    assert (
+        "GRPO-v4 may consume this report only when promote_to_grpo is true"
+        in report["limitations"][1]
+    )
 
 
 def test_sft_v9_report_targets_grpo_v4_action_envelope_lineage() -> None:
@@ -195,4 +198,7 @@ def test_sft_v9_report_targets_grpo_v4_action_envelope_lineage() -> None:
     assert report["schema_version"] == "dataforge_sft_v9_candidate_eval_report_v1"
     assert report["promote_to_grpo"] is False
     assert "SFT-v9 is a private action-envelope predecessor candidate" in report["limitations"][0]
-    assert "GRPO-v4 may consume this report only when promote_to_grpo is true" in report["limitations"][1]
+    assert (
+        "GRPO-v4 may consume this report only when promote_to_grpo is true"
+        in report["limitations"][1]
+    )
