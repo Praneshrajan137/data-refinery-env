@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any, cast
 
-from dataforge_evals.agents.base import AgentRunResult, Fix, Task, Usage
+from dataforge_evals.agents.base import AgentRunResult, AgentTask, AgentTaskInput, Fix, Usage
 from dataforge_evals.agents.provider_base import ProviderError
 from dataforge_evals.repair_contract import parse_repair_action, render_repair_messages
 
@@ -21,7 +21,7 @@ def resolve_default_model_id() -> str:
     token = os.environ.get("HF_TOKEN", "").strip()
     if token:
         try:
-            from huggingface_hub import HfApi  # type: ignore[import-not-found]
+            from huggingface_hub import HfApi
 
             whoami = HfApi(token=token).whoami(token=token)
             name = whoami.get("name") if isinstance(whoami, dict) else None
@@ -60,7 +60,7 @@ class HfLocalAgent:
         self._tokenizer = tokenizer
         self._model = model
 
-    def _messages(self, task: Task) -> list[dict[str, str]]:
+    def _messages(self, task: AgentTask) -> list[dict[str, str]]:
         """Build the chat prompt using the same repair contract as provider adapters."""
         target_rows = []
         for row_index, (_, row) in enumerate(task.dirty_df.iterrows()):
@@ -93,8 +93,8 @@ class HfLocalAgent:
                 provider="hf-local",
             )
         try:
-            import torch  # type: ignore[import-not-found]
-            from transformers import (  # type: ignore[import-not-found]
+            import torch
+            from transformers import (
                 AutoModelForCausalLM,
                 AutoTokenizer,
             )
@@ -196,7 +196,7 @@ class HfLocalAgent:
             for repair in parsed.action.repairs
         ]
 
-    def run(self, task: Task) -> AgentRunResult:
+    def run(self, task: AgentTaskInput) -> AgentRunResult:
         """Run local generation and return proposed fixes plus usage."""
         tokenizer, _model = self._load() if self._model is None else (self._tokenizer, self._model)
         prompt = self._prompt(tokenizer, self._messages(task))

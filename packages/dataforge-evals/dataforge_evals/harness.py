@@ -148,7 +148,7 @@ def _git_commit(path: Path) -> str:
 def _dataforge_commit() -> str | None:
     """Return the installed DataForge source commit when available."""
     with contextlib.suppress(Exception):
-        import dataforge  # type: ignore[import-not-found]
+        import dataforge
 
         package_root = Path(dataforge.__file__).resolve().parents[1]
         return _git_commit(package_root)

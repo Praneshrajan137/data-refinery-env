@@ -4,7 +4,7 @@ environment:
   resolved_on: "2026-06-11"
   runtime_target: "Kaggle free GPU T4, fp16, 0.5B only"
   notes:
-    - "V3 is gated on a passing private SFT-v6 contract-first predecessor before any GRPO GPU spend."
+    - "V3 is gated on a passing private SFT-v7 parse-latch predecessor before any GRPO GPU spend."
     - "Set PYTHONUTF8=1 before importing TRL on Windows-style runtimes."
     - "TRL v0.11 is intentionally unsupported because GRPOTrainer is not part of that release path."
     - "Kaggle base images may include torchao<0.16; uninstall torchao before PEFT LoRA injection."
@@ -29,14 +29,14 @@ kaggle:
 repos:
   dataset_repo_template: "{hf_user}/dataforge-sft-trajectories"
   source_dataset_repo: "Praneshrajan15/dataforge-sft-trajectories"
-  sft_model_repo: "Praneshrajan15/DataForge-0.5B-SFT-v6-candidate"
+  sft_model_repo: "Praneshrajan15/DataForge-0.5B-SFT-v7-candidate"
   grpo_model_repo_template: "{hf_user}/DataForge-0.5B-GRPO-v3-candidate"
   config_filename: grpo_05b_v3.yaml
   reward_module: training/rewards/dataforge_reward.py
 
 model:
   base_model: "Qwen/Qwen2.5-0.5B-Instruct"
-  sft_checkpoint: "Praneshrajan15/DataForge-0.5B-SFT-v6-candidate"
+  sft_checkpoint: "Praneshrajan15/DataForge-0.5B-SFT-v7-candidate"
   sft_checkpoint_required: true
   target_model_repo: "Praneshrajan15/DataForge-0.5B-GRPO-v3-candidate"
   model_license: "apache-2.0"
@@ -111,9 +111,9 @@ reward:
     abstention_slice_overrepair_reward: 0.0
 
 readiness:
-  trajectory_filename: "expert_v6_contract_minimal.jsonl"
+  trajectory_filename: "expert_v7_parse_latch.jsonl"
   split_manifest_filename: "split_manifest_v4.json"
-  prompt_contract_version: "repair_contract_v2"
+  prompt_contract_version: "repair_contract_v3"
   required_datasets:
     - "hospital"
     - "flights"
@@ -138,7 +138,7 @@ training_sequence:
     - name: "smoke"
       max_steps: 50
       allow_upload: false
-      purpose: "Validate imports, SFT-v6 predecessor contract, inferability-aware reward variance, memory, and logging."
+      purpose: "Validate imports, SFT-v7 predecessor contract, inferability-aware reward variance, memory, and logging."
     - name: "diagnostic"
       max_steps: 250
       allow_upload_after_gate: false

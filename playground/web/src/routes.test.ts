@@ -3,14 +3,14 @@ import { normalizeRoutePath, routeById, routeFromPathname } from "./routes";
 
 describe("product routes", () => {
   it("parses playground paths into stable product routes", () => {
-    expect(routeFromPathname("/playground/").id).toBe("home");
+    expect(routeFromPathname("/playground/").id).toBe("run");
     expect(routeFromPathname("/playground/run").id).toBe("run");
     expect(routeFromPathname("/playground/atlas/").id).toBe("atlas");
     expect(routeFromPathname("/playground/evidence?x=1").id).toBe("evidence");
   });
 
-  it("falls back to operations home for unknown paths", () => {
-    expect(routeFromPathname("/playground/unknown").id).toBe("home");
+  it("falls back to the product loop for unknown paths", () => {
+    expect(routeFromPathname("/playground/unknown").id).toBe("run");
     expect(routeById("receipt").href).toBe("/playground/receipt");
   });
 

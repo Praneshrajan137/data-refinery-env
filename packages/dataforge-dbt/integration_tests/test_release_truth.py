@@ -8,14 +8,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_readme_marks_unpublished_install_claims() -> None:
-    """PyPI install snippets must be qualified while the package is unpublished."""
+def test_readme_documents_published_install_without_stale_release_qualifiers() -> None:
+    """The README should describe the current PyPI package state."""
     text = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
-    pattern = re.compile(r"\bpip\s+install\b[^\n`]*dataforge_07_dbt")
-    errors = [
-        line
-        for line in text.splitlines()
-        if pattern.search(line) and "after pypi publication" not in line.lower()
-    ]
 
-    assert errors == []
+    assert re.search(r"\bpython\s+-m\s+pip\s+install\s+dataforge_07_dbt\b", text)
+    assert "not published yet" not in text.lower()
+    assert "after pypi publication" not in text.lower()

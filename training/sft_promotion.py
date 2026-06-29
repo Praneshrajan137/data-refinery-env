@@ -7,6 +7,9 @@ from typing import Any
 
 SFT_V5_PROMOTION_REPORT_SCHEMA = "dataforge_sft_v5_candidate_eval_report_v1"
 SFT_V6_PROMOTION_REPORT_SCHEMA = "dataforge_sft_v6_candidate_eval_report_v1"
+SFT_V7_PROMOTION_REPORT_SCHEMA = "dataforge_sft_v7_candidate_eval_report_v1"
+SFT_V8_PROMOTION_REPORT_SCHEMA = "dataforge_sft_v8_candidate_eval_report_v1"
+SFT_V9_PROMOTION_REPORT_SCHEMA = "dataforge_sft_v9_candidate_eval_report_v1"
 PROMOTION_REPORT_SCHEMA = SFT_V5_PROMOTION_REPORT_SCHEMA
 DEFAULT_THRESHOLDS = {
     "strict_macro_f1_min": 0.10,
@@ -109,8 +112,9 @@ def build_sft_promotion_report(
     training_metrics: Mapping[str, Any] | None = None,
     artifacts: Mapping[str, Any] | None = None,
     upload_blocker: str | None = None,
+    grpo_consumer_label: str = "GRPO-v3",
 ) -> dict[str, Any]:
-    """Build the local predecessor report consumed by GRPO-v3 handoff scripts."""
+    """Build the local predecessor report consumed by gated GRPO handoff scripts."""
     task_scores = sft_diagnostics.get("task_scores", [])
     if not isinstance(task_scores, Sequence):
         task_scores = []
@@ -133,6 +137,8 @@ def build_sft_promotion_report(
         "dataset_f1": sft_eval.get("dataset_f1", {}),
         "slice_scores": sft_eval.get("slice_scores", {}),
         "failure_taxonomy": sft_eval.get("failure_taxonomy", {}),
+        "parse_error_counts": sft_eval.get("parse_error_counts", {}),
+        "completion_artifacts": sft_eval.get("completion_artifacts", {}),
         "active_repair": active_repair_metrics(task_scores),
     }
     return {
@@ -154,7 +160,7 @@ def build_sft_promotion_report(
         "artifacts": dict(artifacts or {}),
         "limitations": [
             f"{candidate_label} is a private {candidate_kind} predecessor candidate, not a public release.",
-            "GRPO-v3 may consume this report only when promote_to_grpo is true.",
+            f"{grpo_consumer_label} may consume this report only when promote_to_grpo is true.",
         ],
     }
 
@@ -198,4 +204,42 @@ def build_sft_v6_promotion_report(
         report_schema_version=SFT_V6_PROMOTION_REPORT_SCHEMA,
         candidate_label="SFT-v6",
         candidate_kind="contract-first",
+    )
+
+
+def build_sft_v7_promotion_report(
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Build the SFT-v7 predecessor report consumed by GRPO-v3 handoff scripts."""
+    return build_sft_promotion_report(
+        **kwargs,
+        report_schema_version=SFT_V7_PROMOTION_REPORT_SCHEMA,
+        candidate_label="SFT-v7",
+        candidate_kind="parse-latch",
+    )
+
+
+def build_sft_v8_promotion_report(
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Build the SFT-v8 predecessor report consumed by GRPO-v4 handoff scripts."""
+    return build_sft_promotion_report(
+        **kwargs,
+        report_schema_version=SFT_V8_PROMOTION_REPORT_SCHEMA,
+        candidate_label="SFT-v8",
+        candidate_kind="schema-distill",
+        grpo_consumer_label="GRPO-v4",
+    )
+
+
+def build_sft_v9_promotion_report(
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Build the SFT-v9 predecessor report consumed by GRPO-v4 handoff scripts."""
+    return build_sft_promotion_report(
+        **kwargs,
+        report_schema_version=SFT_V9_PROMOTION_REPORT_SCHEMA,
+        candidate_label="SFT-v9",
+        candidate_kind="action-envelope",
+        grpo_consumer_label="GRPO-v4",
     )

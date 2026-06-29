@@ -56,6 +56,12 @@ import {
   type MotionIntensity,
 } from "./motion";
 import {
+  SAFETY_REVERT_EXPLANATION,
+  localCommands,
+  selectPrimaryRepairMoment,
+  type PrimaryRepairMoment,
+} from "./productLoop";
+import {
   PRODUCT_ROUTES,
   routeById,
   routeFromPathname,
@@ -85,7 +91,7 @@ import {
 } from "./workflow";
 
 const SAMPLE_OPTIONS = [
-  { value: "hospital_10rows", label: "Hospital", detail: "Healthcare data" },
+  { value: "hospital_10rows", label: "Hospital", detail: "Rating 45.0 -> 4.5" },
   { value: "flights_10rows", label: "Flights", detail: "Aviation data" },
   { value: "beers_10rows", label: "Beers", detail: "Consumer data" },
 ];
@@ -146,6 +152,10 @@ function App() {
         selectedConstraintIds: acceptedConstraintIds,
       }),
     [acceptedConstraintIds, dataset, latestAnalysis, workflow],
+  );
+  const primaryMoment = useMemo(
+    () => (latestAnalysis ? selectPrimaryRepairMoment(latestAnalysis) : null),
+    [latestAnalysis],
   );
 
   useEffect(() => {
@@ -255,7 +265,6 @@ function App() {
     setAnalysisState("loading");
     setProblem(null);
     setCopyState("idle");
-    navigate("atlas");
     setSelectedEvidence({ kind: "stage", id: "intake" });
     dispatchWorkflow({ type: "start" });
 
@@ -277,7 +286,6 @@ function App() {
           .map((candidate) => candidate.candidate_id),
       );
       setAnalysisState("ready");
-      navigate("evidence");
       setSelectedEvidence({ kind: "receipt", id: nextAnalysis.receipt.txn_id ?? "receipt" });
     } catch (error) {
       if (isAbortError(error)) {
@@ -351,16 +359,6 @@ function App() {
             animate="animate"
             exit="exit"
           >
-            {route.id === "home" ? (
-              <HomePage
-                capability={capability}
-                backendState={backendState}
-                streamingEnabled={streamingEnabled}
-                maxUploadBytes={maxUploadBytes}
-                observatory={observatory}
-                onNavigate={navigate}
-              />
-            ) : null}
             {route.id === "run" ? (
               <RunPage
                 dataset={dataset}
@@ -379,6 +377,7 @@ function App() {
                 fileInputRef={fileInputRef}
                 problem={problem}
                 latestAnalysis={latestAnalysis}
+                primaryMoment={primaryMoment}
                 observatory={observatory}
                 onAdvancedChange={setAdvanced}
                 onChooseSample={chooseSample}
@@ -489,7 +488,7 @@ function ProductShell({
           <span className="product-mark" aria-hidden="true">DF</span>
           <div>
             <p className="eyebrow">DataForge</p>
-            <strong>Aurelian Proof</strong>
+            <strong>CSV Repair Loop</strong>
           </div>
         </div>
         <nav>
@@ -550,49 +549,6 @@ function ProductPageHeader({
   );
 }
 
-function HomePage({
-  capability,
-  backendState,
-  streamingEnabled,
-  maxUploadBytes,
-  observatory,
-  onNavigate,
-}: {
-  capability: BackendCapability | null;
-  backendState: WorkState;
-  streamingEnabled: boolean;
-  maxUploadBytes: number;
-  observatory: ReturnType<typeof buildObservatoryView>;
-  onNavigate: (routeId: ProductRouteId) => void;
-}) {
-  return (
-    <main className="route-page home-page">
-      <section className={`run-posture run-posture--${observatory.runPosture.tone}`}>
-        <div>
-          <p className="eyebrow">Operations Home</p>
-          <h2>{observatory.runPosture.title}</h2>
-          <p>{observatory.runPosture.detail}</p>
-        </div>
-        <div className="metric-grid">
-          <Metric label="Backend" value={backendState} />
-          <Metric label="Stream" value={streamingEnabled ? "available" : "fallback"} />
-          <Metric label="CSV cap" value={`${Math.floor(maxUploadBytes / 1024)} KiB`} />
-          <Metric label="Advanced" value={capability?.advanced_available ? "available" : "off"} />
-        </div>
-      </section>
-      <section className="route-card-grid" aria-label="Product sections">
-        {PRODUCT_ROUTES.filter((item) => item.id !== "home").map((item) => (
-          <button key={item.id} type="button" className="route-card" onClick={() => onNavigate(item.id)}>
-            <span>{item.label}</span>
-            <strong>{item.title}</strong>
-            <p>{item.description}</p>
-          </button>
-        ))}
-      </section>
-    </main>
-  );
-}
-
 function RunPage({
   dataset,
   busy,
@@ -610,6 +566,7 @@ function RunPage({
   fileInputRef,
   problem,
   latestAnalysis,
+  primaryMoment,
   observatory,
   onAdvancedChange,
   onChooseSample,
@@ -639,6 +596,7 @@ function RunPage({
   fileInputRef: RefObject<HTMLInputElement | null>;
   problem: ProblemDetail | null;
   latestAnalysis: AnalyzeResponse | null;
+  primaryMoment: PrimaryRepairMoment | null;
   observatory: ReturnType<typeof buildObservatoryView>;
   onAdvancedChange: (next: boolean) => void;
   onChooseSample: (sampleName: string) => void | Promise<void>;
@@ -678,8 +636,19 @@ function RunPage({
         onExport={onExport}
         onBackendRetry={onBackendRetry}
       />
+      <ProductLoopRail dataset={dataset} analysis={latestAnalysis} primaryMoment={primaryMoment} />
       {copyState === "failed" && evidenceText ? <CopyFallback evidenceText={evidenceText} /> : null}
       {problem ? <ProblemBanner problem={problem} /> : null}
+      <ProductLoopWorkbench
+        dataset={dataset}
+        analysis={latestAnalysis}
+        primaryMoment={primaryMoment}
+        hasEvidence={hasEvidence}
+        copyState={copyState}
+        onCopy={onCopy}
+        onExport={onExport}
+        onNavigate={onNavigate}
+      />
       <OverviewLens
         dataset={dataset}
         preview={dataset?.preview ?? null}
@@ -688,7 +657,7 @@ function RunPage({
         onSelect={onSelect}
       />
       <section className="route-actions" aria-label="Next pages">
-        <button type="button" onClick={() => onNavigate("atlas")}>Open Proof Atlas</button>
+        <button type="button" onClick={() => onNavigate("atlas")}>Open proof details</button>
         <button type="button" onClick={() => onNavigate("evidence")}>Open Evidence</button>
       </section>
     </main>
@@ -904,10 +873,10 @@ function SystemPage({
       <section className="state-legend" aria-labelledby="state-legend-title">
         <div>
           <p className="eyebrow">Semantic State</p>
-          <h2 id="state-legend-title">Aurelian Proof Intelligence legend</h2>
+          <h2 id="state-legend-title">Proof intelligence legend</h2>
         </div>
         <div className="legend-grid">
-          <span className="legend-item legend-item--command">Aurelian command</span>
+          <span className="legend-item legend-item--command">Primary command</span>
           <span className="legend-item legend-item--active">Vermilion active</span>
           <span className="legend-item legend-item--info">Teal evidence</span>
           <span className="legend-item legend-item--verified">Viridian proof</span>
@@ -1012,44 +981,18 @@ function MissionBar({
         <span className="product-mark" aria-hidden="true">DF</span>
         <div>
           <p className="eyebrow">DataForge Run</p>
-          <h1>Proof-and-repair workbench</h1>
+          <h1>CSV repair workbench</h1>
+          <p>One CSV, one verified before/after, one exportable receipt.</p>
         </div>
       </div>
 
-      <div className="mission-intake" aria-label="Dataset intake">
-        <label className="file-intake" htmlFor="csv-upload">
-          <Upload aria-hidden="true" />
-          <span>
-            <strong>Upload CSV</strong>
-            <small>{dataset?.source === "upload" ? dataset.file.name : "Local preview only"}</small>
-          </span>
-          <input
-            id="csv-upload"
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            disabled={busy}
-            onChange={onFileChange}
-          />
-        </label>
-        <div className="sample-strip" aria-label="Sample datasets">
-          {SAMPLE_OPTIONS.map((sample) => (
-            <button
-              className="sample-chip"
-              type="button"
-              key={sample.value}
-              disabled={busy}
-              onClick={() => void onChooseSample(sample.value)}
-            >
-              <Database aria-hidden="true" />
-              <span>
-                <strong>{sample.label}</strong>
-                <small>{sample.detail}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      <DatasetIntake
+        dataset={dataset}
+        busy={busy}
+        fileInputRef={fileInputRef}
+        onChooseSample={onChooseSample}
+        onFileChange={onFileChange}
+      />
 
       <div className="mission-controls">
         <div className="operating-marks" aria-label="Playground operating constraints">
@@ -1108,6 +1051,402 @@ function MissionBar({
           </button>
         </div>
       </div>
+    </section>
+  );
+}
+
+function DatasetIntake({
+  dataset,
+  busy,
+  fileInputRef,
+  onChooseSample,
+  onFileChange,
+}: {
+  dataset: DatasetInput | null;
+  busy: boolean;
+  fileInputRef: RefObject<HTMLInputElement | null>;
+  onChooseSample: (sampleName: string) => void | Promise<void>;
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
+}) {
+  return (
+    <div className="mission-intake" aria-label="Dataset intake">
+      <label className="file-intake" htmlFor="csv-upload">
+        <Upload aria-hidden="true" />
+        <span>
+          <strong>Upload CSV</strong>
+          <small>{dataset?.source === "upload" ? dataset.file.name : "Local preview only"}</small>
+        </span>
+        <input
+          id="csv-upload"
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          disabled={busy}
+          onChange={onFileChange}
+        />
+      </label>
+      <div className="sample-strip" aria-label="Sample datasets">
+        {SAMPLE_OPTIONS.map((sample) => (
+          <button
+            className="sample-chip"
+            type="button"
+            key={sample.value}
+            disabled={busy}
+            onClick={() => void onChooseSample(sample.value)}
+          >
+            <Database aria-hidden="true" />
+            <span>
+              <strong>{sample.label}</strong>
+              <small>{sample.detail}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProductLoopRail({
+  dataset,
+  analysis,
+  primaryMoment,
+}: {
+  dataset: DatasetInput | null;
+  analysis: AnalyzeResponse | null;
+  primaryMoment: PrimaryRepairMoment | null;
+}) {
+  const steps = [
+    {
+      label: "Upload",
+      detail: dataset ? dataset.file.name : "Choose Hospital or upload CSV",
+      state: dataset ? "complete" : "active",
+    },
+    {
+      label: "Profile",
+      detail: analysis ? `${analysis.source.rows} rows, ${analysis.source.columns} columns` : "Infer schema and facts",
+      state: analysis ? "complete" : dataset ? "active" : "pending",
+    },
+    {
+      label: "Issues",
+      detail: analysis ? `${analysis.receipt.issues_count} issue group(s)` : "Find risky cells",
+      state: analysis ? (analysis.receipt.issues_count > 0 ? "review" : "complete") : "pending",
+    },
+    {
+      label: "Repairs",
+      detail:
+        primaryMoment?.kind === "verified"
+          ? `${primaryMoment.oldValue} -> ${primaryMoment.newValue}`
+          : primaryMoment?.kind === "abstention"
+            ? "Abstained safely"
+            : "Review verified fixes",
+      state:
+        primaryMoment?.kind === "verified"
+          ? "complete"
+          : primaryMoment?.kind === "abstention"
+            ? "review"
+            : "pending",
+    },
+    {
+      label: "Receipt",
+      detail: analysis?.txn_journal.txn_id ?? "Export dry-run evidence",
+      state: analysis ? "complete" : "pending",
+    },
+    {
+      label: "Safety",
+      detail: analysis ? `${analysis.receipt.safety_verdict} safety, ${analysis.receipt.verifier_verdict} verifier` : "Explain apply and revert",
+      state: analysis ? "complete" : "pending",
+    },
+  ];
+
+  return (
+    <section className="product-loop-rail" aria-label="CSV repair loop">
+      {steps.map((step, index) => (
+        <div key={step.label} className={`loop-step loop-step--${step.state}`}>
+          <span>{index + 1}</span>
+          <strong>{step.label}</strong>
+          <small>{step.detail}</small>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ProductLoopWorkbench({
+  dataset,
+  analysis,
+  primaryMoment,
+  hasEvidence,
+  copyState,
+  onCopy,
+  onExport,
+  onNavigate,
+}: {
+  dataset: DatasetInput | null;
+  analysis: AnalyzeResponse | null;
+  primaryMoment: PrimaryRepairMoment | null;
+  hasEvidence: boolean;
+  copyState: "idle" | "copied" | "failed";
+  onCopy: () => void;
+  onExport: () => void;
+  onNavigate: (routeId: ProductRouteId) => void;
+}) {
+  return (
+    <section className="product-loop-workbench" aria-labelledby="product-loop-title">
+      <div className="panel-heading product-loop-heading">
+        <div>
+          <p className="eyebrow">User-facing loop</p>
+          <h2 id="product-loop-title">Upload CSV {"->"} profile {"->"} issues {"->"} verified repair {"->"} receipt {"->"} safe revert</h2>
+        </div>
+        <span className="quiet-chip">{analysis ? "receipt ready" : dataset ? "ready to analyze" : "waiting for CSV"}</span>
+      </div>
+      <div className="product-loop-grid">
+        <ProfileSummary dataset={dataset} analysis={analysis} />
+        <IssueReview analysis={analysis} onNavigate={onNavigate} />
+        <VerifiedRepairReview analysis={analysis} primaryMoment={primaryMoment} onNavigate={onNavigate} />
+        <ReceiptExport
+          analysis={analysis}
+          primaryMoment={primaryMoment}
+          hasEvidence={hasEvidence}
+          copyState={copyState}
+          onCopy={onCopy}
+          onExport={onExport}
+          onNavigate={onNavigate}
+        />
+      </div>
+      <SafetyRevertExplainer analysis={analysis} />
+    </section>
+  );
+}
+
+function ProfileSummary({
+  dataset,
+  analysis,
+}: {
+  dataset: DatasetInput | null;
+  analysis: AnalyzeResponse | null;
+}) {
+  return (
+    <article className="loop-panel loop-panel--profile" aria-labelledby="profile-summary-title">
+      <p className="eyebrow">Profile</p>
+      <h3 id="profile-summary-title">Current CSV</h3>
+      {analysis ? (
+        <dl className="loop-facts">
+          <div>
+            <dt>File</dt>
+            <dd>{analysis.source.name}</dd>
+          </div>
+          <div>
+            <dt>Shape</dt>
+            <dd>{analysis.source.rows} rows x {analysis.source.columns} columns</dd>
+          </div>
+          <div>
+            <dt>Source hash</dt>
+            <dd>{shortHash(analysis.source.sha256)}</dd>
+          </div>
+        </dl>
+      ) : dataset ? (
+        <dl className="loop-facts">
+          <div>
+            <dt>File</dt>
+            <dd>{dataset.file.name}</dd>
+          </div>
+          <div>
+            <dt>Preview</dt>
+            <dd>{dataset.preview.rows.length} rows, {dataset.preview.columns.length} columns</dd>
+          </div>
+          <div>
+            <dt>Mode</dt>
+            <dd>local preview before backend profile</dd>
+          </div>
+        </dl>
+      ) : (
+        <p>Choose the Hospital sample or upload a CSV to begin the proof loop.</p>
+      )}
+    </article>
+  );
+}
+
+function IssueReview({
+  analysis,
+  onNavigate,
+}: {
+  analysis: AnalyzeResponse | null;
+  onNavigate: (routeId: ProductRouteId) => void;
+}) {
+  const issue = analysis?.issues[0];
+  return (
+    <article className="loop-panel loop-panel--issues" aria-labelledby="issue-review-title">
+      <p className="eyebrow">Issues</p>
+      <h3 id="issue-review-title">{analysis ? `${analysis.receipt.issues_count} issue group(s)` : "Issue review waits for Analyze"}</h3>
+      {analysis && issue ? (
+        <>
+          <dl className="loop-facts">
+            <div>
+              <dt>First issue</dt>
+              <dd>{formatLabel(issue.issue_type)}</dd>
+            </div>
+            <div>
+              <dt>Column</dt>
+              <dd>{issue.column}</dd>
+            </div>
+            <div>
+              <dt>Rows</dt>
+              <dd>{formatRows(issue.row_indices.map((row) => row + 1), issue.row_indices_truncated)}</dd>
+            </div>
+          </dl>
+          <button type="button" className="loop-link" onClick={() => onNavigate("evidence")}>
+            Open issue evidence
+          </button>
+        </>
+      ) : analysis ? (
+        <p>No detector issue groups were reported for this CSV.</p>
+      ) : (
+        <p>DataForge profiles the table before proposing any repair.</p>
+      )}
+    </article>
+  );
+}
+
+function VerifiedRepairReview({
+  analysis,
+  primaryMoment,
+  onNavigate,
+}: {
+  analysis: AnalyzeResponse | null;
+  primaryMoment: PrimaryRepairMoment | null;
+  onNavigate: (routeId: ProductRouteId) => void;
+}) {
+  return (
+    <article className="loop-panel loop-panel--repair" aria-labelledby="verified-repair-title">
+      <p className="eyebrow">Verified repair review</p>
+      <h3 id="verified-repair-title">{primaryMoment?.title ?? "Before/after appears after Analyze"}</h3>
+      {primaryMoment?.kind === "verified" ? (
+        <>
+          <div className="primary-repair-note" role="note">
+            <strong>{primaryMoment.note}</strong>
+            <span>{primaryMoment.detectorId} - confidence {formatPercent(primaryMoment.confidence)}</span>
+          </div>
+          <div className="diff-grid primary-diff" aria-label="Primary repair before and after">
+            <div className="diff-cell diff-cell--old">
+              <span>Before</span>
+              <code>{primaryMoment.oldValue || "(blank)"}</code>
+            </div>
+            <div className="diff-cell diff-cell--new">
+              <span>After</span>
+              <code>{primaryMoment.newValue || "(blank)"}</code>
+            </div>
+          </div>
+          <dl className="loop-facts">
+            <div>
+              <dt>Verifier</dt>
+              <dd>{primaryMoment.verifierVerdict}</dd>
+            </div>
+            <div>
+              <dt>Safety</dt>
+              <dd>{primaryMoment.safetyVerdict}</dd>
+            </div>
+            <div>
+              <dt>Source hash</dt>
+              <dd>{shortHash(primaryMoment.sourceSha256)}</dd>
+            </div>
+          </dl>
+          <p>{primaryMoment.verifierReason}</p>
+        </>
+      ) : primaryMoment?.kind === "abstention" ? (
+        <>
+          <div className="primary-repair-note primary-repair-note--review" role="note">
+            <strong>{primaryMoment.note}</strong>
+            <span>{primaryMoment.status}</span>
+          </div>
+          <p>{primaryMoment.reason}</p>
+        </>
+      ) : analysis ? (
+        <p>No verified repair was needed for this dry run.</p>
+      ) : (
+        <p>The clearest verified cell change will be highlighted here.</p>
+      )}
+      <button type="button" className="loop-link" onClick={() => onNavigate("repairs")} disabled={!analysis}>
+        Open repair details
+      </button>
+    </article>
+  );
+}
+
+function ReceiptExport({
+  analysis,
+  primaryMoment,
+  hasEvidence,
+  copyState,
+  onCopy,
+  onExport,
+  onNavigate,
+}: {
+  analysis: AnalyzeResponse | null;
+  primaryMoment: PrimaryRepairMoment | null;
+  hasEvidence: boolean;
+  copyState: "idle" | "copied" | "failed";
+  onCopy: () => void;
+  onExport: () => void;
+  onNavigate: (routeId: ProductRouteId) => void;
+}) {
+  const commands = analysis ? localCommands(analysis) : null;
+  return (
+    <article className="loop-panel loop-panel--receipt" aria-labelledby="receipt-export-title">
+      <p className="eyebrow">Receipt</p>
+      <h3 id="receipt-export-title">{analysis ? "Export dry-run receipt" : "Receipt waits for analysis"}</h3>
+      <p>{primaryMoment?.note ?? "The receipt will include source facts, issues, repairs, verification, hashes, commands, and limitations."}</p>
+      <div className="loop-actions" aria-label="Primary receipt actions">
+        <button className="icon-button" type="button" disabled={!hasEvidence} onClick={onCopy}>
+          <ClipboardCopy aria-hidden="true" />
+          {copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy"}
+        </button>
+        <button className="icon-button" type="button" disabled={!hasEvidence} onClick={onExport}>
+          <Download aria-hidden="true" />
+          Export
+        </button>
+      </div>
+      {commands ? (
+        <dl className="loop-facts">
+          <div>
+            <dt>Apply</dt>
+            <dd><code>{commands.apply}</code></dd>
+          </div>
+          <div>
+            <dt>Audit</dt>
+            <dd><code>{commands.audit}</code></dd>
+          </div>
+          <div>
+            <dt>Revert</dt>
+            <dd><code>{commands.revert}</code></dd>
+          </div>
+        </dl>
+      ) : null}
+      <button type="button" className="loop-link" onClick={() => onNavigate("receipt")} disabled={!analysis}>
+        Open full receipt
+      </button>
+    </article>
+  );
+}
+
+function SafetyRevertExplainer({ analysis }: { analysis: AnalyzeResponse | null }) {
+  return (
+    <section className="safety-revert-explainer" aria-labelledby="safety-revert-title">
+      <div>
+        <p className="eyebrow">Safety and revert</p>
+        <h3 id="safety-revert-title">Why the hosted demo is safe to try</h3>
+      </div>
+      <ul>
+        {SAFETY_REVERT_EXPLANATION.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      {analysis ? (
+        <div className="safety-hashes" aria-label="Receipt safety hashes">
+          <span>source {shortHash(analysis.receipt.source_sha256)}</span>
+          <span>patch {analysis.receipt.patch_plan_sha256 ? shortHash(analysis.receipt.patch_plan_sha256) : "none"}</span>
+          <span>{analysis.receipt.applied ? "applied" : "not applied"}</span>
+        </div>
+      ) : null}
     </section>
   );
 }

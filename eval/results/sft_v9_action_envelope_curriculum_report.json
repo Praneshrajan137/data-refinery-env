@@ -1,0 +1,101 @@
+{
+  "artifacts": {
+    "input_path": "data\\sft_traj\\expert_v8_schema_distill.jsonl",
+    "output_path": "data\\sft_traj\\expert_v9_action_envelope.jsonl",
+    "report_path": "eval\\results\\sft_v9_action_envelope_curriculum_report.json"
+  },
+  "blockers": [],
+  "curriculum_version": "expert_v9_action_envelope",
+  "invalid_samples": [],
+  "label_mask_audit": {
+    "completion_column": "single compact assistant JSON action",
+    "completion_only_loss_required": true,
+    "method": "structural_prompt_completion_split",
+    "ok": true,
+    "prompt_contains_roles": [
+      "system",
+      "user"
+    ],
+    "runner_required": "Kaggle runner must pass completion_only_loss=True to TRL SFTConfig."
+  },
+  "leakage_samples": [],
+  "limitations": [
+    "Negative contrast examples are audit metadata and are never assistant targets.",
+    "Strict held-out eval remains unchanged; this curriculum only changes the SFT action-envelope objective.",
+    "Product-constrained parse reliability must be reported separately from repair F1."
+  ],
+  "metrics": {
+    "completion_code_fence_count": 0,
+    "completion_parse_failure_count": 0,
+    "completion_parse_success_rate": 1.0,
+    "completion_reason_text_count": 0,
+    "finish_ratio": 0.487,
+    "finish_records": 1874,
+    "finish_with_repairs": 0,
+    "heldout_leakage_count": 0,
+    "invalid_count": 0,
+    "legacy_messages_present": 0,
+    "negative_contrast_examples": 23088,
+    "negative_contrast_shape": {
+      "bare_repair_object": 3848,
+      "extra_key": 3848,
+      "finish_with_repairs": 3848,
+      "invalid_row": 3848,
+      "row_object_output": 3848,
+      "wrong_case_column": 3848
+    },
+    "negative_contrast_target_leakage_count": 0,
+    "output_records": 3848,
+    "prompt_completion_records": 3848,
+    "record_contract_version_mismatches": 0,
+    "repair_cells": 2841,
+    "shape": {
+      "action:finish": 1874,
+      "action:submit_repairs": 1974,
+      "action_envelope_micro_drill:deterministic_normalization:submit_repairs": 700,
+      "action_envelope_micro_drill:not_inferable_from_prompt:finish": 700,
+      "beers:deterministic_normalization:submit_repairs": 590,
+      "beers:external_reference_required:finish": 326,
+      "flights:deterministic_normalization:submit_repairs": 128,
+      "flights:external_reference_required:finish": 290,
+      "flights:not_inferable_from_prompt:finish": 34,
+      "hospital:external_reference_required:finish": 290,
+      "hospital:not_inferable_from_prompt:finish": 34,
+      "hospital_synthetic_deterministic_v1:deterministic_normalization:submit_repairs": 256,
+      "negative:bare_repair_object": 3848,
+      "negative:extra_key": 3848,
+      "negative:finish_with_repairs": 3848,
+      "negative:invalid_row": 3848,
+      "negative:row_object_output": 3848,
+      "negative:wrong_case_column": 3848,
+      "schema_micro_drill:deterministic_normalization:submit_repairs": 300,
+      "schema_micro_drill:not_inferable_from_prompt:finish": 200
+    },
+    "submit_ratio": 0.513,
+    "submit_repair_records": 1974,
+    "training_format_mismatches": 0,
+    "user_contract_version_mismatches": 0,
+    "validation_failure_count": 0
+  },
+  "ok": true,
+  "product_constrained_preflight": {
+    "claim_policy": "Curriculum parse success is a preflight only; product repair quality requires held-out constrained eval.",
+    "deterministic_normalization_f1": 0.0,
+    "not_inferable_from_prompt_f1": 0.0,
+    "parse_structural_success_rate": 1.0,
+    "rejected_invalid_repairs": 0,
+    "schema_version": "dataforge_product_constrained_eval_v1",
+    "status": "curriculum_action_shape_preflight",
+    "strict_macro_f1": 0.0,
+    "verifier_accepted_repairs": 2841
+  },
+  "schema_version": "dataforge_sft_v9_action_envelope_curriculum_report_v1",
+  "settings": {
+    "finish_copies": 1,
+    "finish_envelope_drills": 700,
+    "submit_envelope_drills": 700,
+    "submit_repair_copies": 1
+  },
+  "status": "pass",
+  "validation_failures": []
+}

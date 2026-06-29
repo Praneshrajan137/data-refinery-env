@@ -9,3 +9,4 @@ otherwise, and they may describe capabilities that are not implemented in
 | RFC-001 | Draft | Streaming support |
 | RFC-002 | Draft | PII detection expansion |
 | RFC-003 | Draft | API versioning |
+| RFC-004 | Accepted | Evidence ledger and model boundary |

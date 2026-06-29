@@ -8,6 +8,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "dataforge_07>=0.1.0,<0.2",
     "mcp>=1.27",
+    "PyJWT>=2.13.0,<3",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

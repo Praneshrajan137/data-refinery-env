@@ -6,7 +6,7 @@ import hashlib
 import json
 import time
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -16,17 +16,21 @@ from dataforge.evaluation_contract import prompt_sha256
 from dataforge.repair_contract import (
     CONTRACT_VERSION_V2,
     RepairFix,
+    RepairParseResult,
     parse_repair_action,
     render_repair_messages,
+    repair_action_json_schema,
     repair_failure_taxonomy,
     score_repair_fixes,
     score_repair_fixes_canonicalized,
+    validate_repair_action_json_schema_payload,
 )
 from training.grpo_contract import TruthCell
 
 BENCHMARK_NAME = "DataForge-Bench-light-verified"
 TASK_MANIFEST_SCHEMA = "dataforge_grpo_eval_task_manifest_v1"
 EVAL_DIAGNOSTICS_SCHEMA = "dataforge_grpo_eval_diagnostics_v1"
+PRODUCT_CONSTRAINED_EVAL_SCHEMA = "dataforge_product_constrained_eval_v1"
 DEFAULT_DATASETS = ("hospital", "flights", "beers")
 DEFAULT_BENCHMARK_SEEDS = (0, 1, 2)
 DEFAULT_SEEDS_START = 10000
@@ -203,6 +207,7 @@ def build_heldout_tasks(
     seeds_start: int = DEFAULT_SEEDS_START,
     chunk_width: int = DEFAULT_CHUNK_WIDTH,
     cache_root: Path | None = None,
+    contract_version: str = CONTRACT_VERSION_V2,
 ) -> tuple[list[GrpoEvalTask], dict[str, Any]]:
     """Build deterministic strict held-out tasks from pinned source bytes."""
     if heldout_tasks < 1:
@@ -252,7 +257,7 @@ def build_heldout_tasks(
                 context_rows=[],
                 allowed_columns=dataset.canonical_columns,
                 valid_rows=valid_rows,
-                contract_version=CONTRACT_VERSION_V2,
+                contract_version=contract_version,
             )
             user_payload = json.loads(messages[1]["content"])
             task_id = f"{BENCHMARK_NAME}:{dataset_name}:{seed}:{len(tasks):04d}"
@@ -344,6 +349,8 @@ def render_eval_task_manifest(
 
 
 def _score_completion(task: GrpoEvalTask, completion: str) -> dict[str, Any]:
+    has_code_fence = "```" in completion
+    has_reason_text = "reason" in completion.lower()
     parse_result = parse_repair_action(
         completion,
         allowed_columns=task.allowed_columns,
@@ -371,15 +378,20 @@ def _score_completion(task: GrpoEvalTask, completion: str) -> dict[str, Any]:
     else:
         score = {"tp": 0, "fp": 0, "fn": len(task.ground_truth), "precision": 0.0, "recall": 0.0, "f1": 0.0}
         canonicalized_score = dict(score)
-        relaxed = parse_repair_action(completion, require_explicit_action=False)
-        if relaxed.ok and relaxed.action is not None:
-            repairs = relaxed.action.repairs
+        if parse_result.action is not None:
+            repairs = parse_result.action.repairs
+        else:
+            relaxed = parse_repair_action(completion, require_explicit_action=False)
+            if relaxed.ok and relaxed.action is not None:
+                repairs = relaxed.action.repairs
         taxonomy = repair_failure_taxonomy(
             ground_truth=task.ground_truth,
             fixes=repairs,
             allowed_columns=task.allowed_columns,
             valid_rows=task.valid_rows,
         )
+        if parse_result.error_kind == "finish_with_repairs":
+            taxonomy["finish_with_repairs"] = max(1, taxonomy.get("finish_with_repairs", 0))
         if parse_result.error_kind == "invalid_column" and parse_result.diagnostics.get("schema_case_error"):
             taxonomy["schema_case_error"] = max(1, taxonomy.get("schema_case_error", 0))
     return {
@@ -395,6 +407,8 @@ def _score_completion(task: GrpoEvalTask, completion: str) -> dict[str, Any]:
         "fn": int(score["fn"]),
         "parse_ok": parse_result.ok,
         "parse_error_kind": parse_result.error_kind,
+        "has_code_fence": has_code_fence,
+        "has_reason_text": has_reason_text,
         "schema_case_errors": int(taxonomy.get("schema_case_error", 0)),
         "failure_taxonomy": taxonomy,
         "predicted_repairs": [repair.model_dump(mode="json") for repair in repairs[:20]],
@@ -407,12 +421,16 @@ def summarize_task_scores(task_scores: Sequence[dict[str, Any]]) -> dict[str, An
     by_dataset: dict[str, list[dict[str, Any]]] = {}
     by_slice: dict[str, list[dict[str, Any]]] = {}
     failures: Counter[str] = Counter()
+    parse_errors: Counter[str] = Counter()
     for row in task_scores:
         by_dataset.setdefault(str(row["dataset"]), []).append(row)
         by_slice.setdefault(str(row["inferability"]), []).append(row)
         failures.update(row.get("failure_taxonomy", {}))
         if not row["parse_ok"]:
-            failures[str(row.get("parse_error_kind") or "parse_failure")] += 1
+            error_kind = str(row.get("parse_error_kind") or "parse_failure")
+            if error_kind not in row.get("failure_taxonomy", {}):
+                failures[error_kind] += 1
+            parse_errors[error_kind] += 1
     dataset_f1 = {
         dataset: round(sum(float(row["f1"]) for row in rows) / len(rows), 4)
         for dataset, rows in sorted(by_dataset.items())
@@ -445,6 +463,23 @@ def summarize_task_scores(task_scores: Sequence[dict[str, Any]]) -> dict[str, An
         else 0.0,
         "schema_case_error_count": sum(int(row["schema_case_errors"]) for row in task_scores),
         "failure_taxonomy": {kind: failures[kind] for kind in sorted(failures)},
+        "parse_error_counts": {kind: parse_errors[kind] for kind in sorted(parse_errors)},
+        "completion_artifacts": {
+            "code_fence_count": sum(1 for row in task_scores if row.get("has_code_fence")),
+            "code_fence_rate": round(
+                sum(1 for row in task_scores if row.get("has_code_fence")) / len(task_scores),
+                4,
+            )
+            if task_scores
+            else 0.0,
+            "reason_text_count": sum(1 for row in task_scores if row.get("has_reason_text")),
+            "reason_text_rate": round(
+                sum(1 for row in task_scores if row.get("has_reason_text")) / len(task_scores),
+                4,
+            )
+            if task_scores
+            else 0.0,
+        },
         "slice_scores": slice_scores,
         "tasks": len(task_scores),
     }
@@ -481,6 +516,166 @@ def evaluate_completions(
         "failure_samples": failure_samples,
     }
     return summary, diagnostics
+
+
+def _slice_macro_f1(summary: Mapping[str, Any], label: str) -> float:
+    slice_scores = summary.get("slice_scores", {})
+    if not isinstance(slice_scores, Mapping):
+        return 0.0
+    row = slice_scores.get(label, {})
+    if not isinstance(row, Mapping):
+        return 0.0
+    return float(row.get("macro_f1", 0.0))
+
+
+def _as_compact_action_json(action: str | Mapping[str, Any]) -> str:
+    if isinstance(action, str):
+        return action
+    return json.dumps(dict(action), sort_keys=True, separators=(",", ":"))
+
+
+def _strict_product_action_text(
+    task: GrpoEvalTask,
+    action: str | Mapping[str, Any],
+) -> tuple[str, RepairParseResult]:
+    text = _as_compact_action_json(action)
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return text, RepairParseResult(
+            ok=False,
+            error_kind="parse_failure",
+            error_message=str(exc),
+        )
+    return text, validate_repair_action_json_schema_payload(
+        payload,
+        allowed_columns=task.allowed_columns,
+        valid_rows=task.valid_rows,
+    )
+
+
+def _product_claim_allowed(
+    summary: Mapping[str, Any],
+    *,
+    raw_research_summary: Mapping[str, Any] | None,
+) -> bool:
+    if float(summary.get("parse_success_rate", 0.0)) < 0.99:
+        return False
+    strict_f1 = float(summary.get("macro_f1", 0.0))
+    if strict_f1 <= 0.0:
+        return False
+    if raw_research_summary is None:
+        return False
+    return strict_f1 > float(raw_research_summary.get("macro_f1", 0.0))
+
+
+def evaluate_product_constrained_actions(
+    tasks: Sequence[GrpoEvalTask],
+    action_fn: Callable[[GrpoEvalTask], str | Mapping[str, Any]],
+    *,
+    model_label: str = "product_constrained",
+    raw_research_summary: Mapping[str, Any] | None = None,
+    status: str = "local_json_schema_action_prototype",
+    max_failure_samples: int = MAX_FAILURE_SAMPLES,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Evaluate schema-constrained action outputs while keeping repair quality separate.
+
+    This is a product-pipeline track, not the public raw-model research metric.
+    A constrained decoder can make the action envelope structurally valid while
+    still proposing no useful repairs, so the returned track exposes parse and
+    repair F1 as independent fields.
+    """
+
+    task_scores: list[dict[str, Any]] = []
+    failure_samples: list[dict[str, Any]] = []
+    rejected_invalid_repairs = 0
+    for index, task in enumerate(tasks, start=1):
+        text, strict_result = _strict_product_action_text(task, action_fn(task))
+        scored_text = text if strict_result.ok else '{"invalid":true}'
+        row = _score_completion(task, scored_text)
+        if not strict_result.ok:
+            kind = str(strict_result.error_kind or "schema_error")
+            row["parse_ok"] = False
+            row["parse_error_kind"] = kind
+            row["failure_taxonomy"] = {**row.get("failure_taxonomy", {}), kind: 1}
+            row["predicted_repairs"] = []
+            row["product_constrained_rejected"] = True
+            row["product_constrained_error_message"] = strict_result.error_message
+            rejected_invalid_repairs += max(1, int(strict_result.diagnostics.get("repair_count", 0)))
+        row["task_index"] = index
+        task_scores.append(row)
+        if (
+            row["f1"] < 1.0 or row["failure_taxonomy"] or not row["parse_ok"]
+        ) and len(failure_samples) < max_failure_samples:
+            failure_samples.append(
+                {
+                    **row,
+                    "target_rows": task.target_rows,
+                    "ground_truth_count": len(task.ground_truth),
+                }
+            )
+    summary = summarize_task_scores(task_scores)
+    diagnostics = {
+        "model_label": model_label,
+        "task_scores": task_scores,
+        "failure_samples": failure_samples,
+    }
+    task_scores = diagnostics.get("task_scores", [])
+    if not isinstance(task_scores, Sequence):
+        task_scores = []
+    verifier_accepted_repairs = sum(
+        len(row.get("predicted_repairs", []))
+        for row in task_scores
+        if isinstance(row, Mapping) and bool(row.get("parse_ok"))
+    )
+    track = {
+        "schema_version": PRODUCT_CONSTRAINED_EVAL_SCHEMA,
+        "enabled": True,
+        "decoding": "json_schema_or_grammar_constrained",
+        "schema": repair_action_json_schema(),
+        "status": status,
+        "model_label": model_label,
+        "parse_structural_success_rate": float(summary.get("parse_success_rate", 0.0)),
+        "strict_macro_f1": float(summary.get("macro_f1", 0.0)),
+        "deterministic_normalization_f1": _slice_macro_f1(summary, "deterministic_normalization"),
+        "not_inferable_from_prompt_f1": _slice_macro_f1(summary, "not_inferable_from_prompt"),
+        "no_op_f1": _slice_macro_f1(summary, "not_inferable_from_prompt"),
+        "schema_case_error_count": int(summary.get("schema_case_error_count", 0)),
+        "rejected_invalid_repairs": int(rejected_invalid_repairs),
+        "verifier_accepted_repairs": int(verifier_accepted_repairs),
+        "metrics": summary,
+        "repair_quality_claim_allowed": _product_claim_allowed(
+            summary,
+            raw_research_summary=raw_research_summary,
+        ),
+        "claim_policy": (
+            "Constrained decoding may support product-pipeline reliability claims only when "
+            "repair F1 improves; parse success alone is not a quality claim."
+        ),
+        "limitations": [
+            "This track measures action-shape reliability separately from repair correctness.",
+            "It does not replace the raw_research strict held-out metric.",
+        ],
+    }
+    return track, diagnostics
+
+
+def evaluate_product_constrained_finish_baseline(
+    tasks: Sequence[GrpoEvalTask],
+    *,
+    raw_research_summary: Mapping[str, Any] | None = None,
+    max_failure_samples: int = MAX_FAILURE_SAMPLES,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run the safe constrained baseline: always emit the valid finish action."""
+
+    return evaluate_product_constrained_actions(
+        tasks,
+        lambda _task: {"action": "finish", "repairs": []},
+        model_label="product_constrained_finish_baseline",
+        raw_research_summary=raw_research_summary,
+        status="safe_finish_baseline_json_schema_action_prototype",
+        max_failure_samples=max_failure_samples,
+    )
 
 
 def evaluate_causal_lm(

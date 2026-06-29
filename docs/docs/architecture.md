@@ -100,6 +100,27 @@ flowchart TB
 The core pipeline owns repair behavior. Surrounding surfaces can expose or test
 the pipeline, but they should not create parallel write semantics.
 
+## Product And Model Boundary
+
+The product north star is a verified repair pipeline, not a raw LLM repair
+surface. Models may propose candidate repairs only when their outputs remain
+inside the repair contract and the deterministic path still owns verification,
+receipt generation, journaling, audit, and revert.
+
+Model evidence is reported on two separate tracks:
+
+- **Raw research track**: unconstrained generation, strict parsing, repair F1,
+  failure taxonomy, and slice scores. This is the only track used for model
+  quality claims.
+- **Product constrained track**: JSON Schema or grammar-constrained action
+  shape, with parse reliability reported separately from repair correctness.
+  It may improve product reliability, but it cannot hide weak repair F1.
+
+`docs/evidence/ledger.json` is the canonical index for shipped, beta,
+verified-research, failed-diagnostic, blocked, and roadmap evidence. Failed
+training candidates can teach the next experiment, but they never unlock a
+public model claim or downstream GRPO stage.
+
 ## Dependency Guidance
 
 Core runtime dependencies in `pyproject.toml`:
@@ -122,19 +143,18 @@ Optional extras and scoped dependencies:
 - `providers`: `httpx`, `tenacity`, and `python-dotenv` for optional LLM calls.
 - `openenv`: OpenEnv protocol dependency plus `duckdb`, `sqlglot`, and
   statistical/causal dependencies.
-- `dataforge-mcp/`: source directory for the separate planned
-  `dataforge_07_mcp` PyPI distribution with MCP dependencies.
+- `dataforge-mcp/`: source directory for the separate `dataforge_07_mcp` PyPI
+  distribution with MCP dependencies.
 - `playground-model/`: Gradio and model-demo dependencies only.
 
 ## Release Boundaries
 
-- `dataforge_07` is the planned PyPI/TestPyPI core CLI/library distribution. It
-  is not published yet; `v0.1.0-rc1` is TestPyPI-only and real PyPI release tags
-  should be created only after local gates, RC evidence, and PyPI
-  trusted-publisher configuration are verified. It intentionally keeps the
-  `dataforge` Python import namespace and CLI for the 0.1 line.
-- `dataforge_07_mcp` is the planned nested standalone distribution for
-  `dataforge-mcp-v*` release tags after PyPI publication evidence is verified.
+- `dataforge_07` is the PyPI/TestPyPI core CLI/library distribution. It
+  intentionally keeps the `dataforge` Python import namespace and CLI for the
+  0.1 line.
+- `dataforge_07_mcp`, `dataforge_07_evals`, `dataforge_07_dbt`, and
+  `dataforge_07_agent_patterns` are independently published side-package
+  distributions backed by release evidence.
 - SFT datasets and checkpoints are Hugging Face artifacts verified by
   `scripts/model/verify_sft_release.py`.
 - GRPO checkpoints are Hugging Face artifacts verified by

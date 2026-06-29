@@ -1,4 +1,4 @@
-"""Kaggle entrypoint for the gated DataForge 0.5B SFT-v6 candidate run."""
+"""Kaggle entrypoint for gated DataForge 0.5B SFT predecessor candidates."""
 
 from __future__ import annotations
 
@@ -14,12 +14,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-DEFAULT_INPUT_ROOT = Path("/kaggle/input/dataforge-sft-v6-handoff")
+DEFAULT_SFT_VERSION = os.environ.get("DATAFORGE_SFT_VERSION", "v6")
+DEFAULT_INPUT_ROOT = Path(f"/kaggle/input/dataforge-sft-{DEFAULT_SFT_VERSION}-handoff")
 INPUT_ROOT = Path(os.environ.get("DATAFORGE_SFT_INPUT", str(DEFAULT_INPUT_ROOT)))
 WORK_ROOT = Path("/kaggle/working")
 SOURCE_ROOT = WORK_ROOT / "dataforge-src"
-REPORT_PATH = WORK_ROOT / "kaggle_sft_v6_candidate_report.json"
-PROMOTION_REPORT_PATH = WORK_ROOT / "sft_v6_candidate_eval_report.json"
+REPORT_PATH = WORK_ROOT / f"kaggle_sft_{DEFAULT_SFT_VERSION}_candidate_report.json"
+PROMOTION_REPORT_FILENAME = f"sft_{DEFAULT_SFT_VERSION}_candidate_eval_report.json"
+KAGGLE_REPORT_SCHEMA = f"dataforge_kaggle_sft_{DEFAULT_SFT_VERSION}_candidate_report_v1"
 HF_SECRET_LABELS = (
     "HF_TOKEN",
     "HF",
@@ -31,12 +33,68 @@ HF_SECRET_LABELS = (
 HF_UPLOAD_CREDENTIAL_UNAVAILABLE = "hf_hub_upload_credential_unavailable"
 
 
-def _has_sft_inputs(file_names: set[str]) -> bool:
+def _input_spec() -> dict[str, Any]:
+    if DEFAULT_SFT_VERSION == "v9":
+        return {
+            "schema_version": "sft_05b_v9",
+            "config_file": "sft_05b_v9.yaml",
+            "trajectory_file": "expert_v9_action_envelope.jsonl",
+            "curriculum_report_file": "sft_v9_action_envelope_curriculum_report.json",
+            "curriculum_report_schema": "dataforge_sft_v9_action_envelope_curriculum_report_v1",
+            "candidate_label": "SFT-v9",
+            "training_format": "prompt_completion",
+            "min_submit": 1000,
+            "min_finish": 1000,
+            "submit_ratio_min": 0.45,
+            "submit_ratio_max": 0.60,
+            "requires_product_constrained_preflight": True,
+        }
+    if DEFAULT_SFT_VERSION == "v8":
+        return {
+            "schema_version": "sft_05b_v8",
+            "config_file": "sft_05b_v8.yaml",
+            "trajectory_file": "expert_v8_schema_distill.jsonl",
+            "curriculum_report_file": "sft_v8_schema_distill_curriculum_report.json",
+            "curriculum_report_schema": "dataforge_sft_v8_schema_distill_curriculum_report_v1",
+            "candidate_label": "SFT-v8",
+            "training_format": "prompt_completion",
+            "min_submit": 1000,
+            "min_finish": 900,
+            "submit_ratio_min": 0.50,
+            "submit_ratio_max": 0.60,
+        }
+    if DEFAULT_SFT_VERSION == "v7":
+        return {
+            "schema_version": "sft_05b_v7",
+            "config_file": "sft_05b_v7.yaml",
+            "trajectory_file": "expert_v7_parse_latch.jsonl",
+            "curriculum_report_file": "sft_v7_parse_latch_curriculum_report.json",
+            "curriculum_report_schema": "dataforge_sft_v7_parse_latch_curriculum_report_v1",
+            "candidate_label": "SFT-v7",
+            "training_format": "messages",
+            "min_submit": 1800,
+            "min_finish": 450,
+        }
     return {
-        "expert_v6_contract_minimal.jsonl",
+        "schema_version": "sft_05b_v6",
+        "config_file": "sft_05b_v6.yaml",
+        "trajectory_file": "expert_v6_contract_minimal.jsonl",
+        "curriculum_report_file": "sft_v6_contract_minimal_curriculum_report.json",
+        "curriculum_report_schema": "dataforge_sft_v6_contract_minimal_curriculum_report_v1",
+        "candidate_label": "SFT-v6",
+        "training_format": "messages",
+        "min_submit": 900,
+        "min_finish": 450,
+    }
+
+
+def _has_sft_inputs(file_names: set[str]) -> bool:
+    spec = _input_spec()
+    return {
+        spec["trajectory_file"],
         "split_manifest_v4.json",
-        "sft_05b_v6.yaml",
-        "sft_v6_contract_minimal_curriculum_report.json",
+        spec["config_file"],
+        spec["curriculum_report_file"],
     } <= file_names
 
 
@@ -119,7 +177,7 @@ def _extract_source() -> None:
                 break
     if not source_zip.exists() and not source_dir.exists():
         raise RuntimeError(
-            f"Missing SFT-v6 source bundle: {source_zip}. Visible inputs: "
+            f"Missing {_input_spec()['candidate_label']} source bundle: {source_zip}. Visible inputs: "
             f"{_visible_input_listing()}"
         )
     if SOURCE_ROOT.exists():
@@ -181,21 +239,42 @@ def _install_stack(config: dict[str, Any]) -> None:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "-e", str(SOURCE_ROOT)])
 
 
+def _require_supported_gpu(torch_module: Any, candidate_label: str) -> dict[str, str]:
+    """Validate the actual Kaggle GPU, not the requested notebook metadata."""
+    if not torch_module.cuda.is_available():
+        raise RuntimeError(f"Kaggle GPU runtime is required for {candidate_label} candidate.")
+    capability = torch_module.cuda.get_device_capability(0)
+    gpu_name = torch_module.cuda.get_device_name(0)
+    capability_label = f"sm_{capability[0]}{capability[1]}"
+    if capability[0] < 6:
+        raise RuntimeError(
+            f"{candidate_label} candidate requires a Pascal-or-newer Kaggle GPU; "
+            f"received {gpu_name} with capability {capability_label}."
+        )
+    precision_mode = "fp16_pascal" if capability[0] == 6 else "fp16_tensor_core"
+    return {
+        "gpu_name": gpu_name,
+        "capability": capability_label,
+        "precision_mode": precision_mode,
+    }
+
+
 def _load_config() -> dict[str, Any]:
     import yaml
 
-    config_name = os.environ.get("DATAFORGE_SFT_CONFIG", "sft_05b_v6.yaml")
+    spec = _input_spec()
+    config_name = os.environ.get("DATAFORGE_SFT_CONFIG", spec["config_file"])
     config_path = INPUT_ROOT / config_name
     if not config_path.exists():
-        raise RuntimeError(f"Missing SFT-v6 config in Kaggle input: {config_path}")
+        raise RuntimeError(f"Missing {spec['candidate_label']} config in Kaggle input: {config_path}")
     payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError(f"{config_path} must contain a YAML mapping.")
-    if payload.get("schema_version") != "sft_05b_v6":
-        raise RuntimeError("This runner requires schema_version=sft_05b_v6.")
+    if payload.get("schema_version") != spec["schema_version"]:
+        raise RuntimeError(f"This runner requires schema_version={spec['schema_version']}.")
     release = payload.get("release", {})
     if not isinstance(release, dict) or release.get("public_upload_allowed") is not False:
-        raise RuntimeError("SFT-v6 must keep public_upload_allowed=false.")
+        raise RuntimeError(f"{spec['candidate_label']} must keep public_upload_allowed=false.")
     return cast(dict[str, Any], payload)
 
 
@@ -212,9 +291,10 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _validate_curriculum_report(path: Path) -> dict[str, Any]:
+    spec = _input_spec()
     report = _load_json(path)
     blockers: list[str] = []
-    if report.get("schema_version") != "dataforge_sft_v6_contract_minimal_curriculum_report_v1":
+    if report.get("schema_version") != spec["curriculum_report_schema"]:
         blockers.append("curriculum_report_wrong_schema")
     if report.get("ok") is not True:
         blockers.append("curriculum_report_not_pass")
@@ -222,20 +302,58 @@ def _validate_curriculum_report(path: Path) -> dict[str, Any]:
     if not isinstance(metrics, dict):
         blockers.append("curriculum_report_missing_metrics")
         metrics = {}
-    if int(metrics.get("submit_repair_records", 0)) < 900:
-        blockers.append("submit_repair_records_under_900")
-    if int(metrics.get("finish_records", 0)) < 450:
-        blockers.append("finish_records_under_450")
-    if int(metrics.get("assistant_reason_fields", -1)) != 0:
-        blockers.append("assistant_reason_fields_present")
-    if int(metrics.get("system_reason_field_mentions", -1)) != 0:
-        blockers.append("system_reason_field_mentions_present")
-    if int(metrics.get("system_wrapper_mentions", -1)) != 0:
-        blockers.append("system_wrapper_mentions_present")
-    if int(metrics.get("parse_failure_count", -1)) != 0:
+    min_submit = int(spec.get("min_submit", 900))
+    if int(metrics.get("submit_repair_records", 0)) < min_submit:
+        blockers.append(f"submit_repair_records_under_{min_submit}")
+    min_finish = int(spec.get("min_finish", 450))
+    if int(metrics.get("finish_records", 0)) < min_finish:
+        blockers.append(f"finish_records_under_{min_finish}")
+    if spec.get("training_format") != "prompt_completion":
+        if int(metrics.get("assistant_reason_fields", -1)) != 0:
+            blockers.append("assistant_reason_fields_present")
+        if int(metrics.get("system_reason_field_mentions", -1)) != 0:
+            blockers.append("system_reason_field_mentions_present")
+        if int(metrics.get("system_wrapper_mentions", -1)) != 0:
+            blockers.append("system_wrapper_mentions_present")
+    if int(metrics.get("finish_with_repairs", 0)) != 0:
+        blockers.append("finish_with_repairs_present")
+    if int(metrics.get("user_contract_version_mismatches", -1)) != 0:
+        blockers.append("user_contract_version_mismatches_present")
+    if int(metrics.get("record_contract_version_mismatches", -1)) != 0:
+        blockers.append("record_contract_version_mismatches_present")
+    if spec.get("training_format") != "prompt_completion" and int(metrics.get("parse_failure_count", -1)) != 0:
         blockers.append("parse_failures_present")
+    if spec.get("training_format") == "prompt_completion":
+        if int(metrics.get("prompt_completion_records", 0)) <= 0:
+            blockers.append("prompt_completion_records_missing")
+        if int(metrics.get("completion_parse_failure_count", -1)) != 0:
+            blockers.append("completion_parse_failures_present")
+        if int(metrics.get("completion_code_fence_count", -1)) != 0:
+            blockers.append("completion_code_fences_present")
+        if int(metrics.get("completion_reason_text_count", -1)) != 0:
+            blockers.append("completion_reason_text_present")
+        if int(metrics.get("legacy_messages_present", -1)) != 0:
+            blockers.append("legacy_messages_present")
+        submit_ratio = float(metrics.get("submit_ratio", 0.0))
+        if not (
+            float(spec.get("submit_ratio_min", 0.0))
+            <= submit_ratio
+            <= float(spec.get("submit_ratio_max", 1.0))
+        ):
+            blockers.append("submit_ratio_outside_configured_range")
+        label_mask_audit = report.get("label_mask_audit", {})
+        if not isinstance(label_mask_audit, dict) or label_mask_audit.get("ok") is not True:
+            blockers.append("curriculum_label_mask_audit_not_pass")
+        if spec.get("requires_product_constrained_preflight"):
+            constrained_preflight = report.get("product_constrained_preflight", {})
+            if not isinstance(constrained_preflight, dict):
+                blockers.append("product_constrained_preflight_missing")
+            elif float(constrained_preflight.get("parse_structural_success_rate", 0.0)) < 0.99:
+                blockers.append("product_constrained_preflight_parse_under_0.99")
+            if int(metrics.get("negative_contrast_target_leakage_count", -1)) != 0:
+                blockers.append("negative_contrast_targets_supervised")
     if blockers:
-        raise RuntimeError("SFT-v6 curriculum report blocked: " + ", ".join(blockers))
+        raise RuntimeError(f"{spec['candidate_label']} curriculum report blocked: " + ", ".join(blockers))
     return report
 
 
@@ -269,29 +387,138 @@ def _records_to_dataset(records: list[dict[str, Any]]) -> tuple[Any, dict[str, A
     rows: list[dict[str, Any]] = []
     shape: Counter[str] = Counter()
     invalid = 0
+    spec = _input_spec()
     for record in records:
-        messages = record.get("messages")
-        if not isinstance(messages, list) or not messages:
-            invalid += 1
-            continue
-        assistant_messages = [
-            message
-            for message in messages
-            if isinstance(message, dict) and message.get("role") == "assistant"
-        ]
-        if not assistant_messages:
-            invalid += 1
-            continue
-        rows.append({"messages": messages})
+        if spec.get("training_format") == "prompt_completion":
+            prompt = record.get("prompt")
+            completion = record.get("completion")
+            if not isinstance(prompt, list) or not isinstance(completion, str) or not completion:
+                invalid += 1
+                continue
+            prompt_roles = [
+                str(message.get("role"))
+                for message in prompt
+                if isinstance(message, dict) and message.get("role")
+            ]
+            if prompt_roles != ["system", "user"]:
+                invalid += 1
+                continue
+            rows.append(
+                {
+                    "prompt": prompt,
+                    "completion": [{"role": "assistant", "content": completion}],
+                }
+            )
+        else:
+            messages = record.get("messages")
+            if not isinstance(messages, list) or not messages:
+                invalid += 1
+                continue
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            if not assistant_messages:
+                invalid += 1
+                continue
+            rows.append({"messages": messages})
         dataset = str(record.get("dataset", "unknown"))
         inferability = str(record.get("inferability", "unknown"))
         repair_label = "repair" if record.get("fix") else "noop"
         shape[f"{dataset}:{inferability}:{repair_label}"] += 1
     if invalid:
-        raise RuntimeError(f"SFT-v6 curriculum contains invalid message records: {invalid}")
+        raise RuntimeError(
+            f"{_input_spec()['candidate_label']} curriculum contains invalid message records: {invalid}"
+        )
     if not rows:
-        raise RuntimeError("SFT-v6 curriculum produced no trainable rows.")
-    return Dataset.from_list(rows), {"records": len(rows), "shape": dict(sorted(shape.items()))}
+        raise RuntimeError(f"{_input_spec()['candidate_label']} curriculum produced no trainable rows.")
+    return Dataset.from_list(rows), {
+        "records": len(rows),
+        "shape": dict(sorted(shape.items())),
+        "training_format": str(spec.get("training_format", "messages")),
+    }
+
+
+def _prompt_completion_label_mask_audit(
+    records: list[dict[str, Any]],
+    tokenizer: Any,
+    *,
+    max_seq_length: int,
+    sample_size: int = 32,
+) -> dict[str, Any]:
+    """Audit that v8 prompt-completion rows keep assistant targets supervised."""
+    if _input_spec().get("training_format") != "prompt_completion":
+        return {"ok": True, "skipped": True, "reason": "messages_training_format"}
+    samples = records[:sample_size]
+    failures: list[dict[str, Any]] = []
+    prompt_token_counts: list[int] = []
+    completion_token_counts: list[int] = []
+    full_token_counts: list[int] = []
+    for index, record in enumerate(samples):
+        prompt = record.get("prompt")
+        completion = record.get("completion")
+        if not isinstance(prompt, list) or not isinstance(completion, str):
+            failures.append({"index": index, "kind": "bad_prompt_completion_shape"})
+            continue
+        completion_message = [{"role": "assistant", "content": completion}]
+        try:
+            prompt_text = tokenizer.apply_chat_template(
+                prompt,
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            full_text = tokenizer.apply_chat_template(
+                [*prompt, *completion_message],
+                tokenize=False,
+                add_generation_prompt=False,
+            )
+            prompt_ids = tokenizer(prompt_text, add_special_tokens=False)["input_ids"]
+            full_ids = tokenizer(full_text, add_special_tokens=False)["input_ids"]
+        except Exception as exc:  # pragma: no cover - exercised inside Kaggle tokenizer stack
+            failures.append({"index": index, "kind": "chat_template_error", "error": str(exc)})
+            continue
+        if not isinstance(prompt_ids, list) or not isinstance(full_ids, list):
+            failures.append({"index": index, "kind": "tokenizer_output_shape"})
+            continue
+        if len(full_ids) <= len(prompt_ids):
+            failures.append({"index": index, "kind": "completion_has_no_supervised_tokens"})
+            continue
+        completion_ids = full_ids[len(prompt_ids) :]
+        prompt_token_counts.append(len(prompt_ids))
+        completion_token_counts.append(len(completion_ids))
+        full_token_counts.append(len(full_ids))
+        truncated_ids = full_ids[-max_seq_length:] if len(full_ids) > max_seq_length else full_ids
+        completion_retained = (
+            len(completion_ids) <= len(truncated_ids)
+            and truncated_ids[-len(completion_ids) :] == completion_ids
+        )
+        if not completion_retained:
+            failures.append(
+                {
+                    "index": index,
+                    "kind": "completion_removed_by_left_truncation",
+                    "prompt_tokens": len(prompt_ids),
+                    "completion_tokens": len(completion_ids),
+                    "full_tokens": len(full_ids),
+                    "max_seq_length": max_seq_length,
+                }
+            )
+        if completion in prompt_text:
+            failures.append({"index": index, "kind": "completion_text_in_prompt"})
+    return {
+        "ok": not failures and bool(samples),
+        "sampled_records": len(samples),
+        "training_format": "prompt_completion",
+        "completion_only_loss_required": True,
+        "prompt_label_policy": "ignored_by_trl_prompt_completion_collator",
+        "completion_label_policy": "supervised",
+        "max_seq_length": max_seq_length,
+        "max_prompt_tokens": max(prompt_token_counts) if prompt_token_counts else 0,
+        "max_completion_tokens": max(completion_token_counts) if completion_token_counts else 0,
+        "max_full_tokens": max(full_token_counts) if full_token_counts else 0,
+        "failures": failures[:10],
+    }
 
 
 def _cast_trainable_parameters_to_float32(model: Any) -> list[dict[str, str]]:
@@ -327,6 +554,15 @@ def _resolve_model_repo(config: dict[str, Any], hf_token: str | None) -> str:
 
 def _sft_config_kwargs(config: dict[str, Any], supported_keys: set[str]) -> dict[str, Any]:
     train_cfg = config["training"]
+    if _input_spec().get("training_format") == "prompt_completion":
+        if train_cfg.get("completion_only_loss") is not True:
+            raise RuntimeError(f"{_input_spec()['candidate_label']} requires training.completion_only_loss=true.")
+        if train_cfg.get("packing") is not False:
+            raise RuntimeError(
+                f"{_input_spec()['candidate_label']} requires packing=false so prompt/completion labels remain auditable."
+            )
+        if "completion_only_loss" not in supported_keys:
+            raise RuntimeError("Installed TRL SFTConfig does not expose completion_only_loss.")
     wanted = {
         "output_dir": train_cfg["output_dir"],
         "num_train_epochs": train_cfg["num_train_epochs"],
@@ -353,10 +589,14 @@ def _sft_config_kwargs(config: dict[str, Any], supported_keys: set[str]) -> dict
         wanted["max_seq_length"] = train_cfg["max_seq_length"]
     if "loss_type" in supported_keys:
         wanted["loss_type"] = train_cfg["loss_type"]
+    for optional_key in ("completion_only_loss", "assistant_only_loss"):
+        if optional_key in supported_keys and optional_key in train_cfg:
+            wanted[optional_key] = train_cfg[optional_key]
     return {key: value for key, value in wanted.items() if key in supported_keys}
 
 
 def _render_model_card(metrics: dict[str, Any]) -> str:
+    candidate_label = str(metrics.get("candidate_label", _input_spec()["candidate_label"]))
     return (
         "---\n"
         f"license: {metrics['model_license']}\n"
@@ -365,8 +605,8 @@ def _render_model_card(metrics: dict[str, Any]) -> str:
         "private_candidate: true\n"
         "---\n\n"
         f"# {metrics['model_name']}\n\n"
-        "Private SFT-v6 contract-first candidate for DataForge 0.5B. This checkpoint is "
-        "eligible to seed GRPO-v3 only when `sft_v6_candidate_eval_report.json` has "
+        f"Private {candidate_label} predecessor candidate for DataForge 0.5B. This checkpoint is "
+        f"eligible to seed {metrics.get('grpo_consumer_label', 'GRPO-v3')} only when `{PROMOTION_REPORT_FILENAME}` has "
         "`promote_to_grpo: true`.\n\n"
         "## Evidence\n\n"
         f"- Strict macro F1: `{metrics['sft_f1']}`\n"
@@ -381,15 +621,16 @@ def _render_model_card(metrics: dict[str, Any]) -> str:
 
 
 def _save_promotion_report(merged_dir: Path, report: dict[str, Any]) -> None:
-    _write_json(PROMOTION_REPORT_PATH, report)
-    _write_json(merged_dir / "sft_v6_candidate_eval_report.json", report)
+    _write_json(WORK_ROOT / PROMOTION_REPORT_FILENAME, report)
+    _write_json(merged_dir / PROMOTION_REPORT_FILENAME, report)
 
 
 def main() -> int:
     os.environ["PYTHONUTF8"] = "1"
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    input_spec = _input_spec()
     started_at = time.time()
-    _log_event("sft_v6_candidate_start")
+    _log_event(f"sft_{DEFAULT_SFT_VERSION}_candidate_start")
     _extract_source()
     _log_event("source_extracted", input_root=str(INPUT_ROOT))
     config = _load_config()
@@ -401,11 +642,11 @@ def main() -> int:
         allow_upload_after_gate=selected_stage["allow_upload_after_gate"],
     )
     curriculum_report = _validate_curriculum_report(
-        INPUT_ROOT / "sft_v6_contract_minimal_curriculum_report.json"
+        INPUT_ROOT / input_spec["curriculum_report_file"]
     )
     _write_report(
         {
-            "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+            "schema_version": KAGGLE_REPORT_SCHEMA,
             "status": "preflight",
             "model_upload_attempted": False,
             "public_claim_updated": False,
@@ -422,7 +663,7 @@ def main() -> int:
     if selected_stage["require_hf_token"] and not hf_token:
         _write_report(
             {
-                "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+                "schema_version": KAGGLE_REPORT_SCHEMA,
                 "status": "blocked_missing_hf_token_no_gpu",
                 "training_stage": selected_stage["name"],
                 "configured_max_steps": selected_stage["max_steps"],
@@ -430,7 +671,7 @@ def main() -> int:
                 "model_repo_created": False,
                 "public_claim_updated": False,
                 "upload_blocker": HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
-                "note": "SFT-v6 candidate stage requires a visible HF token before GPU work because promotion requires a private checkpoint upload.",
+                "note": f"{input_spec['candidate_label']} candidate stage requires a visible HF token before GPU work because promotion requires a private checkpoint upload.",
             }
         )
         _log_event("blocked_missing_hf_token_no_gpu")
@@ -447,22 +688,15 @@ def main() -> int:
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from trl import SFTConfig, SFTTrainer
 
-    from training.grpo_eval import build_heldout_tasks, evaluate_causal_lm
-    from training.sft_promotion import build_sft_v6_promotion_report, sft_v6_promotion_gate_failures
-
-    if not torch.cuda.is_available():
-        raise RuntimeError("Kaggle GPU runtime is required for SFT-v6 candidate.")
-    capability = torch.cuda.get_device_capability(0)
-    if capability[0] < 7:
-        raise RuntimeError(
-            "SFT-v6 candidate requires a T4-or-newer Kaggle GPU for the installed PyTorch wheel; "
-            f"received {torch.cuda.get_device_name(0)} with capability sm_{capability[0]}{capability[1]}."
-        )
-    _log_event(
-        "gpu_ready",
-        gpu_name=torch.cuda.get_device_name(0),
-        capability=f"sm_{capability[0]}{capability[1]}",
+    from training.grpo_eval import (
+        build_heldout_tasks,
+        evaluate_causal_lm,
+        evaluate_product_constrained_finish_baseline,
     )
+    from training.sft_promotion import build_sft_promotion_report, sft_promotion_gate_failures
+
+    gpu_metadata = _require_supported_gpu(torch, input_spec["candidate_label"])
+    _log_event("gpu_ready", **gpu_metadata)
 
     model_repo = _resolve_model_repo(config, hf_token)
     base_model_id = str(config["model"]["base_model"])
@@ -479,6 +713,18 @@ def main() -> int:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.truncation_side = "left"
     tokenizer.padding_side = "left"
+    label_mask_audit = _prompt_completion_label_mask_audit(
+        records,
+        tokenizer,
+        max_seq_length=int(config["training"]["max_seq_length"]),
+    )
+    _log_event(
+        "label_mask_audit",
+        ok=label_mask_audit["ok"],
+        training_format=label_mask_audit.get("training_format"),
+    )
+    if not label_mask_audit["ok"]:
+        raise RuntimeError(f"{input_spec['candidate_label']} label-mask audit failed: {label_mask_audit['failures']}")
 
     quant_cfg = None
     quant = config["model"].get("quantization", {})
@@ -560,6 +806,7 @@ def main() -> int:
         seeds_start=int(eval_cfg["seeds_start"]),
         chunk_width=int(eval_cfg["chunk_width"]),
         cache_root=WORK_ROOT / "dataforge-cache",
+        contract_version=str(config["collection"]["prompt_contract_version"]),
     )
     _log_event("heldout_tasks_ready", task_count=len(tasks))
     merged_dir = Path(config["training"]["merged_dir"])
@@ -601,34 +848,66 @@ def main() -> int:
         merged_model,
         tokenizer,
         tasks,
-        model_label="sft_v6",
+        model_label=f"sft_{DEFAULT_SFT_VERSION}",
         max_new_tokens=int(eval_cfg["max_new_tokens"]),
     )
     _log_event("sft_eval_done", macro_f1=float(sft_eval["macro_f1"]))
+    product_constrained_track, product_constrained_diagnostics = evaluate_product_constrained_finish_baseline(
+        tasks,
+        raw_research_summary=sft_eval,
+        max_failure_samples=int(config["release"].get("max_failure_samples", 25)),
+    )
+    _log_event(
+        "product_constrained_eval_done",
+        parse_structural_success_rate=float(
+            product_constrained_track["parse_structural_success_rate"]
+        ),
+        strict_macro_f1=float(product_constrained_track["strict_macro_f1"]),
+    )
     del merged_model
     gc.collect()
     torch.cuda.empty_cache()
 
     threshold_config = config["release"]["promote_to_grpo_only_if"]
-    gate_failures = sft_v6_promotion_gate_failures(
+    gate_failures = sft_promotion_gate_failures(
         sft_eval,
         threshold_config=threshold_config,
     )
     promotion_gate_passed = not gate_failures
+    evaluation_tracks = {
+        "raw_research": {
+            "enabled": True,
+            "decoding": "unconstrained_greedy",
+            "base_eval": base_eval,
+            "sft_eval": sft_eval,
+            "claim_policy": "research evidence only",
+        },
+        "product_constrained": {
+            **product_constrained_track,
+            "enabled": bool(
+                config.get("evaluation", {})
+                .get("report_tracks", {})
+                .get("product_constrained", {})
+                .get("enabled", False)
+            ),
+        },
+    }
     eval_diagnostics = {
-        "schema_version": "dataforge_sft_v6_eval_diagnostics_v1",
+        "schema_version": f"dataforge_sft_{DEFAULT_SFT_VERSION}_eval_diagnostics_v1",
         "benchmark_name": "DataForge-Bench-light-verified",
         "benchmark_seeds": [0, 1, 2],
         "source_audit": task_manifest["source_audit"],
+        "evaluation_tracks": evaluation_tracks,
         "base_eval": base_eval,
         "sft_eval": sft_eval,
         "base": base_diagnostics,
         "sft": sft_diagnostics,
+        "product_constrained": product_constrained_diagnostics,
         "failure_samples": sft_diagnostics["failure_samples"][:25],
         "gate_failures": gate_failures,
         "limitations": [
             "Strict held-out eval verifies only DataForge repair research tasks.",
-            "SFT-v6 is private predecessor evidence, not a public release.",
+            f"{input_spec['candidate_label']} is private predecessor evidence, not a public release.",
         ],
     }
     _write_json(merged_dir / "eval_diagnostics.json", eval_diagnostics)
@@ -653,9 +932,13 @@ def main() -> int:
         "valid_train_records": int(dataset_shape["records"]),
         "dataset_shape": dataset_shape["shape"],
         "curriculum_report": curriculum_report,
+        "label_mask_audit": label_mask_audit,
+        "evaluation_tracks": evaluation_tracks,
         "train_metrics": train_metrics,
         "trainable_dtype_changes": trainable_dtype_changes[:50],
         "hf_hub_upload_credential": "available" if hf_token else "unavailable",
+        "candidate_label": input_spec["candidate_label"],
+        "grpo_consumer_label": str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
         "private_candidate_only": True,
         "public_claim_updated": False,
     }
@@ -663,7 +946,7 @@ def main() -> int:
     (merged_dir / "README.md").write_text(_render_model_card(metrics), encoding="utf-8")
 
     if not promotion_gate_passed:
-        promotion_report = build_sft_v6_promotion_report(
+        promotion_report = build_sft_promotion_report(
             status="quality_gate_failed_no_upload",
             model_repo=model_repo,
             checkpoint=model_repo,
@@ -672,13 +955,22 @@ def main() -> int:
             sft_diagnostics=sft_diagnostics,
             threshold_config=threshold_config,
             model_uploaded=False,
+            report_schema_version=str(
+                config["release"].get(
+                    "promotion_report_schema",
+                    f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
+                )
+            ),
+            candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+            candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
+            grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
             training_metrics=metrics,
             artifacts={"merged_dir": str(merged_dir), "adapter_dir": str(adapter_dir)},
         )
         _save_promotion_report(merged_dir, promotion_report)
         _write_report(
             {
-                "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+                "schema_version": KAGGLE_REPORT_SCHEMA,
                 "status": "quality_gate_failed_no_upload",
                 "gate_failures": gate_failures,
                 "training_stage": selected_stage["name"],
@@ -698,7 +990,7 @@ def main() -> int:
 
     if not selected_stage["allow_upload_after_gate"]:
         status = f"{selected_stage['name']}_complete_no_upload"
-        promotion_report = build_sft_v6_promotion_report(
+        promotion_report = build_sft_promotion_report(
             status=status,
             model_repo=model_repo,
             checkpoint=model_repo,
@@ -707,13 +999,22 @@ def main() -> int:
             sft_diagnostics=sft_diagnostics,
             threshold_config=threshold_config,
             model_uploaded=False,
+            report_schema_version=str(
+                config["release"].get(
+                    "promotion_report_schema",
+                    f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
+                )
+            ),
+            candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+            candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
+            grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
             training_metrics=metrics,
             artifacts={"merged_dir": str(merged_dir), "adapter_dir": str(adapter_dir)},
         )
         _save_promotion_report(merged_dir, promotion_report)
         _write_report(
             {
-                "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+                "schema_version": KAGGLE_REPORT_SCHEMA,
                 "status": status,
                 "training_stage": selected_stage["name"],
                 "configured_max_steps": selected_stage["max_steps"],
@@ -732,7 +1033,7 @@ def main() -> int:
         return 0
 
     if not hf_token:
-        promotion_report = build_sft_v6_promotion_report(
+        promotion_report = build_sft_promotion_report(
             status="pass_upload_blocked_missing_hf_token",
             model_repo=model_repo,
             checkpoint=model_repo,
@@ -741,6 +1042,15 @@ def main() -> int:
             sft_diagnostics=sft_diagnostics,
             threshold_config=threshold_config,
             model_uploaded=False,
+            report_schema_version=str(
+                config["release"].get(
+                    "promotion_report_schema",
+                    f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
+                )
+            ),
+            candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+            candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
+            grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
             training_metrics=metrics,
             artifacts={"merged_dir": str(merged_dir), "adapter_dir": str(adapter_dir)},
             upload_blocker=HF_UPLOAD_CREDENTIAL_UNAVAILABLE,
@@ -748,7 +1058,7 @@ def main() -> int:
         _save_promotion_report(merged_dir, promotion_report)
         _write_report(
             {
-                "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+                "schema_version": KAGGLE_REPORT_SCHEMA,
                 "status": "pass_upload_blocked_missing_hf_token",
                 "training_stage": selected_stage["name"],
                 "configured_max_steps": selected_stage["max_steps"],
@@ -776,7 +1086,7 @@ def main() -> int:
         private=True,
         token=hf_token,
     )
-    promotion_report = build_sft_v6_promotion_report(
+    promotion_report = build_sft_promotion_report(
         status="pass_uploaded_private_candidate",
         model_repo=model_repo,
         checkpoint=model_repo,
@@ -785,6 +1095,15 @@ def main() -> int:
         sft_diagnostics=sft_diagnostics,
         threshold_config=threshold_config,
         model_uploaded=True,
+        report_schema_version=str(
+            config["release"].get(
+                "promotion_report_schema",
+                f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
+            )
+        ),
+        candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+        candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
+        grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
         training_metrics=metrics,
         artifacts={"merged_dir": str(merged_dir), "adapter_dir": str(adapter_dir)},
     )
@@ -794,12 +1113,12 @@ def main() -> int:
         repo_id=model_repo,
         repo_type="model",
         token=hf_token,
-        commit_message="Upload private DataForge 0.5B SFT-v6 candidate after promotion gate",
+        commit_message=f"Upload private DataForge 0.5B {input_spec['candidate_label']} candidate after promotion gate",
     )
     _log_event("private_upload_done", repo=model_repo)
     _write_report(
         {
-            "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+            "schema_version": KAGGLE_REPORT_SCHEMA,
             "status": "pass_uploaded_private_candidate",
             "training_stage": selected_stage["name"],
             "configured_max_steps": selected_stage["max_steps"],
@@ -830,7 +1149,7 @@ if __name__ == "__main__":
     except Exception as exc:
         _write_report(
             {
-                "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+                "schema_version": KAGGLE_REPORT_SCHEMA,
                 "status": "runtime_error",
                 "error_type": type(exc).__name__,
                 "error": str(exc),

@@ -1,4 +1,4 @@
-﻿# SPEC: dataforge-evals
+# SPEC: dataforge-evals
 
 > Status: Reviewed
 > Owner: pranesh
@@ -34,7 +34,7 @@ reproducibility metadata.
 - Task loading: built-in synthetic, canonical DataForge (soft dependency), CSV-pair
 - Grading: exact cell-diff P/R/F1 with last-write-wins normalization
 - Provider adapters: Groq, Gemini, Cerebras, OpenRouter, local Ollama, mock oracle
-- Harness: N trials Ã— M agents Ã— K datasets, timeout, failure taxonomy, aggregation
+- Harness: N trials x M agents x K datasets, timeout, failure taxonomy, aggregation
 - Reporting: Markdown + JSON with reproducibility block
 - CLI: `run`, `list-agents`, `list-datasets` subcommands
 
@@ -54,7 +54,7 @@ reproducibility metadata.
 - Dependencies: minimal core (pydantic, typer, rich, httpx, tenacity, pandas, python-dotenv);
   provider SDKs and dataforge are optional extras
 
-## 5. Prior decisions (locked â€” require new spec to change)
+## 5. Prior decisions (locked - require new spec to change)
 
 - Grader is sole authority: agents never report their own score
 - Last-write-wins normalization: duplicate fixes per cell use the final prediction
@@ -116,12 +116,12 @@ reproducibility metadata.
 - [x] No benchmark numbers are hardcoded or fabricated in README.
 - [x] Re-run from the same committed seeds gives identical deterministic/mock outputs.
 
-## Appendix A â€” Toy cases (write the FIRST failing tests from these)
+## Appendix A - Toy cases (write the FIRST failing tests from these)
 
 ### Case A.1: Perfect match
 Input: ground truth = `[(0, "Score", "45", "4.5")]`, fixes = `[Fix(0, "Score", "4.5")]`
 Expected output: `Grade(tp=1, fp=0, fn=0, precision=1.0, recall=1.0, f1=1.0)`
-Reasoning: baseline sanity â€” a correct fix on the exact cell with the exact value scores perfectly.
+Reasoning: baseline sanity - a correct fix on the exact cell with the exact value scores perfectly.
 
 ### Case A.2: Empty prediction
 Input: ground truth = `[(0, "Score", "45", "4.5")]`, fixes = `[]`
@@ -131,7 +131,7 @@ Reasoning: no predictions means all ground truth is missed.
 ### Case A.3: Wrong value on correct cell
 Input: ground truth = `[(0, "Score", "45", "4.5")]`, fixes = `[Fix(0, "Score", "5.0")]`
 Expected output: `Grade(tp=0, fp=1, fn=1, precision=0.0, recall=0.0, f1=0.0)`
-Reasoning: the fix targets the right cell but proposes the wrong value â€” this is both a false positive and a false negative.
+Reasoning: the fix targets the right cell but proposes the wrong value - this is both a false positive and a false negative.
 
 ### Case A.4: Duplicate fix (last-write-wins)
 Input: fixes = `[Fix(0, "Score", "4.0"), Fix(0, "Score", "4.5")]`
@@ -141,9 +141,9 @@ Reasoning: the second fix for the same cell overwrites the first.
 ### Case A.5: Wrong cell fix
 Input: ground truth = `[(0, "Score", "45", "4.5")]`, fixes = `[Fix(1, "Phone", "555")]`
 Expected output: `Grade(tp=0, fp=1, fn=1)`
-Reasoning: fix targets a cell with no ground-truth issue â€” pure false positive, ground truth is unfixed.
+Reasoning: fix targets a cell with no ground-truth issue - pure false positive, ground truth is unfixed.
 
 ### Case A.6: Extra false positive
 Input: ground truth = `[(0, "Score", "45", "4.5")]`, fixes = `[Fix(0, "Score", "4.5"), Fix(1, "Phone", "555")]`
 Expected output: `Grade(tp=1, fp=1, fn=0, precision=0.5, recall=1.0)`
-Reasoning: one correct fix plus one spurious fix â€” recall is perfect but precision drops.
+Reasoning: one correct fix plus one spurious fix - recall is perfect but precision drops.

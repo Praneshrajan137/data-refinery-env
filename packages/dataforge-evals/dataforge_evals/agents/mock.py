@@ -2,13 +2,13 @@
 
 Returns perfect ground-truth fixes for every task, enabling
 deterministic evaluation without network access. This agent
-intentionally reads ``task.ground_truth`` — it is an oracle,
+intentionally reads ``task.ground_truth`` - it is an oracle,
 not a realistic agent. Use it only for harness validation.
 """
 
 from __future__ import annotations
 
-from dataforge_evals.agents.base import AgentRunResult, Fix, Task, Usage
+from dataforge_evals.agents.base import AgentRunResult, AgentTaskInput, Fix, Task, Usage
 
 
 class MockAgent:
@@ -25,7 +25,7 @@ class MockAgent:
     name = "mock"
     uses_ground_truth = True
 
-    def run(self, task: Task) -> AgentRunResult:
+    def run(self, task: AgentTaskInput) -> AgentRunResult:
         """Return the known ground-truth fixes for deterministic evaluation.
 
         Args:
@@ -34,6 +34,8 @@ class MockAgent:
         Returns:
             AgentRunResult with perfect fixes and zero usage.
         """
+        if not isinstance(task, Task):
+            raise ValueError("mock oracle requires a full Task with ground truth")
         fixes = [
             Fix(row=cell.row, column=cell.column, new_value=cell.clean_value, reason="mock oracle")
             for cell in task.ground_truth

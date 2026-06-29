@@ -1,17 +1,21 @@
-﻿# dataforge-evals
+# dataforge-evals
 
 `dataforge-evals` is an agent-agnostic evaluation harness for data-quality repair agents.
 
 It gives any agent the same task, accepts only proposed cell fixes, and lets the grader compute exact precision, recall, F1, steps, failures, and free-tier quota usage. The harness can load DataForge's canonical Hospital, Flights, and Beers benchmark tasks when `dataforge_07` is installed, while the import namespace remains `dataforge` for the 0.1 line.
-The PyPI package is not published yet; use the source install instructions
-below until release ownership is configured.
 
 ```bash
-pip install -e ".[dev]"
+python -m pip install dataforge_07_evals
 dataforge-evals run --agent mock --dataset synthetic --trials 3
 ```
 
 ## Install
+
+### From PyPI
+
+```bash
+python -m pip install dataforge_07_evals
+```
 
 ### From source (development)
 
@@ -122,10 +126,10 @@ oracle used by tests is marked to receive full ground truth.
 
 ### What agents receive
 
-- `task.name` â€” dataset identifier
-- `task.dirty_df` â€” pandas DataFrame with data-quality issues (all values as strings)
-- `task.canonical_columns` â€” ordered column names from the clean reference
-- `task.metadata` â€” provenance and descriptive metadata
+- `task.name` - dataset identifier
+- `task.dirty_df` - pandas DataFrame with data-quality issues (all values as strings)
+- `task.canonical_columns` - ordered column names from the clean reference
+- `task.metadata` - provenance and descriptive metadata
 
 ### What agents return
 
@@ -191,11 +195,11 @@ Only compare reports when dataset versions, seeds, provider model identifiers, r
 
 Do not use `dataforge-evals` if:
 
-- **Your agent operates on streaming data** â€” the harness is batch-oriented and expects a complete dirty DataFrame.
-- **You need end-to-end pipeline evaluation** â€” this tool evaluates cell-level repair accuracy, not detection, diagnosis, or pipeline orchestration.
-- **Your ground truth is fuzzy or approximate** â€” the grader uses exact string match. If multiple correct values exist for a cell, you need a custom grader.
-- **You need sub-second latency benchmarking** â€” the harness measures wall-clock time but is not designed as a latency benchmarking tool.
-- **Your data is > 100K rows** â€” the harness loads the full DataFrame into memory and passes it to agents. For large-scale evaluation, sample first.
+- **Your agent operates on streaming data** - the harness is batch-oriented and expects a complete dirty DataFrame.
+- **You need end-to-end pipeline evaluation** - this tool evaluates cell-level repair accuracy, not detection, diagnosis, or pipeline orchestration.
+- **Your ground truth is fuzzy or approximate** - the grader uses exact string match. If multiple correct values exist for a cell, you need a custom grader.
+- **You need sub-second latency benchmarking** - the harness measures wall-clock time but is not designed as a latency benchmarking tool.
+- **Your data is > 100K rows** - the harness loads the full DataFrame into memory and passes it to agents. For large-scale evaluation, sample first.
 
 ## Development
 

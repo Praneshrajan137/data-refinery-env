@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import json
 
-from dataforge.repair_contract import CONTRACT_VERSION_V2, SYSTEM_PROMPT, parse_repair_action
+from dataforge.repair_contract import (
+    CONTRACT_VERSION_V2,
+    CONTRACT_VERSION_V3,
+    SYSTEM_PROMPT,
+    parse_repair_action,
+)
 from scripts.data.build_contract_minimal_curriculum import (
     CONTRACT_FIRST_SYSTEM_PROMPT,
     CURRICULUM_VERSION,
@@ -78,6 +83,8 @@ def test_contract_minimal_curriculum_strips_reasons_and_caps_repairs() -> None:
     assert report["metrics"]["assistant_reason_fields"] == 0
     assert report["metrics"]["system_reason_field_mentions"] == 0
     assert report["metrics"]["system_wrapper_mentions"] == 0
+    assert report["metrics"]["user_contract_version_mismatches"] == 0
+    assert report["metrics"]["record_contract_version_mismatches"] == 0
     assert report["metrics"]["repair_cells"] == 2
     assert report["blockers"] == [
         "finish_records_under_256",
@@ -85,6 +92,8 @@ def test_contract_minimal_curriculum_strips_reasons_and_caps_repairs() -> None:
     ]
 
     user_payload = json.loads(selected[0]["messages"][1]["content"])
+    assert selected[0]["prompt_contract_version"] == CONTRACT_VERSION_V3
+    assert user_payload["contract_version"] == CONTRACT_VERSION_V3
     parsed = parse_repair_action(
         selected[0]["messages"][2]["content"],
         allowed_columns=user_payload["allowed_columns"],

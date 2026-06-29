@@ -1,0 +1,47 @@
+{
+  "schema_version": "dataforge_sft_failed_candidate_postmortem_v1",
+  "candidate": "SFT-v7",
+  "run": "kaggle_sft_v7_diagnostic_v1",
+  "status": "failed_diagnostic_evidence",
+  "decision": "do_not_continue_v7_do_not_run_grpo_v3",
+  "evidence_paths": {
+    "kaggle_report": "eval/results/kaggle_sft_v7_diagnostic_v1/kaggle_sft_v7_candidate_report.json",
+    "promotion_report": "eval/results/kaggle_sft_v7_diagnostic_v1/sft_v7_candidate_eval_report.json",
+    "diagnostics": "eval/results/kaggle_sft_v7_diagnostic_v1/DataForge-0.5B-SFT-v7-candidate-merged/eval_diagnostics.json",
+    "training_metrics": "eval/results/kaggle_sft_v7_diagnostic_v1/DataForge-0.5B-SFT-v7-candidate-merged/training_metrics.json"
+  },
+  "metrics": {
+    "attempted_steps": 120,
+    "gpu_hours": 0.609,
+    "strict_macro_f1": 0.0,
+    "parse_success_rate": 0.0,
+    "schema_case_error_count": 35,
+    "active_repair_recall": 0.0,
+    "dataset_f1": {
+      "beers": 0.0,
+      "flights": 0.0,
+      "hospital": 0.0
+    },
+    "failure_taxonomy": {
+      "finish_with_repairs": 38,
+      "missed_repair": 575,
+      "overrepair": 57,
+      "schema_case_error": 35,
+      "schema_error": 61,
+      "truncated_json": 1,
+      "wrong_cell": 127,
+      "wrong_value": 1
+    }
+  },
+  "root_cause": [
+    "SFT-v7 fixed the previous reason/code-fence leakage but did not teach a stable action envelope.",
+    "The messages-format SFT path still lets prompt row objects influence loss; the small model copied row objects and emitted invalid finish actions with repairs.",
+    "More v7 steps would spend compute on the wrong objective instead of fixing prompt/completion supervision."
+  ],
+  "next_action": [
+    "Create SFT-v8 Schema-Distill from prompt-completion records.",
+    "Require completion-only loss and a tokenizer label-mask audit before GPU work.",
+    "Keep strict held-out eval unchanged and keep v8 private until promotion gates pass."
+  ],
+  "public_claim_policy": "No public model claim is upgraded. SFT-v7 is failed diagnostic evidence only."
+}

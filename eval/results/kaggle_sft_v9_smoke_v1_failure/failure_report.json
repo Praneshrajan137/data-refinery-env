@@ -1,0 +1,32 @@
+{
+  "schema_version": "dataforge_kaggle_sft_v9_smoke_failure_v1",
+  "created_at_utc": "2026-06-29T05:16:28.0950380Z",
+  "status": "infra_runtime_failed_before_training",
+  "stage": "smoke",
+  "model_lineage": "DataForge-0.5B-SFT-v9",
+  "kernel": {
+    "id": "praneshrajan15/dataforge-0-5b-sft-v9-candidate",
+    "failed_version": 1,
+    "worker_status": "KernelWorkerStatus.ERROR",
+    "last_run_time": "2026-06-27T07:09:02.643000"
+  },
+  "root_cause": {
+    "kind": "over_strict_gpu_capability_guard",
+    "summary": "Kaggle assigned Tesla P100-PCIE-16GB with capability sm_60 even though the notebook metadata requested T4. The runner rejected capability < 7 before training.",
+    "traceback_summary": "RuntimeError: SFT-v9 candidate requires a T4-or-newer Kaggle GPU for the installed PyTorch wheel; received Tesla P100-PCIE-16GB with capability sm_60."
+  },
+  "impact": {
+    "training_started": false,
+    "model_quality_evidence_created": false,
+    "public_claim_update_allowed": false,
+    "grpo_unlocked": false
+  },
+  "fix": {
+    "summary": "Accept Pascal-or-newer Kaggle GPUs and record precision mode; P100 uses fp16_pascal, T4-or-newer uses fp16_tensor_core.",
+    "files": [
+      "scripts/remote/kaggle_sft_v6_candidate.py",
+      "tests/unit/test_kaggle_sft_v6_runner.py"
+    ]
+  },
+  "next_step": "Rebuild the SFT-v9 Kaggle bundle and push a new smoke kernel version."
+}

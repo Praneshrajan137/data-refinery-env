@@ -2,8 +2,8 @@
 # These are installed ONLY inside the HF Docker Space and in CI for smoke tests.
 # See ARCHITECTURE.md §3 for justification of each dependency.
 fastapi==0.136.3
-starlette==1.1.0
+starlette==1.3.1
 uvicorn[standard]==0.35.0
 slowapi==0.1.9
-python-multipart==0.0.27
+python-multipart==0.0.31
 pandas==2.3.3

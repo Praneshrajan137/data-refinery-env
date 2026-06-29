@@ -1,4 +1,4 @@
-﻿"""Command-line interface for the dataforge-evals evaluation harness.
+"""Command-line interface for the dataforge-evals evaluation harness.
 
 Provides subcommands for running evaluations, listing available agents
 and datasets, and inspecting version information.

@@ -6,9 +6,30 @@ import os
 from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from importlib import import_module
-from typing import Any
+from typing import Any, Literal
 
 _SENSITIVE_ATTR_FRAGMENTS = ("authorization", "cookie", "token", "key", "secret", "password")
+RepairTelemetryStage = Literal[
+    "detect",
+    "propose",
+    "safety_gate",
+    "smt_verify",
+    "transaction_create",
+    "transaction_apply",
+    "receipt",
+    "revert",
+]
+REPAIR_TELEMETRY_SPANS: dict[str, str] = {
+    "detect": "dataforge.repair.detect",
+    "propose": "dataforge.repair.propose",
+    "safety_gate": "dataforge.repair.safety_gate",
+    "smt_verify": "dataforge.repair.smt_verify",
+    "transaction_create": "dataforge.repair.transaction_create",
+    "transaction_apply": "dataforge.repair.transaction_apply",
+    "receipt": "dataforge.repair.receipt",
+    "revert": "dataforge.repair.revert",
+}
+REPAIR_TELEMETRY_STAGES = frozenset(REPAIR_TELEMETRY_SPANS)
 
 
 def _otel_enabled() -> bool:
@@ -54,8 +75,15 @@ def configure_fastapi_observability(app: Any, *, service_name: str) -> bool:
     return True
 
 
+def _span_name(stage: str) -> str:
+    """Return the span name for a public repair telemetry stage."""
+    if stage in REPAIR_TELEMETRY_SPANS:
+        return REPAIR_TELEMETRY_SPANS[stage]
+    return stage
+
+
 @contextmanager
-def repair_stage_span(stage: str, **attributes: Any) -> Iterator[None]:
+def repair_stage_span(stage: RepairTelemetryStage | str, **attributes: Any) -> Iterator[None]:
     """Create a repair-stage span when OpenTelemetry is available."""
     if not _otel_enabled():
         with nullcontext():
@@ -70,7 +98,9 @@ def repair_stage_span(stage: str, **attributes: Any) -> Iterator[None]:
         return
 
     tracer = trace_module.get_tracer("dataforge.repair")
-    with tracer.start_as_current_span(stage) as span:
+    with tracer.start_as_current_span(_span_name(stage)) as span:
+        if stage in REPAIR_TELEMETRY_SPANS:
+            span.set_attribute("dataforge.repair.stage", stage)
         for key, value in _safe_attrs(attributes).items():
             span.set_attribute(key, value)
         yield

@@ -22,8 +22,19 @@ DEFAULT_TRAJECTORY = ROOT / "data" / "sft_traj" / "expert_v4_candidate.jsonl"
 DEFAULT_SPLIT_MANIFEST = ROOT / "data" / "sft_traj" / "split_manifest_v4_candidate.json"
 DEFAULT_READINESS_REPORT = ROOT / "eval" / "results" / "grpo_readiness_05b_candidate.json"
 DEFAULT_GRPO_CONFIG = ROOT / "training" / "configs" / "grpo_05b.yaml"
-DEFAULT_SFT_PREDECESSOR_REPORT = ROOT / "eval" / "results" / "sft_v6_candidate_eval_report.json"
-SFT_PREDECESSOR_REPORT_NAME = "sft_v6_candidate_eval_report.json"
+DEFAULT_SFT_PREDECESSOR_REPORT = ROOT / "eval" / "results" / "sft_v7_candidate_eval_report.json"
+SFT_PREDECESSOR_REPORTS = {
+    "grpo_05b_v3": (
+        ROOT / "eval" / "results" / "sft_v7_candidate_eval_report.json",
+        "sft_v7_candidate_eval_report.json",
+        "SFT-v7",
+    ),
+    "grpo_05b_v4": (
+        ROOT / "eval" / "results" / "sft_v9_candidate_eval_report.json",
+        "sft_v9_candidate_eval_report.json",
+        "SFT-v9",
+    ),
+}
 DEFAULT_SMOKE_REPORT = (
     ROOT / "eval" / "results" / "kaggle_grpo_smoke_v10_report" / "kaggle_grpo_smoke_report.json"
 )
@@ -57,6 +68,12 @@ SOURCE_EXCLUDES = (
     "training/kaggle_sft_v5_kernel",
     "training/kaggle_sft_v6_handoff",
     "training/kaggle_sft_v6_kernel",
+    "training/kaggle_sft_v7_handoff",
+    "training/kaggle_sft_v7_kernel",
+    "training/kaggle_sft_v8_handoff",
+    "training/kaggle_sft_v8_kernel",
+    "training/kaggle_sft_v9_handoff",
+    "training/kaggle_sft_v9_kernel",
     "training/kaggle_dataset_v3.zip",
 )
 
@@ -134,6 +151,9 @@ def _config_handoff_names(config_path: Path) -> tuple[str, str]:
         "expert_v4.jsonl",
         "expert_v5_repair_curriculum.jsonl",
         "expert_v6_contract_minimal.jsonl",
+        "expert_v7_parse_latch.jsonl",
+        "expert_v8_schema_distill.jsonl",
+        "expert_v9_action_envelope.jsonl",
     }:
         raise ValueError(f"Unsupported GRPO trajectory handoff file: {trajectory_name}")
     if split_manifest_name != "split_manifest_v4.json":
@@ -148,20 +168,25 @@ def _schema_version(config_path: Path) -> str:
     return str(payload.get("schema_version", ""))
 
 
-def _copy_v3_predecessor_report(
+def _copy_predecessor_report(
     *,
     config_path: Path,
     report_path: Path,
     dataset_dir: Path,
 ) -> str | None:
-    if _schema_version(config_path) != "grpo_05b_v3":
+    schema_version = _schema_version(config_path)
+    predecessor = SFT_PREDECESSOR_REPORTS.get(schema_version)
+    if predecessor is None:
         return None
+    default_report_path, report_name, label = predecessor
+    if report_path == DEFAULT_SFT_PREDECESSOR_REPORT:
+        report_path = default_report_path
     if not report_path.exists():
         raise FileNotFoundError(
-            f"GRPO v3 handoff requires an SFT-v6 eval report before launch: {report_path}"
+            f"{schema_version} handoff requires a {label} eval report before launch: {report_path}"
         )
-    _copy_file(report_path, dataset_dir / SFT_PREDECESSOR_REPORT_NAME)
-    return SFT_PREDECESSOR_REPORT_NAME
+    _copy_file(report_path, dataset_dir / report_name)
+    return report_name
 
 
 def build_bundles(
@@ -187,7 +212,7 @@ def build_bundles(
     _copy_file(split_manifest, dataset_dir / split_manifest_name)
     _copy_file(readiness_report, dataset_dir / "grpo_readiness_05b_candidate.json")
     _copy_file(grpo_config, dataset_dir / "grpo_05b.yaml")
-    predecessor_report_file = _copy_v3_predecessor_report(
+    predecessor_report_file = _copy_predecessor_report(
         config_path=grpo_config,
         report_path=sft_predecessor_report,
         dataset_dir=dataset_dir,

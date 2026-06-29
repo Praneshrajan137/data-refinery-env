@@ -27,6 +27,7 @@ from dataforge.repair_contract import (  # noqa: E402
     CONTRACT_VERSION,
     CONTRACT_VERSION_V1,
     CONTRACT_VERSION_V2,
+    CONTRACT_VERSION_V3,
     parse_repair_action,
 )
 from scripts.data.collect_sft_trajectories import validate_trajectory_record  # noqa: E402
@@ -558,7 +559,12 @@ def _validate_prompt_contract(
         raise SftReadinessError(
             f"Record {index} prompt contract {record_contract!r}; expected {expected_contract!r}."
         )
-    if expected_contract not in {CONTRACT_VERSION, CONTRACT_VERSION_V1, CONTRACT_VERSION_V2}:
+    if expected_contract not in {
+        CONTRACT_VERSION,
+        CONTRACT_VERSION_V1,
+        CONTRACT_VERSION_V2,
+        CONTRACT_VERSION_V3,
+    }:
         raise SftReadinessError(f"Unsupported configured prompt contract {expected_contract!r}.")
 
     messages = record.get("messages")
@@ -580,7 +586,8 @@ def _validate_prompt_contract(
         "target_rows",
         "context_rows",
     }
-    if expected_contract == CONTRACT_VERSION_V2:
+    strict_contract = expected_contract in {CONTRACT_VERSION_V2, CONTRACT_VERSION_V3}
+    if strict_contract:
         required_user_keys.add("valid_rows")
     missing = sorted(required_user_keys - set(user_map))
     if missing:
@@ -596,20 +603,24 @@ def _validate_prompt_contract(
         raise SftReadinessError(f"Record {index} target_rows drift between state and prompt.")
     parse_result = parse_repair_action(
         str(assistant_message.get("content", "")),
-        allowed_columns=cast(list[str], user_map["allowed_columns"])
-        if expected_contract == CONTRACT_VERSION_V2
-        else None,
+        allowed_columns=cast(list[str], user_map["allowed_columns"]) if strict_contract else None,
         valid_rows=cast(list[int], user_map["valid_rows"])
-        if expected_contract == CONTRACT_VERSION_V2 and isinstance(user_map.get("valid_rows"), list)
+        if strict_contract and isinstance(user_map.get("valid_rows"), list)
         else None,
-        require_explicit_action=expected_contract == CONTRACT_VERSION_V2,
+        require_explicit_action=strict_contract,
     )
     if not parse_result.ok or parse_result.action is None:
         raise SftReadinessError(
             f"Record {index} assistant message violates repair contract: "
             f"{parse_result.error_message}"
         )
-    parsed_repairs = [repair.model_dump(mode="json") for repair in parse_result.action.repairs]
+    if expected_contract == CONTRACT_VERSION_V3:
+        parsed_repairs = [
+            {"row": repair.row, "column": repair.column, "new_value": repair.new_value}
+            for repair in parse_result.action.repairs
+        ]
+    else:
+        parsed_repairs = [repair.model_dump(mode="json") for repair in parse_result.action.repairs]
     if parsed_repairs != repairs:
         raise SftReadinessError(f"Record {index} assistant repairs drift from fix field.")
     return len(repairs), not repairs

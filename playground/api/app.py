@@ -1365,7 +1365,7 @@ async def _run_with_timeout(label: str, func: Callable[[], _ResultT]) -> _Result
             timeout=float(REQUEST_TIMEOUT_SECONDS),
         )
     except TimeoutError as exc:
-        logger.warning("%s timed out after %d seconds", label, REQUEST_TIMEOUT_SECONDS)
+        logger.warning("%s timed out after %s seconds", label, REQUEST_TIMEOUT_SECONDS)
         raise _upload_problem(
             status_code=504,
             error="request_timeout",

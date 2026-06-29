@@ -2,9 +2,86 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+import pytest
+
 from scripts.ci import readme_truth
+
+
+def _publish_artifact(package_name: str, index_name: str, artifact_name: str) -> dict[str, object]:
+    """Build complete publish evidence for one test artifact."""
+    workflow = readme_truth.EXPECTED_PUBLISH_WORKFLOWS[package_name][index_name]
+    sha256 = "a" * 64
+    host = "pypi.org" if index_name == "pypi" else "test.pypi.org"
+    return {
+        "download_url": f"https://files.pythonhosted.org/{package_name}/{artifact_name}",
+        "filename": f"{package_name}-0.1.0.{artifact_name}",
+        "integrity_predicate_type": readme_truth.PUBLISH_ATTESTATION_PREDICATE,
+        "integrity_subject_sha256": sha256,
+        "package_type": "bdist_wheel" if artifact_name == "wheel" else "sdist",
+        "provenance_url": f"https://{host}/integrity/{package_name}/0.1.0/{artifact_name}",
+        "sha256": sha256,
+        "trusted_publisher": {
+            "identity": (
+                f"https://github.com/Aegis15/dataforge/.github/workflows/{workflow}@refs/heads/main"
+            ),
+            "oidc_issuer": "https://token.actions.githubusercontent.com",
+            "ref": "refs/heads/main",
+            "repository": "Aegis15/dataforge",
+            "workflow": workflow,
+        },
+        "upload_time_iso_8601": "2026-06-13T03:44:38.733869Z",
+    }
+
+
+def _publish_index(package_name: str, index_name: str) -> dict[str, object]:
+    """Build complete PyPI/TestPyPI index evidence for one test package."""
+    project_host = "pypi.org" if index_name == "pypi" else "test.pypi.org"
+    return {
+        "index": index_name,
+        "project_url": f"https://{project_host}/project/{package_name.replace('_', '-')}/",
+        "wheel": _publish_artifact(package_name, index_name, "wheel"),
+        "sdist": _publish_artifact(package_name, index_name, "sdist"),
+    }
+
+
+def _publish_package(name: str, tmp_path: Path) -> dict[str, object]:
+    """Build complete publish-report package evidence."""
+    _ = tmp_path
+    smoke_dir = readme_truth.PROJECT_ROOT / "docs" / "evidence" / "pypi"
+    smoke_dir.mkdir(parents=True, exist_ok=True)
+    pypi_log = smoke_dir / f"{name}-pypi-smoke.json"
+    testpypi_log = smoke_dir / f"{name}-testpypi-smoke.json"
+    pypi_log.write_text('{"ok": true}\n', encoding="utf-8")
+    testpypi_log.write_text('{"ok": true}\n', encoding="utf-8")
+    return {
+        "name": name,
+        "version": "0.1.0",
+        "pypi": _publish_index(name, "pypi"),
+        "testpypi": _publish_index(name, "testpypi"),
+        "attestations": True,
+        "pypi_fresh_install": True,
+        "testpypi_fresh_install": True,
+        "trusted_publishing": True,
+        "pypi_smoke_log_path": f"pypi/{pypi_log.name}",
+        "testpypi_smoke_log_path": f"pypi/{testpypi_log.name}",
+        "workflow_run_url": "https://github.com/Aegis15/dataforge/actions/runs/123",
+    }
+
+
+def _write_publish_report(path: Path, packages: list[dict[str, object]]) -> None:
+    """Write a publish report fixture."""
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "dataforge_pypi_publish_report_v2",
+                "packages": packages,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_design_partner_gate_is_explicitly_not_met() -> None:
@@ -36,6 +113,11 @@ def test_claim_ledger_exists_and_records_cloud_apply_as_roadmap() -> None:
     )
 
 
+def test_evidence_ledger_is_part_of_truth_gate() -> None:
+    """The public truth checker should validate the canonical evidence ledger."""
+    assert readme_truth.check_evidence_ledger() == []
+
+
 def test_claim_ledger_rejects_unknown_status(tmp_path: Path) -> None:
     """Claim status values are intentionally closed vocabulary."""
     ledger = tmp_path / "claims.yaml"
@@ -48,6 +130,80 @@ def test_claim_ledger_rejects_unknown_status(tmp_path: Path) -> None:
 
     assert errors
     assert "unknown status" in errors[0]
+
+
+def test_pypi_publish_report_requires_all_public_packages(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The publication truth gate must prove every public package family member."""
+    monkeypatch.setattr(readme_truth, "PROJECT_ROOT", tmp_path)
+    report = tmp_path / "publish_report.json"
+    _write_publish_report(
+        report,
+        [_publish_package(name, tmp_path) for name in readme_truth.PUBLISHED_DISTS],
+    )
+
+    assert readme_truth.check_pypi_publish_report(report) == []
+
+
+def test_pypi_publish_report_rejects_wrong_local_version(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Publication evidence must match the version in each local pyproject."""
+    monkeypatch.setattr(readme_truth, "PROJECT_ROOT", tmp_path)
+    report = tmp_path / "publish_report.json"
+    packages = [_publish_package(name, tmp_path) for name in readme_truth.PUBLISHED_DISTS]
+    packages[0]["version"] = "9.9.9"
+    _write_publish_report(report, packages)
+
+    errors = readme_truth.check_pypi_publish_report(report)
+
+    assert any("version does not match local pyproject" in error for error in errors)
+
+
+def test_pypi_publish_report_rejects_missing_smoke_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Referenced fresh-install smoke logs are part of release evidence."""
+    monkeypatch.setattr(readme_truth, "PROJECT_ROOT", tmp_path)
+    report = tmp_path / "publish_report.json"
+    packages = [_publish_package(name, tmp_path) for name in readme_truth.PUBLISHED_DISTS]
+    packages[0]["pypi_smoke_log_path"] = "pypi/missing-smoke.json"
+    _write_publish_report(report, packages)
+
+    errors = readme_truth.check_pypi_publish_report(report)
+
+    assert any("references missing" in error for error in errors)
+
+
+def test_pypi_publish_report_rejects_missing_attestation_predicate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each wheel and sdist must carry the PyPI publish attestation predicate."""
+    monkeypatch.setattr(readme_truth, "PROJECT_ROOT", tmp_path)
+    report = tmp_path / "publish_report.json"
+    packages = [_publish_package(name, tmp_path) for name in readme_truth.PUBLISHED_DISTS]
+    packages[0]["pypi"]["wheel"]["integrity_predicate_type"] = "wrong"  # type: ignore[index]
+    _write_publish_report(report, packages)
+
+    errors = readme_truth.check_pypi_publish_report(report)
+
+    assert any("publish attestation predicate" in error for error in errors)
+
+
+def test_stale_publication_wording_fails_after_publish(tmp_path: Path) -> None:
+    """Published package docs must not drift back to pre-publication language."""
+    claim_path = tmp_path / "claim.md"
+    claim_path.write_text("The PyPI package is not published yet.\n", encoding="utf-8")
+
+    errors = readme_truth.check_stale_publication_claims([claim_path])
+
+    assert errors
+    assert "published DataForge package" in errors[0]
 
 
 def test_unqualified_design_partner_claim_fails_when_gate_not_met(tmp_path: Path) -> None:

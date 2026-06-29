@@ -2,7 +2,7 @@
 
 > Status: Draft
 > Owner: DataForge maintainers
-> Last updated: 2026-06-12
+> Last updated: 2026-06-26
 
 ## 1. Purpose
 
@@ -33,14 +33,17 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - [ ] `scripts/remote/kaggle_sft_v5_candidate.py` trains the private SFT-v5
   repair-curriculum predecessor and writes `sft_v5_candidate_eval_report.json`
   before any GRPO-v3 smoke, diagnostic, or candidate run can launch.
+- [ ] GRPO-v4 remains blocked until a private SFT-v9-or-later predecessor
+  report has `promote_to_grpo: true`; the frozen SFT-v8 smoke report has
+  `promote_to_grpo: false` and must not seed GRPO, while the SFT-v9 local
+  curriculum preflight is not itself a trained checkpoint.
 
 ## 3. Scope
 
 **IN**:
 
 - 0.5B GRPO from `Praneshrajan15/DataForge-0.5B-SFT` with fp16 LoRA.
-- 0.5B GRPO-v3 from a private, gate-passing
-  `DataForge-0.5B-SFT-v5-candidate` predecessor only.
+- 0.5B GRPO-v3/v4 from private, gate-passing SFT predecessor reports only.
 - 1.5B GRPO from a verified `DataForge-1.5B-SFT` prerequisite with 4-bit QLoRA.
 - Manifest-driven 3B/7B GRPO policy rows that stay blocked until explicit
   HF Jobs or equivalent paid GPU evidence exists.
@@ -55,6 +58,8 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - GiGPO publication before a same-size GRPO predecessor is verifier-passed.
 - Reward calls to the mutable OpenEnv HTTP singleton during GRPO rollouts.
 - Public quality claims without generated verifier artifacts.
+- Launching GRPO from failed SFT-v5/v6/v7/v8 diagnostic evidence or from an
+  SFT-v9 curriculum/preflight without a promoted private checkpoint.
 
 ## 4. Constraints
 
@@ -75,6 +80,13 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - README benchmark rows are generated from JSON artifacts only.
 - GRPO is selected before GiGPO for the free-tier path because it ships in TRL;
   GiGPO/verl-agent remains heavier setup and memory work.
+- SFT-v8 prompt-completion smoke is failed diagnostic evidence: label-mask
+  audit passed, but raw parse stayed at `0.03` and strict macro F1 stayed at
+  `0.0`, so more GRPO is the wrong next move.
+- SFT-v9 action-envelope work is the next private predecessor path. Its local
+  curriculum preflight proves completion parse `1.0`, no held-out leakage, and
+  no negative-contrast target leakage, but GRPO-v4 remains blocked until SFT-v9
+  strict held-out eval and private upload produce `promote_to_grpo: true`.
 
 ## 6. Task Breakdown
 
@@ -131,6 +143,7 @@ checkpoints only when generated evidence proves a real held-out improvement.
 - [ ] README contains no trained-model quality claim without verifier evidence.
 - [ ] Failed SFT-v5 and GRPO runs write diagnostics and do not push public
   model repos.
+- [ ] Failed SFT predecessor reports block GRPO before GPU work.
 
 ## Appendix A - Toy Cases
 

@@ -1,0 +1,7 @@
+{"event": "sft_v9_candidate_start"}
+{"event": "source_extracted", "input_root": "/kaggle/input/datasets/praneshrajan15/dataforge-sft-v9-handoff"}
+{"allow_upload_after_gate": false, "event": "stage_selected", "max_steps": 40, "stage": "smoke"}
+{"event": "hf_token_unavailable_preflight"}
+{"event": "install_stack_start"}
+{"event": "install_stack_done"}
+RuntimeError: SFT-v9 candidate requires a T4-or-newer Kaggle GPU for the installed PyTorch wheel; received Tesla P100-PCIE-16GB with capability sm_60.

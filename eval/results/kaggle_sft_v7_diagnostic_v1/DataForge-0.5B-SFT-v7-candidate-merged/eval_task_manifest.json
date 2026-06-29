@@ -1,0 +1,3529 @@
+{
+  "benchmark_name": "DataForge-Bench-light-verified",
+  "benchmark_seeds": [
+    0,
+    1,
+    2
+  ],
+  "chunk_width": 4,
+  "heldout_tasks": 100,
+  "max_new_tokens": 1024,
+  "schema_version": "dataforge_grpo_eval_task_manifest_v1",
+  "source_audit": {
+    "blockers": [],
+    "datasets": [
+      {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "columns": 20,
+        "dataset": "hospital",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "errors": [],
+        "ground_truth_cells": 509,
+        "rows": 1000,
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "status": "pass"
+      },
+      {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "columns": 7,
+        "dataset": "flights",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "errors": [],
+        "ground_truth_cells": 4920,
+        "rows": 2376,
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "status": "pass"
+      },
+      {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "columns": 11,
+        "dataset": "beers",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "errors": [],
+        "ground_truth_cells": 4362,
+        "rows": 2410,
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "status": "pass"
+      }
+    ],
+    "ok": true,
+    "schema_version": "dataforge_real_world_source_audit_v1",
+    "status": "pass"
+  },
+  "tasks": [
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "0b62f87ebbe3be0f9ef28b7966b0f0e641d4a9afe68b4095e63338d81cb93c98",
+      "seed": 10000,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10000:0000",
+      "truth_cell_count": 4,
+      "truth_hash": "658e0f73affbb0113bf130a51a298422d6d381a7e62b8f851439068501c94466",
+      "valid_rows": [
+        55,
+        56,
+        57,
+        58
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "cc6152138f061ccdfd4f8f15c606e645cb691a80331926da7a542ffb2f2eb7d9",
+      "seed": 10004,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10004:0001",
+      "truth_cell_count": 12,
+      "truth_hash": "be6faa6bed03ded42c6d6baff1918289bc97260352efd47429cfdd341fbef6ba",
+      "valid_rows": [
+        1651,
+        1652,
+        1653,
+        1654
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "5e7d3f5aa001fc35270bcb02d6df42ccd0e1d7e1c477ff8f14da403f9eb4ee72",
+      "seed": 10008,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10008:0002",
+      "truth_cell_count": 5,
+      "truth_hash": "4c5b68d894a5328c1acf340c223441d45d5b909191ba91f1a92541c89088d083",
+      "valid_rows": [
+        657,
+        658,
+        659,
+        660
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "7c54c31e3c7128f5d3d47efba3f9bb9dbd0ed8a5ccc78a0178ea672ae8e0a079",
+      "seed": 10009,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10009:0003",
+      "truth_cell_count": 4,
+      "truth_hash": "a1dd252ad201489b3b4e66f87d5b0d7a357edb5851cac1b2649608344bb07853",
+      "valid_rows": [
+        161,
+        162,
+        163,
+        164
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "360c927e035d49f4a3f64c67c21fe35e7f2cc513609919e88f5b0f197b86c96f",
+      "seed": 10013,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10013:0004",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        1433,
+        1434,
+        1435,
+        1436
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "0e8571ceef039d2f3687c57fc8f5a49d1e64f67d94ac6e72d02d3ea32ab839ad",
+      "seed": 10017,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10017:0005",
+      "truth_cell_count": 7,
+      "truth_hash": "fc1f675cfd00dc88b9dfa77ce67fe3b2939e6c33ed07c01692922d3eba05cf17",
+      "valid_rows": [
+        1589,
+        1590,
+        1591,
+        1592
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "685a2486bd18075c095373d4bbd09f865c5905f9a149c8cb7332aafe7d35bef7",
+      "seed": 10018,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10018:0006",
+      "truth_cell_count": 2,
+      "truth_hash": "63ce6b930040097cd90ae6d6f9e9180a5c08fd6cf2affc0ef71b238873f35eb8",
+      "valid_rows": [
+        512,
+        513,
+        514,
+        515
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "da1269070891812c3ac852fc35d6efa83bc6251a38a68d7ccbee551778df8dad",
+      "seed": 10022,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10022:0007",
+      "truth_cell_count": 8,
+      "truth_hash": "ca526c4f779bbe26471da1811a03300ee9bc393d5fa70840f363556fc31e72f1",
+      "valid_rows": [
+        324,
+        325,
+        326,
+        327
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "315a6873fbd8556aebebf571dc8fdef08a75e6a0e2b83208a30f7d241d645b77",
+      "seed": 10026,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10026:0008",
+      "truth_cell_count": 8,
+      "truth_hash": "25f4f110e9b590d7df91fce8ba60954f1de0386a9c45539785d81c4659d78949",
+      "valid_rows": [
+        379,
+        380,
+        381,
+        382
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "09d1dd1702673ea905ae39cf2939d566672cff23e7fe6e0aec510c6d1591d8fb",
+      "seed": 10027,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10027:0009",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        52,
+        53,
+        54,
+        55
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "620d9f70642be33cef31da7dd5316cbc4607913712eb93915ecdfe0d9d35b304",
+      "seed": 10031,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10031:0010",
+      "truth_cell_count": 9,
+      "truth_hash": "f0342b9cd44788d15c5502a6ba32500bef567ae9f3391bec149314e077ec99a0",
+      "valid_rows": [
+        655,
+        656,
+        657,
+        658
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "539ed8799bf842118b1b75020fe6ae08aa083944ff49f932ff62008e6541e6d0",
+      "seed": 10035,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10035:0011",
+      "truth_cell_count": 8,
+      "truth_hash": "101910dda1b01f0435fd1f2368a794148c20d12078644adcc352d9616402a11c",
+      "valid_rows": [
+        2211,
+        2212,
+        2213,
+        2214
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "b44aa5abd310a2f19fc54d20f775041a67b4578d8be8896fc07688c0f7cf6da4",
+      "seed": 10036,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10036:0012",
+      "truth_cell_count": 3,
+      "truth_hash": "cedf35a35b983cc6065b6b12c707def610e0dd0edd0bd228c3da8eb333f166ab",
+      "valid_rows": [
+        502,
+        503,
+        504,
+        505
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "fc96f6cb54a4fd0758a0d26f431aec2aa2d693482369f9e6a7d7ad14ea5597de",
+      "seed": 10040,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10040:0013",
+      "truth_cell_count": 10,
+      "truth_hash": "495ce261990cffc1c6083b27e4b77364159bd4624cc78e7f2df870f92504ffa0",
+      "valid_rows": [
+        679,
+        680,
+        681,
+        682
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "2127ee769f169a24c9b9b77f11200e160e88d25af88cc89eae97503f2e75f68c",
+      "seed": 10044,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10044:0014",
+      "truth_cell_count": 7,
+      "truth_hash": "88e9b12ecd93e457374564a51a345174835c832cfd51a01d85bb87bf88160641",
+      "valid_rows": [
+        739,
+        740,
+        741,
+        742
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "200066fe35057af7f4ab4bd7a519212e6759dcc6278658320fbb668c9965d7d5",
+      "seed": 10045,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10045:0015",
+      "truth_cell_count": 7,
+      "truth_hash": "a1088bf39deb84e45e00960fa7576932091271f5f563c6297c5a0720e97cbcb7",
+      "valid_rows": [
+        384,
+        385,
+        386,
+        387
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "d8b35371068a0ded6b6715ac3cc26c9364ec2217beec7996849929901a4952d5",
+      "seed": 10049,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10049:0016",
+      "truth_cell_count": 4,
+      "truth_hash": "4c7ec664874c9a4510c34facf92d621479bff5be17263296f114b82a13a08b46",
+      "valid_rows": [
+        1215,
+        1216,
+        1217,
+        1218
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "499c49ba45efe089811d55a5e16f465dd8d279e6fb242ad5ae4a5013f28a95e9",
+      "seed": 10053,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10053:0017",
+      "truth_cell_count": 9,
+      "truth_hash": "e6bea5d85fc7c8a023de42e974dc7c054301b65f6a45d3b905989144a8b4b298",
+      "valid_rows": [
+        123,
+        124,
+        125,
+        126
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "df61c6fa19da9d0f2a25388460a0bcedea8edb2316ea30adc81d6ba6815832f1",
+      "seed": 10054,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10054:0018",
+      "truth_cell_count": 2,
+      "truth_hash": "1b3e9f41d447a03700c7b14302bd78983d98f6b611db6c9f97f29cacdd678c0a",
+      "valid_rows": [
+        79,
+        80,
+        81,
+        82
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "4d4b3e0f1d347488361194a83f1ae60a77cbe9a4a02c3de1f469e1c9e4fdc786",
+      "seed": 10058,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10058:0019",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        1729,
+        1730,
+        1731,
+        1732
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "551c66b995e1c02b168eb80df06c72133276f9632c75d24780bd9b88bf646861",
+      "seed": 10062,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10062:0020",
+      "truth_cell_count": 5,
+      "truth_hash": "d81674430f96032b4381946989dbcd4be2ce314423dd9e91639ec11850a411ac",
+      "valid_rows": [
+        909,
+        910,
+        911,
+        912
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "a80a9f47f44c3ac5212f399db65a8f28dfca58cd2eda57ab4a6b69a3c770fb1c",
+      "seed": 10063,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10063:0021",
+      "truth_cell_count": 1,
+      "truth_hash": "d3e0e7bb1c6fae98c2d4c51fb97b58bcb589289daaeae7ce538953d1915c15a7",
+      "valid_rows": [
+        429,
+        430,
+        431,
+        432
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "6be856e986a28c40c2a329b726254d61384657e59d75ea6ecebb0a5027be85c7",
+      "seed": 10067,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10067:0022",
+      "truth_cell_count": 16,
+      "truth_hash": "5bdbc14bd5002e58f280536ab846c21c86f9a43ef1d50e44856069400ab209ce",
+      "valid_rows": [
+        58,
+        59,
+        60,
+        61
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "807967f143827ad47fa364e66282bc28e04fb8960187919938ade2da6e94ccfd",
+      "seed": 10071,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10071:0023",
+      "truth_cell_count": 5,
+      "truth_hash": "5166d946367244a863202a2ca9f6abb9c4dc849b73c8605ce4b33b0a30ee7c3d",
+      "valid_rows": [
+        1325,
+        1326,
+        1327,
+        1328
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "d75fa0a1a291ce398d3ffcd378f7aabf1c9072ae5e837b362776c95f3995550a",
+      "seed": 10072,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10072:0024",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        286,
+        287,
+        288,
+        289
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "685bf2f8d8b3d02dc8bce3880e7b48e5b8c0c50bb1b63a4f194a033aac871faa",
+      "seed": 10076,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10076:0025",
+      "truth_cell_count": 12,
+      "truth_hash": "146dec07e3b80bbd2afdebf280d0020d04798ec8dbbb2e01c8d8c28398734627",
+      "valid_rows": [
+        1523,
+        1524,
+        1525,
+        1526
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "c8b4ab0e0f65c605b94c9f349f963aff546fe2254ba9e555cdba59a57a453e1d",
+      "seed": 10080,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10080:0026",
+      "truth_cell_count": 8,
+      "truth_hash": "03d99f938da1a95f553983381101cdc30d96ba24b35e94947012e4e874008537",
+      "valid_rows": [
+        299,
+        300,
+        301,
+        302
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "fac9d6806cd7075dad101076ea58a0eab2c7aba7689f9b2f8d3ed07b5e3d2fb0",
+      "seed": 10081,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10081:0027",
+      "truth_cell_count": 3,
+      "truth_hash": "9d397ceef4c7c06ff364a4986c0057023b30e5667134bb4c355c95d18099d17e",
+      "valid_rows": [
+        70,
+        71,
+        72,
+        73
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "07c9c1cf66eec2cee40f8d5104103513d1663085a1a3a8de1981ddbb9ea32350",
+      "seed": 10085,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10085:0028",
+      "truth_cell_count": 7,
+      "truth_hash": "661144dc645589aadc3012d84b8ee9599ed2a3c1457709721fa4507e3d46c7b2",
+      "valid_rows": [
+        521,
+        522,
+        523,
+        524
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "8b26e9dab4f90d304af847a3cb847713026722d290a3c809843a7aadf4698810",
+      "seed": 10089,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10089:0029",
+      "truth_cell_count": 10,
+      "truth_hash": "e751d072ce39a0d95b7c0c6205d36138d607ae246180da0a9dda8364668d427b",
+      "valid_rows": [
+        1713,
+        1714,
+        1715,
+        1716
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "e19dbc6685be3c24504951c0f50f879a14cd598ef848fe2a378bc4a630e35d20",
+      "seed": 10090,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10090:0030",
+      "truth_cell_count": 4,
+      "truth_hash": "920c761f53c3033309b61cdad3860559b206fab61d6fd0b6072bc89592244feb",
+      "valid_rows": [
+        530,
+        531,
+        532,
+        533
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "1e2047d01dd1fd9e2d7059a0c0c68cc3aba11471b94e75ecb044443a190a76b0",
+      "seed": 10094,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10094:0031",
+      "truth_cell_count": 12,
+      "truth_hash": "97d2d20c3de2ae7a9b0b4ed9c38fca78ff3481493ac50878589e0e22b02c205a",
+      "valid_rows": [
+        445,
+        446,
+        447,
+        448
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "4753bfa9721114e0b85d4e441480609f0f0fa94cca26c24a47f105dafe056665",
+      "seed": 10098,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10098:0032",
+      "truth_cell_count": 6,
+      "truth_hash": "9c0f22c395f1ca0d9cc3f0c791038e5b58608c29b59c82959c75215bdf2c2d9e",
+      "valid_rows": [
+        979,
+        980,
+        981,
+        982
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "e9aa1d529dd3c1fbdb2144fc78afaaea0804ae721a5e0339115c6601d59e4ab0",
+      "seed": 10099,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10099:0033",
+      "truth_cell_count": 3,
+      "truth_hash": "2196f232d26d2d0435cfe8b0699504e4268f947c6f3abc19dfa06f419c17bbdd",
+      "valid_rows": [
+        241,
+        242,
+        243,
+        244
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "dd8b90f39cf9078179928ab346002510db47ee8caabe5b0dd0e0877355934f08",
+      "seed": 10103,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10103:0034",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        612,
+        613,
+        614,
+        615
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "4753c3d01f26cc70f87b18701457cd4c586ebc6d8e31eccc123785cbae44319f",
+      "seed": 10107,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10107:0035",
+      "truth_cell_count": 8,
+      "truth_hash": "a1886bd43bf0fab8b81c3b488631e5d172c3c84078cf929dedf732215970da93",
+      "valid_rows": [
+        1815,
+        1816,
+        1817,
+        1818
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "fefe2040c9f60d52cd6e6f50c4ceeb9e509192a084c481acf6846a9a7413fd0d",
+      "seed": 10108,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10108:0036",
+      "truth_cell_count": 2,
+      "truth_hash": "89ba74e71db5d45c34de02ea56da17071cb1ca53678f711f0f45c4ace575ca00",
+      "valid_rows": [
+        175,
+        176,
+        177,
+        178
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "eb3d2ae72ab5912f630ed8d636f9f0d67e8dbf946d8b15641972f290231b7d38",
+      "seed": 10112,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10112:0037",
+      "truth_cell_count": 9,
+      "truth_hash": "9f6bc7f4eeac79273772bb54421a1ca10f8af2451b88d5251f5356edcd730b24",
+      "valid_rows": [
+        1716,
+        1717,
+        1718,
+        1719
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "c5007e13c8c2dbc4be76be64b4dc2234c8b049cebd0e9c92edc465b8531a7963",
+      "seed": 10116,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10116:0038",
+      "truth_cell_count": 6,
+      "truth_hash": "9219ffb464057957389c63c9fe218ee5a6c823a52f49e81463096a6b5ca9780d",
+      "valid_rows": [
+        914,
+        915,
+        916,
+        917
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "df745ac759b538d42060e372e345a4fb9601a7d0090e8d2a02c273788abf3752",
+      "seed": 10117,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10117:0039",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        738,
+        739,
+        740,
+        741
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "78591135865e472f729a7cf1f071a25834304929191427700ac3271c40b3c9ec",
+      "seed": 10121,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10121:0040",
+      "truth_cell_count": 15,
+      "truth_hash": "7372196efdbc0130155c5a7e026a20f3dd53cf9ec65706ce29ff048038ee4cf7",
+      "valid_rows": [
+        757,
+        758,
+        759,
+        760
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "f527c5718d44014e4b30faff09d631709dc34f0a31864c61e42550e376050ce5",
+      "seed": 10125,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10125:0041",
+      "truth_cell_count": 9,
+      "truth_hash": "e9296f6df005ba7cad25c48b3a51eb7d083645fa1080653ac076280d0be1cb37",
+      "valid_rows": [
+        1374,
+        1375,
+        1376,
+        1377
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "3b11fdec2a6cad37fc9bbe86bdd7b483a829bb2fcba0cf59123a084f535ec3c1",
+      "seed": 10126,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10126:0042",
+      "truth_cell_count": 3,
+      "truth_hash": "2196f232d26d2d0435cfe8b0699504e4268f947c6f3abc19dfa06f419c17bbdd",
+      "valid_rows": [
+        242,
+        243,
+        244,
+        245
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "e485622fe13d3306fa4a622ec43d1d331bd1d254488f520dbcb8b463d2ad6b92",
+      "seed": 10130,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10130:0043",
+      "truth_cell_count": 7,
+      "truth_hash": "6e450518c0ec40dc967fab405c50c620debc2dc3db58db4f76e69fba355f5622",
+      "valid_rows": [
+        2088,
+        2089,
+        2090,
+        2091
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "e4bf507ce7bd93af8e67417c89d5b75c7bf76926e7f3a1ade33d947763d80f2f",
+      "seed": 10134,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10134:0044",
+      "truth_cell_count": 11,
+      "truth_hash": "6f92c809c2ec10e4ca243f079b3a647fe9b32c8d8c5c599a3da3dd2efe684be8",
+      "valid_rows": [
+        2140,
+        2141,
+        2142,
+        2143
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "2c6a3824ecbf0bfd1876632c03cbf03ec2006d50f0c7e189270aab460dbf76af",
+      "seed": 10135,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10135:0045",
+      "truth_cell_count": 3,
+      "truth_hash": "d07bc0dfa4afe05fa9badd8268fd6d7170dc80a629e117f2626dca8eda0ce363",
+      "valid_rows": [
+        254,
+        255,
+        256,
+        257
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "b88a1ea3f21579ac76a736f4ddfe445e0fd6192191acc5e34d3eaa117abd5596",
+      "seed": 10139,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10139:0046",
+      "truth_cell_count": 14,
+      "truth_hash": "5b601775004078b98a6a32d87dd539fdb988727bc2ece078050297640f72f683",
+      "valid_rows": [
+        421,
+        422,
+        423,
+        424
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "907e05861e8923b83219e2699585f2d78874b2d217d02e4306b351bb89573e8a",
+      "seed": 10143,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10143:0047",
+      "truth_cell_count": 7,
+      "truth_hash": "1107701c17c736db6b406889a308926c85dd85a016505011dc9d4e8dc46eee8d",
+      "valid_rows": [
+        1042,
+        1043,
+        1044,
+        1045
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "f6d171057355214a54c5e47b2f298b0984822f53c6fa87ce9f39a737ad4ec5e1",
+      "seed": 10144,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10144:0048",
+      "truth_cell_count": 2,
+      "truth_hash": "f8ab6a5e23a96fe1e453a0b2faab8a156668f11e63c7b63474c8ab650d73fd3d",
+      "valid_rows": [
+        666,
+        667,
+        668,
+        669
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "e2842a0de824e2dbfc82ac1552de49e88c3b9a0d7529d0ef6c0abe07c2393e88",
+      "seed": 10148,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10148:0049",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        1909,
+        1910,
+        1911,
+        1912
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "d53225e71f08aacd9a32b638432f8d9839ac768d7ef7f0a177a2c446733234ef",
+      "seed": 10152,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10152:0050",
+      "truth_cell_count": 6,
+      "truth_hash": "dc855431a833bd1f7c65765442533178c02e7ffd6f2d7465295f7997a0694961",
+      "valid_rows": [
+        1214,
+        1215,
+        1216,
+        1217
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "005cbce7529e29c28f2627d93e14113178e12e547b6d448c47b2302999514696",
+      "seed": 10153,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10153:0051",
+      "truth_cell_count": 1,
+      "truth_hash": "c7eb7238e5c1ca69580f9230655c828812314cd22db788510e91cd523de1b880",
+      "valid_rows": [
+        125,
+        126,
+        127,
+        128
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "92034e5c61a6c3ebe4f1f2f771eaccb8bc9509d39dfbb2d13fdbbdb2e3970fde",
+      "seed": 10157,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10157:0052",
+      "truth_cell_count": 12,
+      "truth_hash": "738f045634b315e28cf7ba2e4f32b62bdfff351e1263b60539c8e3d035cc2770",
+      "valid_rows": [
+        1563,
+        1564,
+        1565,
+        1566
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "5ea67e286ae913ab9de42e9599c85047f66dc6e5329f7c3c33d1d0440bfa55a5",
+      "seed": 10161,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10161:0053",
+      "truth_cell_count": 9,
+      "truth_hash": "6c307c4769ec01953ab294ceadcbdcee82db6ea834a3ab7ba52918da5527a0f1",
+      "valid_rows": [
+        1295,
+        1296,
+        1297,
+        1298
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "6073935e6b298bfdc30cd3521ea2bdcdff8933e22edcb8e86ac3457897a1af1e",
+      "seed": 10162,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10162:0054",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        478,
+        479,
+        480,
+        481
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "2a5ee50a30719113446512222ed6d885d6174796acff0d4e176859a12dfead53",
+      "seed": 10166,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10166:0055",
+      "truth_cell_count": 13,
+      "truth_hash": "665a15c50845d25548af83fe61b679e8a74b4f9dad8f869c51e6a81ca95c1b45",
+      "valid_rows": [
+        169,
+        170,
+        171,
+        172
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "b0f6245b69e0928ce6c7f8d1b335cc96546252737f679508bdf155f653204199",
+      "seed": 10170,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10170:0056",
+      "truth_cell_count": 8,
+      "truth_hash": "e44fc85dc1475072e496d9d35fad5f3622c8a0a7ece1693f2b6f11d5d44eba8c",
+      "valid_rows": [
+        777,
+        778,
+        779,
+        780
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "2acb2fa63891d1fe1adfce8cfdb20975f8679de28ab8a6faaf13447a8fca509e",
+      "seed": 10171,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10171:0057",
+      "truth_cell_count": 3,
+      "truth_hash": "f439570b5d8ce93ec2af6fdc13e2b64b2430f3fd294ee3bf850433d7a4c48d5e",
+      "valid_rows": [
+        553,
+        554,
+        555,
+        556
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "e8c50d0935d223afa09e37c3aa5e768491d792e36e8e00c8a66dda91a9323ec1",
+      "seed": 10175,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10175:0058",
+      "truth_cell_count": 9,
+      "truth_hash": "81434eb48bf72e4bd84e0ea1ec5574a5e06af996c23201e7817dba5980754d11",
+      "valid_rows": [
+        2174,
+        2175,
+        2176,
+        2177
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "5f9023ea8dfb3d3e36803d16ffd0930db57221bee2a09be527fdf7015b978718",
+      "seed": 10179,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10179:0059",
+      "truth_cell_count": 4,
+      "truth_hash": "27f05f2432eac233a4f03fe4950ab99fd1cc2178192f164f69c14728ee1573e1",
+      "valid_rows": [
+        1062,
+        1063,
+        1064,
+        1065
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "6334c86b33e0e6d54d05b0863fef2c2ce7daa3260b47e05adfa5486dc9fe14eb",
+      "seed": 10180,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10180:0060",
+      "truth_cell_count": 5,
+      "truth_hash": "f618befd168ef0bd295ddde773ef6be4c1411b75af7b9687ba64a729fd57b703",
+      "valid_rows": [
+        672,
+        673,
+        674,
+        675
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "0ed1932e142495d6a838ba44cbf1442c5c897fd5c8b220143c00e991042e12a2",
+      "seed": 10184,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10184:0061",
+      "truth_cell_count": 6,
+      "truth_hash": "13ba837f69641659ee7e64496cefc91dd931456d7eb761f59468e3a73dcedd8a",
+      "valid_rows": [
+        2241,
+        2242,
+        2243,
+        2244
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "3553d576807cc6c3fa07e937afaa0d5581ee151e28c4ddbf8ac1b153ca57e3b5",
+      "seed": 10188,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10188:0062",
+      "truth_cell_count": 6,
+      "truth_hash": "064535679c8f2e5c072bd02ca20e9c8f1750dbaac49f882444dad1bfe3d29738",
+      "valid_rows": [
+        1383,
+        1384,
+        1385,
+        1386
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "8599e15b9e8101e038c81f05b0781d12fe7549beb2e6808fe31e7415b92396b5",
+      "seed": 10189,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10189:0063",
+      "truth_cell_count": 2,
+      "truth_hash": "0adfb12ebde53711708df0a42b4bcd9bece8dbacce45b07cef4ce666196cf755",
+      "valid_rows": [
+        293,
+        294,
+        295,
+        296
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "5d983df4f161dc5a0769e344e7befceb66d41e535378f42d292cd3773e02b2ad",
+      "seed": 10193,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10193:0064",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        563,
+        564,
+        565,
+        566
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "5fd631b599ccde38dc9342bc01f096dcf468b08381c8250d85ff76338034f137",
+      "seed": 10197,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10197:0065",
+      "truth_cell_count": 8,
+      "truth_hash": "b79093b939a4b0ce94c3a9a30d8856ff70c8f684d41b4c49ec8b842a9621cfc4",
+      "valid_rows": [
+        763,
+        764,
+        765,
+        766
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "b4d3033232ea8fbe70c681ae6b7d824c7f2174a0f7104e1c7e6f80e28df185a5",
+      "seed": 10198,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10198:0066",
+      "truth_cell_count": 1,
+      "truth_hash": "79a9fce9a52ab676ab992c7d133b559584bc8b4261691c0396df15a0b85ef0a1",
+      "valid_rows": [
+        86,
+        87,
+        88,
+        89
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "1fb535c1314873ee869806549861ef91920636b91548be71276baefb8b207ece",
+      "seed": 10202,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10202:0067",
+      "truth_cell_count": 7,
+      "truth_hash": "44a51dea597fde4a1735a69aa5144571788153be1c33bf31076a546d35978609",
+      "valid_rows": [
+        1048,
+        1049,
+        1050,
+        1051
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "00bef3e24a844127402929db41eaf2df25e59229924534cbc45fb5b6029ee614",
+      "seed": 10206,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10206:0068",
+      "truth_cell_count": 7,
+      "truth_hash": "0337ced3d9cc345b135b37af362d2e52f5ce7d0a397c59b8b9fa1c15b85de5c6",
+      "valid_rows": [
+        1692,
+        1693,
+        1694,
+        1695
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "a58c5c70f81e34163d63feb38b4d68bdad4d5bd618e5f466f9759245e44c752b",
+      "seed": 10207,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10207:0069",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        296,
+        297,
+        298,
+        299
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "825f4eb2a1c438ababe4eb7eff9e4aa52c367bb857ff986ce3d38caa8c944ed5",
+      "seed": 10211,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10211:0070",
+      "truth_cell_count": 12,
+      "truth_hash": "1e2f667b6ab000ed96c4603ba0c3745db2c46a992abe6eaa7f96960b816f9ef0",
+      "valid_rows": [
+        1514,
+        1515,
+        1516,
+        1517
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "f55d30dd2b1c67b01607fb8148e03d0e4bc25ce317e44cee9f2beffb1189b151",
+      "seed": 10215,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10215:0071",
+      "truth_cell_count": 6,
+      "truth_hash": "8f3855ae8279504f4ade16265a77678da64939c3b2844565c0ba426aeaf4408e",
+      "valid_rows": [
+        1331,
+        1332,
+        1333,
+        1334
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "0c365168e5fdc9c17e7f18441e3b2f02861ae3aba4bfd2123eb195d5731958bf",
+      "seed": 10216,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10216:0072",
+      "truth_cell_count": 2,
+      "truth_hash": "8cc7fdf9bbcd7f7907f69a8f0823fa1e0a061859b5b6b9d76bf5d6bd8bbfb627",
+      "valid_rows": [
+        747,
+        748,
+        749,
+        750
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "9e438c1740c35a2866ce8d2d1b24e4862e4e30a37478691c096960a5b8bcc04d",
+      "seed": 10220,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10220:0073",
+      "truth_cell_count": 7,
+      "truth_hash": "15c7f5d4d1fc79a00b891942850acb7cca0689624f5a503ed89cef5c06592bb1",
+      "valid_rows": [
+        1001,
+        1002,
+        1003,
+        1004
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "9482e50d3e22b67b07ec8679c015e26a8255de0baa8559fb861e465b8475c8f3",
+      "seed": 10224,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10224:0074",
+      "truth_cell_count": 5,
+      "truth_hash": "6b33bcfbed480a3842544cefa4fc9777f9c9a2f2fe1729f996ec74d0b969eb57",
+      "valid_rows": [
+        1960,
+        1961,
+        1962,
+        1963
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "b0514fb49944e49c9ad3721a1a7810c356b4f031e024b7b07814576a069a003b",
+      "seed": 10225,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10225:0075",
+      "truth_cell_count": 2,
+      "truth_hash": "82af405b2f58c661a88803224ab37d67a06257acd66706d5825a962d72a27ced",
+      "valid_rows": [
+        208,
+        209,
+        210,
+        211
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "7d2fed1ea4c5fe4a2ea34f3ce5b988b6bbb5d787fc831b656604eaead6edca94",
+      "seed": 10229,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10229:0076",
+      "truth_cell_count": 11,
+      "truth_hash": "04ae283e45070c1cc83996f59043d12ea2b75a0f61c8a346c50196124a43d061",
+      "valid_rows": [
+        1138,
+        1139,
+        1140,
+        1141
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "10d5689966d458ace654cfada2508ff73f8c23e74f07ac36e88b5faa9c23795b",
+      "seed": 10233,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10233:0077",
+      "truth_cell_count": 5,
+      "truth_hash": "ef69c3fd9faf4607401a8d38a9680952bd4b79942c165a140b35950f143d42e8",
+      "valid_rows": [
+        2137,
+        2138,
+        2139,
+        2140
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "ce7a92d9e3b32bdb3ddb1c94229b228f0996125dadd2bc4075ba1fc1cb74e90f",
+      "seed": 10234,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10234:0078",
+      "truth_cell_count": 3,
+      "truth_hash": "21fd2d7e498a74165c35d27df25bcdfb3b6432416181c5fc737dfb4b44f9f4d2",
+      "valid_rows": [
+        690,
+        691,
+        692,
+        693
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "4a99c81fb1e4d9f6ec5faa36ba5bd98776b342af57e0ed940abcd22129c0fc57",
+      "seed": 10238,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10238:0079",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        24,
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "ba8fc602051022de35fcd33003e717373ca87d426ba4224b21be8d74352217b0",
+      "seed": 10242,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10242:0080",
+      "truth_cell_count": 8,
+      "truth_hash": "f183e178a59d080ea51e011cb5dd951e07d1b25250f02f6be8e86eedd1c67baa",
+      "valid_rows": [
+        1187,
+        1188,
+        1189,
+        1190
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "47e50ace7312e941f7ba5760c236704daeb101a925046ddb41728ab2aaeb8836",
+      "seed": 10243,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10243:0081",
+      "truth_cell_count": 1,
+      "truth_hash": "7ddfa5399e1e7b4fbc694d691b76a3922e48bed03c5c6ac1a2cbc356b460ef05",
+      "valid_rows": [
+        194,
+        195,
+        196,
+        197
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "df1b1c860b63a5592912fa85c53c8c209b62f77ebbb4ba79c601124090035a1f",
+      "seed": 10247,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10247:0082",
+      "truth_cell_count": 9,
+      "truth_hash": "3d25cf418301c4ebeaa17f2a1926fb6dff55c977471a035e19d44915c4e80d57",
+      "valid_rows": [
+        1980,
+        1981,
+        1982,
+        1983
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "b5bc240ad12b06ed2a566aa82e1846f26d7a993bd300693f15e6147bde4f18f6",
+      "seed": 10251,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10251:0083",
+      "truth_cell_count": 6,
+      "truth_hash": "1cd2c042b9cf255d77795f92d4c3f9d6122ad218842ae0f035777373409a42eb",
+      "valid_rows": [
+        2160,
+        2161,
+        2162,
+        2163
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "763c7b2e862ded1174b93a29a831215385d26ffe96df012d98570b5e0c24107b",
+      "seed": 10252,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10252:0084",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        141,
+        142,
+        143,
+        144
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "e98b5032e09620ada9af22a4abac6b328b547d78019b4187d5ea0b55817dd6e8",
+      "seed": 10256,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10256:0085",
+      "truth_cell_count": 11,
+      "truth_hash": "444e3810d7fd7766e07b34a00d91d557af173c2a54c27ddc3f4fdde5c1edb438",
+      "valid_rows": [
+        1339,
+        1340,
+        1341,
+        1342
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "14782e1b81d9f85e85aed016ae875415aa98f678003ca1f3d246ce4efe0329bd",
+      "seed": 10260,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10260:0086",
+      "truth_cell_count": 7,
+      "truth_hash": "f73803dab1c542c4950d0c8222cd400adcb71e460c3def48a842f1ac7cc85973",
+      "valid_rows": [
+        2050,
+        2051,
+        2052,
+        2053
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "0e59cccbf25c2f641fbe959bf34243170c2092bba7e51f61c7fe068a5033c8b0",
+      "seed": 10261,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10261:0087",
+      "truth_cell_count": 6,
+      "truth_hash": "f068515adf6bcbb3adbf0ad7330d9238694e1b2357d1cb06acfdd7f01bd00a6c",
+      "valid_rows": [
+        236,
+        237,
+        238,
+        239
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "36dd4c69b4c09afc42e425596a0b9734a9ec6b35f8fb58cea0061e513f116d59",
+      "seed": 10265,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10265:0088",
+      "truth_cell_count": 7,
+      "truth_hash": "b8ccb87a79dafff76e05d9a4e2089016806985c7b8f2fdea69a11ba258b097ce",
+      "valid_rows": [
+        1375,
+        1376,
+        1377,
+        1378
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "deterministic_normalization",
+      "prompt_hash": "d50a21b7742ee11beb18f512c5e630b6c0a614e0b72aa1de15d4eb8f3a60d56c",
+      "seed": 10269,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10269:0089",
+      "truth_cell_count": 6,
+      "truth_hash": "e9db588e6c1685d54dfe002dc28e25a6a25902ba09dc3d8ffa7de925dd91c585",
+      "valid_rows": [
+        319,
+        320,
+        321,
+        322
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "f91e8bf61eedb542e0e54b138f3087eeafba8d074c16ae27f2cf0cf47fe64ca4",
+      "seed": 10270,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10270:0090",
+      "truth_cell_count": 3,
+      "truth_hash": "6fcd2e7abb86f597c0bc9ac265c1fc6d60144e3be6e5d0cef0316e03ecd047f5",
+      "valid_rows": [
+        557,
+        558,
+        559,
+        560
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "bbbf6869c1fc582a3a4898e418964b2a753143ebaaa33c5c546ad6e8143ef169",
+      "seed": 10274,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10274:0091",
+      "truth_cell_count": 16,
+      "truth_hash": "be9978462bb8a7582fb03b330fc96501a94483cfbb999c9d5e0be869bdc651f0",
+      "valid_rows": [
+        124,
+        125,
+        126,
+        127
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "088ef6f72130630e1ab61c158270ba52d45df1d6a37e316081585e4d6f4212f4",
+      "seed": 10278,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10278:0092",
+      "truth_cell_count": 8,
+      "truth_hash": "db42491fd47dcc634e218bd1a14d9a698d12b91ee8b2c40fa6f6806b2fadea93",
+      "valid_rows": [
+        862,
+        863,
+        864,
+        865
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "c85f78d8bd48554b95891d5c3f42fa4d3dbdee85cbba5af6ce120024ab33980d",
+      "seed": 10279,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10279:0093",
+      "truth_cell_count": 2,
+      "truth_hash": "c22dee8f2726c642a85449387c0aac3ebb4d29aa7508539e6c291de9c4820ea3",
+      "valid_rows": [
+        475,
+        476,
+        477,
+        478
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "0a31df818c65309a6747916fa786b570762616d1b8c03f90d3a5b2badb50c133",
+      "seed": 10283,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10283:0094",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        560,
+        561,
+        562,
+        563
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "0856cd8e34619177149bf869e3380418e76c61ca1da9c221c008a76b0e25c964",
+      "seed": 10287,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10287:0095",
+      "truth_cell_count": 9,
+      "truth_hash": "6a063558c35ac46974879314828b8d48d31b6412f883c9609e8a279cd19aa96c",
+      "valid_rows": [
+        428,
+        429,
+        430,
+        431
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "external_reference_required",
+      "prompt_hash": "b6f3bb01b23cf79a0edec966519a6fc98a4eacfc4b11e31606b7341db677e1e0",
+      "seed": 10288,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10288:0096",
+      "truth_cell_count": 2,
+      "truth_hash": "6280eac7a0126be98c34353fdf7384eedf6e7d873a71b2c20eb9c701d3e958a3",
+      "valid_rows": [
+        637,
+        638,
+        639,
+        640
+      ]
+    },
+    {
+      "allowed_columns": [
+        "tuple_id",
+        "src",
+        "flight",
+        "sched_dep_time",
+        "act_dep_time",
+        "sched_arr_time",
+        "act_arr_time"
+      ],
+      "dataset": "flights",
+      "inferability": "external_reference_required",
+      "prompt_hash": "1462bf2fafe7f5a6453a0ed38cec0f7e14a8fce42ed99c52e3decc8002957c34",
+      "seed": 10292,
+      "source": {
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:flights:10292:0097",
+      "truth_cell_count": 9,
+      "truth_hash": "a3c058ee74da207d1519892623af39a12fae66c09fd7059dd501db25de0992f3",
+      "valid_rows": [
+        1033,
+        1034,
+        1035,
+        1036
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "id",
+        "beer-name",
+        "style",
+        "ounces",
+        "abv",
+        "ibu",
+        "brewery_id",
+        "brewery-name",
+        "city",
+        "state"
+      ],
+      "dataset": "beers",
+      "inferability": "external_reference_required",
+      "prompt_hash": "03e073f6ab2ccd0258c0c72f64ffe4a9452c388cd53209eb52807fbb685adc78",
+      "seed": 10296,
+      "source": {
+        "clean_sha256": "373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
+        "dirty_sha256": "7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:beers:10296:0098",
+      "truth_cell_count": 9,
+      "truth_hash": "0e16791c5e2c4536b0573fcfe44f420c9187ecc88214f827a35f84f1b1b2bee0",
+      "valid_rows": [
+        802,
+        803,
+        804,
+        805
+      ]
+    },
+    {
+      "allowed_columns": [
+        "index",
+        "ProviderNumber",
+        "HospitalName",
+        "Address1",
+        "Address2",
+        "Address3",
+        "City",
+        "State",
+        "ZipCode",
+        "CountyName",
+        "PhoneNumber",
+        "HospitalType",
+        "HospitalOwner",
+        "EmergencyService",
+        "Condition",
+        "MeasureCode",
+        "MeasureName",
+        "Score",
+        "Sample",
+        "Stateavg"
+      ],
+      "dataset": "hospital",
+      "inferability": "not_inferable_from_prompt",
+      "prompt_hash": "34376233099c8e77bdad11610c1d4accd778f8a82c296739733e2af20383911b",
+      "seed": 10297,
+      "source": {
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+      },
+      "task_id": "DataForge-Bench-light-verified:hospital:10297:0099",
+      "truth_cell_count": 0,
+      "truth_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "valid_rows": [
+        421,
+        422,
+        423,
+        424
+      ]
+    }
+  ]
+}

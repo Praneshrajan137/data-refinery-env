@@ -52,6 +52,12 @@ SOURCE_EXCLUDES = (
     "training/kaggle_sft_v5_kernel",
     "training/kaggle_sft_v6_handoff",
     "training/kaggle_sft_v6_kernel",
+    "training/kaggle_sft_v7_handoff",
+    "training/kaggle_sft_v7_kernel",
+    "training/kaggle_sft_v8_handoff",
+    "training/kaggle_sft_v8_kernel",
+    "training/kaggle_sft_v9_handoff",
+    "training/kaggle_sft_v9_kernel",
     "training/kaggle_dataset_v3.zip",
 )
 
@@ -71,7 +77,13 @@ def _copy_file(source: Path, target: Path) -> None:
     shutil.copy2(source, target)
 
 
-def _write_kernel_script(source: Path, target: Path, *, default_stage: str) -> None:
+def _write_kernel_script(
+    source: Path,
+    target: Path,
+    *,
+    default_stage: str,
+    default_version: str = "v6",
+) -> None:
     if default_stage not in VALID_STAGES:
         valid = ", ".join(VALID_STAGES)
         raise ValueError(
@@ -81,11 +93,19 @@ def _write_kernel_script(source: Path, target: Path, *, default_stage: str) -> N
         raise FileNotFoundError(source)
     marker = 'os.environ.get("DATAFORGE_SFT_STAGE", "smoke")'
     replacement = f'os.environ.get("DATAFORGE_SFT_STAGE", "{default_stage}")'
+    version_marker = 'os.environ.get("DATAFORGE_SFT_VERSION", "v6")'
+    version_replacement = f'os.environ.get("DATAFORGE_SFT_VERSION", "{default_version}")'
     text = source.read_text(encoding="utf-8-sig")
     if marker not in text:
         raise RuntimeError(f"Could not find DATAFORGE_SFT_STAGE smoke default in {source}.")
+    if version_marker not in text:
+        raise RuntimeError(f"Could not find DATAFORGE_SFT_VERSION v6 default in {source}.")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(text.replace(marker, replacement, 1), encoding="utf-8", newline="\n")
+    target.write_text(
+        text.replace(marker, replacement, 1).replace(version_marker, version_replacement, 1),
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _remove_readonly(func: Any, path: str, _exc_info: Any) -> None:

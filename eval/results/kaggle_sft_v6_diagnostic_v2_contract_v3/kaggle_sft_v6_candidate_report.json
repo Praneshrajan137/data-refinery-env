@@ -1,0 +1,452 @@
+{
+  "attempted_steps": 60,
+  "configured_max_steps": 60,
+  "gate_failures": [
+    "sft_f1>=0.1",
+    "parse_success_rate>=0.99",
+    "deterministic_normalization_f1>=0.3",
+    "not_inferable_from_prompt_f1>=0.9"
+  ],
+  "gpu_hours": 0.3058,
+  "gpu_name": "Tesla T4",
+  "merged_dir": "/kaggle/working/DataForge-0.5B-SFT-v6-candidate-merged",
+  "model_repo_created": false,
+  "model_upload_attempted": false,
+  "promotion_report": {
+    "artifacts": {
+      "adapter_dir": "/kaggle/working/dataforge-0.5b-sft-v6-adapter",
+      "merged_dir": "/kaggle/working/DataForge-0.5B-SFT-v6-candidate-merged"
+    },
+    "blockers": [
+      "sft_f1>=0.1",
+      "parse_success_rate>=0.99",
+      "deterministic_normalization_f1>=0.3",
+      "not_inferable_from_prompt_f1>=0.9",
+      "private_candidate_upload_required"
+    ],
+    "checkpoint": "Praneshrajan15/DataForge-0.5B-SFT-v6-candidate",
+    "limitations": [
+      "SFT-v6 is a private contract-first predecessor candidate, not a public release.",
+      "GRPO-v3 may consume this report only when promote_to_grpo is true."
+    ],
+    "metrics": {
+      "active_repair": {
+        "f1": 0.0,
+        "fn": 576,
+        "fp": 0,
+        "precision": 0.0,
+        "predicted_positive_tasks": 0,
+        "recall": 0.0,
+        "tp": 0,
+        "truth_positive_tasks": 86
+      },
+      "base_f1": 0.1001,
+      "dataset_f1": {
+        "beers": 0.0,
+        "flights": 0.0606,
+        "hospital": 0.0
+      },
+      "f1_delta": -0.0799,
+      "failure_taxonomy": {
+        "missed_repair": 576,
+        "schema_error": 80,
+        "truncated_json": 1
+      },
+      "parse_success_rate": 0.19,
+      "schema_case_error_count": 0,
+      "sft_f1": 0.0202,
+      "slice_scores": {
+        "deterministic_normalization": {
+          "macro_f1": 0.0,
+          "parse_success_rate": 0.1,
+          "schema_case_error_count": 0,
+          "tasks": 20
+        },
+        "external_reference_required": {
+          "macro_f1": 0.0,
+          "parse_success_rate": 0.2273,
+          "schema_case_error_count": 0,
+          "tasks": 66
+        },
+        "not_inferable_from_prompt": {
+          "macro_f1": 0.1429,
+          "parse_success_rate": 0.1429,
+          "schema_case_error_count": 0,
+          "tasks": 14
+        }
+      },
+      "strict_macro_f1": 0.0202
+    },
+    "model_repo": "Praneshrajan15/DataForge-0.5B-SFT-v6-candidate",
+    "model_uploaded": false,
+    "ok": false,
+    "promote_to_grpo": false,
+    "promotion_gate_passed": false,
+    "quality_gate_failures": [
+      "sft_f1>=0.1",
+      "parse_success_rate>=0.99",
+      "deterministic_normalization_f1>=0.3",
+      "not_inferable_from_prompt_f1>=0.9"
+    ],
+    "schema_version": "dataforge_sft_v6_candidate_eval_report_v1",
+    "status": "quality_gate_failed_no_upload",
+    "thresholds": {
+      "deterministic_normalization_slice_f1_min": 0.3,
+      "not_inferable_slice_f1_min": 0.9,
+      "parse_success_min": 0.99,
+      "schema_case_error_max": 0,
+      "strict_macro_f1_min": 0.1
+    },
+    "training_metrics": {
+      "attempted_steps": 60,
+      "base_f1": 0.1001,
+      "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "configured_max_steps": 60,
+      "curriculum_report": {
+        "artifacts": {
+          "input_path": "data\\sft_traj\\expert_v5_repair_curriculum.jsonl",
+          "output_path": "data\\sft_traj\\expert_v6_contract_minimal.jsonl",
+          "report_path": "eval\\results\\sft_v6_contract_minimal_curriculum_report.json"
+        },
+        "blockers": [],
+        "curriculum_version": "expert_v6_contract_minimal",
+        "invalid_samples": [],
+        "limitations": [
+          "This curriculum changes training targets only; strict held-out eval remains unchanged.",
+          "Repair actions are capped to reduce small-model JSON drift and overlong completions."
+        ],
+        "metrics": {
+          "assistant_reason_fields": 0,
+          "finish_records": 487,
+          "invalid_count": 0,
+          "output_records": 1461,
+          "parse_failure_count": 0,
+          "record_contract_version_mismatches": 0,
+          "repair_cells": 1606,
+          "shape": {
+            "action:finish": 487,
+            "action:submit_repairs": 974,
+            "beers:deterministic_normalization:submit_repairs": 590,
+            "beers:external_reference_required:finish": 163,
+            "flights:deterministic_normalization:submit_repairs": 128,
+            "flights:external_reference_required:finish": 145,
+            "flights:not_inferable_from_prompt:finish": 17,
+            "hospital:external_reference_required:finish": 145,
+            "hospital:not_inferable_from_prompt:finish": 17,
+            "hospital_synthetic_deterministic_v1:deterministic_normalization:submit_repairs": 256
+          },
+          "submit_repair_records": 974,
+          "system_reason_field_mentions": 0,
+          "system_wrapper_mentions": 0,
+          "user_contract_version_mismatches": 0
+        },
+        "ok": true,
+        "parse_failures": [],
+        "schema_version": "dataforge_sft_v6_contract_minimal_curriculum_report_v1",
+        "settings": {
+          "max_repairs_per_record": 2
+        },
+        "status": "pass"
+      },
+      "dataset_shape": {
+        "beers:deterministic_normalization:repair": 590,
+        "beers:external_reference_required:noop": 163,
+        "flights:deterministic_normalization:repair": 128,
+        "flights:external_reference_required:noop": 145,
+        "flights:not_inferable_from_prompt:noop": 17,
+        "hospital:external_reference_required:noop": 145,
+        "hospital:not_inferable_from_prompt:noop": 17,
+        "hospital_synthetic_deterministic_v1:deterministic_normalization:repair": 256
+      },
+      "f1_delta": -0.0799,
+      "gpu_hours": 0.3058,
+      "hf_hub_upload_credential": "unavailable",
+      "model_license": "apache-2.0",
+      "model_name": "DataForge-0.5B-SFT-v6-candidate",
+      "model_repo": "Praneshrajan15/DataForge-0.5B-SFT-v6-candidate",
+      "parse_success_rate": 0.19,
+      "private_candidate_only": true,
+      "promotion_gate_passed": false,
+      "public_claim_updated": false,
+      "quality_gate_failures": [
+        "sft_f1>=0.1",
+        "parse_success_rate>=0.99",
+        "deterministic_normalization_f1>=0.3",
+        "not_inferable_from_prompt_f1>=0.9"
+      ],
+      "records_seen": 1461,
+      "run_date_utc": "2026-06-13T09:41:10.339540+00:00",
+      "schema_case_error_count": 0,
+      "sft_f1": 0.0202,
+      "train_metrics": {
+        "total_flos": 4174014905702400.0,
+        "train_loss": 3.041963068644206,
+        "train_runtime": 1100.3252,
+        "train_samples_per_second": 1.745,
+        "train_steps_per_second": 0.055
+      },
+      "trainable_dtype_changes": [
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.k_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.k_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.v_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.v_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.o_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.0.self_attn.o_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.k_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.k_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.v_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.v_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.o_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.1.self_attn.o_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.k_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.k_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.v_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.v_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.o_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.2.self_attn.o_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.k_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.k_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.v_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.v_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.o_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.3.self_attn.o_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.k_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.k_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.v_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.v_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.o_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.4.self_attn.o_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.k_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.k_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.v_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.v_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.o_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.5.self_attn.o_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.6.self_attn.q_proj.lora_A.default.weight",
+          "to_dtype": "torch.float32"
+        },
+        {
+          "from_dtype": "torch.bfloat16",
+          "name": "base_model.model.model.layers.6.self_attn.q_proj.lora_B.default.weight",
+          "to_dtype": "torch.float32"
+        }
+      ],
+      "training_stage": "diagnostic",
+      "valid_train_records": 1461
+    },
+    "upload_blocker": "",
+    "upload_gate_failures": [
+      "private_candidate_upload_required"
+    ]
+  },
+  "public_claim_updated": false,
+  "schema_version": "dataforge_kaggle_sft_v6_candidate_report_v1",
+  "status": "quality_gate_failed_no_upload",
+  "training_stage": "diagnostic"
+}

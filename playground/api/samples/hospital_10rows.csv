@@ -1,11 +1,11 @@
-index,ProviderNumber,HospitalName,Address1,Address2,Address3,City,State,ZipCode,CountyName,PhoneNumber,HospitalType,HospitalOwner,EmergencyService,Condition,MeasureCode,MeasureName,Score,Sample,Stateavg
-26,10001,southeast alabama medical center,1108 ross clark circle,empty,empty,dothan,al,36302,houston,3347938701,acute care hospitals,government - hospital district or authority,yes,heart attack,ami-8a,heart attack patients given pci within 90 minutes of arrival,72%,40 patients,al_ami-8a
-105,10007,mizell memorial hospital,702 n main st,empty,empty,opp,al,36467,covington,3344933541,acute care hospitals,voluntary non-profit - private,no,heart failure,hf-4,heart failure patients given smoking cessation advice/counseling,100%,8 patients,al_hf-4
-115,10007,mizell memorial hospital,702 n main st,empty,empty,opp,al,36467,covington,3344933541,acute care hospitals,voluntary non-profit - private,no,surgical infection prevention,scip-inf-3,surgery patients whose preventive antibiotics were stopped at the right time (within 24 hours after surgery),93%,100 patients,al_scip-inf-3
-143,10008,crenshaw community hospital,101 hospital circle,empty,empty,luverne,al,36049,crenshaw,3343353374,acute care hospitals,government - federal,yes,surgical infection prevention,scip-vte-1,surgery patients whose doctors ordered treatments to prevent blood clots after certain types of surgeries,100%,4 patients,al_scip-vte-1
-229,10012,dekalb regional medical center,200 med center drive,empty,empty,fort payxe,ax,35968,de kalb,2568453x50,acute care hospitals,voluntary non-profit - church,yes,heart failure,hf-3,heart failure patients given ace inhibitor or arb for left ventricular systolic dysfunction (lvsd),94%,36 patients,al_hf-3
-251,10015,southwest alabama medical center,33700 highway 43,empty,empty,thomasville,al,36784,clarke,3346366221,acute care hospitals,government - federal,yes,heart attack,ami-8a,heart attack patients given pci within 90 minutes of arrival,empty,0 patients,al_ami-8a
-282,10016,shelby baptist medical center,1000 first street north,empty,empty,alabaster,al,35007,shelby,2056208100,acute care hospitals,voluntary non-profit - church,yes,pneumonia,pn-3b,pnxumonia patixnts whosx initial emxrgxncy room blood culturx was pxrformxd prior to thx administration of thx first hospital dosx of antibiotics,100%,110 patients,al_pn-3b
-655,10032,wedowee hosxital,209 north main street,empty,empty,wxdowxx,al,36278,randolph,2563572111,acute care hospitals,government - local,no,pneumonia,pn-4,pneumonia patients given smoking cessation advice/counseling,67%,6 patients,al_pn-4
-755,10036,andalusia regional hospital,849 south three notch street,empty,empty,andalusia,al,36420,covington,3342228466,acute care hospitals,proprietary,no,pneumonia,pn-4,pneumonia patients given smoking cessation advice/counseling,100%,43 patients,al_pn-4
-760,10036,andalusia regional hospital,849 south three notch street,empty,empty,andalusia,al,36420,covington,3342228466,acute care hospitals,proprietary,no,surgical infection prevention,scip-inf-1,surgery patients who were given an antibiotic at the right time (within one hour before surgery) to help prevent infection,97%,139 patients,al_scip-inf-1
+provider_number,hospital_name,city,state,zip_code,phone_number,rating,mortality_rate,readmission_rate,er_wait_time
+PRV001,General Hospital,Springfield,IL,62701,2175550101,4.2,0.023,0.145,28
+PRV002,St. Mary Medical Center,Chicago,IL,60601,3125550202,3.8,0.031,0.162,35
+PRV001,Springfield Medical,Springfield,IL,62701,2175550303,4.5,0.019,0.138,22
+PRV003,Mercy Hospital,Peoria,IL,61602,3095550404,3.5,0.028,0.158,31
+PRV004,Northwestern Memorial,Chicago,IL,60611,3125550505,4.1,0.025,0.149,26
+PRV005,Rush University MC,Chicago,IL,60612,3125550606,45.0,0.022,0.141,29
+PRV006,Advocate Christ,Oak Lawn,IL,60453,7085550707,3.9,0.027,0.155,33
+PRV007,Loyola University MC,Maywood,IL,60153,7085550808,4.3,0.020,0.142,25
+PRV008,Presence St. Joseph,Joliet,IL,60435,8155550909,4.0,0.026,0.151,30
+PRV009,Edward Hospital,Naperville,IL,60540,6305551010,3.7,0.029,0.160,34

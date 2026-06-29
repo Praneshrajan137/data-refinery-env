@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from dataforge_evals.agents.base import AgentRunResult, Task, Usage
+from dataforge_evals.agents.base import AgentRunResult, AgentTaskInput, Usage
 from dataforge_evals.agents.provider_base import ChatProviderAgent, ProviderError
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ class GeminiFlashAgent(ChatProviderAgent):
         """
         return round(calls / _GEMINI_FREE_DAILY_REQUESTS, 6)
 
-    def run(self, task: Task) -> AgentRunResult:
+    def run(self, task: AgentTaskInput) -> AgentRunResult:
         """Run Gemini Flash and return proposed fixes plus usage.
 
         Constructs a Gemini-native payload from the OpenAI-compatible

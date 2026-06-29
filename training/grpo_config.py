@@ -11,7 +11,7 @@ from typing import Any
 
 import yaml
 
-from dataforge.repair_contract import CONTRACT_VERSION_V2
+from dataforge.repair_contract import CONTRACT_VERSION_V2, CONTRACT_VERSION_V3
 
 REQUIRED_PIP_PACKAGES = {
     "trl==1.4.0",
@@ -139,15 +139,21 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         "expert_v4.jsonl",
         "expert_v5_repair_curriculum.jsonl",
         "expert_v6_contract_minimal.jsonl",
+        "expert_v7_parse_latch.jsonl",
+        "expert_v8_schema_distill.jsonl",
+        "expert_v9_action_envelope.jsonl",
     }
     if readiness.get("trajectory_filename") not in allowed_trajectories:
         raise GrpoConfigError(
-            "GRPO readiness must use an approved v4/v5/v6 repair trajectory file."
+            "GRPO readiness must use an approved v4/v5/v6/v7/v8 repair trajectory file."
         )
     if readiness.get("split_manifest_filename") != "split_manifest_v4.json":
         raise GrpoConfigError("GRPO readiness must use split_manifest_v4.json.")
-    if readiness.get("prompt_contract_version") != CONTRACT_VERSION_V2:
-        raise GrpoConfigError("GRPO readiness.prompt_contract_version must be repair_contract_v2.")
+    allowed_readiness_contracts = {CONTRACT_VERSION_V2, CONTRACT_VERSION_V3}
+    if readiness.get("prompt_contract_version") not in allowed_readiness_contracts:
+        raise GrpoConfigError(
+            "GRPO readiness.prompt_contract_version must be repair_contract_v2 or repair_contract_v3."
+        )
     required_datasets = readiness.get("required_datasets")
     if required_datasets != ["hospital", "flights", "beers"]:
         raise GrpoConfigError("GRPO readiness.required_datasets must cover hospital/flights/beers.")
@@ -184,7 +190,7 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
     }
     expected_steps = (
         {"smoke": 50, "diagnostic": 250, "candidate": 500}
-        if schema_version == "grpo_05b_v3"
+        if schema_version in {"grpo_05b_v3", "grpo_05b_v4"}
         else {"smoke": 50, "candidate": 500, "extended_candidate": 1000}
     )
     for name, steps in expected_steps.items():
@@ -201,7 +207,7 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
             "lowest_schema_case_errors",
             "lowest_gpu_hours",
         ]
-        if schema_version == "grpo_05b_v3"
+        if schema_version in {"grpo_05b_v3", "grpo_05b_v4"}
         else [
             "highest_strict_macro_f1",
             "lowest_schema_case_errors",
@@ -239,8 +245,10 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
             raise GrpoConfigError("GRPO v3 requires Kaggle OAuth.")
         if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
             raise GrpoConfigError("GRPO v3 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
-        if readiness.get("trajectory_filename") != "expert_v6_contract_minimal.jsonl":
-            raise GrpoConfigError("GRPO v3 must use the expert_v6_contract_minimal handoff.")
+        if readiness.get("trajectory_filename") != "expert_v7_parse_latch.jsonl":
+            raise GrpoConfigError("GRPO v3 must use the expert_v7_parse_latch handoff.")
+        if readiness.get("prompt_contract_version") != CONTRACT_VERSION_V3:
+            raise GrpoConfigError("GRPO v3 readiness must use repair_contract_v3.")
         if reward.get("posture") != "inferability_aware_repair":
             raise GrpoConfigError("GRPO v3 reward.posture must be inferability_aware_repair.")
         if float(release.get("target_strict_macro_f1", 0.0)) < 0.25:
@@ -253,6 +261,32 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
             raise GrpoConfigError("GRPO v3 candidate uploads must remain private.")
         if release.get("publish_or_update_public_model_only_after_v3_gate") is not True:
             raise GrpoConfigError("GRPO v3 public model updates must remain gate-blocked.")
+    if schema_version == "grpo_05b_v4":
+        kaggle = _as_mapping(config.get("kaggle", {}), name="kaggle")
+        if kaggle.get("auth_mode") != "oauth":
+            raise GrpoConfigError("GRPO v4 requires Kaggle OAuth.")
+        if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
+            raise GrpoConfigError("GRPO v4 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
+        if readiness.get("trajectory_filename") != "expert_v9_action_envelope.jsonl":
+            raise GrpoConfigError("GRPO v4 must use the expert_v9_action_envelope handoff.")
+        if readiness.get("prompt_contract_version") != CONTRACT_VERSION_V3:
+            raise GrpoConfigError("GRPO v4 readiness must use repair_contract_v3.")
+        if reward.get("posture") != "inferability_aware_repair":
+            raise GrpoConfigError("GRPO v4 reward.posture must be inferability_aware_repair.")
+        if not str(config["model"].get("sft_checkpoint", "")).endswith(
+            "/DataForge-0.5B-SFT-v9-candidate"
+        ):
+            raise GrpoConfigError("GRPO v4 must use the private SFT-v9 predecessor checkpoint.")
+        if float(release.get("target_strict_macro_f1", 0.0)) < 0.25:
+            raise GrpoConfigError("GRPO v4 release.target_strict_macro_f1 must be >= 0.25.")
+        if float(release.get("require_not_inferable_slice_f1", 0.0)) < 0.95:
+            raise GrpoConfigError("GRPO v4 must preserve the not-inferable no-op slice.")
+        if float(release.get("require_deterministic_normalization_slice_f1", 0.0)) < 0.50:
+            raise GrpoConfigError("GRPO v4 must gate deterministic-normalization active repair.")
+        if release.get("upload_repo_private") is not True:
+            raise GrpoConfigError("GRPO v4 candidate uploads must remain private.")
+        if release.get("publish_or_update_public_model_only_after_v4_gate") is not True:
+            raise GrpoConfigError("GRPO v4 public model updates must remain gate-blocked.")
 
     evaluation = _as_mapping(config["evaluation"], name="evaluation")
     if int(evaluation.get("heldout_tasks", 0)) != 100:

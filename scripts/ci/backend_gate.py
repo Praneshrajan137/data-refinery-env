@@ -10,11 +10,28 @@ import stat
 import subprocess
 import sys
 from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-PYTHON = sys.executable
+
+
+def _resolve_gate_python() -> str:
+    override = os.environ.get("DATAFORGE_GATE_PYTHON")
+    if override:
+        return override
+    venv_python = (
+        PROJECT_ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    )
+    if venv_python.exists():
+        return str(venv_python)
+    return sys.executable
+
+
+PYTHON = _resolve_gate_python()
+NPM = "npm.cmd" if os.name == "nt" else "npm"
 
 PYTHON_PATHS = [
     "dataforge",
@@ -52,6 +69,55 @@ PACKAGE_ROOTS = [
     PROJECT_ROOT / "packages" / "dataforge-dbt",
     PROJECT_ROOT / "packages" / "dataforge-agent-patterns",
 ]
+SIDE_PACKAGE_PATHS = [
+    "dataforge-mcp",
+    "packages/dataforge-evals",
+    "packages/dataforge-dbt",
+    "packages/dataforge-agent-patterns",
+]
+SIDE_PACKAGE_MYPY_PATHS = [
+    "dataforge-mcp/dataforge_mcp",
+    "packages/dataforge-evals/dataforge_evals",
+    "packages/dataforge-dbt/dataforge_dbt",
+    "packages/dataforge-agent-patterns/src/dataforge_agent_patterns",
+]
+CRITICAL_COVERAGE_INCLUDE = ",".join(
+    [
+        "dataforge/engine/repair.py",
+        "dataforge/transactions/*.py",
+        "dataforge/stores/*.py",
+        "dataforge/verifier/*.py",
+        "dataforge/http/problem.py",
+    ]
+)
+CRITICAL_COVERAGE_FAIL_UNDER = "88"
+
+
+@dataclass(frozen=True)
+class PipAuditException:
+    """One explicitly triaged pip-audit exception."""
+
+    vuln_id: str
+    package: str
+    scope: str
+    expires_on: date
+    reason: str
+    upstream_reference: str
+
+
+PIP_AUDIT_EXCEPTIONS = [
+    PipAuditException(
+        vuln_id="CVE-2025-3000",
+        package="torch",
+        scope="optional train/HF-local evaluation extras only",
+        expires_on=date(2026, 7, 13),
+        reason=(
+            "pip-audit reports no fixed version as of 2026-06-13; DataForge core, "
+            "playground, and MCP runtime surfaces do not require Torch."
+        ),
+        upstream_reference="https://github.com/advisories/GHSA-rrmf-rvhw-rf47",
+    ),
+]
 EXCLUDED_SECRET_DIRS = {
     ".git",
     ".mypy_cache",
@@ -72,6 +138,90 @@ SECRET_PATTERNS = [
     re.compile(r"\bghp_[A-Za-z0-9_]{36,}\b"),
     re.compile(r"\bsk-[A-Za-z0-9]{32,}\b"),
 ]
+
+
+def _today_utc() -> date:
+    """Return today's UTC date for deterministic release checks."""
+    return datetime.now(UTC).date()
+
+
+def pip_audit_exception_errors(
+    exceptions: list[PipAuditException] = PIP_AUDIT_EXCEPTIONS,
+    *,
+    today: date | None = None,
+) -> list[str]:
+    """Return validation errors for pip-audit exceptions."""
+    observed_today = today or _today_utc()
+    errors: list[str] = []
+    for exception in exceptions:
+        if not exception.vuln_id:
+            errors.append("pip-audit exception is missing vuln_id.")
+        if not exception.package:
+            errors.append(f"{exception.vuln_id} is missing package.")
+        if not exception.scope:
+            errors.append(f"{exception.vuln_id} is missing scope.")
+        if not exception.reason:
+            errors.append(f"{exception.vuln_id} is missing reason.")
+        if not exception.upstream_reference.startswith("https://"):
+            errors.append(f"{exception.vuln_id} must have an HTTPS upstream_reference.")
+        if exception.expires_on < observed_today:
+            errors.append(
+                f"{exception.vuln_id} for {exception.package} expired on "
+                f"{exception.expires_on.isoformat()}."
+            )
+    return errors
+
+
+def pip_audit_ignore_args(
+    exceptions: list[PipAuditException] = PIP_AUDIT_EXCEPTIONS,
+) -> list[str]:
+    """Return pip-audit CLI ignore arguments for validated exceptions."""
+    args: list[str] = []
+    for exception in exceptions:
+        args.extend(["--ignore-vuln", exception.vuln_id])
+    return args
+
+
+def coverage_policy_errors(
+    *,
+    makefile_path: Path = PROJECT_ROOT / "Makefile",
+    pyproject_path: Path = PROJECT_ROOT / "pyproject.toml",
+) -> list[str]:
+    """Reject duplicated or drifting coverage thresholds."""
+    errors: list[str] = []
+    makefile_text = makefile_path.read_text(encoding="utf-8")
+    pyproject_text = pyproject_path.read_text(encoding="utf-8")
+    if "--cov-fail-under" in makefile_text:
+        errors.append("Makefile must not duplicate coverage fail-under policy.")
+    if "fails at <90%" in makefile_text:
+        errors.append("Makefile help still advertises the stale 90% coverage threshold.")
+    if not re.search(r"(?m)^fail_under\s*=\s*82(?:\.0+)?\s*$", pyproject_text):
+        errors.append("pyproject.toml must remain the single 82.0 coverage threshold source.")
+    return errors
+
+
+def _coverage_policy_check() -> bool:
+    """Print and return the coverage policy drift result."""
+    print("\n==> coverage policy")
+    errors = coverage_policy_errors()
+    if errors:
+        for error in errors:
+            print(f"FAIL coverage policy: {error}")
+        return False
+    print("PASS coverage policy")
+    return True
+
+
+def _pip_audit_exception_check() -> bool:
+    """Print and return the pip-audit exception validation result."""
+    print("\n==> pip-audit exception policy")
+    errors = pip_audit_exception_errors()
+    if errors:
+        for error in errors:
+            print(f"FAIL pip-audit exception policy: {error}")
+        return False
+    print("PASS pip-audit exception policy")
+    return True
 
 
 def _clean_package_artifacts() -> None:
@@ -205,18 +355,75 @@ def main() -> int:
         default=120,
         help="Seconds before optional dependency audit is skipped or required audit fails.",
     )
+    parser.add_argument(
+        "--npm-audit-timeout",
+        type=int,
+        default=120,
+        help="Seconds before optional npm audit is skipped or required audit fails.",
+    )
     args = parser.parse_args()
 
     checks: list[bool] = [
+        _coverage_policy_check(),
+        _pip_audit_exception_check(),
         _run("ruff check", [PYTHON, "-m", "ruff", "check", *PYTHON_PATHS]),
         _run("ruff format --check", [PYTHON, "-m", "ruff", "format", "--check", *PYTHON_PATHS]),
         _run("strict mypy", [PYTHON, "-m", "mypy", "--strict", *MYPY_PATHS]),
+        _run("side package ruff check", [PYTHON, "-m", "ruff", "check", *SIDE_PACKAGE_PATHS]),
+        _run(
+            "side package ruff format --check",
+            [PYTHON, "-m", "ruff", "format", "--check", *SIDE_PACKAGE_PATHS],
+        ),
+        _run(
+            "side package strict mypy",
+            [PYTHON, "-m", "mypy", "--strict", *SIDE_PACKAGE_MYPY_PATHS],
+        ),
     ]
     if not args.skip_full_tests:
-        checks.append(_run("root pytest", [PYTHON, "-m", "pytest", "tests/", "-x", "-v"]))
+        checks.append(
+            _run(
+                "root pytest with coverage",
+                [
+                    PYTHON,
+                    "-m",
+                    "pytest",
+                    "tests/",
+                    "--cov=dataforge",
+                    "--cov-report=term-missing",
+                    "-x",
+                    "-v",
+                ],
+            )
+        )
+        checks.append(
+            _run(
+                "critical-path coverage",
+                [
+                    PYTHON,
+                    "-m",
+                    "coverage",
+                    "report",
+                    f"--include={CRITICAL_COVERAGE_INCLUDE}",
+                    f"--fail-under={CRITICAL_COVERAGE_FAIL_UNDER}",
+                ],
+            )
+        )
     checks.extend(
         [
-            _run("MCP pytest", [PYTHON, "-m", "pytest", "dataforge-mcp/tests", "-v"]),
+            _run(
+                "MCP pytest with tools coverage",
+                [
+                    PYTHON,
+                    "-m",
+                    "pytest",
+                    "tests",
+                    "--cov=dataforge_mcp.tools",
+                    "--cov-report=term-missing",
+                    "--cov-fail-under=85",
+                    "-v",
+                ],
+                cwd=PROJECT_ROOT / "dataforge-mcp",
+            ),
             _run(
                 "dataforge_07_evals pytest",
                 [PYTHON, "-m", "pytest", "tests", "-v"],
@@ -235,6 +442,16 @@ def main() -> int:
             _run("README truth", [PYTHON, "scripts/ci/readme_truth.py"]),
             _run("benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]),
             _run("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
+            _run(
+                "release doctor",
+                [PYTHON, "-m", "dataforge", "release", "doctor", "--core", "--json"],
+            ),
+            _run(
+                "docs strict build",
+                [PYTHON, "-m", "mkdocs", "build", "-f", "docs/mkdocs.yml", "--strict"],
+            ),
+            _run("playground build", [NPM, "--prefix", "playground/web", "run", "build"]),
+            _run("playground test", [NPM, "--prefix", "playground/web", "run", "test"]),
             _secret_scan(),
         ]
     )
@@ -245,9 +462,28 @@ def main() -> int:
     checks.append(
         _run(
             "pip-audit",
-            [PYTHON, "-m", "pip_audit", "--progress-spinner", "off"],
+            [
+                PYTHON,
+                "-m",
+                "pip_audit",
+                "--local",
+                "--progress-spinner",
+                "off",
+                *pip_audit_ignore_args(),
+            ],
             optional=pip_audit_optional,
             timeout_seconds=args.dependency_audit_timeout,
+        )
+    )
+    npm_audit_optional = not (
+        args.require_optional or os.environ.get("DATAFORGE_REQUIRE_NPM_AUDIT")
+    )
+    checks.append(
+        _run(
+            "playground npm audit",
+            [NPM, "--prefix", "playground/web", "audit", "--audit-level=moderate"],
+            optional=npm_audit_optional,
+            timeout_seconds=args.npm_audit_timeout,
         )
     )
 

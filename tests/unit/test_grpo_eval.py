@@ -8,11 +8,14 @@ import pandas as pd
 
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
 from dataforge.datasets.registry import DATASET_REGISTRY
+from dataforge.repair_contract import CONTRACT_VERSION_V3
 from training.grpo_contract import TruthCell
 from training.grpo_eval import (
     GrpoEvalTask,
     build_heldout_tasks,
     evaluate_completions,
+    evaluate_product_constrained_actions,
+    evaluate_product_constrained_finish_baseline,
     grpo_gate_failures,
 )
 
@@ -83,6 +86,23 @@ def test_heldout_task_manifest_is_deterministic_and_label_safe(monkeypatch, tmp_
     assert "hidden_ground_truth" not in manifest_a["tasks"][0]
 
 
+def test_heldout_tasks_can_use_contract_minimal_v3(monkeypatch, tmp_path: Path) -> None:
+    def fake_loader(name: str, **kwargs: object) -> RealWorldDataset:
+        return _fake_dataset(name)
+
+    monkeypatch.setattr("training.grpo_eval.load_real_world_dataset", fake_loader)
+
+    tasks, _ = build_heldout_tasks(
+        datasets=("hospital",),
+        heldout_tasks=1,
+        cache_root=tmp_path,
+        contract_version=CONTRACT_VERSION_V3,
+    )
+
+    assert tasks[0].prompt["contract_version"] == CONTRACT_VERSION_V3
+    assert '"reason"' not in tasks[0].messages[0]["content"]
+
+
 def _task(*, truth: list[TruthCell] | None = None) -> GrpoEvalTask:
     return GrpoEvalTask(
         task_id="task-1",
@@ -122,6 +142,57 @@ def test_eval_scores_exact_finish_and_schema_case_errors() -> None:
     assert case_summary["schema_case_error_count"] == 1
     assert case_diag["failure_samples"][0]["ground_truth_count"] == 1
     assert clean_summary["macro_f1"] == 1.0
+
+
+def test_eval_splits_finish_with_repairs_and_completion_artifacts() -> None:
+    bad_finish = '```json\n{"action":"finish","repairs":[{"row":0,"column":"Name","new_value":"Alice"}]}\n```'
+
+    summary, diagnostics = evaluate_completions(
+        [_task()], lambda task: bad_finish, model_label="sft"
+    )
+
+    assert summary["parse_success_rate"] == 0.0
+    assert summary["parse_error_counts"] == {"finish_with_repairs": 1}
+    assert summary["failure_taxonomy"]["finish_with_repairs"] == 1
+    assert summary["completion_artifacts"] == {
+        "code_fence_count": 1,
+        "code_fence_rate": 1.0,
+        "reason_text_count": 0,
+        "reason_text_rate": 0.0,
+    }
+    assert diagnostics["task_scores"][0]["parse_error_kind"] == "finish_with_repairs"
+    assert diagnostics["task_scores"][0]["has_code_fence"] is True
+
+
+def test_product_constrained_track_reports_parse_separately_from_repair_f1() -> None:
+    track, diagnostics = evaluate_product_constrained_finish_baseline(
+        [_task()],
+        raw_research_summary={"macro_f1": 0.0},
+    )
+
+    assert track["schema_version"] == "dataforge_product_constrained_eval_v1"
+    assert track["parse_structural_success_rate"] == 1.0
+    assert track["strict_macro_f1"] == 0.0
+    assert track["deterministic_normalization_f1"] == 0.0
+    assert track["repair_quality_claim_allowed"] is False
+    assert track["rejected_invalid_repairs"] == 0
+    assert diagnostics["task_scores"][0]["parse_ok"] is True
+
+
+def test_product_constrained_track_rejects_invalid_repairs_without_public_claims() -> None:
+    invalid_row_object = {"_row": "0", "Name": "Alice"}
+
+    track, diagnostics = evaluate_product_constrained_actions(
+        [_task()],
+        lambda _task: invalid_row_object,
+        raw_research_summary={"macro_f1": 0.0},
+    )
+
+    assert track["parse_structural_success_rate"] == 0.0
+    assert track["strict_macro_f1"] == 0.0
+    assert track["rejected_invalid_repairs"] == 1
+    assert track["repair_quality_claim_allowed"] is False
+    assert diagnostics["task_scores"][0]["parse_error_kind"] == "schema_error"
 
 
 def test_grpo_gate_failures_require_quality_parse_and_schema() -> None:

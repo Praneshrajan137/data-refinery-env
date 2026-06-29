@@ -1,0 +1,52 @@
+{
+  "schema_version": "dataforge_kaggle_sft_v9_smoke_relaunch_v1",
+  "created_at_utc": "2026-06-29T05:23:03.4445461Z",
+  "status": "running",
+  "stage": "smoke",
+  "model_lineage": "DataForge-0.5B-SFT-v9",
+  "purpose": "Private SFT-v9 smoke rerun after fixing the over-strict P100 capability guard.",
+  "public_claim_update_allowed": false,
+  "grpo_unlocked": false,
+  "dataset": {
+    "id": "praneshrajan15/dataforge-sft-v9-handoff",
+    "visibility": "private",
+    "operation": "versioned",
+    "version_message": "SFT-v9 smoke v2 P100 capability guard fix",
+    "url": "https://www.kaggle.com/datasets/praneshrajan15/dataforge-sft-v9-handoff"
+  },
+  "kernel": {
+    "id": "praneshrajan15/dataforge-0-5b-sft-v9-candidate",
+    "visibility": "private",
+    "operation": "pushed",
+    "pushed_version": 2,
+    "status_probe": "KernelWorkerStatus.RUNNING",
+    "url": "https://www.kaggle.com/code/praneshrajan15/dataforge-0-5b-sft-v9-candidate",
+    "accelerator": "gpu"
+  },
+  "fix_summary": {
+    "root_cause_fixed": "SFT-v9 smoke v1 rejected Kaggle P100/sm_60 before training.",
+    "runner_change": "Accept Pascal-or-newer Kaggle GPUs and record precision mode.",
+    "tests_added": [
+      "test_sft_runner_accepts_p100_free_tier_gpu",
+      "test_sft_runner_rejects_pre_pascal_gpu"
+    ]
+  },
+  "local_handoff_manifest": {
+    "path": "training/kaggle_sft_v9_handoff/sft_v9_manifest.json",
+    "created_at_utc": "2026-06-29T05:17:47.386315+00:00",
+    "source_file_count": 248,
+    "default_stage": "smoke",
+    "training_format": "prompt_completion",
+    "completion_only_loss_required": true,
+    "product_constrained_preflight_required": true,
+    "source_zip_sha256": "5e6bd96ca6718b95666b8370787d643e6d54ac65e2619129aba9efffe5c9cfdc"
+  },
+  "decision": {
+    "next_step": "Wait for Kaggle smoke v2 to finish, then pull targeted JSON reports and logs.",
+    "blocked_actions": [
+      "Do not run GRPO-v4.",
+      "Do not publish or update public Hugging Face models.",
+      "Do not claim SFT-v9 model quality until the smoke evaluation report exists."
+    ]
+  }
+}

@@ -26,7 +26,7 @@ class Fix(BaseModel):
 
     A fix identifies a single cell by ``(row, column)`` and proposes
     ``new_value`` as the corrected content. The ``reason`` field is for
-    human audit and observability â€” it is never used for scoring.
+    human audit and observability - it is never used for scoring.
 
     Attributes:
         row: Zero-based row index in the dirty DataFrame.
@@ -109,6 +109,9 @@ class Task(AgentTask):
     ground_truth: tuple[GroundTruthCell, ...]
 
 
+AgentTaskInput = AgentTask | Task
+
+
 class Usage(BaseModel):
     """Provider usage accounting for one agent run.
 
@@ -184,19 +187,19 @@ class Agent(Protocol):
     Any object with a ``name`` attribute and a ``run`` method matching
     this signature can be used as an agent in the evaluation harness.
     The agent receives a ``Task`` and returns proposed ``Fix`` objects.
-    Agents must never set their own metrics â€” the grader is the sole
+    Agents must never set their own metrics - the grader is the sole
     source of truth.
 
     Example:
         >>> class MyAgent:
         ...     name = "my-agent"
-        ...     def run(self, task: Task) -> list[Fix]:
+        ...     def run(self, task: AgentTaskInput) -> list[Fix]:
         ...         return [Fix(row=0, column="Score", new_value="4.5")]
     """
 
     name: str
 
-    def run(self, task: AgentTask) -> list[Fix] | AgentRunResult:
+    def run(self, task: AgentTaskInput) -> list[Fix] | AgentRunResult:
         """Run the agent on a task and return proposed fixes.
 
         Args:

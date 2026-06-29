@@ -51,9 +51,25 @@ is not a performance-improvement claim.
   `curriculum_version: expert_v5_repair_curriculum`.
 - `expert_v6_contract_minimal.jsonl`: contract-minimal follow-up curriculum
   generated from SFT-v5 after the private SFT-v5 candidate failed quality
-  gates. It removes assistant `reason` fields, caps repair targets per example,
-  and keeps no-op abstention examples so the next SFT run attacks parse/schema
-  drift before GRPO-v3.
+  gates using `contract_minimal_curriculum`. It moves the handoff to
+  `repair_contract_v3`, removes assistant `reason` fields, caps repair targets
+  per example, and keeps no-op abstention examples so the next SFT run attacks
+  parse/schema drift before GRPO-v3.
+- `expert_v7_parse_latch.jsonl`: parse-latch follow-up curriculum generated
+  from SFT-v6 contract-minimal records using `parse_latch_curriculum`. It
+  oversamples deterministic `submit_repairs` examples and preserves empty
+  `finish` abstentions to teach that `finish` must never carry repairs.
+- `expert_v8_schema_distill.jsonl`: schema-distill prompt-completion
+  curriculum generated from SFT-v6 contract-minimal records after the SFT-v7
+  diagnostic showed action-envelope copying. It stores system/user messages in
+  `prompt` and exactly one compact assistant JSON action in `completion`, so
+  TRL can apply completion-only loss and stop training on prompt row objects.
+- `expert_v9_action_envelope.jsonl`: action-envelope prompt-completion
+  curriculum generated from SFT-v8 records after SFT-v8 raw generation still
+  failed the action envelope. It keeps valid compact JSON completions, adds
+  envelope-heavy micro drills, and records invalid row-object/bare-repair/
+  finish-with-repairs/case/row/extra-key contrasts as audit metadata that is
+  never used as an assistant target.
 - `split_manifest.json`: deterministic train/eval row manifest containing row
   ids and dirty-row SHA-256 hashes only; it contains no clean labels, suggested
   values, or repair targets.
@@ -72,10 +88,22 @@ is not a performance-improvement claim.
   preserved as failed diagnostic evidence after strict held-out eval showed
   parse/schema drift and insufficient active repair signal.
 - `sft_05b_v6.yaml`: private contract-first candidate configuration over
-  `expert_v6_contract_minimal.jsonl`. It uses staged Kaggle modes and may feed
-  GRPO-v3 only after `sft_v6_candidate_eval_report.json` has
-  `promote_to_grpo: true` and points to an uploaded private checkpoint;
-  otherwise GRPO-v3 stays blocked.
+  `expert_v6_contract_minimal.jsonl` with the contract-minimal
+  `repair_contract_v3` prompt. It is preserved as failed diagnostic evidence,
+  not a GRPO predecessor.
+- `sft_05b_v7.yaml`: private parse-latch candidate configuration over
+  `expert_v7_parse_latch.jsonl`. It is preserved as failed diagnostic evidence
+  after the 120-step diagnostic produced raw parse `0.0` and action-envelope
+  errors; GRPO-v3 remains blocked for this lineage.
+- `sft_05b_v8.yaml`: private schema-distill candidate configuration over
+  `expert_v8_schema_distill.jsonl`. It uses prompt-completion records,
+  `completion_only_loss: true`, label-mask audits, and separate raw-research
+  versus product-constrained reporting. It is private candidate work only until
+  verifier-passed.
+- `sft_05b_v9.yaml`: private action-envelope candidate configuration over
+  `expert_v9_action_envelope.jsonl`. It keeps completion-only loss and requires
+  the local product-constrained preflight, but it is not a GRPO predecessor
+  until strict held-out eval writes a promoted private `sft_v9_candidate_eval_report.json`.
 - `MODEL_CARD_TEMPLATE.md`: model-card template used by the publishing notebook.
 
 Each JSONL row includes the schema version, trajectory id, task id, dataset,

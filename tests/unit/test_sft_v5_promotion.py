@@ -6,6 +6,9 @@ from training.sft_promotion import (
     active_repair_metrics,
     build_sft_v5_promotion_report,
     build_sft_v6_promotion_report,
+    build_sft_v7_promotion_report,
+    build_sft_v8_promotion_report,
+    build_sft_v9_promotion_report,
     sft_v5_promotion_gate_failures,
     sft_v6_promotion_gate_failures,
 )
@@ -115,3 +118,87 @@ def test_sft_v6_report_uses_contract_first_schema_and_same_gates() -> None:
     assert report["schema_version"] == "dataforge_sft_v6_candidate_eval_report_v1"
     assert report["promote_to_grpo"] is True
     assert "SFT-v6 is a private contract-first predecessor candidate" in report["limitations"][0]
+
+
+def test_sft_v7_report_carries_parse_latch_diagnostics() -> None:
+    report = build_sft_v7_promotion_report(
+        status="quality_gate_failed_no_upload",
+        model_repo="user/DataForge-0.5B-SFT-v7-candidate",
+        checkpoint="user/DataForge-0.5B-SFT-v7-candidate",
+        base_eval={"macro_f1": 0.0},
+        sft_eval={
+            "macro_f1": 0.02,
+            "parse_success_rate": 0.19,
+            "schema_case_error_count": 0,
+            "dataset_f1": {"beers": 0.0},
+            "slice_scores": {},
+            "failure_taxonomy": {"finish_with_repairs": 80},
+            "parse_error_counts": {"finish_with_repairs": 80},
+            "completion_artifacts": {"code_fence_count": 19, "reason_text_count": 0},
+        },
+        sft_diagnostics={"task_scores": []},
+        model_uploaded=False,
+    )
+
+    assert report["schema_version"] == "dataforge_sft_v7_candidate_eval_report_v1"
+    assert report["metrics"]["parse_error_counts"] == {"finish_with_repairs": 80}
+    assert report["metrics"]["completion_artifacts"]["code_fence_count"] == 19
+    assert "SFT-v7 is a private parse-latch predecessor candidate" in report["limitations"][0]
+
+
+def test_sft_v8_report_targets_grpo_v4_lineage() -> None:
+    report = build_sft_v8_promotion_report(
+        status="quality_gate_failed_no_upload",
+        model_repo="user/DataForge-0.5B-SFT-v8-candidate",
+        checkpoint="user/DataForge-0.5B-SFT-v8-candidate",
+        base_eval={"macro_f1": 0.0},
+        sft_eval={
+            "macro_f1": 0.08,
+            "parse_success_rate": 0.95,
+            "schema_case_error_count": 0,
+            "dataset_f1": {"beers": 0.04},
+            "slice_scores": {},
+            "failure_taxonomy": {"missed_repair": 10},
+            "parse_error_counts": {"schema_error": 5},
+            "completion_artifacts": {"code_fence_count": 0, "reason_text_count": 0},
+        },
+        sft_diagnostics={"task_scores": []},
+        model_uploaded=False,
+    )
+
+    assert report["schema_version"] == "dataforge_sft_v8_candidate_eval_report_v1"
+    assert report["promote_to_grpo"] is False
+    assert "SFT-v8 is a private schema-distill predecessor candidate" in report["limitations"][0]
+    assert (
+        "GRPO-v4 may consume this report only when promote_to_grpo is true"
+        in report["limitations"][1]
+    )
+
+
+def test_sft_v9_report_targets_grpo_v4_action_envelope_lineage() -> None:
+    report = build_sft_v9_promotion_report(
+        status="quality_gate_failed_no_upload",
+        model_repo="user/DataForge-0.5B-SFT-v9-candidate",
+        checkpoint="user/DataForge-0.5B-SFT-v9-candidate",
+        base_eval={"macro_f1": 0.0},
+        sft_eval={
+            "macro_f1": 0.0,
+            "parse_success_rate": 0.03,
+            "schema_case_error_count": 26,
+            "dataset_f1": {"beers": 0.0},
+            "slice_scores": {},
+            "failure_taxonomy": {"action_envelope_missing": 10},
+            "parse_error_counts": {"schema_error": 10},
+            "completion_artifacts": {"code_fence_count": 0, "reason_text_count": 0},
+        },
+        sft_diagnostics={"task_scores": []},
+        model_uploaded=False,
+    )
+
+    assert report["schema_version"] == "dataforge_sft_v9_candidate_eval_report_v1"
+    assert report["promote_to_grpo"] is False
+    assert "SFT-v9 is a private action-envelope predecessor candidate" in report["limitations"][0]
+    assert (
+        "GRPO-v4 may consume this report only when promote_to_grpo is true"
+        in report["limitations"][1]
+    )
