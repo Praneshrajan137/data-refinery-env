@@ -95,6 +95,20 @@ def test_inspect_sql_stat_and_pattern_error_branches() -> None:
     assert non_matches.observation.latest_result.data["total_matches"] == len(env._df)
 
 
+def test_ks_stat_rejects_a_constant_column() -> None:
+    """KS normality testing needs a finite, non-zero fitted scale."""
+    env = _env()
+    env._df["constant"] = [1.0] * len(env._df)
+
+    result = env.step(StatTest(action_type="STAT_TEST", test_type="ks", column="constant"))
+
+    assert result.observation.latest_result.success is False
+    assert result.observation.latest_result.error == {
+        "verdict": "error",
+        "reason": "KS test requires at least two distinct numeric values",
+    }
+
+
 def test_hypothesis_root_cause_and_fix_scoring_branches(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

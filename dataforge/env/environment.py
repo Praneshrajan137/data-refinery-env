@@ -508,9 +508,19 @@ class DataForgeEnv:
                 "outlier_indices": outliers,
             }
         elif action.test_type == "ks":
-            stat_val, p_val = scipy_stats.kstest(
-                col, "norm", args=(float(col.mean()), float(col.std()))
-            )
+            mean = float(col.mean())
+            std = float(col.std())
+            if not std > 0:
+                return ToolResult(
+                    action_type="STAT_TEST",
+                    success=False,
+                    error={
+                        "verdict": "error",
+                        "reason": "KS test requires at least two distinct numeric values",
+                    },
+                ), P_INVALID
+            standardized = (col - mean) / std
+            stat_val, p_val = scipy_stats.kstest(standardized, scipy_stats.norm.cdf)
             data = {
                 "test": "ks",
                 "statistic": float(stat_val),
