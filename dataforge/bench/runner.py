@@ -20,7 +20,7 @@ from dataforge.bench.core import (
     validate_estimated_calls,
     write_run_output,
 )
-from dataforge.bench.groq_client import GroqBenchClient
+from dataforge.bench.groq_client import BedrockBenchClient, GroqBenchClient
 from dataforge.bench.methods import (
     run_heuristic_episode,
     run_llm_corrector_episode,
@@ -68,11 +68,58 @@ def _reproduction_command(
 def _llm_skip_reason() -> str | None:
     """Return a skip reason when LLM methods cannot run."""
     provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
-    if provider != "groq":
-        return "DATAFORGE_LLM_PROVIDER must be set to groq."
-    if not os.environ.get("GROQ_API_KEY"):
-        return "GROQ_API_KEY is not set."
-    return None
+    if provider == "groq":
+        if not os.environ.get("GROQ_API_KEY"):
+            return "GROQ_API_KEY is not set."
+        return None
+    if provider == "bedrock":
+        if not os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+            return "AWS_BEARER_TOKEN_BEDROCK is not set."
+        if not os.environ.get("DATAFORGE_BEDROCK_MODEL"):
+            return "DATAFORGE_BEDROCK_MODEL is not set."
+        return None
+    return "DATAFORGE_LLM_PROVIDER must be set to groq or bedrock."
+
+
+def _env_float(name: str, default: float) -> float:
+    """Read a float env var, falling back to a default on parse failure."""
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an int env var, falling back to a default on parse failure."""
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _build_groq_client() -> GroqBenchClient:
+    """Construct a Groq benchmark client from env-driven knobs."""
+    return GroqBenchClient(
+        api_key=os.environ["GROQ_API_KEY"],
+        model=os.environ.get("DATAFORGE_GROQ_MODEL", "llama-3.3-70b-versatile"),
+        min_interval_s=_env_float("DATAFORGE_GROQ_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_GROQ_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_GROQ_MAX_RETRIES", 3),
+        timeout_s=_env_float("DATAFORGE_GROQ_TIMEOUT_S", 30.0),
+    )
+
+
+def _build_bedrock_client() -> BedrockBenchClient:
+    """Construct a Bedrock benchmark client from env-driven knobs."""
+    return BedrockBenchClient(
+        api_key=os.environ["AWS_BEARER_TOKEN_BEDROCK"],
+        model=os.environ["DATAFORGE_BEDROCK_MODEL"],
+        region=os.environ.get("AWS_REGION", "us-east-1"),
+        min_interval_s=_env_float("DATAFORGE_BEDROCK_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_BEDROCK_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_BEDROCK_MAX_RETRIES", 3),
+        timeout_s=_env_float("DATAFORGE_BEDROCK_TIMEOUT_S", 30.0),
+    )
 
 
 def _skipped_result(
@@ -149,34 +196,10 @@ def run_agent_comparison(
 
     llm_methods_requested = any(method.startswith("llm_") for method in methods)
     skip_reason = _llm_skip_reason() if llm_methods_requested else None
-    client = None
+    client: GroqBenchClient | BedrockBenchClient | None = None
     if llm_methods_requested and skip_reason is None:
-        # Allow env-driven tuning for tiny CI checks.
-        model = os.environ.get("DATAFORGE_GROQ_MODEL", "llama-3.3-70b-versatile")
-        try:
-            min_interval_s = float(os.environ.get("DATAFORGE_GROQ_MIN_INTERVAL_S", "1.0"))
-        except ValueError:
-            min_interval_s = 1.0
-        try:
-            timeout_s = float(os.environ.get("DATAFORGE_GROQ_TIMEOUT_S", "30"))
-        except ValueError:
-            timeout_s = 30.0
-        try:
-            max_tokens = int(os.environ.get("DATAFORGE_GROQ_MAX_TOKENS", "256"))
-        except ValueError:
-            max_tokens = 256
-        try:
-            max_retries = int(os.environ.get("DATAFORGE_GROQ_MAX_RETRIES", "3"))
-        except ValueError:
-            max_retries = 3
-        client = GroqBenchClient(
-            api_key=os.environ["GROQ_API_KEY"],
-            model=model,
-            min_interval_s=min_interval_s,
-            max_tokens=max_tokens,
-            max_retries=max_retries,
-            timeout_s=timeout_s,
-        )
+        provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
+        client = _build_bedrock_client() if provider == "bedrock" else _build_groq_client()
 
     for dataset_name in datasets:
         dataset = loaded_datasets[dataset_name]

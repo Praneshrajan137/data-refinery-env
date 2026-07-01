@@ -62,7 +62,11 @@ logger = logging.getLogger("dataforge.agent.policy")
 _BUILTIN_KINDS = ("hosted", "local", "deterministic")
 
 # Hosted provider -> required API key environment variable.
-_PROVIDER_KEY_ENV = {"groq": "GROQ_API_KEY", "gemini": "GEMINI_API_KEY"}
+_PROVIDER_KEY_ENV = {
+    "groq": "GROQ_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "bedrock": "AWS_BEARER_TOKEN_BEDROCK",
+}
 
 
 class PolicyUnavailableError(RuntimeError):

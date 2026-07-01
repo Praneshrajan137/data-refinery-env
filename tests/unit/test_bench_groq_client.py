@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from dataforge.bench.groq_client import (
+    BedrockBenchClient,
     CerebrasBenchClient,
     GeminiBenchClient,
     GroqBenchClient,
@@ -339,3 +340,105 @@ class TestGroqBenchClient:
             pytest.raises(ValueError, match="Unexpected gemini response payload"),
         ):
             GeminiBenchClient(api_key="test").complete([{"role": "user", "content": "hi"}])
+
+
+class TestBedrockBenchClient:
+    """Bedrock benchmark client behavior with mocked Converse responses."""
+
+    def test_bedrock_client_uses_converse_payload_and_usage(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "output": {"message": {"content": [{"text": '{"repairs": []}'}]}},
+                "usage": {"inputTokens": 12, "outputTokens": 5, "totalTokens": 17},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            completion = BedrockBenchClient(
+                api_key="test", model="us.anthropic.claude-sonnet-5-test-v1:0"
+            ).complete(
+                [
+                    {"role": "system", "content": "sys"},
+                    {"role": "user", "content": "hi"},
+                    {"role": "assistant", "content": "{}"},
+                ]
+            )
+
+        assert completion.text == '{"repairs": []}'
+        assert completion.prompt_tokens == 12
+        assert completion.completion_tokens == 5
+        assert completion.warnings == ()
+        assert mock_client.post.call_args.args[0] == (
+            "https://bedrock-runtime.us-east-1.amazonaws.com/"
+            "model/us.anthropic.claude-sonnet-5-test-v1:0/converse"
+        )
+        request_json = mock_client.post.call_args.kwargs["json"]
+        assert request_json["system"] == [{"text": "sys"}]
+        assert request_json["messages"][0] == {"role": "user", "content": [{"text": "hi"}]}
+        assert request_json["messages"][1] == {"role": "assistant", "content": [{"text": "{}"}]}
+        assert request_json["inferenceConfig"]["maxTokens"] == 512
+
+    def test_bedrock_client_respects_region(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "output": {"message": {"content": [{"text": "ok"}]}},
+                "usage": {"inputTokens": 1, "outputTokens": 1},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            BedrockBenchClient(api_key="test", model="m", region="us-west-2").complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        assert mock_client.post.call_args.args[0] == (
+            "https://bedrock-runtime.us-west-2.amazonaws.com/model/m/converse"
+        )
+
+    def test_bedrock_warns_when_usage_missing(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {"output": {"message": {"content": [{"text": "ok"}]}}}
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            completion = BedrockBenchClient(api_key="test", model="m").complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        assert completion.prompt_tokens == 0
+        assert completion.completion_tokens == 0
+        assert completion.warnings == ("missing_usage_payload",)
+
+    def test_bedrock_raises_on_unexpected_payload(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response({"output": {}})
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            pytest.raises(ValueError, match="Unexpected bedrock response payload"),
+        ):
+            BedrockBenchClient(api_key="test", model="m").complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+    def test_bedrock_raises_provider_request_error_with_body(self) -> None:
+        request = httpx.Request(
+            "POST", "https://bedrock-runtime.us-east-1.amazonaws.com/model/m/converse"
+        )
+        response = httpx.Response(400, text='{"message":"model not found"}', request=request)
+        bad_request = httpx.HTTPStatusError("bad request", request=request, response=response)
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = bad_request
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            pytest.raises(ProviderRequestError, match="model not found"),
+        ):
+            BedrockBenchClient(api_key="test", model="m").complete(
+                [{"role": "user", "content": "hi"}]
+            )

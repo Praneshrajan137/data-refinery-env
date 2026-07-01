@@ -15,7 +15,7 @@ from dataforge.bench.error_classes import (
     precision_at_auto_apply,
     score_repairs_by_class,
 )
-from dataforge.bench.groq_client import GroqBenchClient
+from dataforge.bench.groq_client import BenchLLMClient
 from dataforge.datasets.real_world import RealWorldDataset
 from dataforge.detectors import run_all_detectors
 from dataforge.repairers import propose_fixes
@@ -105,7 +105,7 @@ def run_llm_corrector_episode(
     dataset: RealWorldDataset,
     *,
     seed: int,
-    client: GroqBenchClient,
+    client: BenchLLMClient,
     samples: int = _CORRECTOR_SAMPLES,
 ) -> SeedBenchmarkResult:
     """Run the grounded, contract-bound LLM corrector as a benchmark method.
@@ -408,7 +408,7 @@ def run_llm_zeroshot_episode(
     dataset: RealWorldDataset,
     *,
     seed: int,
-    client: GroqBenchClient,
+    client: BenchLLMClient,
 ) -> SeedBenchmarkResult:
     """Run the zero-shot Groq baseline across fixed contiguous row chunks."""
     start = time.perf_counter()
@@ -485,7 +485,7 @@ def run_llm_react_episode(
     dataset: RealWorldDataset,
     *,
     seed: int,
-    client: GroqBenchClient,
+    client: BenchLLMClient,
 ) -> SeedBenchmarkResult:
     """Run the constrained ReAct-style Groq baseline with one optional tool step."""
     start = time.perf_counter()
