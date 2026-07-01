@@ -28,14 +28,32 @@ class TestFormatDetector:
         assert issues[0].issue_type == "format_violation"
 
     def test_ignores_free_text_columns(self) -> None:
-        names = ["John Smith", "Mary Jane", "Bob", "Alice Wong", "Madonna", "X Y Z",
-                 "Jean-Luc", "O'Brien", "A B C D", "Sam"]
+        names = [
+            "John Smith",
+            "Mary Jane",
+            "Bob",
+            "Alice Wong",
+            "Madonna",
+            "X Y Z",
+            "Jean-Luc",
+            "O'Brien",
+            "A B C D",
+            "Sam",
+        ]
         # No digit/@ in the dominant shape -> never flagged.
         assert _detect(pd.DataFrame({"name": names})) == []
 
     def test_ignores_low_dominance(self) -> None:
-        mixed = ["2024-01-01", "01/02/2024", "2024-03-03", "04/05/2024",
-                 "2024-06-06", "07/08/2024", "2024-09-09", "10/11/2024"]
+        mixed = [
+            "2024-01-01",
+            "01/02/2024",
+            "2024-03-03",
+            "04/05/2024",
+            "2024-06-06",
+            "07/08/2024",
+            "2024-09-09",
+            "10/11/2024",
+        ]
         # ~50/50 split -> no dominant shape -> no flags.
         assert _detect(pd.DataFrame({"d": mixed})) == []
 

@@ -41,9 +41,7 @@ class CategoricalNormalizationRepairer:
                 detector_id="categorical_normalization",
                 operation="update",
             ),
-            reason=(
-                f"Normalized '{old_value}' to dominant cluster form '{issue.expected}'."
-            ),
+            reason=(f"Normalized '{old_value}' to dominant cluster form '{issue.expected}'."),
             confidence=issue.confidence,
             provenance="deterministic",
         )

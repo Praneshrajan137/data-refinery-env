@@ -32,7 +32,11 @@ class TestAgentSafetyIsNonNegotiable:
         )
         result = run_agent_repair(
             AgentRepairRequest(
-                source_path=csv, mode="apply", policy="hosted", max_steps=4, confirm_escalations=True
+                source_path=csv,
+                mode="apply",
+                policy="hosted",
+                max_steps=4,
+                confirm_escalations=True,
             ),
             policy=policy,
         )
@@ -48,8 +52,7 @@ class TestAgentSafetyIsNonNegotiable:
         )
         schema = tmp_path / "schema.yaml"
         schema.write_text(
-            "columns:\n  patient_id: str\n  phone_number: str\n"
-            "pii_columns:\n  - phone_number\n",
+            "columns:\n  patient_id: str\n  phone_number: str\npii_columns:\n  - phone_number\n",
             encoding="utf-8",
         )
         parsed = load_schema(schema)
@@ -89,7 +92,11 @@ class TestAgentSafetyIsNonNegotiable:
         )
         result = run_agent_repair(
             AgentRepairRequest(
-                source_path=csv, mode="dry_run", policy="hosted", max_steps=4, confirm_escalations=True
+                source_path=csv,
+                mode="dry_run",
+                policy="hosted",
+                max_steps=4,
+                confirm_escalations=True,
             ),
             policy=policy,
         )

@@ -33,7 +33,6 @@ _CORRECTOR_AUTO_APPLY_CONFIDENCE = 0.95
 _CORRECTOR_SAMPLES = 3
 
 
-
 def _reproduction_command(method: str, dataset: str, seeds: int) -> str:
     """Build the canonical reproduction command for one method/dataset selection."""
     return f"dataforge bench --methods {method} --datasets {dataset} --seeds {seeds}"

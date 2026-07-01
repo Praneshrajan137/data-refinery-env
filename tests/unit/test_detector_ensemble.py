@@ -75,8 +75,6 @@ class TestEnsembleDedup:
     def test_distinct_cells_are_all_kept(self, monkeypatch) -> None:  # noqa: ANN001
         a = _issue(0, "c", "missing_value", 0.8, Severity.REVIEW)
         b = _issue(1, "c", "outlier", 0.7, Severity.REVIEW)
-        monkeypatch.setattr(
-            detectors_pkg, "default_detectors", lambda: [_FakeDetector([a, b])]
-        )
+        monkeypatch.setattr(detectors_pkg, "default_detectors", lambda: [_FakeDetector([a, b])])
         issues = run_all_detectors(pd.DataFrame({"c": ["1", "2"]}))
         assert {(i.row, i.column) for i in issues} == {(0, "c"), (1, "c")}

@@ -79,7 +79,6 @@ class ClassScore(BaseModel):
     model_config = {"frozen": True}
 
 
-
 class SeedBenchmarkResult(BaseModel):
     """Benchmark result for one dataset/method/seed run."""
 

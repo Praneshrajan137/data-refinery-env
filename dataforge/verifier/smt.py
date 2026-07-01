@@ -487,4 +487,3 @@ class SMTVerifier:
             verdict=VerificationVerdict.ACCEPT,
             reason="All proposed fixes passed inferred-constraint verification.",
         )
-

@@ -33,9 +33,7 @@ class TestAgentSeesExpandedResidual:
         csv = tmp_path / "data.csv"
         _write(
             csv,
-            pd.DataFrame(
-                {"v": [str(x) for x in [10, 11, 9, 12, 10, 11, 13, 9, 10, 12, 11, 4200]]}
-            ),
+            pd.DataFrame({"v": [str(x) for x in [10, 11, 9, 12, 10, 11, 13, 9, 10, 12, 11, 4200]]}),
         )
         result = run_agent_repair(
             AgentRepairRequest(source_path=csv, mode="dry_run", policy="deterministic")

@@ -164,9 +164,7 @@ class TestBackendSelection:
         def _boom(_model):  # noqa: ANN001
             raise RuntimeError("transformers not installed")
 
-        monkeypatch.setattr(
-            "dataforge.agent.backends.local.build_local_completion", _boom
-        )
+        monkeypatch.setattr("dataforge.agent.backends.local.build_local_completion", _boom)
         with pytest.raises(PolicyUnavailableError, match="Local model backend"):
             make_policy("local")
 

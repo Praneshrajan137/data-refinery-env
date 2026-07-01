@@ -58,9 +58,7 @@ class CategoricalNormalizationDetector:
     def _check_column(self, df: TableLike, col_name: str) -> list[Issue]:
         """Flag minority variants within near-duplicate clusters of one column."""
         entries = [
-            (i, str(v).strip())
-            for i, v in enumerate(column_values(df, col_name))
-            if str(v).strip()
+            (i, str(v).strip()) for i, v in enumerate(column_values(df, col_name)) if str(v).strip()
         ]
         if len(entries) < _MIN_VALUES:
             return []

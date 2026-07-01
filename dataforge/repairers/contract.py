@@ -27,9 +27,7 @@ from dataforge.verifier.inferred import value_local_violation
 from dataforge.verifier.schema import Schema
 
 # Issue classes whose correct value is necessarily numeric.
-_NUMERIC_ISSUE_TYPES: frozenset[IssueTypeLiteral] = frozenset(
-    {"decimal_shift", "outlier"}
-)
+_NUMERIC_ISSUE_TYPES: frozenset[IssueTypeLiteral] = frozenset({"decimal_shift", "outlier"})
 
 # Row-level issue classes that are not single-cell value corrections.
 _NON_CELL_ISSUE_TYPES: frozenset[IssueTypeLiteral] = frozenset({"duplicate_row"})

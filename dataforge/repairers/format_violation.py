@@ -69,9 +69,7 @@ class FormatViolationRepairer:
                 detector_id="format_violation",
                 operation="update",
             ),
-            reason=(
-                f"Canonicalized '{old_value}' to dominant column format -> '{new_value}'."
-            ),
+            reason=(f"Canonicalized '{old_value}' to dominant column format -> '{new_value}'."),
             confidence=issue.confidence,
             provenance="deterministic",
         )

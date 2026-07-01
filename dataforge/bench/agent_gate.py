@@ -108,8 +108,7 @@ def compare_agent_vs_deterministic(
                 floor_fix_count=floor_count,
                 agent_fix_count=agent.fixes_count,
                 agent_floor_count=agent.floor_fix_count,
-                parity=agent.fixes_count == floor_count
-                and agent.floor_fix_count == floor_count,
+                parity=agent.fixes_count == floor_count and agent.floor_fix_count == floor_count,
             )
         )
     return AgentGateReport(fixtures=tuple(results))

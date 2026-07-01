@@ -38,7 +38,9 @@ def _resolve_model_id(model: str | None) -> str:
     """Resolve the model id from the argument, env var, or default."""
     if model:
         return model
-    return os.environ.get("DATAFORGE_AGENT_MODEL", DEFAULT_LOCAL_MODEL).strip() or DEFAULT_LOCAL_MODEL
+    return (
+        os.environ.get("DATAFORGE_AGENT_MODEL", DEFAULT_LOCAL_MODEL).strip() or DEFAULT_LOCAL_MODEL
+    )
 
 
 def _resolve_device(requested: str | None) -> str:
@@ -71,7 +73,9 @@ def _load_model(model_id: str) -> tuple[Any, Any, str]:
     return tokenizer, model, device
 
 
-def build_local_completion(model: str | None = None) -> Callable[[Sequence[Message], str | None, float], str]:
+def build_local_completion(
+    model: str | None = None,
+) -> Callable[[Sequence[Message], str | None, float], str]:
     """Build a synchronous completion callable backed by a local model.
 
     Args:
@@ -94,9 +98,7 @@ def build_local_completion(model: str | None = None) -> Callable[[Sequence[Messa
 
     def _complete(messages: Sequence[Message], _model_name: str | None, temperature: float) -> str:
         chat = [{"role": m["role"], "content": m["content"]} for m in messages]
-        prompt = tokenizer.apply_chat_template(
-            chat, tokenize=False, add_generation_prompt=True
-        )
+        prompt = tokenizer.apply_chat_template(chat, tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(prompt, return_tensors="pt").to(device)
         do_sample = temperature > 0.0
         with torch.no_grad():

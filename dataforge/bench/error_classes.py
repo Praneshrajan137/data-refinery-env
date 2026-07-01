@@ -55,9 +55,7 @@ BENCH_ERROR_CLASSES: tuple[str, ...] = (
 _MISSING_SENTINELS = frozenset(
     {"", "n/a", "na", "null", "none", "nan", "nil", "-", "unknown", "not available", "?"}
 )
-_DATE_PATTERN = re.compile(
-    r"^\s*\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}([ T]\d{1,2}:\d{2}(:\d{2})?)?\s*$"
-)
+_DATE_PATTERN = re.compile(r"^\s*\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}([ T]\d{1,2}:\d{2}(:\d{2})?)?\s*$")
 _ALNUM = re.compile(r"[0-9a-z]+")
 
 
@@ -256,9 +254,7 @@ def class_coverage_matrix(
     return matrix
 
 
-def expected_calibration_error(
-    samples: list[tuple[float, bool]], *, bins: int = 10
-) -> float:
+def expected_calibration_error(samples: list[tuple[float, bool]], *, bins: int = 10) -> float:
     """Compute the Expected Calibration Error of confidence-labeled predictions.
 
     Args:
@@ -340,7 +336,5 @@ def check_coverage_regression(
             else:
                 actual = score.recall if score is not None else 0.0
             if actual + 1e-9 < min_recall:
-                failures.append(
-                    f"{key}/{raw_class}: recall {actual:.4f} < floor {min_recall:.4f}"
-                )
+                failures.append(f"{key}/{raw_class}: recall {actual:.4f} < floor {min_recall:.4f}")
     return (not failures), failures

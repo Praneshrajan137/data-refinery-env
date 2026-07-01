@@ -897,9 +897,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     # Inferred, advisory safety net for untrusted corrections when no
     # authoritative schema exists. Never drives repairs or raises issues; only
     # gates LLM-originated values in propose_repairs.
-    verification_schema = (
-        infer_verification_schema(df) if effective_schema is None else None
-    )
+    verification_schema = infer_verification_schema(df) if effective_schema is None else None
     with repair_stage_span("propose", issue_count=len(issues)):
         accepted_fixes, attempt_groups = propose_repairs(
             issues,

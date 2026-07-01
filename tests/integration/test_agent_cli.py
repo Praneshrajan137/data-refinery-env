@@ -20,7 +20,8 @@ def _csv(tmp_path: Path) -> Path:
 class TestAgentCli:
     def test_deterministic_policy_runs_offline(self, tmp_path: Path) -> None:
         result = runner.invoke(
-            app, ["repair", str(_csv(tmp_path)), "--dry-run", "--agent", "--policy", "deterministic"]
+            app,
+            ["repair", str(_csv(tmp_path)), "--dry-run", "--agent", "--policy", "deterministic"],
         )
         assert result.exit_code == 0
         assert "Verified Agent Repair" in result.output

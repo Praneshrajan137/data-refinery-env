@@ -201,9 +201,7 @@ class LLMCorrectorRepairer:
         """Majority vote among contract- and guard-passing candidate values."""
         total = len(values) or 1
         passing = [
-            value
-            for value in values
-            if self._candidate_ok(value, issue, df, contract, constraints)
+            value for value in values if self._candidate_ok(value, issue, df, contract, constraints)
         ]
         if not passing:
             return None, 0.0
@@ -222,9 +220,7 @@ class LLMCorrectorRepairer:
         """A candidate is acceptable only if it passes every gate the verifier will."""
         if not contract.check(value).ok:
             return False
-        violation = inferred_value_violation(
-            df, issue.row, issue.column, value, constraints
-        )
+        violation = inferred_value_violation(df, issue.row, issue.column, value, constraints)
         return violation is None
 
     def _build_messages(
@@ -288,7 +284,9 @@ class LLMCorrectorRepairer:
             for other in range(row_count(df)):
                 if other == issue.row:
                     continue
-                if all(str(cell_value(df, other, det)).strip() == key[det] for det in fd.determinant):
+                if all(
+                    str(cell_value(df, other, det)).strip() == key[det] for det in fd.determinant
+                ):
                     dependent = str(cell_value(df, other, issue.column)).strip()
                     if dependent and dependent not in peers:
                         peers.append(dependent)

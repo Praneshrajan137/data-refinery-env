@@ -53,7 +53,9 @@ class TestContractRejects:
     def test_rejects_no_op_equal_to_actual(self) -> None:
         df = pd.DataFrame({"city": ["Boston", "Denver", "Austin"]})
         schema = infer_verification_schema(df)
-        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="boston")
+        issue = _issue(
+            row=0, column="city", issue_type="categorical_normalization", actual="boston"
+        )
 
         contract = build_correction_contract(issue, schema)
         result = contract.check("boston")
@@ -117,9 +119,7 @@ class TestContractAccepts:
     def test_accepts_canonical_normalization_to_unseen_value(self) -> None:
         df = pd.DataFrame({"style": ["IPA", "ipa", "Lager", "lager", "Stout"]})
         schema = infer_verification_schema(df)
-        issue = _issue(
-            row=1, column="style", issue_type="categorical_normalization", actual="ipa"
-        )
+        issue = _issue(row=1, column="style", issue_type="categorical_normalization", actual="ipa")
 
         contract = build_correction_contract(issue, schema)
         result = contract.check("India Pale Ale")

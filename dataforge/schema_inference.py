@@ -676,9 +676,7 @@ def infer_verification_schema(table: TableLike) -> Schema:
             and candidate.pattern is not None
             and candidate.confidence >= _VERIFY_REGEX_MIN_CONFIDENCE
         ):
-            regexes.append(
-                RegexConstraint(column=candidate.columns[0], pattern=candidate.pattern)
-            )
+            regexes.append(RegexConstraint(column=candidate.columns[0], pattern=candidate.pattern))
 
     fds = [
         FunctionalDependency(determinant=candidate.columns, dependent=candidate.dependent)

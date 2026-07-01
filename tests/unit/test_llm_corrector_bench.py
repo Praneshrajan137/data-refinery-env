@@ -111,9 +111,7 @@ class TestRunLLMCorrectorEpisode:
 
 class TestPromotionVerdict:
     def test_promotes_on_precise_calibrated_record(self) -> None:
-        record = _minimal_record(
-            precision_at_auto_apply=1.0, ece=0.02, auto_apply_count=5
-        )
+        record = _minimal_record(precision_at_auto_apply=1.0, ece=0.02, auto_apply_count=5)
 
         promote, reasons = corrector_promotion_verdict(record)
 
@@ -121,9 +119,7 @@ class TestPromotionVerdict:
         assert reasons == []
 
     def test_rejects_low_precision(self) -> None:
-        record = _minimal_record(
-            precision_at_auto_apply=0.80, ece=0.02, auto_apply_count=5
-        )
+        record = _minimal_record(precision_at_auto_apply=0.80, ece=0.02, auto_apply_count=5)
 
         promote, reasons = corrector_promotion_verdict(record)
 
@@ -131,9 +127,7 @@ class TestPromotionVerdict:
         assert any("precision_at_auto_apply" in reason for reason in reasons)
 
     def test_rejects_poor_calibration(self) -> None:
-        record = _minimal_record(
-            precision_at_auto_apply=0.99, ece=0.5, auto_apply_count=5
-        )
+        record = _minimal_record(precision_at_auto_apply=0.99, ece=0.5, auto_apply_count=5)
 
         promote, reasons = corrector_promotion_verdict(record)
 
@@ -141,9 +135,7 @@ class TestPromotionVerdict:
         assert any("ECE" in reason for reason in reasons)
 
     def test_rejects_insufficient_evidence(self) -> None:
-        record = _minimal_record(
-            precision_at_auto_apply=1.0, ece=0.0, auto_apply_count=0
-        )
+        record = _minimal_record(precision_at_auto_apply=1.0, ece=0.0, auto_apply_count=0)
 
         promote, reasons = corrector_promotion_verdict(record)
 

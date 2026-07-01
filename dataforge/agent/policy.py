@@ -72,6 +72,7 @@ class PolicyUnavailableError(RuntimeError):
     local model) so the CLI/MCP can tell the user exactly how to proceed.
     """
 
+
 # A synchronous chat-completion callable: (messages, model, temperature) -> text.
 CompletionFn = Callable[[list[Message], str | None, float], str]
 
@@ -473,9 +474,7 @@ def make_policy(
     raise ValueError(f"Unknown policy kind: {kind!r}. Available: {available_policies()}")
 
 
-def _build_hosted_policy(
-    *, model: str | None, temperature: float, provider: str | None
-) -> Policy:
+def _build_hosted_policy(*, model: str | None, temperature: float, provider: str | None) -> Policy:
     """Construct an LLM policy over the hosted provider client, failing fast.
 
     Args:
@@ -511,9 +510,7 @@ def _build_hosted_policy(
         previous = os.environ.get("DATAFORGE_LLM_PROVIDER")
         os.environ["DATAFORGE_LLM_PROVIDER"] = effective
         try:
-            return asyncio.run(
-                async_complete(list(messages), model=model_name, temperature=temp)
-            )
+            return asyncio.run(async_complete(list(messages), model=model_name, temperature=temp))
         finally:
             if previous is None:
                 os.environ.pop("DATAFORGE_LLM_PROVIDER", None)

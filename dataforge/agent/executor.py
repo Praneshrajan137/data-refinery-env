@@ -160,12 +160,16 @@ class VerifiedActionExecutor:
         columns = column_names(self._df)
         if action.column not in columns:
             return ActionOutcome(
-                "FIX", f"FIX rejected: column {action.column!r} does not exist.", accepted=False,
+                "FIX",
+                f"FIX rejected: column {action.column!r} does not exist.",
+                accepted=False,
                 rejection_reason="column_not_found",
             )
         if action.row < 0 or action.row >= row_count(self._df):
             return ActionOutcome(
-                "FIX", f"FIX rejected: row {action.row} is out of bounds.", accepted=False,
+                "FIX",
+                f"FIX rejected: row {action.row} is out of bounds.",
+                accepted=False,
                 rejection_reason="row_out_of_bounds",
             )
         if (action.row, action.column) in self._resolved:
@@ -222,8 +226,7 @@ class VerifiedActionExecutor:
         return ActionOutcome(
             "FIX",
             f"FIX rejected by SMT verifier ({verifier_result.verdict.value}): "
-            f"{verifier_result.reason}"
-            + (f" unsat_core={core}" if core else ""),
+            f"{verifier_result.reason}" + (f" unsat_core={core}" if core else ""),
             accepted=False,
             rejection_reason=verifier_result.reason,
             unsat_core=tuple(verifier_result.unsat_core),
@@ -237,9 +240,7 @@ class VerifiedActionExecutor:
         indices = [i for i in action.row_indices if 0 <= i < total][:_MAX_INSPECT_ROWS]
         columns = action.column_names or column_names(self._df)
         columns = [c for c in columns if c in column_names(self._df)]
-        rows = {
-            i: {c: cell_value(self._df, i, c) for c in columns} for i in indices
-        }
+        rows = {i: {c: cell_value(self._df, i, c) for c in columns} for i in indices}
         if not rows:
             return ActionOutcome("INSPECT_ROWS", "INSPECT_ROWS: no valid rows in range.")
         return ActionOutcome("INSPECT_ROWS", f"INSPECT_ROWS rows={rows}")

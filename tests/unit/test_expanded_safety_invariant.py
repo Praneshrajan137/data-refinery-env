@@ -26,8 +26,12 @@ class TestDetectionOnlyClassesNeverMutate:
     def test_detection_only_classes_have_no_registered_repairer(self) -> None:
         registry = build_repairers(cache_dir=None, allow_llm=False, model="x")
         # Detection-only classes must not be auto-applied.
-        for detection_only in ("format_violation", "categorical_normalization", "outlier",
-                               "duplicate_row"):
+        for detection_only in (
+            "format_violation",
+            "categorical_normalization",
+            "outlier",
+            "duplicate_row",
+        ):
             assert detection_only not in registry
 
     def test_duplicate_rows_detected_but_never_deleted(self, tmp_path: Path) -> None:
@@ -66,7 +70,9 @@ class TestReversibilityWithNewDetectors:
     def test_apply_then_revert_is_byte_identical(self, tmp_path: Path) -> None:
         # A decimal-shift error (auto-fixable) alongside detection-only noise.
         csv = tmp_path / "amounts.csv"
-        _write(csv, pd.DataFrame({"amount": ["100", "105", "98", "1020", "103", "99", "101", "97"]}))
+        _write(
+            csv, pd.DataFrame({"amount": ["100", "105", "98", "1020", "103", "99", "101", "97"]})
+        )
         original = csv.read_bytes()
         result = run_repair_pipeline(RepairPipelineRequest(source_path=csv, mode="apply"))
         if result.receipt.applied and result.receipt.txn_id:

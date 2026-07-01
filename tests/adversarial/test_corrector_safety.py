@@ -19,15 +19,7 @@ from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline
 def _write_numeric_missing_csv(path: Path) -> None:
     """Numeric column (int, range 9-13) with one blank cell at row 7."""
     path.write_text(
-        "id,score\n"
-        "1,10\n"
-        "2,12\n"
-        "3,11\n"
-        "4,9\n"
-        "5,13\n"
-        "6,10\n"
-        "7,12\n"
-        "8,\n",
+        "id,score\n1,10\n2,12\n3,11\n4,9\n5,13\n6,10\n7,12\n8,\n",
         encoding="utf-8",
     )
 

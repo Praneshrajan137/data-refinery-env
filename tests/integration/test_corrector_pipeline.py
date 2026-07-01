@@ -19,15 +19,7 @@ from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline
 def _write_missing_value_csv(path: Path) -> None:
     """Write a CSV with one blank cell in an otherwise-populated text column."""
     path.write_text(
-        "id,city\n"
-        "1,Boston\n"
-        "2,Denver\n"
-        "3,Austin\n"
-        "4,Reno\n"
-        "5,Miami\n"
-        "6,Chicago\n"
-        "7,Dallas\n"
-        "8,\n",
+        "id,city\n1,Boston\n2,Denver\n3,Austin\n4,Reno\n5,Miami\n6,Chicago\n7,Dallas\n8,\n",
         encoding="utf-8",
     )
 

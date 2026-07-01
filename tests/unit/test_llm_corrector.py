@@ -56,7 +56,9 @@ class TestCorrectorDisabled:
     def test_returns_none_when_llm_not_allowed(self, tmp_path: Path) -> None:
         df = pd.DataFrame({"city": ["Boston", "Denver", "Austin"]})
         corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=False, model="m")
-        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="boston")
+        issue = _issue(
+            row=0, column="city", issue_type="categorical_normalization", actual="boston"
+        )
 
         assert corrector.propose(issue, df, None) is None
 
@@ -64,9 +66,7 @@ class TestCorrectorDisabled:
 class TestSelfConsistency:
     def test_majority_value_is_proposed_with_agreement_confidence(self, tmp_path: Path) -> None:
         df = pd.DataFrame({"amount": ["10", "12", "11", "9", "13"]})
-        corrector = LLMCorrectorRepairer(
-            cache_dir=tmp_path, allow_llm=True, model="m", samples=3
-        )
+        corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model="m", samples=3)
         issue = _issue(row=0, column="amount", issue_type="outlier", actual="9999")
 
         fake = _scripted_complete(["11", "11", "999999"])
@@ -82,9 +82,7 @@ class TestSelfConsistency:
 
     def test_abstains_when_no_sample_passes_contract(self, tmp_path: Path) -> None:
         df = pd.DataFrame({"amount": ["10", "12", "11", "9", "13"]})
-        corrector = LLMCorrectorRepairer(
-            cache_dir=tmp_path, allow_llm=True, model="m", samples=3
-        )
+        corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model="m", samples=3)
         issue = _issue(row=0, column="amount", issue_type="outlier", actual="9999")
 
         fake = _scripted_complete(["banana", "999999", ""])
@@ -95,10 +93,10 @@ class TestSelfConsistency:
 
     def test_abstains_on_no_op_value(self, tmp_path: Path) -> None:
         df = pd.DataFrame({"city": ["Boston", "Denver", "Austin", "Reno"]})
-        corrector = LLMCorrectorRepairer(
-            cache_dir=tmp_path, allow_llm=True, model="m", samples=3
+        corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model="m", samples=3)
+        issue = _issue(
+            row=0, column="city", issue_type="categorical_normalization", actual="Boston"
         )
-        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="Boston")
 
         fake = _scripted_complete(["Boston", "Boston", "Boston"])
         with patch("dataforge.repairers.llm_corrector.complete", fake):
@@ -144,9 +142,7 @@ class TestContractBinding:
         zips = ["02134"] * 12 + ["10001"] * 8
         cities = (["Boston"] * 11 + ["Bostan"]) + ["NYC"] * 8
         df = pd.DataFrame({"zip": zips, "city": cities})
-        corrector = LLMCorrectorRepairer(
-            cache_dir=tmp_path, allow_llm=True, model="m", samples=3
-        )
+        corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model="m", samples=3)
         # Row 11 has zip 02134; the FD consensus says city must be "Boston".
         issue = _issue(row=11, column="city", issue_type="fd_violation", actual="Bostan")
 

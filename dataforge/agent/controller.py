@@ -75,9 +75,7 @@ class AgentRepairRequest(BaseModel):
     confirm_pii: bool = False
     confirm_escalations: bool = False
 
-    model_config = ConfigDict(
-        arbitrary_types_allowed=True, extra="forbid", populate_by_name=True
-    )
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", populate_by_name=True)
 
 
 class AgentActionRecord(BaseModel):
@@ -131,9 +129,7 @@ def _residual_issue(issue: Issue) -> ResidualIssue:
     )
 
 
-def _residual_issues(
-    issues: list[Issue], attempt_groups: list[list[RepairAttempt]]
-) -> list[Issue]:
+def _residual_issues(issues: list[Issue], attempt_groups: list[list[RepairAttempt]]) -> list[Issue]:
     """Return issues the deterministic floor did not accept a fix for."""
     residual: list[Issue] = []
     for issue, attempts in zip(issues, attempt_groups, strict=False):
@@ -249,7 +245,10 @@ def run_agent_repair(
     scratchpad = Scratchpad()
 
     active_policy = policy or make_policy(
-        request.policy, model=request.model, temperature=request.temperature, provider=request.provider
+        request.policy,
+        model=request.model,
+        temperature=request.temperature,
+        provider=request.provider,
     )
 
     executor = VerifiedActionExecutor(

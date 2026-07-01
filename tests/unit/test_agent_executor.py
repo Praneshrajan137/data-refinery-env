@@ -139,7 +139,12 @@ class TestReadOnlyTools:
         )
         ex.execute(
             parse_action(
-                {"action_type": "DIAGNOSE", "row": 0, "column": "score", "issue_type": "type_mismatch"}
+                {
+                    "action_type": "DIAGNOSE",
+                    "row": 0,
+                    "column": "score",
+                    "issue_type": "type_mismatch",
+                }
             )
         )
         assert ex.scratchpad.hypotheses
