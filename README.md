@@ -5,6 +5,13 @@ detects common CSV issues, proposes deterministic repairs, checks proposed
 changes through safety and verification gates, and records applied changes in a
 reversible transaction log.
 
+What makes it different: **every auto-applied fix is formally verified (SMT),
+constitution-checked, and byte-for-byte reversible, and coverage is reported
+honestly per error class.** DataForge auto-applies only what it can prove
+correct; everything else it detects and flags for review, never silently
+changing it. Detection and correction are measured separately (see Coverage),
+so the tool's real limits are visible, not hidden behind an aggregate score.
+
 The final public product name is DataForge. The PyPI/TestPyPI distribution
 family is `dataforge_07*` because the unqualified `dataforge` project name is
 occupied by unrelated packages. Installing `dataforge_07` still provides the
@@ -26,8 +33,13 @@ vision.
 Shipped in the current worktree:
 
 - `dataforge profile`, `dataforge repair`, `dataforge revert`,
-  `dataforge watch`, `dataforge audit`, and `dataforge bench`
-- Three detector families: `type_mismatch`, `decimal_shift`, `fd_violation`
+  `dataforge watch`, `dataforge audit`, `dataforge bench`, and
+  `dataforge quickstart`
+- Eight detector families across an additive ensemble: `type_mismatch`,
+  `decimal_shift`, `fd_violation` (auto-correcting, tier 0), plus
+  `missing_value`, `format_violation`, `categorical_normalization`, `outlier`,
+  and `duplicate_row` (tier 1, additive). Detection-only families surface issues
+  without auto-correcting where a correct value is not derivable.
 - Reviewable schema inference in `profile --json`, including inferred column
   types, domains, regex candidates, uniqueness, and FD candidates
 - Pending constraint review artifacts via `profile --constraints-out`, which
@@ -72,6 +84,78 @@ dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --d
 dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
 dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2
 ```
+
+Or just run the zero-config demo (works from any install, no files needed):
+
+```bash
+dataforge quickstart
+```
+
+## Coverage: what DataForge can and cannot safely fix
+
+DataForge reports **detection** (did it flag the error) and **correction** (did
+it produce the exact right value) separately, because they are different
+problems: detecting a wrong value is often easy, but inventing the correct one
+is frequently impossible without external knowledge. The tool refuses to guess.
+
+Measured on the full RAHA benchmark datasets (deterministic stack, no LLM;
+reproduce with `dataforge bench --quick`):
+
+| Dataset  | Correction F1 | Detection coverage (recall by class)                                   |
+| -------- | ------------- | ---------------------------------------------------------------------- |
+| hospital | 0.79          | value_format 1.00, text_normalization 0.87, other 1.00                 |
+| beers    | 0.04          | missing_value 1.00, other 1.00, value_format 0.52                      |
+| flights  | 0.00          | missing_value 1.00 (2370 cells)                                        |
+
+How to read this honestly:
+
+- DataForge **detects** a large share of errors across all three datasets,
+  including classes (missing values, format/normalization variants, outliers,
+  duplicate rows) it deliberately does not auto-correct.
+- It only **auto-corrects** where a value is derivable and provable
+  (decimal-shift inverse, FD majority/lookup), which is why correction F1 is
+  high on hospital (FD/typo-dominated) and low on flights/beers (dominated by
+  missing values and free-form formatting with no derivable canonical).
+- Auto-correctable classes pass an SMT proof and the safety constitution before
+  being applied inside a reversible transaction. Format and categorical
+  *correction* are currently detection-only (their repairers exist and are
+  unit-tested, but are withheld from auto-apply until calibration proves they do
+  not regress precision).
+
+### Optional LLM corrector (opt-in, propose-not-apply)
+
+The correction bottleneck is the classes with no derivable canonical value:
+missing-value fills, free-text normalization, and context-dependent typos
+(the bulk of flights and beers errors). For these, an opt-in LLM corrector
+(`dataforge repair --allow-llm`) proposes an exact value, but it is built to be
+trustworthy rather than impressive:
+
+- **Grounded + contract-bound.** Each proposal must satisfy a `CorrectionContract`
+  derived from the detector's finding plus inferred constraints (type, numeric
+  domain, regex, functional dependency). A value that violates the contract is
+  discarded before it is ever considered.
+- **Self-consistent.** `k` samples are drawn; the agreement fraction is the
+  confidence. Low agreement means low confidence.
+- **Verified + reversible.** Surviving values still pass the SMT verifier
+  (including the schema-less inferred-constraint guard) and the safety
+  constitution, and any applied change is journaled and byte-for-byte reversible.
+- **Propose-not-apply by default.** Corrector proposals surface as reviewable
+  `suggested_fixes`; they are auto-applied **only** when a per-class threshold
+  fit to a >= 0.95 precision floor is cleared *and* the operator confirms LLM
+  writes. Nothing LLM-origin is silently written.
+
+Cost is explicit: the corrector spends `k` LLM calls per detected issue. The
+`llm_corrector` benchmark method reports per-class correction F1, calibration
+error (ECE), and `precision_at_auto_apply` (precision among proposals whose
+agreement clears a fixed 0.95 bar), and the promotion gate
+(`corrector_promotion_verdict`) refuses to promote a class to auto-apply until
+that precision floor and a calibration bound are met on measured data. A
+committed corrector benchmark report against a live provider is pending
+(requires provider credentials); the mechanism is verified offline with a
+mocked provider.
+
+This is the design center, not an apology: a data-repair tool you can trust is
+one that tells you exactly what it will and will not touch, and proves it.
 
 `dataforge15` remains a temporary staging compatibility alias, but public docs
 and release evidence must use `dataforge_07` for PyPI distribution identity and
@@ -314,11 +398,11 @@ backend provider key is explicitly configured.
 ## Benchmark Results
 
 <!-- BENCH:START -->
-Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `dbd1bed0a03c`, dirty `true`).
+Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `38ce0ca509ca`, dirty `true`).
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3167 | 0.3025 | 0.2772 | 374.33 | 0.0000 | 0.0000 |
+| heuristic | 0.3185 | 0.3025 | 0.2772 | 371.33 | 0.0000 | 0.0000 |
 | random | 0.0038 | 0.0003 | 0.0005 | 150.33 | 0.0000 | 0.0000 |
 
 See `BENCHMARK_REPORT.md` for per-dataset tables, error bars, and citation-only SOTA rows.

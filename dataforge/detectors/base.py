@@ -80,7 +80,19 @@ class Severity(enum.Enum):
 
 
 # Closed vocabulary of issue types. Extend this Literal as new detectors ship.
-IssueTypeLiteral = Literal["type_mismatch", "decimal_shift", "fd_violation"]
+# Detection-only classes are allowed: emitting an issue type with no registered
+# repairer degrades gracefully to detection-only (the issue is reported but not
+# auto-fixed), which is the honest detection-vs-correction split.
+IssueTypeLiteral = Literal[
+    "type_mismatch",
+    "decimal_shift",
+    "fd_violation",
+    "missing_value",
+    "format_violation",
+    "categorical_normalization",
+    "outlier",
+    "duplicate_row",
+]
 
 
 class Issue(BaseModel):

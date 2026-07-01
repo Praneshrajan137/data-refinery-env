@@ -21,6 +21,11 @@ from dataforge.datasets.registry import DATASET_REGISTRY
 BenchmarkStatus = Literal["ok", "skipped"]
 BENCHMARK_SCHEMA_VERSION = "dataforge_benchmark_run_v2"
 
+# Default self-consistency sample count used to size the corrector's call budget.
+# Kept in sync with LLMCorrectorRepairer's default; duplicated here to avoid a
+# circular import between core and the bench methods module.
+_CORRECTOR_ESTIMATE_SAMPLES = 3
+
 
 class BenchmarkRepair(BaseModel):
     """One benchmark repair prediction."""
@@ -42,6 +47,34 @@ class RepairScore(BaseModel):
     precision: float = Field(ge=0.0, le=1.0)
     recall: float = Field(ge=0.0, le=1.0)
     f1: float = Field(ge=0.0, le=1.0)
+
+    model_config = {"frozen": True}
+
+
+class ClassScore(BaseModel):
+    """Per-error-class detection/correction metrics for one episode.
+
+    Detection and correction are scored separately (the Raha-vs-Baran split):
+    ``detection_recall`` credits flagging a class's cells regardless of whether
+    a correct value was produced, while ``recall``/``precision_on_class`` credit
+    only correct repairs. A detector can therefore honestly improve coverage
+    (detection) even when the correct value is not derivable (correction).
+
+    ``precision_on_class`` is the fraction of repairs that landed on a
+    ground-truth cell of this class and were correct; spurious repairs on
+    non-error cells are not class-attributable and are reported in the
+    aggregate :class:`RepairScore`.
+    """
+
+    error_class: str = Field(min_length=1)
+    support: int = Field(ge=0, description="Ground-truth cells of this class")
+    detected: int = Field(default=0, ge=0, description="Class cells flagged by a detector")
+    detection_recall: float = Field(default=0.0, ge=0.0, le=1.0)
+    tp: int = Field(ge=0)
+    fn: int = Field(ge=0)
+    recall: float = Field(ge=0.0, le=1.0)
+    predicted_on_class: int = Field(ge=0)
+    precision_on_class: float = Field(ge=0.0, le=1.0)
 
     model_config = {"frozen": True}
 
@@ -71,6 +104,22 @@ class SeedBenchmarkResult(BaseModel):
     model: str | None = None
     warnings: list[str] = Field(default_factory=list)
     reproduction_command: str = Field(min_length=1)
+    by_class: dict[str, ClassScore] | None = Field(
+        default=None,
+        description="Per-error-class metrics; None for methods that do not compute them.",
+    )
+    ece: float | None = Field(
+        default=None,
+        description="Expected calibration error of correction confidences; None if not computed.",
+    )
+    precision_at_auto_apply: float | None = Field(
+        default=None,
+        description="Correction precision among proposals at/above the auto-apply confidence.",
+    )
+    auto_apply_count: int | None = Field(
+        default=None,
+        description="How many proposals cleared the auto-apply confidence threshold.",
+    )
 
 
 class AggregateBenchmarkResult(BaseModel):
@@ -331,12 +380,17 @@ def estimate_llm_calls(*, methods: list[str], datasets: list[str], seeds: int) -
     """Estimate total LLM calls for the selected run configuration."""
     estimated = 0
     for dataset_name in datasets:
-        chunks = len(chunk_row_indices(DATASET_REGISTRY[dataset_name].n_rows))
+        n_rows = DATASET_REGISTRY[dataset_name].n_rows
+        chunks = len(chunk_row_indices(n_rows))
         for method in methods:
             if method == "llm_zeroshot":
                 estimated += chunks * seeds
             elif method == "llm_react":
                 estimated += chunks * 2 * seeds
+            elif method == "llm_corrector":
+                # Conservative upper bound: at most one detected issue per row,
+                # each resolved with the default self-consistency sample count.
+                estimated += n_rows * _CORRECTOR_ESTIMATE_SAMPLES * seeds
     return estimated
 
 

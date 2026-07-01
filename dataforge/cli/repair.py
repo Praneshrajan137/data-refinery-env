@@ -208,6 +208,63 @@ def _apply_transaction(
     return engine_apply_transaction(path, fixes, source_bytes)
 
 
+def _run_agent_repair(
+    resolved_path: Path,
+    schema: Schema | None,
+    *,
+    apply: bool,
+    policy: str,
+    provider: str | None,
+    max_steps: int,
+    model: str,
+    allow_pii: bool,
+    confirm_pii: bool,
+    confirm_escalations: bool,
+    json_output: bool,
+) -> None:
+    """Run the verified autonomous agent and render its result."""
+    from dataforge.agent import AgentRepairRequest, run_agent_repair
+
+    result = run_agent_repair(
+        AgentRepairRequest(
+            source_path=resolved_path,
+            mode="apply" if apply else "dry_run",
+            schema=schema,
+            policy=policy,
+            provider=provider,
+            max_steps=max_steps,
+            model=model,
+            allow_pii=allow_pii,
+            confirm_pii=confirm_pii,
+            confirm_escalations=confirm_escalations,
+        )
+    )
+
+    if json_output:
+        typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
+        raise typer.Exit(code=0 if result.fixes else 1)
+
+    output_console = Console()
+    render_repair_diff(result.fixes, output_console, file_path=str(resolved_path))
+    output_console.print(
+        Panel(
+            f"Policy: [bold]{result.policy_name}[/bold]  "
+            f"Steps used: {result.steps_used}/{result.max_steps}\n"
+            f"Verified fixes: {result.fixes_count} "
+            f"([green]{result.floor_fix_count}[/green] deterministic, "
+            f"[cyan]{result.agent_fix_count}[/cyan] agent)  "
+            f"Residual: {result.residual_count}\n"
+            f"Safety: {result.safety_verdict}  "
+            f"{'Applied txn ' + str(result.txn_id) if result.applied else 'Dry run (no mutation)'}",
+            title="Verified Agent Repair",
+            style="green" if result.fixes else "yellow",
+        )
+    )
+    if result.applied and result.revert_command:
+        output_console.print(f"[dim]Revert with: {result.revert_command}[/dim]")
+    raise typer.Exit(code=0 if result.fixes else 1)
+
+
 def repair(
     path: Annotated[
         str,
@@ -269,6 +326,39 @@ def repair(
         str,
         typer.Option("--llm-model", help="Model name for fd_violation LLM fallback."),
     ] = "gemini-2.0-flash",
+    agent: Annotated[
+        bool,
+        typer.Option(
+            "--agent",
+            help="Use the verified autonomous agent: deterministic floor first, then "
+            "an LLM policy resolves residual issues, every write SMT+constitution gated.",
+        ),
+    ] = False,
+    policy: Annotated[
+        str,
+        typer.Option(
+            "--policy",
+            help="Agent policy backend: hosted (provider, default), local (trained model), "
+            "deterministic (floor only), or custom:<name>. Only used with --agent.",
+        ),
+    ] = "hosted",
+    provider: Annotated[
+        str | None,
+        typer.Option(
+            "--provider",
+            help="Hosted provider: groq or gemini. Falls back to DATAFORGE_LLM_PROVIDER "
+            "/ key autodetect. Only used with --agent --policy hosted.",
+        ),
+    ] = None,
+    max_steps: Annotated[
+        int,
+        typer.Option(
+            "--max-steps",
+            help="Maximum agent reasoning steps per run. Only used with --agent.",
+            min=1,
+            max=200,
+        ),
+    ] = 30,
     row_id: Annotated[
         list[str] | None,
         typer.Option(
@@ -338,6 +428,38 @@ def repair(
     except Exception as exc:
         _print_error(str(exc))
         raise typer.Exit(code=2) from exc
+
+    if agent and is_table_store_uri(path):
+        _print_error(
+            "The verified agent currently supports CSV files only, not warehouse URIs.",
+            hint="Run without --agent for warehouse repair, or pass a CSV path.",
+        )
+        raise typer.Exit(code=2)
+
+    if agent:
+        try:
+            _run_agent_repair(
+                resolved_path,
+                parsed_schema,
+                apply=apply,
+                policy=policy,
+                provider=provider,
+                max_steps=max_steps,
+                model=llm_model,
+                allow_pii=allow_pii,
+                confirm_pii=confirm_pii,
+                confirm_escalations=confirm_escalations,
+                json_output=json_output,
+            )
+        except typer.Exit:
+            raise
+        except Exception as exc:
+            _print_error(
+                f"Agent repair failed: {exc}",
+                hint="The source file was restored to its pre-apply bytes." if apply else None,
+            )
+            raise typer.Exit(code=1 if apply else 2) from exc
+        return
 
     try:
         from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline

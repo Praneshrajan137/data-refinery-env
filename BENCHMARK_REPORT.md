@@ -11,7 +11,7 @@
 - Seeds: 3
 - Exact seed list: 0, 1, 2
 - Evidence schema: `dataforge_benchmark_run_v2`
-- Git commit: `dbd1bed0a03c56b826e9c8315cc50d1908e2e8b2`; dirty worktree: `true`
+- Git commit: `38ce0ca509ca14d354d49b41fdb86a16bb4d3f72`; dirty worktree: `true`
 - Free-tier quota units: `max(llm_calls / 1000, (prompt_tokens + completion_tokens) / 100000)`
 - GRPO compute cost is reported as free-tier GPU-hours, not dollars.
 - Dataset bytes are pinned to BigDaMa/raha revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c` for hospital, flights, beers; dirty/clean SHA-256s are recorded in the JSON metadata.
@@ -20,7 +20,7 @@
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3167 | 0.3025 | 0.2772 | 374.33 | 0.0000 | 0.0000 |
+| heuristic | 0.3185 | 0.3025 | 0.2772 | 371.33 | 0.0000 | 0.0000 |
 | random | 0.0038 | 0.0003 | 0.0005 | 150.33 | 0.0000 | 0.0000 |
 
 ## Per-Dataset Local Results
@@ -44,7 +44,7 @@
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
 | random | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 200.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
-| heuristic | 0.2331 +/- 0.0000 | 0.0213 +/- 0.0000 | 0.0391 +/- 0.0000 | 400.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
+| heuristic | 0.2385 +/- 0.0000 | 0.0213 +/- 0.0000 | 0.0391 +/- 0.0000 | 391.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
 
 ## Citation-Only SOTA Reference
 

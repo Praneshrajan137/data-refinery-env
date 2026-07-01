@@ -62,6 +62,7 @@ class TestDataForgeMcpTools:
             "dataforge_detect_errors",
             "dataforge_verify_fix",
             "dataforge_apply_repairs",
+            "dataforge_agent_repair",
             "dataforge_revert",
         }
 

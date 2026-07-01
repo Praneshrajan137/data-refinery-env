@@ -28,13 +28,40 @@ flowchart LR
   constraints must be written as `constraint_review_v1` artifacts and marked
   accepted before repair or verifier use. Pending and rejected candidates never
   affect repair behavior.
-- **Detectors**: pandas-based scanners for `type_mismatch`, `decimal_shift`,
-  and `fd_violation`. Detectors emit typed issues and never mutate data.
+- **Detectors**: pandas-based scanners organized as an additive ensemble. Tier 0
+  (`type_mismatch`, `decimal_shift`, `fd_violation`) are the established,
+  high-precision detectors that own their cells. Tier 1 (`missing_value`,
+  `format_violation`, `categorical_normalization`, `outlier`, `duplicate_row`)
+  are strictly additive - they only claim cells no tier-0 detector flagged, so a
+  new detector can never regress the proven floor. `run_all_detectors` returns
+  one issue per cell, ranked by (tier, severity, confidence, registration order).
+  Detectors emit typed issues and never mutate data.
+- **Detection vs correction**: detection (flagging an error) and correction
+  (producing the exact value) are tracked separately. A class can be
+  well-detected yet not auto-correctable when no correct value is derivable; such
+  classes are detection-only and surfaced for review rather than guessed.
+- **Calibration**: `dataforge.calibration` maps a proposal's confidence to an
+  auto-apply/review decision via thresholds fit to a target precision, so breadth
+  never lowers auto-apply precision below the bar.
 - **Repairers**: deterministic proposal generators for shipped detector
   families. Optional LLM fallback remains explicit and is not part of the
   default write path.
+- **LLM corrector** (opt-in, `allow_llm`): a grounded, contract-bound repairer
+  (`repairers/llm_corrector.py`) for correction-bottleneck classes with no
+  derivable value (missing-value fills, normalization, typos). Each sampled
+  value must satisfy a `CorrectionContract` (detector finding + inferred
+  type/domain/regex/FD, `repairers/contract.py`) and the same inferred-constraint
+  guard the verifier enforces (`verifier/inferred.py`), so it can only propose
+  values the verifier would accept. Confidence is a self-consistency agreement
+  fraction. It is registered only when `allow_llm` is set (as a fallback behind
+  the deterministic missing_value repairer, and as the correction path for
+  format/categorical/outlier); with `allow_llm` off the registry and the write
+  path are byte-identical. Corrector output is propose-not-apply: it surfaces as
+  `suggested_fixes` and auto-applies only under a confirmed LLM write plus a
+  calibrated per-class threshold (`calibration.py`).
 - **Safety**: constitution-backed policy checks that deny unsafe edits,
   row deletion, conflicting batch writes, and unconfirmed sensitive changes.
+  Unconfirmed-LLM-write escalation covers both live and cached LLM provenance.
 - **Verification**: Z3-backed SMT checks that reject fixes which violate schema
   constraints or cannot be proven safe.
 - **Patch planning**: `PatchPlan` is the backend-neutral write contract for
@@ -49,6 +76,20 @@ flowchart LR
 - **OpenEnv environment**: HTTP and in-process environment with typed actions:
   `INSPECT_ROWS`, `SQL_QUERY`, `STAT_TEST`, `PATTERN_MATCH`, `HYPOTHESIS`,
   `DIAGNOSE`, `FIX`, and `ROOT_CAUSE`.
+- **Verified agent**: an opt-in autonomous repair controller
+  (`dataforge/agent/`) exposed as `dataforge repair --agent` and the MCP tool
+  `dataforge_agent_repair`. It seeds with the deterministic floor, runs an
+  autonomous policy over the residual issues, and routes every proposed `FIX`
+  through the same safety constitution and SMT verifier before committing
+  through the shared reversible transaction path. The policy backend is
+  user-selectable: `hosted` (provider client, default; `--provider groq|gemini`;
+  fails fast without an API key), `local` (trained model, offline), `deterministic`
+  (floor only), or `custom:<name>` (registered via `register_policy`). Agent
+  fixes are strictly additive on top of the verified floor, so the agent can
+  never ship below the deterministic baseline, and nothing unverified reaches
+  disk. A benchmark gate (`dataforge.bench.agent_promotion_verdict`,
+  `dataforge.release.agent_gate`) blocks promotion to the default path until the
+  agent beats baseline F1 with zero safety regressions.
 - **Causal analyzer**: column-level DAG utilities, functional-dependency priors,
   PC discovery fallback, and minimal root-set analysis.
 - **Playground**: FastAPI backend staged into a Hugging Face Docker Space and a
@@ -83,7 +124,8 @@ sequenceDiagram
 
 Dry-run paths may stop before mutation, but they should exercise the same
 proposal, safety, and verification logic where feasible. The CLI, MCP server,
-playground API, and OpenEnv environment must preserve this invariant.
+playground API, verified agent, and OpenEnv environment must preserve this
+invariant.
 
 ## Data And Control Flow
 

@@ -19,6 +19,7 @@ from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from dataforge.calibration import AbstentionPolicy, corrector_default_policy
 from dataforge.detectors import run_all_detectors
 from dataforge.detectors.base import Issue, Schema
 from dataforge.observability import repair_stage_span
@@ -28,6 +29,7 @@ from dataforge.repairers.base import ProposedFix, RepairAttempt, RetryContext
 from dataforge.safety import SafetyContext, SafetyFilter, SafetyResult, SafetyVerdict
 from dataforge.schema_inference import (
     ConstraintReviewArtifact,
+    infer_verification_schema,
     merge_schema_with_reviewed_constraints,
 )
 from dataforge.table import (
@@ -216,6 +218,7 @@ class RepairReceipt(BaseModel):
     candidate_provenance: list[str] = Field(default_factory=list)
     root_causes: list[RootCause] = Field(default_factory=list)
     candidate_repairs: list[CandidateRepair] = Field(default_factory=list)
+    suggested_fixes: list[CandidateRepair] = Field(default_factory=list)
     proof_obligations: list[ProofObligation] = Field(default_factory=list)
     accepted_constraint_ids: list[str] = Field(default_factory=list)
     constraints_artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -246,6 +249,7 @@ class RepairPipelineRequest(BaseModel):
     create_dry_run_transaction: bool = False
     constraints: ConstraintReviewArtifact | None = None
     constraints_artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    corrector_policy: AbstentionPolicy | None = None
 
     model_config = ConfigDict(
         strict=True,
@@ -450,8 +454,17 @@ def propose_repairs(
     confirm_escalations: bool,
     interactive: bool,
     escalation_resolver: EscalationResolver | None = None,
+    verification_schema: Schema | None = None,
 ) -> tuple[list[ProposedFix], list[list[RepairAttempt]]]:
-    """Run repairers and gates issue-by-issue against a working dataframe."""
+    """Run repairers and gates issue-by-issue against a working dataframe.
+
+    ``verification_schema`` is the inferred, advisory safety net used only when
+    no authoritative ``schema`` is present. It gates *untrusted* (LLM-originated)
+    corrections so they are checked against inferred type/domain/regex/FD rather
+    than structurally auto-accepted. Deterministic fixes are correct by
+    construction and are never second-guessed by it, which keeps schema-less
+    deterministic runs byte-identical.
+    """
     with repair_stage_span("propose", step="repairers_build", allow_llm=allow_llm):
         repairers = build_repairers(
             cache_dir=cache_dir_for(path),
@@ -544,7 +557,17 @@ def propose_repairs(
                 issue_type=issue.issue_type,
                 row=issue.row,
             ):
-                verifier_result = verifier.verify(working_df, [preferred], schema)
+                guard_schema = (
+                    verification_schema
+                    if (schema is None and preferred.provenance != "deterministic")
+                    else None
+                )
+                verifier_result = verifier.verify(
+                    working_df,
+                    [preferred],
+                    schema,
+                    verification_schema=guard_schema,
+                )
             if verifier_result.verdict == VerificationVerdict.ACCEPT:
                 accepted_fixes.append(preferred)
                 set_cell_value(
@@ -599,6 +622,66 @@ def propose_repairs(
         attempt_groups.append(attempts)
 
     return accepted_fixes, attempt_groups
+
+
+_LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
+
+
+def _partition_auto_apply(
+    fixes: list[ProposedFix],
+    policy: AbstentionPolicy,
+) -> tuple[list[ProposedFix], list[ProposedFix]]:
+    """Split verified fixes into auto-apply vs review (suggestion) by policy.
+
+    Deterministic fixes are correct by construction and always auto-apply.
+    LLM-origin fixes auto-apply only when their calibrated confidence clears the
+    per-class threshold; otherwise they are held as reviewable suggestions. With
+    the default propose-not-apply policy, every LLM fix becomes a suggestion.
+    """
+    auto: list[ProposedFix] = []
+    suggested: list[ProposedFix] = []
+    for fix in fixes:
+        deterministic = fix.provenance not in _LLM_PROVENANCE
+        if deterministic or policy.action_for(fix.fix.detector_id, fix.confidence) == "auto_apply":
+            auto.append(fix)
+        else:
+            suggested.append(fix)
+    return auto, suggested
+
+
+def _escalated_llm_suggestions(
+    attempt_groups: list[list[RepairAttempt]],
+) -> list[ProposedFix]:
+    """Collect LLM proposals blocked by the unconfirmed-LLM-write escalation.
+
+    These passed the repairer but were not auto-applied because the safety
+    constitution requires explicit confirmation for LLM writes. They are surfaced
+    as suggestions so the value is visible without being silently applied.
+    """
+    suggestions: list[ProposedFix] = []
+    for attempts in attempt_groups:
+        for attempt in attempts:
+            if (
+                attempt.fix is not None
+                and attempt.fix.provenance in _LLM_PROVENANCE
+                and attempt.status == "escalated"
+            ):
+                suggestions.append(attempt.fix)
+    return suggestions
+
+
+def _suggestion_candidates(fixes: list[ProposedFix]) -> list[CandidateRepair]:
+    """Build public suggestion payloads for corrector fixes held for review."""
+    return [
+        CandidateRepair(
+            **CandidateFix.from_proposed(fix).model_dump(),
+            verifier_reason=(
+                "Held for human review: LLM-origin correction not auto-applied by "
+                "default (calibrated abstention / unconfirmed LLM write)."
+            ),
+        )
+        for fix in fixes
+    ]
 
 
 def _verified_fixes(
@@ -811,6 +894,10 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     df = read_csv(source_path)
     with repair_stage_span("detect", row_count=row_count(df)):
         issues = run_all_detectors(df, effective_schema)
+    # Inferred, advisory safety net for untrusted corrections when no
+    # authoritative schema exists. Never drives repairs or raises issues; only
+    # gates LLM-originated values in propose_repairs.
+    verification_schema = infer_verification_schema(df) if effective_schema is None else None
     with repair_stage_span("propose", issue_count=len(issues)):
         accepted_fixes, attempt_groups = propose_repairs(
             issues,
@@ -823,7 +910,17 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
             confirm_pii=request.confirm_pii,
             confirm_escalations=request.confirm_escalations,
             interactive=request.interactive,
+            verification_schema=verification_schema,
         )
+
+    # Route LLM-origin corrections: auto-apply only when a calibrated per-class
+    # threshold is cleared; otherwise (and by default) hold them as suggestions.
+    # Fixes blocked by the unconfirmed-LLM-write escalation also become
+    # suggestions. Deterministic fixes are unaffected -> allow_llm=False runs
+    # stay byte-identical.
+    corrector_policy = request.corrector_policy or corrector_default_policy()
+    accepted_fixes, policy_suggestions = _partition_auto_apply(accepted_fixes, corrector_policy)
+    suggested_fixes = policy_suggestions + _escalated_llm_suggestions(attempt_groups)
 
     with repair_stage_span("safety_gate", fixes_count=len(accepted_fixes)):
         batch_safety = SafetyFilter().evaluate_batch(
@@ -865,6 +962,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
 
     verified_fixes = _verified_fixes(accepted_fixes, attempt_groups)
     candidate_repairs = _candidate_repairs(attempt_groups)
+    suggestion_candidates = _suggestion_candidates(suggested_fixes)
     proof_obligations = _proof_obligations(attempt_groups)
     root_causes = _root_causes(issues, attempt_groups)
     limitations = _receipt_limitations(request, failures, batch_safety, txn_id)
@@ -890,6 +988,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
             candidate_provenance=sorted({fix.provenance for fix in accepted_fixes}),
             root_causes=root_causes,
             candidate_repairs=candidate_repairs,
+            suggested_fixes=suggestion_candidates,
             proof_obligations=proof_obligations,
             accepted_constraint_ids=accepted_constraint_ids,
             constraints_artifact_sha256=request.constraints_artifact_sha256,

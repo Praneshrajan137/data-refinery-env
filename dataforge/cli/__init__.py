@@ -11,6 +11,7 @@ from dataforge.cli.audit import audit
 from dataforge.cli.bench import bench
 from dataforge.cli.constraints import constraints_app
 from dataforge.cli.profile import profile
+from dataforge.cli.quickstart import quickstart
 from dataforge.cli.release import release_app
 from dataforge.cli.repair import repair
 from dataforge.cli.revert import revert
@@ -41,6 +42,7 @@ def _main(
 
 
 app.command(name="profile")(profile)
+app.command(name="quickstart")(quickstart)
 app.command(name="repair")(repair)
 app.command(name="revert")(revert)
 app.command(name="audit")(audit)

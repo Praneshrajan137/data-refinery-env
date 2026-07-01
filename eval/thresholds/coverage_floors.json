@@ -1,0 +1,27 @@
+{
+  "_comment": "Per-(method/dataset/error_class) minimum recall floors for the coverage regression gate. Floors are seeded from a verified full-RAHA run that reproduces the committed aggregate F1 (hospital 0.7926, flights 0.0000, beers 0.0391). They lock in current strong coverage so the breadth push cannot silently regress it. Raise flights/beers floors as detectors land. Enforced by dataforge.bench.check_coverage_regression against a `dataforge bench --quick` run.",
+  "labeler_version": "v1",
+  "source": "dataforge bench --quick (full RAHA, pinned revision 7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c)",
+  "floors": {
+    "heuristic/hospital": {
+      "value_format": 0.95,
+      "text_normalization": 0.85,
+      "other": 0.95,
+      "value_format@detection": 0.90,
+      "text_normalization@detection": 0.80,
+      "other@detection": 0.90
+    },
+    "heuristic/beers": {
+      "value_format": 0.02,
+      "missing_value@detection": 0.90,
+      "value_format@detection": 0.40,
+      "other@detection": 0.90
+    },
+    "heuristic/flights": {
+      "missing_value": 0.0,
+      "value_format": 0.0,
+      "text_normalization": 0.0,
+      "missing_value@detection": 0.90
+    }
+  }
+}

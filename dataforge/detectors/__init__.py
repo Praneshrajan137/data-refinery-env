@@ -1,50 +1,89 @@
 """DataForge detector package — pure data-quality issue detection.
 
-This package provides the detector infrastructure and three Week 1 detectors:
+This package provides the detector ensemble infrastructure. Heterogeneous base
+detectors each target one error family; :func:`run_all_detectors` runs the
+ensemble and returns one issue per cell (highest-confidence detector wins),
+severity-sorted. No single strategy generalizes across datasets, so coverage
+comes from the breadth of the ensemble, not any one detector.
 
-- :class:`TypeMismatchDetector` — numeric/string/date type conflicts.
-- :class:`DecimalShiftDetector` — power-of-10 outliers in numeric columns.
-- :class:`FDViolationDetector` — rows violating declared functional dependencies.
-
-Use :func:`run_all_detectors` to run all detectors and get a merged,
-deduplicated, severity-sorted issue list.
+Use :func:`run_all_detectors` to run the ensemble and get a merged,
+per-cell-deduplicated, severity-sorted issue list.
 """
 
 from __future__ import annotations
 
 from dataforge.detectors.base import Detector, Issue, Schema, Severity
+from dataforge.detectors.categorical_normalization import CategoricalNormalizationDetector
 from dataforge.detectors.decimal_shift import DecimalShiftDetector
+from dataforge.detectors.duplicate_row import DuplicateRowDetector
 from dataforge.detectors.fd_violation import FDViolationDetector
+from dataforge.detectors.format_violation import FormatViolationDetector
+from dataforge.detectors.missing_value import MissingValueDetector
+from dataforge.detectors.outlier import OutlierDetector
 from dataforge.detectors.type_mismatch import TypeMismatchDetector
 from dataforge.table import TableLike
 
 __all__ = [
+    "CategoricalNormalizationDetector",
     "DecimalShiftDetector",
+    "DuplicateRowDetector",
     "FDViolationDetector",
+    "FormatViolationDetector",
     "Issue",
+    "MissingValueDetector",
+    "OutlierDetector",
     "Schema",
     "Severity",
     "TypeMismatchDetector",
+    "default_detectors",
     "run_all_detectors",
 ]
 
 # Severity sort key: UNSAFE first, then REVIEW, then SAFE.
 _SEVERITY_ORDER = {Severity.UNSAFE: 0, Severity.REVIEW: 1, Severity.SAFE: 2}
 
+# Tier 0 = established, high-precision detectors that own their cells. Tier 1 =
+# newer/broader detectors that are strictly additive (they only claim cells no
+# tier-0 detector flagged), guaranteeing they cannot regress the proven floor.
+_ESTABLISHED_ISSUE_TYPES = frozenset({"type_mismatch", "decimal_shift", "fd_violation"})
+
+
+def default_detectors() -> list[Detector]:
+    """Return the default detector ensemble in registration order.
+
+    New base detectors are appended here. Order only affects tie-breaking when
+    two detectors flag the same cell with equal confidence and severity.
+    """
+    return [
+        TypeMismatchDetector(),
+        DecimalShiftDetector(),
+        FDViolationDetector(),
+        FormatViolationDetector(),
+        MissingValueDetector(),
+        CategoricalNormalizationDetector(),
+        OutlierDetector(),
+        DuplicateRowDetector(),
+    ]
+
 
 def run_all_detectors(df: TableLike, schema: Schema | None = None) -> list[Issue]:
-    """Run all registered detectors and return a merged, sorted issue list.
+    """Run the detector ensemble and return one issue per cell, severity-sorted.
 
-    Issues are deduplicated by (row, column, issue_type) and sorted by
-    severity (UNSAFE first) then confidence (highest first).
+    Each cell is reported at most once. When multiple detectors flag the same
+    cell, the issue is kept by precedence: most severe first (UNSAFE > REVIEW >
+    SAFE), then highest confidence, then detector registration order. This
+    preserves the established high-precision detectors' precedence (e.g. an
+    UNSAFE fd_violation always wins its cell), so a newly added REVIEW-level
+    detector is strictly additive - it can only claim cells no higher-precedence
+    detector flagged, and can never displace or regress an existing repair.
 
     Args:
         df: The input table to analyze.
         schema: Optional declared schema with column types and constraints.
 
     Returns:
-        A list of Issue objects from all detectors, sorted by severity
-        then confidence descending.
+        A list of Issue objects, one per flagged cell, sorted by severity
+        (UNSAFE first) then confidence descending.
 
     Example:
         >>> import pandas as pd
@@ -54,27 +93,19 @@ def run_all_detectors(df: TableLike, schema: Schema | None = None) -> list[Issue
         >>> len(issues)
         1
     """
-    detectors: list[Detector] = [
-        TypeMismatchDetector(),
-        DecimalShiftDetector(),
-        FDViolationDetector(),
-    ]
+    # Keep, per cell, the highest-precedence issue: most severe, then highest
+    # confidence, then earliest detector. Precise detectors thus retain their
+    # cells and new detectors only fill the gaps.
+    best: dict[tuple[int, str], tuple[tuple[int, int, float, int], Issue]] = {}
+    for order, detector in enumerate(default_detectors()):
+        for issue in detector.detect(df, schema):
+            key = (issue.row, issue.column)
+            tier = 0 if issue.issue_type in _ESTABLISHED_ISSUE_TYPES else 1
+            rank = (tier, _SEVERITY_ORDER[issue.severity], -issue.confidence, order)
+            current = best.get(key)
+            if current is None or rank < current[0]:
+                best[key] = (rank, issue)
 
-    all_issues: list[Issue] = []
-    for detector in detectors:
-        all_issues.extend(detector.detect(df, schema))
-
-    # Deduplicate by (row, column, issue_type).
-    seen: set[tuple[int, str, str]] = set()
-    unique: list[Issue] = []
-    for issue in all_issues:
-        key = (issue.row, issue.column, issue.issue_type)
-        if key not in seen:
-            seen.add(key)
-            unique.append(issue)
-
-    # Sort: UNSAFE first, then REVIEW, then SAFE; within same severity,
-    # highest confidence first.
-    unique.sort(key=lambda i: (_SEVERITY_ORDER[i.severity], -i.confidence))
-
+    unique = [entry[1] for entry in best.values()]
+    unique.sort(key=lambda i: (_SEVERITY_ORDER[i.severity], -i.confidence, i.row, i.column))
     return unique

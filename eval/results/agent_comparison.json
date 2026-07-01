@@ -16,16 +16,16 @@
       1,
       2
     ],
-    "git_commit": "dbd1bed0a03c56b826e9c8315cc50d1908e2e8b2",
+    "git_commit": "38ce0ca509ca14d354d49b41fdb86a16bb4d3f72",
     "git_dirty": true,
-    "generated_at_utc": "2026-05-25T04:16:06+00:00",
+    "generated_at_utc": "2026-07-01T05:37:33+00:00",
     "python_version": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
     "dependency_versions": {
       "dataforge": "0.1.0",
       "httpx": "0.28.1",
       "pandas": "2.3.3",
-      "pydantic": "2.13.2",
+      "pydantic": "2.13.4",
       "python-dotenv": "1.2.2",
       "typer": "0.24.1"
     },
@@ -97,11 +97,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.002,
+      "runtime_s": 0.1346,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 77,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 423,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -121,11 +159,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0008,
+      "runtime_s": 0.1182,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 77,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 423,
+          "recall": 0.0,
+          "predicted_on_class": 1,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -145,11 +221,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0008,
+      "runtime_s": 0.141,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 77,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 1,
+          "fn": 422,
+          "recall": 0.0024,
+          "predicted_on_class": 1,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -169,11 +283,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 54.0811,
+      "runtime_s": 50.0545,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 77,
+          "detection_recall": 1.0,
+          "tp": 76,
+          "fn": 1,
+          "recall": 0.987,
+          "predicted_on_class": 76,
+          "precision_on_class": 1.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 369,
+          "detection_recall": 0.8723,
+          "tp": 366,
+          "fn": 57,
+          "recall": 0.8652,
+          "predicted_on_class": 366,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 9,
+          "detection_recall": 1.0,
+          "tp": 9,
+          "fn": 0,
+          "recall": 1.0,
+          "predicted_on_class": 9,
+          "precision_on_class": 1.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -193,11 +345,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 52.9477,
+      "runtime_s": 45.4324,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 77,
+          "detection_recall": 1.0,
+          "tp": 76,
+          "fn": 1,
+          "recall": 0.987,
+          "predicted_on_class": 76,
+          "precision_on_class": 1.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 369,
+          "detection_recall": 0.8723,
+          "tp": 366,
+          "fn": 57,
+          "recall": 0.8652,
+          "predicted_on_class": 366,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 9,
+          "detection_recall": 1.0,
+          "tp": 9,
+          "fn": 0,
+          "recall": 1.0,
+          "predicted_on_class": 9,
+          "precision_on_class": 1.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -217,11 +407,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 52.2193,
+      "runtime_s": 46.3153,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 77,
+          "detection_recall": 1.0,
+          "tp": 76,
+          "fn": 1,
+          "recall": 0.987,
+          "predicted_on_class": 76,
+          "precision_on_class": 1.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 369,
+          "detection_recall": 0.8723,
+          "tp": 366,
+          "fn": 57,
+          "recall": 0.8652,
+          "predicted_on_class": 366,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 9,
+          "detection_recall": 1.0,
+          "tp": 9,
+          "fn": 0,
+          "recall": 1.0,
+          "predicted_on_class": 9,
+          "precision_on_class": 1.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -241,11 +469,60 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0019,
+      "runtime_s": 0.0704,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 1,
+          "fn": 2369,
+          "recall": 0.0004,
+          "predicted_on_class": 35,
+          "precision_on_class": 0.0286
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 143,
+          "recall": 0.0,
+          "predicted_on_class": 1,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 2,
+          "fn": 1727,
+          "recall": 0.0012,
+          "predicted_on_class": 24,
+          "precision_on_class": 0.0833
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 678,
+          "recall": 0.0,
+          "predicted_on_class": 8,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -265,11 +542,60 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0029,
+      "runtime_s": 0.0742,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 2370,
+          "recall": 0.0,
+          "predicted_on_class": 28,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 143,
+          "recall": 0.0,
+          "predicted_on_class": 3,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1729,
+          "recall": 0.0,
+          "predicted_on_class": 23,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 678,
+          "recall": 0.0,
+          "predicted_on_class": 8,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -289,11 +615,60 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0016,
+      "runtime_s": 0.0699,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 2370,
+          "recall": 0.0,
+          "predicted_on_class": 30,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 143,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1729,
+          "recall": 0.0,
+          "predicted_on_class": 17,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 678,
+          "recall": 0.0,
+          "predicted_on_class": 3,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -313,11 +688,60 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0872,
+      "runtime_s": 0.1993,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 2370,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 2370,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 143,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1729,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 678,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -337,11 +761,60 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0389,
+      "runtime_s": 0.2026,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 2370,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 2370,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 143,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1729,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 678,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -361,11 +834,60 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0412,
+      "runtime_s": 0.2068,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 2370,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 2370,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 143,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1729,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 678,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -385,11 +907,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.002,
+      "runtime_s": 0.0232,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 127,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 127,
+          "recall": 0.0,
+          "predicted_on_class": 1,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 3163,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 3163,
+          "recall": 0.0,
+          "predicted_on_class": 19,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 1072,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1072,
+          "recall": 0.0,
+          "predicted_on_class": 8,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -409,11 +969,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0028,
+      "runtime_s": 0.0206,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 127,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 127,
+          "recall": 0.0,
+          "predicted_on_class": 1,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 3163,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 3163,
+          "recall": 0.0,
+          "predicted_on_class": 23,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 1072,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1072,
+          "recall": 0.0,
+          "predicted_on_class": 7,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "random",
@@ -433,11 +1031,49 @@
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 0.0017,
+      "runtime_s": 0.0189,
       "provider": "local",
       "model": "random",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 127,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 127,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 3163,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 3163,
+          "recall": 0.0,
+          "predicted_on_class": 24,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 1072,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 1072,
+          "recall": 0.0,
+          "predicted_on_class": 5,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -445,23 +1081,61 @@
       "seed": 0,
       "status": "ok",
       "skip_reason": null,
-      "precision": 0.2331,
+      "precision": 0.2385,
       "recall": 0.0213,
       "f1": 0.0391,
       "tp": 93,
-      "fp": 306,
+      "fp": 297,
       "fn": 4269,
-      "avg_steps": 400.0,
+      "avg_steps": 391.0,
       "llm_calls": 0,
       "prompt_tokens": 0,
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 17.8232,
+      "runtime_s": 20.0308,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 127,
+          "detected": 127,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 127,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 3163,
+          "detected": 1637,
+          "detection_recall": 0.5175,
+          "tp": 93,
+          "fn": 3070,
+          "recall": 0.0294,
+          "predicted_on_class": 99,
+          "precision_on_class": 0.9394
+        },
+        "other": {
+          "error_class": "other",
+          "support": 1072,
+          "detected": 1072,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 1072,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -469,23 +1143,61 @@
       "seed": 1,
       "status": "ok",
       "skip_reason": null,
-      "precision": 0.2331,
+      "precision": 0.2385,
       "recall": 0.0213,
       "f1": 0.0391,
       "tp": 93,
-      "fp": 306,
+      "fp": 297,
       "fn": 4269,
-      "avg_steps": 400.0,
+      "avg_steps": 391.0,
       "llm_calls": 0,
       "prompt_tokens": 0,
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 17.5071,
+      "runtime_s": 20.1959,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 127,
+          "detected": 127,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 127,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 3163,
+          "detected": 1637,
+          "detection_recall": 0.5175,
+          "tp": 93,
+          "fn": 3070,
+          "recall": 0.0294,
+          "predicted_on_class": 99,
+          "precision_on_class": 0.9394
+        },
+        "other": {
+          "error_class": "other",
+          "support": 1072,
+          "detected": 1072,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 1072,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     },
     {
       "method": "heuristic",
@@ -493,23 +1205,61 @@
       "seed": 2,
       "status": "ok",
       "skip_reason": null,
-      "precision": 0.2331,
+      "precision": 0.2385,
       "recall": 0.0213,
       "f1": 0.0391,
       "tp": 93,
-      "fp": 306,
+      "fp": 297,
       "fn": 4269,
-      "avg_steps": 400.0,
+      "avg_steps": 391.0,
       "llm_calls": 0,
       "prompt_tokens": 0,
       "completion_tokens": 0,
       "quota_units": 0.0,
       "gpu_hours": 0.0,
-      "runtime_s": 18.2393,
+      "runtime_s": 23.3239,
       "provider": "local",
       "model": "deterministic",
       "warnings": [],
-      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
+      "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 127,
+          "detected": 127,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 127,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 3163,
+          "detected": 1637,
+          "detection_recall": 0.5175,
+          "tp": 93,
+          "fn": 3070,
+          "recall": 0.0294,
+          "predicted_on_class": 99,
+          "precision_on_class": 0.9394
+        },
+        "other": {
+          "error_class": "other",
+          "support": 1072,
+          "detected": 1072,
+          "detection_recall": 1.0,
+          "tp": 0,
+          "fn": 1072,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null
     }
   ],
   "aggregates": [
@@ -532,8 +1282,8 @@
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 0.0012,
-      "runtime_s_std": 0.0007,
+      "runtime_s_mean": 0.1313,
+      "runtime_s_std": 0.0118,
       "provider": "local",
       "model": "random",
       "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
@@ -557,8 +1307,8 @@
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 53.0827,
-      "runtime_s_std": 0.9382,
+      "runtime_s_mean": 47.2674,
+      "runtime_s_std": 2.4537,
       "provider": "local",
       "model": "deterministic",
       "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
@@ -582,8 +1332,8 @@
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 0.0021,
-      "runtime_s_std": 0.0007,
+      "runtime_s_mean": 0.0715,
+      "runtime_s_std": 0.0024,
       "provider": "local",
       "model": "random",
       "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
@@ -607,8 +1357,8 @@
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 0.0558,
-      "runtime_s_std": 0.0272,
+      "runtime_s_mean": 0.2029,
+      "runtime_s_std": 0.0038,
       "provider": "local",
       "model": "deterministic",
       "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
@@ -632,8 +1382,8 @@
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 0.0022,
-      "runtime_s_std": 0.0006,
+      "runtime_s_mean": 0.0209,
+      "runtime_s_std": 0.0022,
       "provider": "local",
       "model": "random",
       "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
@@ -645,20 +1395,20 @@
       "skip_reason": null,
       "seeds_requested": 3,
       "seeds_completed": 3,
-      "precision_mean": 0.2331,
+      "precision_mean": 0.2385,
       "precision_std": 0.0,
       "recall_mean": 0.0213,
       "recall_std": 0.0,
       "f1_mean": 0.0391,
       "f1_std": 0.0,
-      "avg_steps_mean": 400.0,
+      "avg_steps_mean": 391.0,
       "avg_steps_std": 0.0,
       "quota_units_mean": 0.0,
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 17.8565,
-      "runtime_s_std": 0.3672,
+      "runtime_s_mean": 21.1835,
+      "runtime_s_std": 1.8554,
       "provider": "local",
       "model": "deterministic",
       "reproduction_command": "dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2"
