@@ -372,6 +372,126 @@ def dataforge_apply_repairs(path: str, mode: Literal["dry_run", "apply"]) -> Txn
     )
 
 
+class AgentRepairRecord(BaseModel):
+    """One step of the verified agent's audit trace."""
+
+    step: int
+    action_type: str
+    accepted: bool | None = None
+    detail: str
+
+
+class AgentRepairReceipt(BaseModel):
+    """Structured receipt returned by the verified agent repair tool."""
+
+    path: str
+    mode: Literal["dry_run", "apply"]
+    applied: bool
+    reversible: bool
+    txn_id: str | None
+    revert_command: str | None
+    source_sha256: str
+    post_sha256: str | None
+    policy_name: str
+    steps_used: int
+    max_steps: int
+    floor_fix_count: int
+    agent_fix_count: int
+    fixes_count: int
+    residual_count: int
+    issues_count: int
+    safety_verdict: str
+    reason: str
+    fixes: list[FixResult]
+    trace: list[AgentRepairRecord]
+
+
+def dataforge_agent_repair(
+    path: str,
+    mode: Literal["dry_run", "apply"] = "dry_run",
+    policy: str = "hosted",
+    provider: str | None = None,
+    max_steps: int = 30,
+    confirm_escalations: bool = True,
+) -> AgentRepairReceipt:
+    """Run the verified autonomous agent: deterministic floor then LLM residual.
+
+    The agent applies the deterministic repairers first (high-accuracy floor),
+    then an autonomous policy resolves the remaining issues. Every write is
+    gated by the safety constitution and the SMT verifier and committed through
+    a reversible transaction, so the agent can only add proven-safe fixes.
+
+    Args:
+        path: CSV path (must be under an allowed MCP root).
+        mode: ``dry_run`` (default) or ``apply``.
+        policy: Agent backend — ``hosted`` provider (default; needs a server-side
+            API key), ``local`` trained model, ``deterministic`` (floor only,
+            no LLM), or ``custom:<name>`` for a registered policy.
+        provider: Hosted provider override (``groq`` or ``gemini``); falls back
+            to ``DATAFORGE_LLM_PROVIDER`` / key autodetect.
+        max_steps: Maximum agent reasoning steps.
+        confirm_escalations: Acknowledge that live LLM-originated writes are
+            auto-confirmed past the soft safety-escalation gate. Required for an
+            LLM policy to apply fixes autonomously.
+
+    Returns:
+        A structured receipt with the verified fixes, audit trace, and revert
+        command.
+    """
+    from dataforge.agent import AgentRepairRequest, run_agent_repair
+
+    csv_path = _resolve_csv_path(path)
+    if mode not in {"dry_run", "apply"}:
+        raise ValueError("mode must be 'dry_run' or 'apply'.")
+    if mode == "apply" and not _apply_is_enabled():
+        raise ValueError(
+            "MCP apply mode is disabled. Start the server with --enable-apply or set "
+            "DATAFORGE_MCP_ENABLE_APPLY=1."
+        )
+
+    result = run_agent_repair(
+        AgentRepairRequest(
+            source_path=csv_path,
+            mode=mode,
+            schema=None,
+            policy=policy,
+            provider=provider,
+            max_steps=max_steps,
+            confirm_escalations=confirm_escalations,
+        )
+    )
+    return AgentRepairReceipt(
+        path=str(csv_path),
+        mode=result.mode,
+        applied=result.applied,
+        reversible=result.reversible,
+        txn_id=result.txn_id,
+        revert_command=result.revert_command,
+        source_sha256=result.source_sha256,
+        post_sha256=result.post_sha256,
+        policy_name=result.policy_name,
+        steps_used=result.steps_used,
+        max_steps=result.max_steps,
+        floor_fix_count=result.floor_fix_count,
+        agent_fix_count=result.agent_fix_count,
+        fixes_count=result.fixes_count,
+        residual_count=result.residual_count,
+        issues_count=result.issues_count,
+        safety_verdict=result.safety_verdict,
+        reason=result.reason,
+        fixes=[_verified_fix_to_result(fix) for fix in result.fixes],
+        trace=[
+            AgentRepairRecord(
+                step=record.step,
+                action_type=record.action_type,
+                accepted=record.accepted,
+                detail=record.detail,
+            )
+            for record in result.trace
+        ],
+    )
+
+
 def dataforge_revert(txn_id: str) -> RevertReceipt:
     """Revert a previously applied DataForge repair transaction."""
     transaction = None

@@ -6,14 +6,24 @@ from pathlib import Path
 
 from dataforge.detectors.base import Issue, Schema
 from dataforge.repairers.base import ProposedFix, RepairAttempt, Repairer, RetryContext
+from dataforge.repairers.categorical_normalization import CategoricalNormalizationRepairer
 from dataforge.repairers.decimal_shift import DecimalShiftRepairer
+from dataforge.repairers.fallback import FallbackRepairer
 from dataforge.repairers.fd_violation import FDViolationRepairer
+from dataforge.repairers.format_violation import FormatViolationRepairer
+from dataforge.repairers.llm_corrector import LLMCorrectorRepairer
+from dataforge.repairers.missing_value import MissingValueRepairer
 from dataforge.repairers.type_mismatch import TypeMismatchRepairer
 from dataforge.table import TableLike
 
 __all__ = [
+    "CategoricalNormalizationRepairer",
     "DecimalShiftRepairer",
     "FDViolationRepairer",
+    "FallbackRepairer",
+    "FormatViolationRepairer",
+    "LLMCorrectorRepairer",
+    "MissingValueRepairer",
     "ProposedFix",
     "RepairAttempt",
     "Repairer",
@@ -30,8 +40,27 @@ def build_repairers(
     allow_llm: bool,
     model: str,
 ) -> dict[str, Repairer]:
-    """Construct the default repairer registry."""
-    return {
+    """Construct the default repairer registry.
+
+    Deterministic repairers are always registered. When ``allow_llm`` is True,
+    the grounded, contract-bound :class:`LLMCorrectorRepairer` is added for the
+    correction bottleneck classes that have no deterministic exact-value
+    derivation (format_violation, categorical_normalization, outlier) and is
+    chained *behind* the deterministic missing_value repairer as a fallback, so
+    the precise functional-dependency fill always wins when it applies.
+
+    Corrector proposals carry ``llm_*`` provenance and are still subject to the
+    safety constitution, the SMT verifier, and the inferred-constraint guard.
+    They are auto-applied only when a calibrated per-class threshold is cleared;
+    by default (propose-not-apply) they surface as reviewable suggestions.
+
+    When ``allow_llm`` is False the registry is exactly the four deterministic
+    repairers, keeping deterministic runs byte-identical. ``format_violation``
+    and ``categorical_normalization`` deterministic repairers remain withheld
+    from auto-apply (they regressed benchmark precision); the corrector replaces
+    them as the calibrated, gated correction path for those classes.
+    """
+    registry: dict[str, Repairer] = {
         "type_mismatch": TypeMismatchRepairer(),
         "decimal_shift": DecimalShiftRepairer(),
         "fd_violation": FDViolationRepairer(
@@ -39,7 +68,19 @@ def build_repairers(
             allow_llm=allow_llm,
             model=model,
         ),
+        "missing_value": MissingValueRepairer(),
     }
+    if allow_llm:
+        corrector = LLMCorrectorRepairer(
+            cache_dir=cache_dir,
+            allow_llm=True,
+            model=model,
+        )
+        registry["missing_value"] = FallbackRepairer(MissingValueRepairer(), corrector)
+        registry["format_violation"] = corrector
+        registry["categorical_normalization"] = corrector
+        registry["outlier"] = corrector
+    return registry
 
 
 def propose_fixes(

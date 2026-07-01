@@ -39,6 +39,7 @@ from dataforge.table import (
     set_cell_value,
 )
 from dataforge.verifier.explain import explain_unsat_core
+from dataforge.verifier.inferred import inferred_value_violation
 from dataforge.verifier.schema import DomainBound, FunctionalDependency, Schema
 
 Z3ExprFactory = Callable[[Any], Any]
@@ -397,8 +398,19 @@ class SMTVerifier:
         df: TableLike,
         fixes: list[ProposedFix],
         schema: Schema | None = None,
+        *,
+        verification_schema: Schema | None = None,
     ) -> VerificationResult:
-        """Verify one or more candidate fixes against the working dataframe."""
+        """Verify one or more candidate fixes against the working dataframe.
+
+        ``schema`` is the authoritative (declared or reviewed) schema and is
+        verified rigorously with z3 when present. ``verification_schema`` is the
+        advisory, inferred safety net used only when no authoritative schema
+        exists: it lets the verifier reject clear violations of a proposed value
+        (type / domain / regex / functional dependency) instead of structurally
+        auto-accepting it. It is value-focused and never imposes inferred
+        constraints on the rest of the (possibly dirty) table.
+        """
         if schema is None:
             total_rows = row_count(df)
             for proposed in fixes:
@@ -412,10 +424,12 @@ class SMTVerifier:
                         verdict=VerificationVerdict.REJECT,
                         reason=f"Column '{proposed.fix.column}' does not exist in the input file.",
                     )
-            return VerificationResult(
-                verdict=VerificationVerdict.ACCEPT,
-                reason="All proposed fixes passed structural verification.",
-            )
+            if verification_schema is None:
+                return VerificationResult(
+                    verdict=VerificationVerdict.ACCEPT,
+                    reason="All proposed fixes passed structural verification.",
+                )
+            return self._verify_against_inferred(df, fixes, verification_schema)
 
         working_df = copy_table(df)
         verifier = SchemaToSMT(schema, working_df)
@@ -431,3 +445,46 @@ class SMTVerifier:
             verdict=VerificationVerdict.ACCEPT,
             reason="All proposed fixes passed the SMT verifier.",
         )
+
+    def _verify_against_inferred(
+        self,
+        df: TableLike,
+        fixes: list[ProposedFix],
+        verification_schema: Schema,
+    ) -> VerificationResult:
+        """Value-focused advisory check against inferred constraints.
+
+        Pure Python by design: it inspects only the *proposed value* (and, for
+        functional dependencies, the determinant consensus). It never encodes
+        sibling cells, so dirty rows cannot mask a violation or turn a valid
+        correction UNKNOWN. Only definitive violations are rejected; anything
+        the inferred schema cannot speak to passes.
+        """
+        working_df = copy_table(df)
+        for proposed in fixes:
+            if proposed.fix.operation != "update":
+                # Inferred guard speaks only to cell values; defer other ops.
+                continue
+            violation = inferred_value_violation(
+                working_df,
+                proposed.fix.row,
+                proposed.fix.column,
+                str(proposed.fix.new_value),
+                verification_schema,
+            )
+            if violation is not None:
+                return VerificationResult(
+                    verdict=VerificationVerdict.REJECT,
+                    reason=(
+                        f"Proposed value for column '{proposed.fix.column}' "
+                        f"failed inferred-constraint verification: {violation}."
+                    ),
+                )
+            set_cell_value(
+                working_df, proposed.fix.row, proposed.fix.column, proposed.fix.new_value
+            )
+        return VerificationResult(
+            verdict=VerificationVerdict.ACCEPT,
+            reason="All proposed fixes passed inferred-constraint verification.",
+        )
+

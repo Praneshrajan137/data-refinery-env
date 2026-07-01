@@ -272,7 +272,10 @@ def test_repair_pipeline_ignores_pending_constraints(tmp_path: Path) -> None:
     )
 
     assert result.receipt.accepted_constraint_ids == []
-    assert result.issues == []
+    # Pending (non-accepted) FD constraints must not drive FD repairs. Other
+    # schema-free detectors (e.g. duplicate_row) may still surface issues, but
+    # no fd_violation issue or fix may arise from the unaccepted constraint.
+    assert all(issue.issue_type != "fd_violation" for issue in result.issues)
     assert result.fixes == []
 
 

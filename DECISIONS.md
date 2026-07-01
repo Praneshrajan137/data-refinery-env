@@ -12,6 +12,115 @@ Format for every entry:
 
 ---
 
+## 2026-06-30 - Reposition as verified+calibrated repair; ensemble + honest coverage
+**Context**: A per-error-class instrument (built first) exposed that the
+deterministic stack scored F1 0.79 on hospital but 0.00 on flights and 0.04 on
+beers - three single-strategy detectors missed the dominant error classes
+(missing values, formatting/normalization) on two of three datasets. The field
+(Raha/Baran) shows coverage comes from an ensemble of heterogeneous detectors,
+not one strategy.
+**Alternatives**:
+- Keep narrow scope, tighten claims. Pros: honest, no work. Cons: leaves real
+  coverage on the table; "detects common CSV issues" stays barely true.
+- Broaden with naive detector sprawl. Pros: coverage. Cons: false positives
+  regress precision (observed: format/categorical correction tanked hospital/beers).
+- Ensemble + calibrated abstention + honest detection-vs-correction reporting,
+  with new detectors strictly additive (tier 1) on top of the proven tier-0
+  floor, and correction withheld where it cannot be proven safe. Pros: broad
+  detection, no precision regression, defensible "trust" thesis. Cons: more
+  surface; correction for fuzzy classes deferred behind calibration.
+**Decision**: reposition DataForge as "the data-repair engine where every fix is
+formally verified, reversible, and calibrated, with honest per-class coverage."
+Ship the ensemble (8 detectors), measure detection and correction separately,
+keep tier-0 detectors authoritative over their cells, and auto-apply only
+provably-safe corrections (decimal-shift, FD, FD-derivable missing-value fill).
+Format and categorical correction remain detection-only until calibration-gated.
+**Reasoning**: the moat is safety/verifiability/reversibility; the honest move is
+to maximize *detection* coverage while refusing to *guess* corrections. Measured
+result: flights missing_value detection 0.00 -> 1.00 (2370 cells), beers/hospital
+detection broadly up, with correction F1 unchanged (hospital 0.7926, beers
+0.0391, flights 0.00) - zero regression. The detection/correction split makes the
+limits visible rather than hidden.
+**Reviewed with**: `dataforge bench --quick` on full RAHA, the per-class
+instrument (`dataforge/bench/error_classes.py`), and `eval/thresholds/coverage_floors.json`.
+**Reversal criteria**: enable a detection-only class's correction in
+`build_repairers` only when a `dataforge bench --quick` run shows it does not drop
+any committed per-class floor and clears the calibrated precision target.
+
+---
+
+## 2026-06-30 - Make agent backend user-selectable; default to hosted, fail fast
+**Context**: The verified agent shipped with `local` (trained Qwen) as the
+default policy, but that model currently underperforms the deterministic baseline
+(F1 ~0.14 vs ~0.79). Users asked for all backends to be first-class, explicit
+choices, with the strongest option as the default.
+**Alternatives**:
+- Keep `local` default. Pros: free/offline. Cons: weakest accuracy now; the
+  default agent adds little over the floor.
+- Hosted default, silent fallback to deterministic when no key. Pros: never
+  errors. Cons: the agent silently does nothing; users cannot tell which backend
+  ran.
+- Hosted default, fail fast on missing key; `local`/`deterministic`/`custom:<name>`
+  all selectable; provider via `--provider` with env fallback. Pros: best
+  accuracy by default, explicit and honest, custom plug-in path. Cons: `--agent`
+  with no key errors until the user picks a backend or sets a key.
+**Decision**: hosted is the default policy across CLI/MCP/controller; selectable
+kinds are `hosted`, `local`, `deterministic`, and `custom:<name>` (registry via
+`register_policy`); `--provider groq|gemini` chooses the hosted provider with
+`DATAFORGE_LLM_PROVIDER`/key autodetect fallback. Hosted and local both fail fast
+with an actionable `PolicyUnavailableError` rather than silently degrading.
+**Reasoning**: the default should be the most accurate option available today,
+and failures should be loud and actionable, not silent. Determinism and the SMT +
+constitution + transaction gates still bound every backend, including custom, so
+selection never weakens safety. Supersedes the 2026-06-29 "local default" choice.
+**Reviewed with**: full repo test suite, `dataforge.agent.available_policies`,
+and manual CLI checks (`--policy hosted` no key -> clear error;
+`--policy deterministic` offline OK).
+**Reversal criteria**: flip the default back to `local` once a local/trained
+policy passes `agent_promotion_verdict` against the deterministic baseline.
+
+---
+
+## 2026-06-29 - Make DataForge truly agentic via a verified agent, not LLM-YOLO
+**Context**: The product (`dataforge repair`) was a deterministic detect ->
+propose -> safety -> SMT -> transaction pipeline. The agent substrate (OpenEnv
+env, typed tool actions, scratchpad) and the RL-trained policy existed but were
+disconnected from the product, and the trained Qwen-0.5B underperformed the
+deterministic heuristic baseline (F1 ~0.14 vs ~0.79). "Make it truly agentic"
+risked a regression if it meant handing writes to a stochastic LLM.
+**Alternatives**:
+- Maximal autonomy: let the LLM drive detection AND repair end to end, with the
+  gates as advisory. Pros: most "agentic". Cons: non-deterministic, slower, and
+  currently far less accurate than the rules; weakens the safety/verifiability
+  moat.
+- Integrate the trained model as-is. Pros: ships the RL work. Cons: F1 0.14 is
+  below baseline; would degrade the product.
+- Verified agent: an autonomous LLM controller that seeds with the deterministic
+  floor and works only the residual, where EVERY write is gated by the existing
+  safety constitution + SMT verifier + reversible transaction journal, and
+  rejections feed back for self-correction. Pros: autonomy in reasoning,
+  determinism + proof in what is written; additive on top of the floor so it can
+  never ship below baseline; unifies CLI/MCP behind one controller. Cons: more
+  surface to maintain; LLM value on the residual still needs training work.
+**Decision**: ship the verified agent as an opt-in mode (`dataforge repair
+--agent`, MCP `dataforge_agent_repair`), local trained policy by default and
+pluggable to hosted/deterministic, gated by a benchmark that blocks promotion to
+default until the agent beats the baseline F1 with zero safety regressions.
+**Reasoning**: DataForge's moat is safety, verifiability, and reversibility. The
+highest-quality interpretation of "agentic" preserves that moat by keeping the
+verified floor as both the agent's most-trusted tool and its safety net.
+Autonomous agent fixes are additionally soft-escalation gated
+(`NO_UNCONFIRMED_LLM_WRITE`), so live-LLM writes require explicit operator
+confirmation (`--confirm-escalations`).
+**Reviewed with**: full repo test suite (unit/integration/property/adversarial),
+`dataforge.release.agent_gate.check_agent_release_gate`, and
+`dataforge.bench.agent_promotion_verdict`.
+**Reversal criteria**: revisit the deterministic-first ordering only if a trained
+policy demonstrably beats the deterministic baseline on hospital/beers/flights
+with no safety regression, at which point the promotion gate may flip the default.
+
+---
+
 ## 2026-06-03 - Treat Workers as the canonical playground and harden external evidence
 **Context**: The full original DataForge vision still depends on external
 state: PyPI/TestPyPI trusted publishing, public package publication, live deployment
@@ -652,3 +761,48 @@ the existing playground smoke/contract tests.
 **Reversal criteria**: if Cloudflare changes preview host behavior in a way that
 makes exact-origin previews unmanageable, add a narrowly-scoped preview-origin
 configuration mechanism rather than restoring broad platform wildcards.
+
+
+---
+
+## 2026-07-01 - Verified LLM corrector: contract-bound, propose-not-apply, calibrated
+**Context**: the measured correction bottleneck is the classes with no derivable
+canonical value (missing-value fills, free-text normalization, context-dependent
+typos) - the bulk of flights (0.00) and beers (0.04) correction F1. Deterministic
+repair cannot invent these values. An LLM can, but a naive LLM writer would
+violate the project's verified/reversible/calibrated/honest ethos.
+**Alternatives**:
+- Naive LLM repairer that writes its best guess. Pros: highest raw coverage.
+  Cons: silent, unverifiable writes; corrupts data on hallucination; abandons
+  the "prove what you touch" design center.
+- Keep those classes detection-only forever. Pros: zero correction risk. Cons:
+  leaves the hardest, most valuable half of repair permanently unaddressed.
+- Grounded, contract-bound, self-consistent corrector gated by the existing
+  verifier/constitution plus a calibrated propose-not-apply policy.
+**Decision**: ship the third option. (1) Close the schema-less verification gap
+first: when no authoritative schema exists, infer constraints and check any
+LLM-origin value against them (`dataforge/verifier/inferred.py`), so corrections
+can no longer be structurally auto-accepted. (2) Bind every candidate to a
+`CorrectionContract` (detector finding + inferred type/domain/regex/FD) and to
+the same inferred guard the verifier enforces, so the corrector can only propose
+values the verifier would also accept. (3) Confidence = self-consistency
+agreement across k samples. (4) Propose-not-apply by default: corrector output
+surfaces as `suggested_fixes`; auto-apply requires both an operator-confirmed LLM
+write (constitution `NO_UNCONFIRMED_LLM_WRITE`, now also covering `llm_cache`)
+and a per-class threshold fit to a >= 0.95 precision floor. (5) The
+`llm_corrector` benchmark method measures per-class correction F1, ECE, and a
+fixed-0.95-agreement `precision_at_auto_apply`; `corrector_promotion_verdict`
+refuses promotion until the precision floor and a calibration bound are met.
+**Reasoning**: deterministic runs stay byte-identical (the guard and corrector
+engage only for LLM-origin fixes when `allow_llm` is set), so no regression is
+possible when the corrector is off (hospital held at 0.7926). When on, the tool
+gains reach on the hard classes without ever making an unverified or silent
+write. `precision_at_auto_apply` uses a fixed, pre-committed agreement bar rather
+than an in-sample fit to avoid a circular, self-flattering metric.
+**Reviewed with**: verified-llm-corrector plan, RAHA detection/correction split,
+`dataforge/repairers/contract.py`, `dataforge/repairers/llm_corrector.py`,
+`dataforge/calibration.py`, `dataforge/engine/repair.py`.
+**Reversal criteria**: if measured `precision_at_auto_apply` for a class clears
+the floor with a calibrated confidence signal on held-out data, raise that
+class's default threshold so it auto-applies; if the corrector cannot beat the
+deterministic stack on any class, keep it suggestion-only.

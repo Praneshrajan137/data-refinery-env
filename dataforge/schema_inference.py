@@ -17,7 +17,20 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from dataforge.table import TableLike, column_names, column_values, row_count
 from dataforge.transactions.log import sha256_bytes
-from dataforge.verifier.schema import DomainBound, FunctionalDependency, Schema
+from dataforge.verifier.schema import (
+    DomainBound,
+    FunctionalDependency,
+    RegexConstraint,
+    Schema,
+)
+
+# Confidence floors for the *verification-only* inferred guard. These are
+# stricter than the review thresholds in ``to_schema`` because inferred
+# verification constraints are enforced automatically (no human review) and may
+# only reject a proposed correction -- never drive a repair or raise an issue.
+_VERIFY_FD_MIN_CONFIDENCE = 0.95
+_VERIFY_DOMAIN_MIN_CONFIDENCE = 1.0
+_VERIFY_REGEX_MIN_CONFIDENCE = 1.0
 
 ConstraintKind = Literal[
     "column_type",
@@ -617,4 +630,69 @@ def infer_schema(table: TableLike) -> SchemaInferenceResult:
         columns=inferred_columns,
         candidates=candidates,
         row_count=row_count(table),
+    )
+
+
+def infer_verification_schema(table: TableLike) -> Schema:
+    """Infer a high-confidence, verification-only ``Schema`` for the guard.
+
+    This is the schema-less safety net for the verifier: when no declared or
+    reviewed schema exists, the engine still has *something* to check a proposed
+    correction against, so untrusted (e.g. LLM-originated) values are no longer
+    auto-accepted. It is deliberately distinct from the reviewed-constraint path:
+
+    * It is built without human review, so it only adopts constraints at very
+      high confidence and only of kinds that cannot block legitimate repairs.
+    * It carries column types (numeric only -- ``str`` is permissive), the
+      *observed* numeric domain (tolerance is applied at check time, not baked
+      into the bound), strong structural regexes (fixed-width digit / upper
+      code columns), and high-confidence single-column functional dependencies.
+    * It intentionally infers **no** closed value set for free-text categoricals.
+      A hard enum drawn from dirty values would reject exactly the canonical
+      normalizations the corrector exists to make.
+
+    These constraints never generate issues and never drive repairs; they only
+    gate corrections that would otherwise bypass semantic verification.
+    """
+    inference = infer_schema(table)
+    columns = dict(inference.columns)
+
+    bounds: list[DomainBound] = []
+    regexes: list[RegexConstraint] = []
+    for candidate in inference.candidates:
+        if (
+            candidate.kind == "domain_bound"
+            and candidate.confidence >= _VERIFY_DOMAIN_MIN_CONFIDENCE
+        ):
+            bounds.append(
+                DomainBound(
+                    column=candidate.columns[0],
+                    min_value=candidate.min_value,
+                    max_value=candidate.max_value,
+                )
+            )
+        elif (
+            candidate.kind == "regex"
+            and candidate.pattern is not None
+            and candidate.confidence >= _VERIFY_REGEX_MIN_CONFIDENCE
+        ):
+            regexes.append(
+                RegexConstraint(column=candidate.columns[0], pattern=candidate.pattern)
+            )
+
+    fds = [
+        FunctionalDependency(determinant=candidate.columns, dependent=candidate.dependent)
+        for candidate in inference.candidates
+        if (
+            candidate.kind == "functional_dependency"
+            and candidate.dependent is not None
+            and candidate.confidence >= _VERIFY_FD_MIN_CONFIDENCE
+        )
+    ]
+
+    return Schema(
+        columns=columns,
+        functional_dependencies=tuple(fds),
+        regex_constraints=tuple(regexes),
+        domain_bounds=tuple(bounds),
     )

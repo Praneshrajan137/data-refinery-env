@@ -95,9 +95,19 @@ def _llm_live_candidate(
     schema: Schema | None,
     context: SafetyContext,
 ) -> bool:
-    """Return whether a candidate came from a live LLM generation."""
+    """Return whether a candidate is LLM-origin and needs write confirmation.
+
+    Both freshly generated (``llm_live``) and replayed-from-cache (``llm_cache``)
+    values are LLM-origin: a cached value was still produced by a model, so it
+    must clear the same unconfirmed-write escalation as a live generation.
+    """
     del schema, context
-    return proposed_fix.provenance.strip().lower() in {"llm", "llm_live", "live_llm"}
+    return proposed_fix.provenance.strip().lower() in {
+        "llm",
+        "llm_live",
+        "live_llm",
+        "llm_cache",
+    }
 
 
 def _prompt_injection_text(

@@ -23,6 +23,7 @@ from dataforge.bench.core import (
 from dataforge.bench.groq_client import GroqBenchClient
 from dataforge.bench.methods import (
     run_heuristic_episode,
+    run_llm_corrector_episode,
     run_llm_react_episode,
     run_llm_zeroshot_episode,
     run_random_episode,
@@ -30,7 +31,9 @@ from dataforge.bench.methods import (
 from dataforge.datasets.real_world import load_real_world_dataset
 from dataforge.datasets.registry import DATASET_REGISTRY
 
-_SUPPORTED_METHODS = frozenset({"random", "heuristic", "llm_zeroshot", "llm_react"})
+_SUPPORTED_METHODS = frozenset(
+    {"random", "heuristic", "llm_zeroshot", "llm_react", "llm_corrector"}
+)
 
 
 def _validate_inputs(methods: list[str], datasets: list[str]) -> None:
@@ -200,6 +203,17 @@ def run_agent_comparison(
                         )
                     else:
                         result = run_llm_zeroshot_episode(dataset, seed=seed, client=client)
+                elif method == "llm_corrector":
+                    if client is None or skip_reason is not None:
+                        result = _skipped_result(
+                            method=method,
+                            dataset=dataset_name,
+                            seed=seed,
+                            reason=skip_reason or "LLM client unavailable.",
+                            reproduction_command=reproduction_command,
+                        )
+                    else:
+                        result = run_llm_corrector_episode(dataset, seed=seed, client=client)
                 else:
                     if client is None or skip_reason is not None:
                         result = _skipped_result(

@@ -40,6 +40,72 @@ def _runner() -> Callable[..., Any]:
     return run_agent_comparison
 
 
+def _render_summary(output: Any) -> None:
+    """Render the aggregate F1/quota summary table."""
+    table = Table(title="DataForge Benchmark Summary")
+    table.add_column("Method")
+    table.add_column("Dataset")
+    table.add_column("Status")
+    table.add_column("F1")
+    table.add_column("Avg Steps")
+    table.add_column("Quota")
+    for aggregate in output.aggregates:
+        table.add_row(
+            aggregate.method,
+            aggregate.dataset,
+            aggregate.status,
+            "Skipped" if aggregate.f1_mean is None else f"{aggregate.f1_mean:.4f}",
+            "Skipped" if aggregate.avg_steps_mean is None else f"{aggregate.avg_steps_mean:.2f}",
+            "Skipped"
+            if aggregate.quota_units_mean is None
+            else f"{aggregate.quota_units_mean:.4f}",
+        )
+    Console().print(table)
+    if any(aggregate.status == "skipped" for aggregate in output.aggregates):
+        Console().print(
+            Panel(
+                "Some LLM baselines were skipped. Set DATAFORGE_LLM_PROVIDER=groq and "
+                "GROQ_API_KEY to enable them.",
+                title="Benchmark Warning",
+                style="yellow",
+            )
+        )
+
+
+def _render_coverage_matrix(output: Any) -> None:
+    """Render the per-error-class recall matrix (honest coverage view)."""
+    from dataforge.bench.error_classes import BENCH_ERROR_CLASSES, class_coverage_matrix
+
+    matrix = class_coverage_matrix(list(output.records))
+    if not matrix:
+        return
+    table = Table(title="Per-Error-Class Detection Recall (coverage)")
+    table.add_column("Method/Dataset")
+    for error_class in BENCH_ERROR_CLASSES:
+        table.add_column(error_class)
+    for (method, dataset), scores in sorted(matrix.items()):
+        row = [f"{method}/{dataset}"]
+        for error_class in BENCH_ERROR_CLASSES:
+            score = scores.get(error_class)
+            if score is None or score.support == 0:
+                row.append("-")
+            else:
+                row.append(f"{score.detection_recall:.2f}/{score.recall:.2f} (n={score.support})")
+        table.add_row(*row)
+    Console().print(table)
+    Console().print(
+        Panel(
+            "Each cell shows detection_recall/correction_recall per error class on "
+            "the full RAHA datasets ('-' = no ground-truth cells of that class). "
+            "Detection credits flagging the error; correction credits producing the "
+            "exact right value. The honest split: a class can be well-detected yet "
+            "not auto-correctable (no derivable value), which is reported, not hidden.",
+            title="Coverage",
+            style="cyan",
+        )
+    )
+
+
 def bench(
     methods: Annotated[
         str,
@@ -98,8 +164,21 @@ def bench(
         bool,
         typer.Option("--json", help="Print benchmark results as JSON."),
     ] = False,
+    quick: Annotated[
+        bool,
+        typer.Option(
+            "--quick",
+            help="Offline coverage check: run random,heuristic on all datasets (1 seed) "
+            "and print the per-error-class coverage matrix. No API keys required.",
+        ),
+    ] = False,
 ) -> None:
     """Run real-world benchmark methods across cached benchmark datasets."""
+    if quick:
+        methods = "random,heuristic"
+        datasets = datasets if datasets != "hospital" else "hospital,flights,beers"
+        seeds = 1
+        seed_list = None
     try:
         output = _runner()(
             methods=_parse_csv_list(methods),
@@ -125,30 +204,6 @@ def bench(
         typer.echo(json.dumps(output.model_dump(mode="json"), indent=2, sort_keys=True))
         return
 
-    table = Table(title="DataForge Benchmark Summary")
-    table.add_column("Method")
-    table.add_column("Dataset")
-    table.add_column("Status")
-    table.add_column("F1")
-    table.add_column("Avg Steps")
-    table.add_column("Quota")
-    for aggregate in output.aggregates:
-        table.add_row(
-            aggregate.method,
-            aggregate.dataset,
-            aggregate.status,
-            "Skipped" if aggregate.f1_mean is None else f"{aggregate.f1_mean:.4f}",
-            "Skipped" if aggregate.avg_steps_mean is None else f"{aggregate.avg_steps_mean:.2f}",
-            "Skipped"
-            if aggregate.quota_units_mean is None
-            else f"{aggregate.quota_units_mean:.4f}",
-        )
-    Console().print(table)
-    if any(aggregate.status == "skipped" for aggregate in output.aggregates):
-        Console().print(
-            Panel(
-                "Some LLM baselines were skipped. Set DATAFORGE_LLM_PROVIDER=groq and GROQ_API_KEY to enable them.",
-                title="Benchmark Warning",
-                style="yellow",
-            )
-        )
+    _render_summary(output)
+    if quick:
+        _render_coverage_matrix(output)

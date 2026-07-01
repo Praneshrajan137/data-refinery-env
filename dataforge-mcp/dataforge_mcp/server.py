@@ -9,6 +9,7 @@ from mcp.server.fastmcp import FastMCP
 
 from dataforge_mcp.tools import (
     configure_mcp_security,
+    dataforge_agent_repair,
     dataforge_apply_repairs,
     dataforge_detect_errors,
     dataforge_profile,
@@ -36,6 +37,7 @@ def create_server(*, host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
     mcp.tool(name="dataforge_detect_errors")(dataforge_detect_errors)
     mcp.tool(name="dataforge_verify_fix")(dataforge_verify_fix)
     mcp.tool(name="dataforge_apply_repairs")(dataforge_apply_repairs)
+    mcp.tool(name="dataforge_agent_repair")(dataforge_agent_repair)
     mcp.tool(name="dataforge_revert")(dataforge_revert)
     return mcp
 
