@@ -81,6 +81,23 @@ class TestQuotaDiscipline:
 
         assert estimated == 540
 
+    def test_estimate_llm_calls_honors_corrector_issue_cap(self) -> None:
+        uncapped = estimate_llm_calls(
+            methods=["llm_corrector"],
+            datasets=["hospital"],
+            seeds=1,
+        )
+        capped = estimate_llm_calls(
+            methods=["llm_corrector"],
+            datasets=["hospital"],
+            seeds=1,
+            corrector_max_issues=500,
+        )
+
+        # The cap bounds the corrector estimate to max_issues x 3 samples.
+        assert capped == 1500
+        assert capped < uncapped
+
     def test_validate_estimated_calls_requires_override(self) -> None:
         with pytest.raises(ValueError, match="really-run-big-bench"):
             validate_estimated_calls(estimated_calls=540, really_run_big_bench=False)

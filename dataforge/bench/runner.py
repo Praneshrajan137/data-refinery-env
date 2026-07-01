@@ -97,6 +97,18 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _corrector_max_issues() -> int | None:
+    """Read the optional corrector issue cap; None means no cap (all issues)."""
+    raw = os.environ.get("DATAFORGE_CORRECTOR_MAX_ISSUES", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
 def _build_groq_client() -> GroqBenchClient:
     """Construct a Groq benchmark client from env-driven knobs."""
     return GroqBenchClient(
@@ -166,10 +178,12 @@ def run_agent_comparison(
     _validate_inputs(methods, datasets)
     resolved_seed_list = build_seed_list(seeds=seeds, seed_list=seed_list)
 
+    corrector_max_issues = _corrector_max_issues()
     estimated_calls = estimate_llm_calls(
         methods=methods,
         datasets=datasets,
         seeds=len(resolved_seed_list),
+        corrector_max_issues=corrector_max_issues,
     )
     # Validate call budget before any client instantiation or dataset loads that could
     # trigger network access in tests with environment variables set.
@@ -236,7 +250,12 @@ def run_agent_comparison(
                             reproduction_command=reproduction_command,
                         )
                     else:
-                        result = run_llm_corrector_episode(dataset, seed=seed, client=client)
+                        result = run_llm_corrector_episode(
+                            dataset,
+                            seed=seed,
+                            client=client,
+                            max_issues=corrector_max_issues,
+                        )
                 else:
                     if client is None or skip_reason is not None:
                         result = _skipped_result(

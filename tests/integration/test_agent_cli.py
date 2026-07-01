@@ -46,6 +46,7 @@ class TestAgentCli:
     def test_hosted_without_key_fails_clearly(self, tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
         monkeypatch.delenv("GROQ_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
         monkeypatch.delenv("DATAFORGE_LLM_PROVIDER", raising=False)
         result = runner.invoke(
             app, ["repair", str(_csv(tmp_path)), "--dry-run", "--agent", "--policy", "hosted"]

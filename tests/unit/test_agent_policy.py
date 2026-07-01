@@ -139,6 +139,7 @@ class TestBackendSelection:
 
         monkeypatch.delenv("GROQ_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
         monkeypatch.delenv("DATAFORGE_LLM_PROVIDER", raising=False)
         with pytest.raises(PolicyUnavailableError, match="No API key"):
             make_policy("hosted")

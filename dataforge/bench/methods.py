@@ -107,6 +107,7 @@ def run_llm_corrector_episode(
     seed: int,
     client: BenchLLMClient,
     samples: int = _CORRECTOR_SAMPLES,
+    max_issues: int | None = None,
 ) -> SeedBenchmarkResult:
     """Run the grounded, contract-bound LLM corrector as a benchmark method.
 
@@ -117,6 +118,11 @@ def run_llm_corrector_episode(
     coverage, this reports calibration quality (ECE) and the precision the tool
     would achieve if it auto-applied only high-agreement outputs
     (``precision_at_auto_apply`` at a fixed agreement threshold).
+
+    When ``max_issues`` is set and the detector finds more issues than the cap,
+    a deterministic ``seed``-derived random subset of that size is scored. This
+    bounds LLM spend for real-provider runs; the returned warnings record the
+    sampling so the report stays honest about coverage.
     """
     start = time.perf_counter()
     counters = {"llm_calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
@@ -135,6 +141,13 @@ def run_llm_corrector_episode(
     )
     working = dataset.dirty_df.copy(deep=True)
     issues = run_all_detectors(working, schema=inferred_schema)
+    if max_issues is not None and len(issues) > max_issues:
+        warnings.append(f"corrector_sampled_{max_issues}_of_{len(issues)}")
+        sampler = random.Random(seed)
+        issues = sorted(
+            sampler.sample(issues, max_issues),
+            key=lambda issue: (issue.row, issue.column),
+        )
     detected_cells = {(issue.row, issue.column) for issue in issues}
 
     corrector = LLMCorrectorRepairer(
