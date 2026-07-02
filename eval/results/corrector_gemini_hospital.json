@@ -1,0 +1,142 @@
+{
+  "metadata": {
+    "schema_version": "dataforge_benchmark_run_v2",
+    "methods": [
+      "llm_corrector"
+    ],
+    "datasets": [
+      "hospital"
+    ],
+    "seeds": 1,
+    "seed_list": [
+      0
+    ],
+    "git_commit": "6865a8176386853569391d71aadd44805982483c",
+    "git_dirty": true,
+    "generated_at_utc": "2026-07-02T16:46:11+00:00",
+    "python_version": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "dependency_versions": {
+      "dataforge": "0.1.0",
+      "httpx": "0.28.1",
+      "pandas": "2.3.3",
+      "pydantic": "2.13.4",
+      "python-dotenv": "1.2.2",
+      "typer": "0.24.1"
+    },
+    "generator_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+    "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+    "dataset_evidence": [
+      {
+        "name": "hospital",
+        "source_urls": [
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/hospital/dirty.csv",
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/hospital/clean.csv"
+        ],
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "n_rows": 1000,
+        "n_columns": 20
+      }
+    ],
+    "artifact_sha256s": {
+      "dataset:hospital:dirty.csv": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+      "dataset:hospital:clean.csv": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b"
+    }
+  },
+  "records": [
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "seed": 0,
+      "status": "ok",
+      "skip_reason": null,
+      "precision": 0.1389,
+      "recall": 0.0098,
+      "f1": 0.0183,
+      "tp": 5,
+      "fp": 31,
+      "fn": 504,
+      "avg_steps": 486.0,
+      "llm_calls": 486,
+      "prompt_tokens": 177692,
+      "completion_tokens": 2075,
+      "quota_units": 1.7977,
+      "gpu_hours": 0.0,
+      "runtime_s": 3032.1953,
+      "provider": "gemini",
+      "model": "gemini-3.1-flash-lite-preview",
+      "warnings": [
+        "corrector_sampled_200_of_10372",
+        "corrector_call_failures_40"
+      ],
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 1,
+          "detection_recall": 0.013,
+          "tp": 1,
+          "fn": 76,
+          "recall": 0.013,
+          "predicted_on_class": 1,
+          "precision_on_class": 1.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 6,
+          "detection_recall": 0.0142,
+          "tp": 4,
+          "fn": 419,
+          "recall": 0.0095,
+          "predicted_on_class": 4,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": 0.787,
+      "precision_at_auto_apply": 0.1613,
+      "auto_apply_count": 31
+    }
+  ],
+  "aggregates": [
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "status": "ok",
+      "skip_reason": null,
+      "seeds_requested": 1,
+      "seeds_completed": 1,
+      "precision_mean": 0.1389,
+      "precision_std": 0.0,
+      "recall_mean": 0.0098,
+      "recall_std": 0.0,
+      "f1_mean": 0.0183,
+      "f1_std": 0.0,
+      "avg_steps_mean": 486.0,
+      "avg_steps_std": 0.0,
+      "quota_units_mean": 1.7977,
+      "quota_units_std": 0.0,
+      "gpu_hours_mean": 0.0,
+      "gpu_hours_std": 0.0,
+      "runtime_s_mean": 3032.1953,
+      "runtime_s_std": 0.0,
+      "provider": "gemini",
+      "model": "gemini-3.1-flash-lite-preview",
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1"
+    }
+  ]
+}

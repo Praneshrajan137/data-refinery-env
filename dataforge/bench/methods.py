@@ -222,7 +222,7 @@ def run_llm_corrector_episode(
             completion_tokens=counters["completion_tokens"],
         ),
         runtime_s=runtime_s,
-        provider="groq",
+        provider=client.provider,
         model=client.model,
         warnings=warnings,
         ece=expected_calibration_error(calibration_samples),

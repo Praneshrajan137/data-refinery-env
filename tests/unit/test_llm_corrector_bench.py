@@ -92,6 +92,7 @@ class _FixedClient:
 
     text: str
     model: str = "fake-model"
+    provider: str = "fake-provider"
     calls: int = field(default=0)
 
     def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
@@ -127,7 +128,7 @@ class TestRunLLMCorrectorEpisode:
         assert result.ece is not None
         assert result.precision_at_auto_apply == 1.0
         assert result.auto_apply_count == 1
-        assert result.provider == "groq"
+        assert result.provider == "fake-provider"
         assert result.model == "fake-model"
 
     def test_wrong_fill_lowers_precision_at_auto_apply(self) -> None:
@@ -176,6 +177,7 @@ class TestRunLLMCorrectorEpisode:
         @dataclass
         class _FlakyClient:
             model: str = "fake-model"
+            provider: str = "fake-provider"
             calls: int = field(default=0)
 
             def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
