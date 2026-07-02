@@ -435,6 +435,7 @@ class BedrockBenchClient:
         max_usd: float | None = None,
         usd_per_1k_input: float = 0.003,
         usd_per_1k_output: float = 0.015,
+        temperature: float = 0.0,
     ) -> None:
         self._api_key = api_key
         self._model = model
@@ -447,6 +448,7 @@ class BedrockBenchClient:
         self._max_usd = max_usd
         self._usd_per_1k_input = usd_per_1k_input
         self._usd_per_1k_output = usd_per_1k_output
+        self._temperature = temperature
         self._cumulative_usd = 0.0
         self._last_success_at: float | None = None
         self._client = httpx.Client(
@@ -496,7 +498,7 @@ class BedrockBenchClient:
         payload: dict[str, object] = {
             "messages": converse_messages,
             "inferenceConfig": {
-                "temperature": 0.0,
+                "temperature": self._temperature,
                 "maxTokens": self._max_tokens,
             },
         }

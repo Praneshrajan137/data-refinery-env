@@ -143,6 +143,7 @@ def _build_bedrock_client() -> BedrockBenchClient:
         max_usd=max_usd,
         usd_per_1k_input=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_INPUT", 0.003),
         usd_per_1k_output=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_OUTPUT", 0.015),
+        temperature=_env_float("DATAFORGE_BEDROCK_TEMPERATURE", 0.0),
     )
 
 

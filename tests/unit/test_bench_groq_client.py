@@ -471,6 +471,40 @@ class TestBedrockBenchClient:
 
         assert client.cumulative_usd == pytest.approx(0.054)
 
+    def test_bedrock_temperature_is_configurable(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "output": {"message": {"content": [{"text": "ok"}]}},
+                "usage": {"inputTokens": 1, "outputTokens": 1},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            BedrockBenchClient(api_key="test", model="m", temperature=0.4).complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        request_json = mock_client.post.call_args.kwargs["json"]
+        assert request_json["inferenceConfig"]["temperature"] == 0.4
+
+    def test_bedrock_temperature_defaults_to_zero(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "output": {"message": {"content": [{"text": "ok"}]}},
+                "usage": {"inputTokens": 1, "outputTokens": 1},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            BedrockBenchClient(api_key="test", model="m").complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        request_json = mock_client.post.call_args.kwargs["json"]
+        assert request_json["inferenceConfig"]["temperature"] == 0.0
+
     def test_bedrock_no_cost_guard_by_default(self) -> None:
         mock_client = MagicMock()
         mock_client.post.return_value = _mock_response(
