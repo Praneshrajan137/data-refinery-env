@@ -278,6 +278,7 @@ class GeminiBenchClient:
         max_retries: int = 5,
         max_retry_after_s: float = 120.0,
         timeout_s: float = 60.0,
+        temperature: float = 0.0,
     ) -> None:
         self._api_key = api_key
         self._model = model.removeprefix("models/")
@@ -286,6 +287,7 @@ class GeminiBenchClient:
         self._max_retries = max_retries
         self._max_retry_after_s = max_retry_after_s
         self._timeout_s = timeout_s
+        self._temperature = temperature
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -327,7 +329,7 @@ class GeminiBenchClient:
         payload: dict[str, object] = {
             "contents": contents,
             "generationConfig": {
-                "temperature": 0.0,
+                "temperature": self._temperature,
                 "maxOutputTokens": self._max_tokens,
             },
         }

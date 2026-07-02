@@ -320,6 +320,23 @@ class TestGroqBenchClient:
         assert completion.text == "ok"
         sleep.assert_called_once_with(2.0)
 
+    def test_gemini_temperature_is_configurable(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "candidates": [{"content": {"parts": [{"text": "ok"}]}}],
+                "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            GeminiBenchClient(api_key="test", temperature=0.4).complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        request_json = mock_client.post.call_args.kwargs["json"]
+        assert request_json["generationConfig"]["temperature"] == 0.4
+
     def test_gemini_missing_usage_and_unexpected_payload(self) -> None:
         missing_usage_client = MagicMock()
         missing_usage_client.post.return_value = _mock_response(

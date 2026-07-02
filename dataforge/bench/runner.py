@@ -20,7 +20,7 @@ from dataforge.bench.core import (
     validate_estimated_calls,
     write_run_output,
 )
-from dataforge.bench.groq_client import BedrockBenchClient, GroqBenchClient
+from dataforge.bench.groq_client import BedrockBenchClient, GeminiBenchClient, GroqBenchClient
 from dataforge.bench.methods import (
     run_heuristic_episode,
     run_llm_corrector_episode,
@@ -78,7 +78,11 @@ def _llm_skip_reason() -> str | None:
         if not os.environ.get("DATAFORGE_BEDROCK_MODEL"):
             return "DATAFORGE_BEDROCK_MODEL is not set."
         return None
-    return "DATAFORGE_LLM_PROVIDER must be set to groq or bedrock."
+    if provider == "gemini":
+        if not os.environ.get("GEMINI_API_KEY"):
+            return "GEMINI_API_KEY is not set."
+        return None
+    return "DATAFORGE_LLM_PROVIDER must be set to groq, bedrock, or gemini."
 
 
 def _env_float(name: str, default: float) -> float:
@@ -144,6 +148,19 @@ def _build_bedrock_client() -> BedrockBenchClient:
         usd_per_1k_input=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_INPUT", 0.003),
         usd_per_1k_output=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_OUTPUT", 0.015),
         temperature=_env_float("DATAFORGE_BEDROCK_TEMPERATURE", 0.0),
+    )
+
+
+def _build_gemini_client() -> GeminiBenchClient:
+    """Construct a Gemini benchmark client from env-driven knobs."""
+    return GeminiBenchClient(
+        api_key=os.environ["GEMINI_API_KEY"],
+        model=os.environ.get("DATAFORGE_GEMINI_MODEL", "gemini-3.1-pro-preview"),
+        min_interval_s=_env_float("DATAFORGE_GEMINI_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_GEMINI_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_GEMINI_MAX_RETRIES", 5),
+        timeout_s=_env_float("DATAFORGE_GEMINI_TIMEOUT_S", 60.0),
+        temperature=_env_float("DATAFORGE_GEMINI_TEMPERATURE", 0.0),
     )
 
 
@@ -223,10 +240,15 @@ def run_agent_comparison(
 
     llm_methods_requested = any(method.startswith("llm_") for method in methods)
     skip_reason = _llm_skip_reason() if llm_methods_requested else None
-    client: GroqBenchClient | BedrockBenchClient | None = None
+    client: GroqBenchClient | BedrockBenchClient | GeminiBenchClient | None = None
     if llm_methods_requested and skip_reason is None:
         provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
-        client = _build_bedrock_client() if provider == "bedrock" else _build_groq_client()
+        if provider == "bedrock":
+            client = _build_bedrock_client()
+        elif provider == "gemini":
+            client = _build_gemini_client()
+        else:
+            client = _build_groq_client()
 
     for dataset_name in datasets:
         dataset = loaded_datasets[dataset_name]
