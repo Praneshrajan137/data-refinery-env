@@ -149,10 +149,18 @@ Cost is explicit: the corrector spends `k` LLM calls per detected issue. The
 error (ECE), and `precision_at_auto_apply` (precision among proposals whose
 agreement clears a fixed 0.95 bar), and the promotion gate
 (`corrector_promotion_verdict`) refuses to promote a class to auto-apply until
-that precision floor and a calibration bound are met on measured data. A
-committed corrector benchmark report against a live provider is pending
-(requires provider credentials); the mechanism is verified offline with a
-mocked provider.
+that precision floor and a calibration bound are met on measured data.
+
+A first live-provider report is committed and verified at
+[`eval/results/corrector_gemini_hospital.json`](eval/results/corrector_gemini_hospital.json)
+(Gemini 3.1 Flash-Lite, 200 sampled hospital issues, self-consistency `k=3`).
+The verified result is deliberately unflattering and load-bearing: measured
+precision 0.14 and `precision_at_auto_apply` 0.16 do not clear the 0.95 floor,
+and ECE 0.79 does not meet the 0.1 calibration bound. `corrector_promotion_verdict`
+therefore rejects promotion, so the corrector does not auto-apply and stays
+propose-not-apply — exactly the intended default. No error class has earned
+auto-apply on measured data. (The bench also runs on Bedrock and Groq via
+`DATAFORGE_LLM_PROVIDER`.)
 
 This is the design center, not an apology: a data-repair tool you can trust is
 one that tells you exactly what it will and will not touch, and proves it.
