@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from dataforge.bench.core import SeedBenchmarkResult
-from dataforge.bench.groq_client import GroqCompletion
+from dataforge.bench.groq_client import GroqCompletion, ProviderRequestError
 from dataforge.bench.methods import corrector_promotion_verdict, run_llm_corrector_episode
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
 from dataforge.datasets.registry import DatasetMetadata
@@ -169,6 +169,29 @@ class TestRunLLMCorrectorEpisode:
         assert client_capped.calls == client.calls
         assert not any(w.startswith("corrector_sampled_") for w in capped.warnings)
         assert not any(w.startswith("corrector_sampled_") for w in uncapped.warnings)
+
+    def test_provider_errors_are_skipped_not_fatal(self) -> None:
+        dataset = _multi_issue_dataset()
+
+        @dataclass
+        class _FlakyClient:
+            model: str = "fake-model"
+            calls: int = field(default=0)
+
+            def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
+                self.calls += 1
+                # Every call throttles: a non-resilient episode would abort.
+                raise ProviderRequestError("bedrock rate limited")
+
+        result = run_llm_corrector_episode(
+            dataset, seed=0, client=_FlakyClient(), samples=3, max_issues=2
+        )
+
+        # The run completes and produces a report rather than aborting, and it
+        # discloses the failed calls in the warnings.
+        assert isinstance(result, SeedBenchmarkResult)
+        assert result.status == "ok"
+        assert any(w.startswith("corrector_call_failures_") for w in result.warnings)
 
 
 class TestPromotionVerdict:

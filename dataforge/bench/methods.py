@@ -15,7 +15,7 @@ from dataforge.bench.error_classes import (
     precision_at_auto_apply,
     score_repairs_by_class,
 )
-from dataforge.bench.groq_client import BenchLLMClient
+from dataforge.bench.groq_client import BenchLLMClient, CostCapExceededError, ProviderRequestError
 from dataforge.datasets.real_world import RealWorldDataset
 from dataforge.detectors import run_all_detectors
 from dataforge.repairers import propose_fixes
@@ -162,11 +162,22 @@ def run_llm_corrector_episode(
     repairs: list[BenchmarkRepair] = []
     calibration_samples: list[tuple[float, bool]] = []
     auto_apply_samples: list[tuple[bool, bool]] = []
+    call_failures = 0
     # The corrector runs against the schema-less product path (schema=None) so it
     # infers its own high-confidence verification constraints, mirroring how a
     # user with an undeclared CSV would run it.
     for issue in issues:
-        fix = corrector.propose(issue, working, None)
+        try:
+            fix = corrector.propose(issue, working, None)
+        except CostCapExceededError:
+            # A tripped spend guard is a hard stop; never swallow it.
+            raise
+        except (ProviderRequestError, TimeoutError):
+            # A single throttled/failed provider call must not abort the whole
+            # run: skip this issue (counts as no repair) and keep going so the
+            # benchmark still produces a report on flaky-quota accounts.
+            call_failures += 1
+            continue
         if fix is None:
             continue
         new_value = fix.fix.new_value
@@ -182,6 +193,9 @@ def run_llm_corrector_episode(
         calibration_samples.append((fix.confidence, was_correct))
         auto_applied = fix.confidence >= _CORRECTOR_AUTO_APPLY_CONFIDENCE
         auto_apply_samples.append((auto_applied, was_correct))
+
+    if call_failures:
+        warnings.append(f"corrector_call_failures_{call_failures}")
 
     metrics = score_repairs(dataset.ground_truth, repairs)
     by_class = score_repairs_by_class(dataset.ground_truth, repairs, detected_cells)
