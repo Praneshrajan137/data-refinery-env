@@ -123,6 +123,15 @@ def _build_groq_client() -> GroqBenchClient:
 
 def _build_bedrock_client() -> BedrockBenchClient:
     """Construct a Bedrock benchmark client from env-driven knobs."""
+    raw_cap = os.environ.get("DATAFORGE_BEDROCK_MAX_USD", "").strip()
+    max_usd: float | None = None
+    if raw_cap:
+        try:
+            parsed = float(raw_cap)
+        except ValueError:
+            parsed = 0.0
+        if parsed > 0:
+            max_usd = parsed
     return BedrockBenchClient(
         api_key=os.environ["AWS_BEARER_TOKEN_BEDROCK"],
         model=os.environ["DATAFORGE_BEDROCK_MODEL"],
@@ -131,6 +140,9 @@ def _build_bedrock_client() -> BedrockBenchClient:
         max_tokens=_env_int("DATAFORGE_BEDROCK_MAX_TOKENS", 256),
         max_retries=_env_int("DATAFORGE_BEDROCK_MAX_RETRIES", 3),
         timeout_s=_env_float("DATAFORGE_BEDROCK_TIMEOUT_S", 30.0),
+        max_usd=max_usd,
+        usd_per_1k_input=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_INPUT", 0.003),
+        usd_per_1k_output=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_OUTPUT", 0.015),
     )
 
 

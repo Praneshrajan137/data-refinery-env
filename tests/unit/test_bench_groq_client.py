@@ -10,6 +10,7 @@ import pytest
 from dataforge.bench.groq_client import (
     BedrockBenchClient,
     CerebrasBenchClient,
+    CostCapExceededError,
     GeminiBenchClient,
     GroqBenchClient,
     ProviderRateLimitError,
@@ -442,3 +443,47 @@ class TestBedrockBenchClient:
             BedrockBenchClient(api_key="test", model="m").complete(
                 [{"role": "user", "content": "hi"}]
             )
+
+    def test_bedrock_cost_guard_hard_stops_when_cap_exceeded(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "output": {"message": {"content": [{"text": "ok"}]}},
+                "usage": {"inputTokens": 1000, "outputTokens": 1000},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            # Each call costs 1000/1000*0.003 + 1000/1000*0.015 = $0.018.
+            client = BedrockBenchClient(
+                api_key="test",
+                model="m",
+                max_usd=0.05,
+                usd_per_1k_input=0.003,
+                usd_per_1k_output=0.015,
+            )
+            # First two calls stay under the $0.05 cap ($0.018, $0.036).
+            client.complete([{"role": "user", "content": "hi"}])
+            client.complete([{"role": "user", "content": "hi"}])
+            # Third call crosses $0.05 ($0.054) and must hard-stop.
+            with pytest.raises(CostCapExceededError, match="spend guard tripped"):
+                client.complete([{"role": "user", "content": "hi"}])
+
+        assert client.cumulative_usd == pytest.approx(0.054)
+
+    def test_bedrock_no_cost_guard_by_default(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {
+                "output": {"message": {"content": [{"text": "ok"}]}},
+                "usage": {"inputTokens": 100000, "outputTokens": 100000},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            client = BedrockBenchClient(api_key="test", model="m")
+            # No cap configured: even a huge call does not raise.
+            completion = client.complete([{"role": "user", "content": "hi"}])
+
+        assert completion.text == "ok"
+        assert client.cumulative_usd > 0.0

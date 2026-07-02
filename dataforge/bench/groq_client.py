@@ -19,6 +19,15 @@ class ProviderRateLimitError(ProviderRequestError):
     """Raised when a provider asks us to wait longer than the configured cap."""
 
 
+class CostCapExceededError(RuntimeError):
+    """Raised when cumulative estimated spend crosses the configured USD cap.
+
+    This is a hard stop: once raised, no further billable calls are made. The
+    estimate uses conservative (high) per-token prices so the guard trips early
+    rather than late.
+    """
+
+
 def _is_rate_limit_error(exc: BaseException) -> bool:
     """Return whether an exception is an HTTP 429 response."""
     return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429
@@ -423,6 +432,9 @@ class BedrockBenchClient:
         max_retries: int = 5,
         max_retry_after_s: float = 120.0,
         timeout_s: float = 60.0,
+        max_usd: float | None = None,
+        usd_per_1k_input: float = 0.003,
+        usd_per_1k_output: float = 0.015,
     ) -> None:
         self._api_key = api_key
         self._model = model
@@ -432,6 +444,10 @@ class BedrockBenchClient:
         self._max_retries = max_retries
         self._max_retry_after_s = max_retry_after_s
         self._timeout_s = timeout_s
+        self._max_usd = max_usd
+        self._usd_per_1k_input = usd_per_1k_input
+        self._usd_per_1k_output = usd_per_1k_output
+        self._cumulative_usd = 0.0
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -440,6 +456,11 @@ class BedrockBenchClient:
                 "Content-Type": "application/json",
             },
         )
+
+    @property
+    def cumulative_usd(self) -> float:
+        """Return the running estimated spend across all completed calls."""
+        return self._cumulative_usd
 
     @property
     def model(self) -> str:
@@ -547,6 +568,19 @@ class BedrockBenchClient:
             text = "".join(str(block.get("text", "")) for block in content)
         except (KeyError, IndexError, TypeError) as exc:
             raise ValueError(f"Unexpected bedrock response payload: {json.dumps(payload)}") from exc
+
+        # Accumulate a conservative cost estimate and hard-stop if it crosses
+        # the configured USD cap, so a bounded run can never overspend.
+        self._cumulative_usd += (
+            prompt_tokens / 1000.0 * self._usd_per_1k_input
+            + completion_tokens / 1000.0 * self._usd_per_1k_output
+        )
+        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
+            raise CostCapExceededError(
+                f"Bedrock spend guard tripped: estimated ${self._cumulative_usd:.4f} "
+                f"exceeds cap ${self._max_usd:.2f}. No further calls will be made."
+            )
+
         return GroqCompletion(
             text=text,
             prompt_tokens=prompt_tokens,
