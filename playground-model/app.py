@@ -1,10 +1,26 @@
-"""Gradio Space for the DataForge-0.5B-SFT warmup checkpoint."""
+"""Gradio ZeroGPU Space for the DataForge-0.5B checkpoint.
+
+This Space serves two audiences from one loaded checkpoint:
+
+* a **human demo** (`Detect + propose fixes`) that takes a CSV snippet and shows
+  what the model proposes, and
+* a **stable programmatic API** (`generate`, `health`) that the DataForge
+  playground drives, one GPU round-trip per agent step, through the torch-free
+  remote policy. The API contract is deliberately small and version-stable:
+  `generate(messages_json, temperature, max_new_tokens) -> assistant text`.
+
+The checkpoint defaults to the verified GRPO model
+(`Praneshrajan15/DataForge-0.5B-GRPO`); override with `DATAFORGE_SPACE_MODEL_ID`.
+Nothing here applies repairs, stores data, or bypasses the DataForge safety and
+SMT verification path -- those run on the caller (the playground API or CLI).
+"""
 
 from __future__ import annotations
 
 import csv
 import io
 import json
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -33,8 +49,11 @@ except ImportError:  # pragma: no cover - local development fallback
     spaces = _SpacesFallback()
 
 
-MODEL_ID = "Praneshrajan15/DataForge-0.5B-SFT"
+MODEL_ID = os.environ.get("DATAFORGE_SPACE_MODEL_ID", "Praneshrajan15/DataForge-0.5B-GRPO")
 MAX_ROWS = 50
+MAX_NEW_TOKENS_CAP = 512
+MAX_MESSAGES = 32
+MAX_MESSAGE_CHARS = 8000
 EXAMPLE_SNIPPETS = [
     "id,amount,department\n1,100,cardiology\n2,105,cardiology\n3,1020,cardiology",
     "id,email,zip\n1,ana@example.com,02139\n2,bob@example.com,2139\n3,chen@example.com,02139",
@@ -51,11 +70,16 @@ TABLE_HEADERS = [
     "reason",
 ]
 SYSTEM_PROMPT = (
-    "You are DataForge-0.5B-SFT. Given a CSV snippet, return JSON only. "
+    "You are DataForge-0.5B. Given a CSV snippet, return JSON only. "
     "Use either a list of repair objects or {'fixes': [...]} with keys row, "
     "column, issue_type, old_value, new_value, confidence, reason. If no repair "
     "is justified, return an empty list."
 )
+
+# Loaded once per Space process (populated inside the first GPU call, where CUDA
+# is available on ZeroGPU) so multi-step agent loops reuse weights instead of
+# re-instantiating the model on every round-trip.
+_MODEL_CACHE: dict[str, Any] = {}
 
 
 def _table_row(
@@ -160,43 +184,110 @@ def parse_model_output(model_text: str) -> list[list[str]]:
     return [_table_row(status="raw", reason=preview or "The model returned an empty response.")]
 
 
-def _build_prompt(csv_snippet: str) -> str:
-    """Build the instruction prompt sent to the model."""
-    return f"{SYSTEM_PROMPT}\n\nCSV:\n{csv_snippet.strip()}\n\nJSON:"
+def _coerce_messages(messages_json: str) -> list[dict[str, str]]:
+    """Validate and normalize a chat payload for the `generate` API.
+
+    Accepts a JSON array of `{"role", "content"}` objects, a `{"messages": [...]}`
+    wrapper, or a bare string (treated as a single user turn). Roles are clamped
+    to the chat set and content is length-capped so a single call cannot exhaust
+    the GPU budget.
+    """
+    raw = messages_json.strip()
+    if not raw:
+        raise ValueError("messages payload is empty")
+    try:
+        parsed: Any = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = [{"role": "user", "content": raw}]
+    if isinstance(parsed, dict):
+        parsed = parsed.get("messages", [parsed])
+    if not isinstance(parsed, list) or not parsed:
+        raise ValueError("messages must be a non-empty list")
+    if len(parsed) > MAX_MESSAGES:
+        raise ValueError(f"too many messages ({len(parsed)} > {MAX_MESSAGES})")
+    out: list[dict[str, str]] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            raise ValueError("each message must be a JSON object")
+        role = str(item.get("role", "user"))
+        if role not in {"system", "user", "assistant"}:
+            role = "user"
+        content = str(item.get("content", ""))
+        if len(content) > MAX_MESSAGE_CHARS:
+            content = content[:MAX_MESSAGE_CHARS]
+        out.append({"role": role, "content": content})
+    return out
 
 
-def _generate_model_text(csv_snippet: str) -> str:
-    """Run the Hub model and return decoded text."""
+def _load_model() -> tuple[Any, Any]:
+    """Load (and cache) the tokenizer and model for this Space process."""
+    if "model" not in _MODEL_CACHE:
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+        model_kwargs: dict[str, Any] = {}
+        if torch.cuda.is_available():
+            model_kwargs["torch_dtype"] = torch.float16
+        model = AutoModelForCausalLM.from_pretrained(MODEL_ID, **model_kwargs)
+        _MODEL_CACHE["tokenizer"] = tokenizer
+        _MODEL_CACHE["model"] = model
+    return _MODEL_CACHE["tokenizer"], _MODEL_CACHE["model"]
+
+
+def _run_chat(
+    messages: list[dict[str, str]],
+    *,
+    temperature: float,
+    max_new_tokens: int,
+) -> str:
+    """Run a chat completion against the loaded checkpoint and return the text."""
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-    model_kwargs: dict[str, Any] = {}
+    tokenizer, model = _load_model()
     if torch.cuda.is_available():
-        model_kwargs["torch_dtype"] = torch.float16
-        model_kwargs["device_map"] = "auto"
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, **model_kwargs)
-    if not torch.cuda.is_available():
-        model = model.to("cpu")
-
-    prompt = _build_prompt(csv_snippet)
-    inputs = tokenizer(prompt, return_tensors="pt")
+        model = model.to("cuda")
     device = next(model.parameters()).device
-    inputs = {key: value.to(device) for key, value in inputs.items()}
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=384,
-        do_sample=False,
-        pad_token_id=tokenizer.eos_token_id,
-    )
-    generated = outputs[0][inputs["input_ids"].shape[-1] :]
+
+    try:
+        input_ids = tokenizer.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            return_tensors="pt",
+        ).to(device)
+    except Exception:
+        prompt = (
+            "\n".join(f"{message['role']}: {message['content']}" for message in messages)
+            + "\nassistant:"
+        )
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+
+    gen_kwargs: dict[str, Any] = {
+        "max_new_tokens": max_new_tokens,
+        "pad_token_id": tokenizer.eos_token_id,
+    }
+    if temperature and temperature > 0:
+        gen_kwargs["do_sample"] = True
+        gen_kwargs["temperature"] = temperature
+    else:
+        gen_kwargs["do_sample"] = False
+
+    outputs = model.generate(input_ids=input_ids, **gen_kwargs)
+    generated = outputs[0][input_ids.shape[-1] :]
     text = tokenizer.decode(generated, skip_special_tokens=True)
 
-    del model
-    del tokenizer
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     return str(text)
+
+
+def _generate_model_text(csv_snippet: str) -> str:
+    """Run the checkpoint on a CSV snippet for the human demo path."""
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"CSV:\n{csv_snippet.strip()}\n\nJSON:"},
+    ]
+    return _run_chat(messages, temperature=0.0, max_new_tokens=384)
 
 
 @spaces.GPU(duration=60)
@@ -225,18 +316,67 @@ def detect_and_propose_with_status(csv_snippet: str) -> tuple[list[list[str]], s
     return rows, f"Experimental checkpoint returned {len(rows)} proposed fix row(s). Verify repairs with the CLI or playground API before trusting them."
 
 
-with gr.Blocks(title="DataForge 0.5B SFT") as demo:
+@spaces.GPU(duration=60)
+def generate(
+    messages_json: str,
+    temperature: float = 0.0,
+    max_new_tokens: float = 384,
+) -> str:
+    """Stable chat-completion endpoint driven by the DataForge agent loop.
+
+    Args:
+        messages_json: JSON array of `{"role", "content"}` chat messages (or a
+            bare string treated as a single user turn).
+        temperature: Sampling temperature; `<= 0` selects greedy decoding so the
+            agent's deterministic floor stays reproducible.
+        max_new_tokens: Requested generation cap, clamped to `MAX_NEW_TOKENS_CAP`.
+
+    Returns:
+        The assistant text completion with the chat scaffolding removed.
+
+    Raises:
+        gr.Error: If the payload is invalid or inference fails, so remote callers
+            observe a clear transport-level error and can degrade gracefully.
+    """
+    try:
+        messages = _coerce_messages(str(messages_json))
+    except ValueError as exc:
+        raise gr.Error(f"invalid messages payload: {exc}") from exc
+    capped = max(1, min(int(max_new_tokens), MAX_NEW_TOKENS_CAP))
+    try:
+        return _run_chat(messages, temperature=float(temperature), max_new_tokens=capped)
+    except Exception as exc:  # pragma: no cover - surfaced to the remote caller
+        raise gr.Error(f"inference failed: {exc}") from exc
+
+
+def health() -> str:
+    """Return a JSON capability descriptor for the remote policy (no GPU)."""
+    return json.dumps(
+        {
+            "status": "ok",
+            "model_id": MODEL_ID,
+            "max_new_tokens_cap": MAX_NEW_TOKENS_CAP,
+            "max_messages": MAX_MESSAGES,
+            "api": ["generate", "health"],
+        }
+    )
+
+
+with gr.Blocks(title="DataForge 0.5B") as demo:
     gr.Markdown(
         """
-# DataForge 0.5B SFT
+# DataForge 0.5B (GRPO)
 
-Experimental model demo for short CSV snippets. This Space shows what the warmup
-checkpoint proposes; it does not apply repairs, store data, or replace the
-verified DataForge workflow.
+Experimental model demo for short CSV snippets, serving the verified GRPO
+checkpoint. This Space shows what the checkpoint proposes and exposes a stable
+`generate` API for the DataForge playground agent; it does not apply repairs,
+store data, or replace the verified DataForge workflow.
 
 **Use the product path for evidence:** Profile -> Repair -> Verify -> Revert
-in the CLI or Cloudflare playground. This model surface is intentionally bounded
-to 50 rows, one queued inference at a time, and research-grade outputs.
+in the CLI or playground. Safety filtering and SMT verification run on the
+caller, not here. This model surface is intentionally bounded to 50 rows, one
+queued inference at a time, and research-grade outputs (GRPO correction F1 is
+low; treat proposals as unverified until the caller checks them).
 """
     )
     with gr.Row():
@@ -269,6 +409,34 @@ to 50 rows, one queued inference at a time, and research-grade outputs.
         show_progress="full",
         concurrency_limit=1,
     )
+
+    with gr.Accordion("Agent API (programmatic)", open=False):
+        gr.Markdown(
+            "These endpoints back the DataForge playground agent. `generate` "
+            "takes a JSON chat payload and returns the assistant text; `health` "
+            "reports the served model id and caps. They are stable API names; "
+            "the UI controls below are for manual inspection only."
+        )
+        messages_input = gr.Textbox(
+            label="messages (JSON)",
+            lines=6,
+            value='[{"role": "user", "content": "Return an empty JSON list: []"}]',
+        )
+        with gr.Row():
+            temperature_input = gr.Number(label="temperature", value=0.0)
+            max_new_tokens_input = gr.Number(label="max_new_tokens", value=384)
+        generate_button = gr.Button("generate")
+        generate_output = gr.Textbox(label="completion", lines=6)
+        generate_button.click(
+            generate,
+            inputs=[messages_input, temperature_input, max_new_tokens_input],
+            outputs=generate_output,
+            api_name="generate",
+            concurrency_limit=1,
+        )
+        health_button = gr.Button("health")
+        health_output = gr.Textbox(label="health", lines=3)
+        health_button.click(health, inputs=None, outputs=health_output, api_name="health")
 
 demo.queue(max_size=8, default_concurrency_limit=1)
 
