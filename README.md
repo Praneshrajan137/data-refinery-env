@@ -165,6 +165,28 @@ auto-apply on measured data. (The bench also runs on Bedrock and Groq via
 This is the design center, not an apology: a data-repair tool you can trust is
 one that tells you exactly what it will and will not touch, and proves it.
 
+### Bring your own model
+
+The LLM paths (the corrector and the `--agent` policy) are provider- and
+model-agnostic. Choose a provider with `DATAFORGE_LLM_PROVIDER` (`groq`,
+`gemini`, or `bedrock`) and its key, and choose the model with one environment
+variable per provider -- the single source of truth used everywhere (agent
+policy and repairers), not just the benchmark:
+
+```bash
+export DATAFORGE_LLM_PROVIDER=gemini
+export GEMINI_API_KEY=...
+export DATAFORGE_GEMINI_MODEL=gemini-3.1-flash-lite-preview   # or DATAFORGE_GROQ_MODEL / DATAFORGE_BEDROCK_MODEL
+dataforge repair data.csv --agent --dry-run
+```
+
+An explicit `--llm-model` (CLI) or `model=` (MCP `dataforge_agent_repair`)
+overrides the env var; when neither is set, the provider's default model is
+used. For a fully offline / self-hosted model, `--policy local` loads any
+Hugging Face causal-LM via `DATAFORGE_AGENT_MODEL`, and `register_policy()`
+lets you plug in a custom policy. Every path -- hosted, local, or custom --
+still passes the same safety constitution and SMT verifier.
+
 `dataforge15` remains a temporary staging compatibility alias, but public docs
 and release evidence must use `dataforge_07` for PyPI distribution identity and
 `dataforge` for the installed CLI/import identity.

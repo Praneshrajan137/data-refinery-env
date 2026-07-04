@@ -84,6 +84,41 @@ def get_provider_name() -> str:
     return "groq"
 
 
+# Environment overrides for the per-provider model, mirroring the bench runner
+# naming so a user can bring their own model with one variable.
+_PROVIDER_MODEL_ENV = {
+    "groq": "DATAFORGE_GROQ_MODEL",
+    "gemini": "DATAFORGE_GEMINI_MODEL",
+    "bedrock": "DATAFORGE_BEDROCK_MODEL",
+}
+
+
+def resolve_model(provider: str | None = None) -> str:
+    """Resolve the effective model id for a provider from env, else its default.
+
+    This is the single source of truth for "which model" when no explicit model
+    is passed: it lets a user set ``DATAFORGE_<PROVIDER>_MODEL`` and have it apply
+    everywhere in the product (agent policy and LLM repairers), not just the bench.
+
+    Args:
+        provider: Provider name; defaults to the active provider from the env.
+
+    Returns:
+        The model id from ``DATAFORGE_<PROVIDER>_MODEL`` if set, otherwise the
+        provider's built-in default (empty string for bedrock, which has no default).
+    """
+    name = (provider or get_provider_name()).strip().lower()
+    env_var = _PROVIDER_MODEL_ENV.get(name)
+    override = os.environ.get(env_var, "").strip() if env_var else ""
+    if override:
+        return override
+    if name == "gemini":
+        return _GEMINI_DEFAULT_MODEL
+    if name == "bedrock":
+        return ""
+    return _GROQ_DEFAULT_MODEL
+
+
 async def complete(
     messages: list[Message],
     *,
@@ -165,7 +200,7 @@ async def _complete_groq(
         raise ProviderError("groq", "GROQ_API_KEY environment variable not set")
 
     payload = {
-        "model": model or _GROQ_DEFAULT_MODEL,
+        "model": model or resolve_model("groq"),
         "messages": [dict(m) for m in messages],
         "temperature": temperature,
     }
@@ -225,7 +260,7 @@ async def _complete_gemini(
     if not api_key:
         raise ProviderError("gemini", "GEMINI_API_KEY environment variable not set")
 
-    model_name = model or _GEMINI_DEFAULT_MODEL
+    model_name = model or resolve_model("gemini")
     url = _GEMINI_URL_TEMPLATE.format(model=model_name)
 
     # Convert OpenAI-style messages to Gemini format.

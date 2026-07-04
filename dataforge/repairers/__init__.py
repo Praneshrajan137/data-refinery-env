@@ -38,7 +38,7 @@ def build_repairers(
     *,
     cache_dir: Path | None,
     allow_llm: bool,
-    model: str,
+    model: str | None = None,
 ) -> dict[str, Repairer]:
     """Construct the default repairer registry.
 
@@ -90,7 +90,7 @@ def propose_fixes(
     *,
     cache_dir: Path | None,
     allow_llm: bool = False,
-    model: str = "gemini-2.0-flash",
+    model: str | None = None,
 ) -> list[ProposedFix]:
     """Run all Week 2 repairers and return proposed fixes.
 

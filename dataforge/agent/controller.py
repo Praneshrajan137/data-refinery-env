@@ -220,7 +220,7 @@ def run_agent_repair(
         copy_table(df),
         schema,
         allow_llm=False,
-        model=request.model or "gemini-2.0-flash",
+        model=request.model,
         allow_pii=request.allow_pii,
         confirm_pii=request.confirm_pii,
         confirm_escalations=request.confirm_escalations,

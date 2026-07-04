@@ -17,6 +17,7 @@ from dataforge.agent.providers import (
     ProviderError,
     complete,
     get_provider_name,
+    resolve_model,
 )
 
 
@@ -44,6 +45,91 @@ class TestProviderDispatch:
         with patch.dict(os.environ, {}, clear=True):
             os.environ["AWS_BEARER_TOKEN_BEDROCK"] = "test-key"
             assert get_provider_name() == "bedrock"
+
+
+class TestModelResolution:
+    """resolve_model() and DATAFORGE_<PROVIDER>_MODEL env fallback (BYOM)."""
+
+    def test_resolve_model_reads_env_per_provider(self) -> None:
+        with patch.dict(os.environ, {"DATAFORGE_GROQ_MODEL": "groq-x"}, clear=True):
+            assert resolve_model("groq") == "groq-x"
+        with patch.dict(os.environ, {"DATAFORGE_GEMINI_MODEL": "gem-x"}, clear=True):
+            assert resolve_model("gemini") == "gem-x"
+
+    def test_resolve_model_falls_back_to_default(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert resolve_model("groq") == "llama-3.1-70b-versatile"
+            assert resolve_model("gemini") == "gemini-2.0-flash"
+            assert resolve_model("bedrock") == ""
+
+    def test_groq_complete_honors_env_model(self) -> None:
+        """complete() with no explicit model uses DATAFORGE_GROQ_MODEL."""
+        response = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "groq",
+                    "GROQ_API_KEY": "test-key",
+                    "DATAFORGE_GROQ_MODEL": "my-custom-groq",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}]))
+
+        assert mock_client.post.call_args.kwargs["json"]["model"] == "my-custom-groq"
+
+    def test_gemini_complete_honors_env_model(self) -> None:
+        """complete() with no explicit model uses DATAFORGE_GEMINI_MODEL in the URL."""
+        response = _make_mock_response({"candidates": [{"content": {"parts": [{"text": "ok"}]}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "gemini",
+                    "GEMINI_API_KEY": "test-key",
+                    "DATAFORGE_GEMINI_MODEL": "gemini-3.1-flash-lite-preview",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}]))
+
+        assert "gemini-3.1-flash-lite-preview" in mock_client.post.call_args[0][0]
+
+    def test_explicit_model_overrides_env(self) -> None:
+        """An explicitly passed model wins over the env var."""
+        response = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "groq",
+                    "GROQ_API_KEY": "test-key",
+                    "DATAFORGE_GROQ_MODEL": "env-model",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}], model="explicit-model"))
+
+        assert mock_client.post.call_args.kwargs["json"]["model"] == "explicit-model"
 
 
 class TestUnsupportedProviders:

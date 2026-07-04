@@ -69,6 +69,20 @@ async def complete(messages: list[Message], *, model: str, temperature: float) -
     return await provider_complete(messages, model=model, temperature=temperature)
 
 
+def _resolve_model() -> str:
+    """Resolve the effective model from the active provider's env/default.
+
+    Falls back to a stable default when the provider extra is unavailable so the
+    repairer can still be constructed in offline/test contexts.
+    """
+    try:
+        from dataforge.agent.providers import resolve_model
+    except ImportError:  # pragma: no cover - exercised only without extra
+        return "gemini-2.0-flash"
+    resolved = resolve_model()
+    return resolved or "gemini-2.0-flash"
+
+
 def _parse_value(raw: str) -> str:
     """Extract a single corrected value from a model response."""
     text = raw.strip()
@@ -94,14 +108,14 @@ class LLMCorrectorRepairer:
         *,
         cache_dir: Path | None,
         allow_llm: bool = False,
-        model: str = "gemini-2.0-flash",
+        model: str | None = None,
         samples: int = _DEFAULT_SAMPLES,
         temperature: float = _DEFAULT_TEMPERATURE,
         completion_fn: CompletionFn | None = None,
     ) -> None:
         self._cache_dir = cache_dir
         self._allow_llm = allow_llm
-        self._model = model
+        self._model = model or _resolve_model()
         self._samples = max(1, samples)
         self._temperature = temperature
         self._completion_fn = completion_fn

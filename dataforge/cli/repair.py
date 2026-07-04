@@ -87,7 +87,7 @@ def _propose_repairs(
     schema: Schema | None,
     *,
     allow_llm: bool,
-    model: str,
+    model: str | None,
     allow_pii: bool,
     confirm_pii: bool,
     confirm_escalations: bool,
@@ -216,7 +216,7 @@ def _run_agent_repair(
     policy: str,
     provider: str | None,
     max_steps: int,
-    model: str,
+    model: str | None,
     allow_pii: bool,
     confirm_pii: bool,
     confirm_escalations: bool,
@@ -323,9 +323,15 @@ def repair(
         ),
     ] = False,
     llm_model: Annotated[
-        str,
-        typer.Option("--llm-model", help="Model name for fd_violation LLM fallback."),
-    ] = "gemini-2.0-flash",
+        str | None,
+        typer.Option(
+            "--llm-model",
+            help=(
+                "LLM model id override. When omitted, uses "
+                "DATAFORGE_<PROVIDER>_MODEL (groq/gemini/bedrock) then the provider default."
+            ),
+        ),
+    ] = None,
     agent: Annotated[
         bool,
         typer.Option(
