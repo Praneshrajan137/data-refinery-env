@@ -47,6 +47,8 @@ from dataforge import (
     run_all_detectors,
     run_repair_pipeline,
 )
+from dataforge.agent import AgentRepairRequest, run_agent_repair
+from dataforge.agent.policy import PolicyUnavailableError
 from dataforge.http.problem import problem_exception_handler, problem_response
 from dataforge.observability import configure_fastapi_observability
 from dataforge.schema_inference import (
@@ -161,12 +163,15 @@ MAX_UPLOAD_ROWS = _positive_int_env("DATAFORGE_PLAYGROUND_MAX_ROWS", 10_000)
 MAX_UPLOAD_COLUMNS = _positive_int_env("DATAFORGE_PLAYGROUND_MAX_COLUMNS", 128)
 MAX_UPLOAD_CELLS = _positive_int_env("DATAFORGE_PLAYGROUND_MAX_CELLS", 200_000)
 REQUEST_TIMEOUT_SECONDS = _positive_int_env("DATAFORGE_PLAYGROUND_TIMEOUT_SECONDS", 20)
+AGENT_REQUEST_TIMEOUT_SECONDS = _positive_int_env("DATAFORGE_PLAYGROUND_AGENT_TIMEOUT_SECONDS", 120)
+PLAYGROUND_AGENT_MAX_STEPS = _positive_int_env("DATAFORGE_PLAYGROUND_AGENT_MAX_STEPS", 8)
 ISSUE_ROW_DISPLAY_LIMIT = _positive_int_env("DATAFORGE_PLAYGROUND_ISSUE_ROW_DISPLAY_LIMIT", 50)
 SAMPLES_DIR = Path(__file__).resolve().parent / "samples"
 SLOWAPI_CONFIG = Path(__file__).resolve().parent / "slowapi.env"
 ALLOWED_SAMPLES = {"hospital_10rows", "flights_10rows", "beers_10rows"}
 ACCEPTED_UPLOAD_TYPES = {"", "text/csv", "text/plain", "application/vnd.ms-excel"}
 OTEL_ENABLED_VALUES = {"1", "true", "yes", "on"}
+PLAYGROUND_REPAIR_MODES = {"deterministic", "agent"}
 
 
 RiskLevel = Literal["none", "low", "medium", "high"]
@@ -244,6 +249,8 @@ class HealthResponse(BaseModel):
     service: str
     status: Literal["ok"]
     advanced_available: bool
+    agent_available: bool
+    agent_max_steps: int
     max_upload_bytes: int
     streaming_available: bool
     workflow_contract_version: Literal["workflow_event_v1"]
@@ -476,6 +483,36 @@ class RepairResponse(BaseModel):
     failures: list[RepairFailureView] = Field(default_factory=list)
 
 
+class AgentTraceStepView(BaseModel):
+    """One step of the verified agent's audit trace, safe for the browser."""
+
+    step: int
+    action_type: str
+    accepted: bool | None = None
+    detail: str
+
+
+class AgentSummaryView(BaseModel):
+    """Verified-agent run summary attached to an analysis in agent mode.
+
+    The agent is a remote fine-tuned 0.5B model driving the same deterministic
+    floor plus safety constitution and SMT verifier as the default path. It
+    never applies data; ``agent_fixes`` are the residual fixes the model
+    proposed beyond the deterministic floor, each independently verified.
+    """
+
+    policy_name: str
+    steps_used: int
+    max_steps: int
+    floor_fix_count: int
+    agent_fix_count: int
+    residual_count: int
+    reason: str
+    agent_txn_id: str | None = None
+    agent_fixes: list[VerifiedFixView] = Field(default_factory=list)
+    trace: list[AgentTraceStepView] = Field(default_factory=list)
+
+
 class AnalyzeResponse(BaseModel):
     """Primary Playground proof-loop response."""
 
@@ -489,6 +526,7 @@ class AnalyzeResponse(BaseModel):
     receipt: RepairReceiptView
     apply_handoff: ApplyHandoff
     limitations: list[str]
+    agent: AgentSummaryView | None = None
     meta: ResponseMeta
 
 
@@ -769,6 +807,16 @@ else:
 def _advanced_available() -> bool:
     """Return whether at least one backend LLM provider is configured."""
     return bool(os.environ.get("GROQ_API_KEY") or os.environ.get("GEMINI_API_KEY"))
+
+
+def _agent_available() -> bool:
+    """Return whether the remote trained-model agent backend is configured.
+
+    Agent mode drives a hosted model Space over HTTP; when its URL is unset the
+    playground degrades gracefully by not offering the mode (it never errors on
+    the default path).
+    """
+    return bool(os.environ.get("DATAFORGE_REMOTE_MODEL_URL", "").strip())
 
 
 def _build_cors_origins() -> list[str]:
@@ -1354,23 +1402,150 @@ def _analyze_upload(
     )
 
 
+def _agent_analyze_upload(
+    *,
+    upload_name: str,
+    source_bytes: bytes,
+    accepted_constraint_ids: list[str],
+) -> AnalyzeResponse:
+    """Run the verified multi-step agent over the remote trained model.
+
+    The deterministic proof-loop response is produced first (it supplies the
+    verified schema, detectors, safety/SMT receipt, and dry-run journal shown in
+    the cockpit). The real :func:`run_agent_repair` loop then runs against the
+    remote model policy; its residual, individually verified fixes and full
+    audit trace are attached as an :class:`AgentSummaryView`. Nothing is applied.
+    """
+    base = _analyze_upload(
+        upload_name=upload_name,
+        source_bytes=source_bytes,
+        accepted_constraint_ids=accepted_constraint_ids,
+        allow_llm=False,
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        upload_path = Path(tmpdir) / upload_name
+        upload_path.write_bytes(source_bytes)
+        try:
+            result = run_agent_repair(
+                AgentRepairRequest(
+                    source_path=upload_path,
+                    mode="dry_run",
+                    policy="remote",
+                    max_steps=PLAYGROUND_AGENT_MAX_STEPS,
+                )
+            )
+        except PolicyUnavailableError as exc:
+            raise _upload_problem(
+                status_code=400,
+                error="agent_mode_unavailable",
+                message=(
+                    "Agent mode requires a configured remote model "
+                    "(set DATAFORGE_REMOTE_MODEL_URL)."
+                ),
+            ) from exc
+
+    agent_only_fixes = [fix for fix in result.fixes if fix.provenance != "deterministic"]
+    base.agent = AgentSummaryView(
+        policy_name=result.policy_name,
+        steps_used=result.steps_used,
+        max_steps=result.max_steps,
+        floor_fix_count=result.floor_fix_count,
+        agent_fix_count=result.agent_fix_count,
+        residual_count=result.residual_count,
+        reason=result.reason,
+        agent_txn_id=result.txn_id,
+        agent_fixes=_fix_views(agent_only_fixes),
+        trace=[
+            AgentTraceStepView(
+                step=record.step,
+                action_type=record.action_type,
+                accepted=record.accepted,
+                detail=record.detail,
+            )
+            for record in result.trace
+        ],
+    )
+    base.limitations = [
+        *base.limitations,
+        "Agent proposals come from a remote fine-tuned 0.5B model (GRPO F1 is low); "
+        "each proposed fix is still safety- and SMT-verified before display, and "
+        "nothing is applied.",
+    ]
+    return base
+
+
+def _normalize_repair_mode(raw: str | None) -> str:
+    """Validate the requested repair mode and enforce agent availability."""
+    mode = (raw or "deterministic").strip().lower()
+    if mode not in PLAYGROUND_REPAIR_MODES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "invalid_repair_mode",
+                "allowed": sorted(PLAYGROUND_REPAIR_MODES),
+            },
+        )
+    if mode == "agent" and not _agent_available():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "agent_mode_unavailable",
+                "message": (
+                    "Agent mode requires a configured remote model "
+                    "(set DATAFORGE_REMOTE_MODEL_URL)."
+                ),
+            },
+        )
+    return mode
+
+
+def _build_analysis(
+    *,
+    upload_name: str,
+    source_bytes: bytes,
+    accepted_constraint_ids: list[str],
+    advanced_requested: bool,
+    repair_mode: str,
+) -> AnalyzeResponse:
+    """Dispatch to the deterministic or verified-agent analysis path."""
+    if repair_mode == "agent":
+        return _agent_analyze_upload(
+            upload_name=upload_name,
+            source_bytes=source_bytes,
+            accepted_constraint_ids=accepted_constraint_ids,
+        )
+    return _analyze_upload(
+        upload_name=upload_name,
+        source_bytes=source_bytes,
+        accepted_constraint_ids=accepted_constraint_ids,
+        allow_llm=advanced_requested,
+    )
+
+
 _ResultT = TypeVar("_ResultT")
 
 
-async def _run_with_timeout(label: str, func: Callable[[], _ResultT]) -> _ResultT:
+async def _run_with_timeout(
+    label: str,
+    func: Callable[[], _ResultT],
+    *,
+    timeout_seconds: int | None = None,
+) -> _ResultT:
     """Run a blocking pipeline step with a public timeout failure mode."""
+    effective_timeout = REQUEST_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(func),
-            timeout=float(REQUEST_TIMEOUT_SECONDS),
+            timeout=float(effective_timeout),
         )
     except TimeoutError as exc:
-        logger.warning("%s timed out after %s seconds", label, REQUEST_TIMEOUT_SECONDS)
+        logger.warning("%s timed out after %s seconds", label, effective_timeout)
         raise _upload_problem(
             status_code=504,
             error="request_timeout",
             message="The playground backend timed out before completing the request.",
-            timeout_seconds=REQUEST_TIMEOUT_SECONDS,
+            timeout_seconds=effective_timeout,
         ) from exc
 
 
@@ -1449,6 +1624,16 @@ def _completed_workflow_events(run_id: str, analysis: AnalyzeResponse) -> list[W
     safety_failed = analysis.receipt.safety_verdict not in {"allow", "accept", "accepted"}
     verifier_failed = analysis.receipt.verifier_verdict in {"reject", "unknown"}
     transaction_ready = bool(analysis.txn_journal.txn_id) and analysis.txn_journal.applied is False
+    receipt_counts: dict[str, int | float | str | bool] = {
+        "issues": analysis.receipt.issues_count,
+        "fixes": analysis.receipt.fixes_count,
+        "limitations": len(analysis.limitations),
+    }
+    if analysis.agent is not None:
+        receipt_counts["agent_fixes"] = analysis.agent.agent_fix_count
+        receipt_counts["floor_fixes"] = analysis.agent.floor_fix_count
+        receipt_counts["agent_steps_used"] = analysis.agent.steps_used
+        receipt_counts["agent_residual"] = analysis.agent.residual_count
     events: list[WorkflowEvent] = [
         _workflow_event(
             run_id=run_id,
@@ -1563,11 +1748,7 @@ def _completed_workflow_events(run_id: str, analysis: AnalyzeResponse) -> list[W
             status="completed",
             summary=analysis.receipt.reason,
             completed_at=now,
-            counts={
-                "issues": analysis.receipt.issues_count,
-                "fixes": analysis.receipt.fixes_count,
-                "limitations": len(analysis.limitations),
-            },
+            counts=receipt_counts,
             requires_human=(
                 pending_supported > 0
                 or len(analysis.verification.failures) > 0
@@ -1668,6 +1849,8 @@ async def health() -> HealthResponse:
         service="DataForge Playground API",
         status="ok",
         advanced_available=_advanced_available(),
+        agent_available=_agent_available(),
+        agent_max_steps=PLAYGROUND_AGENT_MAX_STEPS,
         max_upload_bytes=MAX_UPLOAD_BYTES,
         streaming_available=True,
         workflow_contract_version=WORKFLOW_CONTRACT_VERSION,
@@ -1714,30 +1897,36 @@ async def analyze(
     request: Request,
     file: UploadFile,
     accepted_constraint_ids: str | None = Form(default=None),
+    repair_mode: str = Form(default="deterministic"),
 ) -> AnalyzeResponse:
     """Analyze an uploaded CSV through profile, constraint review, and dry-run repair."""
     advanced_requested = request.query_params.get("advanced", "false").lower() == "true"
     _require_advanced_mode(advanced_requested)
+    mode = _normalize_repair_mode(repair_mode)
 
     source_bytes = await _read_upload(file)
     upload_name = Path(file.filename or "upload.csv").name
     logger.info(
-        "Analyze request: filename=%s bytes=%d advanced=%s",
+        "Analyze request: filename=%s bytes=%d advanced=%s mode=%s",
         upload_name,
         len(source_bytes),
         advanced_requested,
+        mode,
     )
     accepted_ids = _parse_accepted_constraint_ids(accepted_constraint_ids)
+    timeout_seconds = AGENT_REQUEST_TIMEOUT_SECONDS if mode == "agent" else REQUEST_TIMEOUT_SECONDS
 
     try:
         return await _run_with_timeout(
             "analyze",
-            lambda: _analyze_upload(
+            lambda: _build_analysis(
                 upload_name=upload_name,
                 source_bytes=source_bytes,
                 accepted_constraint_ids=accepted_ids,
-                allow_llm=advanced_requested,
+                advanced_requested=advanced_requested,
+                repair_mode=mode,
             ),
+            timeout_seconds=timeout_seconds,
         )
     except HTTPException:
         raise
@@ -1758,13 +1947,16 @@ async def analyze_stream(
     request: Request,
     file: UploadFile,
     accepted_constraint_ids: str | None = Form(default=None),
+    repair_mode: str = Form(default="deterministic"),
 ) -> StreamingResponse:
     """Stream the analyze proof loop as NDJSON workflow events."""
     advanced_requested = request.query_params.get("advanced", "false").lower() == "true"
+    mode = _normalize_repair_mode(repair_mode)
     source_bytes = await _read_upload(file)
     upload_name = Path(file.filename or "upload.csv").name
     accepted_ids = _parse_accepted_constraint_ids(accepted_constraint_ids)
     run_id = uuid.uuid4().hex
+    timeout_seconds = AGENT_REQUEST_TIMEOUT_SECONDS if mode == "agent" else REQUEST_TIMEOUT_SECONDS
 
     async def event_stream() -> AsyncIterator[str]:
         started_at = _utc_now_text()
@@ -1776,7 +1968,11 @@ async def analyze_stream(
                 status="running",
                 summary="Reading CSV upload and establishing the dry-run boundary.",
                 started_at=started_at,
-                counts={"bytes": len(source_bytes), "advanced": advanced_requested},
+                counts={
+                    "bytes": len(source_bytes),
+                    "advanced": advanced_requested,
+                    "repair_mode": mode,
+                },
             )
         )
         await asyncio.sleep(0)
@@ -1791,7 +1987,7 @@ async def analyze_stream(
                     summary=f"Accepted {upload_name} for stateless dry-run analysis.",
                     started_at=started_at,
                     completed_at=_utc_now_text(),
-                    counts={"bytes": len(source_bytes)},
+                    counts={"bytes": len(source_bytes), "repair_mode": mode},
                 )
             )
             yield _event_line(
@@ -1807,12 +2003,14 @@ async def analyze_stream(
             await asyncio.sleep(0)
             analysis = await _run_with_timeout(
                 "analyze_stream",
-                lambda: _analyze_upload(
+                lambda: _build_analysis(
                     upload_name=upload_name,
                     source_bytes=source_bytes,
                     accepted_constraint_ids=accepted_ids,
-                    allow_llm=advanced_requested,
+                    advanced_requested=advanced_requested,
+                    repair_mode=mode,
                 ),
+                timeout_seconds=timeout_seconds,
             )
             for event in _completed_workflow_events(run_id, analysis):
                 yield _event_line(event)
