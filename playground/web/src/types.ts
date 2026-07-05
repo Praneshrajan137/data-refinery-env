@@ -2,10 +2,13 @@ export type Severity = "safe" | "review" | "unsafe";
 export type RiskLevel = "none" | "low" | "medium" | "high";
 export type RepairReadiness = "no_action" | "verified" | "partial" | "blocked";
 export type ConstraintDecision = "pending" | "accepted" | "rejected";
+export type RepairMode = "deterministic" | "agent";
 
 export interface BackendCapability {
   status: "ok";
   advanced_available: boolean;
+  agent_available?: boolean;
+  agent_max_steps?: number;
   max_upload_bytes: number;
   streaming_available?: boolean;
   workflow_contract_version?: "workflow_event_v1";
@@ -244,10 +247,31 @@ export interface AnalyzeResponse {
   receipt: RepairReceipt;
   apply_handoff: ApplyHandoff;
   limitations: string[];
+  agent?: AgentSummary | null;
   meta: {
     api_version: string;
     contract_version: string;
   };
+}
+
+export interface AgentTraceStep {
+  step: number;
+  action_type: string;
+  accepted?: boolean | null;
+  detail: string;
+}
+
+export interface AgentSummary {
+  policy_name: string;
+  steps_used: number;
+  max_steps: number;
+  floor_fix_count: number;
+  agent_fix_count: number;
+  residual_count: number;
+  reason: string;
+  agent_txn_id?: string | null;
+  agent_fixes: VerifiedFix[];
+  trace: AgentTraceStep[];
 }
 
 export interface ProblemDetail {

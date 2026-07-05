@@ -5,6 +5,7 @@ import type {
   BackendCapability,
   ProblemDetail,
   ProfileResponse,
+  RepairMode,
   RepairResponse,
   WorkflowEvent,
 } from "./types";
@@ -59,12 +60,16 @@ export class DataForgeClient {
     file: File,
     advanced: boolean,
     acceptedConstraintIds: string[] = [],
+    repairMode: RepairMode = "deterministic",
   ): Promise<AnalyzeResponse> {
     const params = advanced ? "?advanced=true" : "";
     const formData = new FormData();
     formData.append("file", file);
     if (acceptedConstraintIds.length > 0) {
       formData.append("accepted_constraint_ids", JSON.stringify(acceptedConstraintIds));
+    }
+    if (repairMode !== "deterministic") {
+      formData.append("repair_mode", repairMode);
     }
     return this.requestJson<AnalyzeResponse>(`/api/analyze${params}`, {
       method: "POST",
@@ -77,12 +82,16 @@ export class DataForgeClient {
     advanced: boolean,
     acceptedConstraintIds: string[] = [],
     options: AnalyzeStreamOptions,
+    repairMode: RepairMode = "deterministic",
   ): Promise<AnalyzeResponse> {
     const params = advanced ? "?advanced=true" : "";
     const formData = new FormData();
     formData.append("file", file);
     if (acceptedConstraintIds.length > 0) {
       formData.append("accepted_constraint_ids", JSON.stringify(acceptedConstraintIds));
+    }
+    if (repairMode !== "deterministic") {
+      formData.append("repair_mode", repairMode);
     }
 
     const response = await fetch(backendPath(this.backendUrl, `/api/analyze/stream${params}`), {

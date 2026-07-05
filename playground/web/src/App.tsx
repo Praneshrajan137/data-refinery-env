@@ -69,6 +69,7 @@ import {
   type ProductRouteId,
 } from "./routes";
 import type {
+  AgentSummary,
   AnalyzeResponse,
   BackendCapability,
   CandidateRepair,
@@ -78,6 +79,7 @@ import type {
   IssueGroup,
   ProblemDetail,
   RepairFailure,
+  RepairMode,
   RepairReadiness,
   RiskLevel,
   Severity,
@@ -115,6 +117,7 @@ function App() {
   const [datasetState, setDatasetState] = useState<WorkState>("idle");
   const [dataset, setDataset] = useState<DatasetInput | null>(null);
   const [advanced, setAdvanced] = useState(false);
+  const [repairMode, setRepairMode] = useState<RepairMode>("deterministic");
   const [route, setRoute] = useState<ProductRoute>(() => routeFromPathname(window.location.pathname));
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [analysisState, setAnalysisState] = useState<WorkState>("idle");
@@ -169,6 +172,9 @@ function App() {
           if (!cancelled) {
             setCapability(health);
             setAdvanced((current) => current && health.advanced_available);
+            setRepairMode((current) =>
+              current === "agent" && !health.agent_available ? "deterministic" : current,
+            );
             setBackendState("ready");
           }
           return;
@@ -270,11 +276,17 @@ function App() {
 
     try {
       const nextAnalysis = streamingEnabled
-        ? await client.analyzeStream(dataset.file, advanced, ids, {
-            signal: controller.signal,
-            onEvent: (event: WorkflowEvent) => dispatchWorkflow({ type: "event", event }),
-          })
-        : await client.analyze(dataset.file, advanced, ids);
+        ? await client.analyzeStream(
+            dataset.file,
+            advanced,
+            ids,
+            {
+              signal: controller.signal,
+              onEvent: (event: WorkflowEvent) => dispatchWorkflow({ type: "event", event }),
+            },
+            repairMode,
+          )
+        : await client.analyze(dataset.file, advanced, ids, repairMode);
 
       if (!streamingEnabled) {
         dispatchWorkflow({ type: "analysis", analysis: nextAnalysis });
@@ -300,6 +312,10 @@ function App() {
       if (nextProblem.error === "advanced_mode_unavailable") {
         setAdvanced(false);
         setCapability((current) => (current ? { ...current, advanced_available: false } : current));
+      }
+      if (nextProblem.error === "agent_mode_unavailable") {
+        setRepairMode("deterministic");
+        setCapability((current) => (current ? { ...current, agent_available: false } : current));
       }
     } finally {
       if (abortControllerRef.current === controller) {
@@ -367,6 +383,7 @@ function App() {
                 maxUploadBytes={maxUploadBytes}
                 capability={capability}
                 advanced={advanced}
+                repairMode={repairMode}
                 backendState={backendState}
                 streamingEnabled={streamingEnabled}
                 acceptedConstraintIds={acceptedConstraintIds}
@@ -380,6 +397,7 @@ function App() {
                 primaryMoment={primaryMoment}
                 observatory={observatory}
                 onAdvancedChange={setAdvanced}
+                onRepairModeChange={setRepairMode}
                 onChooseSample={chooseSample}
                 onFileChange={handleFileChange}
                 onAnalyze={() => void runAnalyze([])}
@@ -556,6 +574,7 @@ function RunPage({
   maxUploadBytes,
   capability,
   advanced,
+  repairMode,
   backendState,
   streamingEnabled,
   acceptedConstraintIds,
@@ -569,6 +588,7 @@ function RunPage({
   primaryMoment,
   observatory,
   onAdvancedChange,
+  onRepairModeChange,
   onChooseSample,
   onFileChange,
   onAnalyze,
@@ -586,6 +606,7 @@ function RunPage({
   maxUploadBytes: number;
   capability: BackendCapability | null;
   advanced: boolean;
+  repairMode: RepairMode;
   backendState: WorkState;
   streamingEnabled: boolean;
   acceptedConstraintIds: string[];
@@ -599,6 +620,7 @@ function RunPage({
   primaryMoment: PrimaryRepairMoment | null;
   observatory: ReturnType<typeof buildObservatoryView>;
   onAdvancedChange: (next: boolean) => void;
+  onRepairModeChange: (next: RepairMode) => void;
   onChooseSample: (sampleName: string) => void | Promise<void>;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onAnalyze: () => void;
@@ -619,6 +641,7 @@ function RunPage({
         maxUploadBytes={maxUploadBytes}
         capability={capability}
         advanced={advanced}
+        repairMode={repairMode}
         backendState={backendState}
         streamingEnabled={streamingEnabled}
         acceptedConstraintIds={acceptedConstraintIds}
@@ -627,6 +650,7 @@ function RunPage({
         copyState={copyState}
         fileInputRef={fileInputRef}
         onAdvancedChange={onAdvancedChange}
+        onRepairModeChange={onRepairModeChange}
         onChooseSample={onChooseSample}
         onFileChange={onFileChange}
         onAnalyze={onAnalyze}
@@ -639,6 +663,7 @@ function RunPage({
       <ProductLoopRail dataset={dataset} analysis={latestAnalysis} primaryMoment={primaryMoment} />
       {copyState === "failed" && evidenceText ? <CopyFallback evidenceText={evidenceText} /> : null}
       {problem ? <ProblemBanner problem={problem} /> : null}
+      {latestAnalysis?.agent ? <AgentSummaryPanel agent={latestAnalysis.agent} /> : null}
       <ProductLoopWorkbench
         dataset={dataset}
         analysis={latestAnalysis}
@@ -935,6 +960,7 @@ function MissionBar({
   maxUploadBytes,
   capability,
   advanced,
+  repairMode,
   backendState,
   streamingEnabled,
   acceptedConstraintIds,
@@ -943,6 +969,7 @@ function MissionBar({
   copyState,
   fileInputRef,
   onAdvancedChange,
+  onRepairModeChange,
   onChooseSample,
   onFileChange,
   onAnalyze,
@@ -958,6 +985,7 @@ function MissionBar({
   maxUploadBytes: number;
   capability: BackendCapability | null;
   advanced: boolean;
+  repairMode: RepairMode;
   backendState: WorkState;
   streamingEnabled: boolean;
   acceptedConstraintIds: string[];
@@ -966,6 +994,7 @@ function MissionBar({
   copyState: "idle" | "copied" | "failed";
   fileInputRef: RefObject<HTMLInputElement | null>;
   onAdvancedChange: (next: boolean) => void;
+  onRepairModeChange: (next: RepairMode) => void;
   onChooseSample: (sampleName: string) => void | Promise<void>;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onAnalyze: () => void;
@@ -1014,6 +1043,27 @@ function MissionBar({
             checked={advanced}
             disabled={busy || !capability?.advanced_available}
             onChange={(event) => onAdvancedChange(event.target.checked)}
+          />
+        </label>
+
+        <label className="switch-row" htmlFor="agent-mode">
+          <span>
+            <strong>Agent</strong>
+            <small>
+              {capability?.agent_available
+                ? "Trained model, verified (dry run)"
+                : "Unavailable"}
+            </small>
+          </span>
+          <input
+            id="agent-mode"
+            type="checkbox"
+            role="switch"
+            checked={repairMode === "agent"}
+            disabled={busy || !capability?.agent_available}
+            onChange={(event) =>
+              onRepairModeChange(event.target.checked ? "agent" : "deterministic")
+            }
           />
         </label>
 
@@ -2667,6 +2717,88 @@ function SeverityBadge({ severity }: { severity: Severity }) {
 function ConfidenceBadge({ value }: { value: number }) {
   const bucket = value >= 0.85 ? "high" : value >= 0.65 ? "medium" : "low";
   return <span className={`confidence confidence--${bucket}`}>{formatPercent(value)}</span>;
+}
+
+function agentTraceMotion(step: { action_type: string; accepted?: boolean | null }): string {
+  const action = step.action_type.toUpperCase();
+  if (action === "FIX") {
+    return step.accepted === false ? "uncertain" : "confident";
+  }
+  if (["FINALIZE", "DONE", "STOP", "FINISH", "COMPLETE"].includes(action)) {
+    return "completed";
+  }
+  if (["INSPECT_ROWS", "PATTERN_MATCH", "STAT_TEST", "HYPOTHESIS"].includes(action)) {
+    return "thinking";
+  }
+  return "acting";
+}
+
+function AgentSummaryPanel({ agent }: { agent: AgentSummary }) {
+  return (
+    <motion.section
+      className="agent-summary"
+      aria-label="Verified agent run"
+      data-agent-motion="delegated"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={motionSprings.snap}
+    >
+      <header className="agent-summary__head">
+        <div>
+          <p className="eyebrow">Verified agent</p>
+          <h3>{agent.policy_name}</h3>
+        </div>
+        <div className="agent-summary__metrics" role="group" aria-label="Agent run metrics">
+          <Metric label="Steps" value={`${agent.steps_used}/${agent.max_steps}`} />
+          <Metric label="Floor fixes" value={String(agent.floor_fix_count)} />
+          <Metric label="Agent fixes" value={String(agent.agent_fix_count)} />
+          <Metric label="Residual" value={String(agent.residual_count)} />
+        </div>
+      </header>
+      <p className="agent-summary__reason">{agent.reason}</p>
+      <p className="agent-summary__note">
+        Agent proposals come from a remote fine-tuned 0.5B model and are each safety- and
+        SMT-verified before display. Nothing is applied; this is a dry run.
+      </p>
+
+      {agent.trace.length > 0 ? (
+        <ol className="agent-trace" aria-label="Agent action trace">
+          {agent.trace.map((step) => (
+            <li
+              key={step.step}
+              className="agent-trace__step"
+              data-agent-motion={agentTraceMotion(step)}
+            >
+              <span className="agent-trace__index">{step.step}</span>
+              <span className="agent-trace__action">{step.action_type}</span>
+              {step.accepted === true ? <span className="agent-trace__verdict agent-trace__verdict--ok">verified</span> : null}
+              {step.accepted === false ? <span className="agent-trace__verdict agent-trace__verdict--rejected">rejected</span> : null}
+              <span className="agent-trace__detail">{step.detail}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {agent.agent_fixes.length > 0 ? (
+        <div className="agent-summary__fixes">
+          <h4>Agent-proposed verified fixes</h4>
+          <ul>
+            {agent.agent_fixes.map((fix) => (
+              <li key={`${fix.row}:${fix.column}`}>
+                <span className="agent-fix__cell">
+                  row {fix.row} · {fix.column}
+                </span>
+                <span className="agent-fix__change">
+                  {fix.old_value || "∅"} → {fix.new_value}
+                </span>
+                <span className="agent-fix__provenance">{fix.provenance}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </motion.section>
+  );
 }
 
 function ProblemBanner({ problem }: { problem: ProblemDetail }) {

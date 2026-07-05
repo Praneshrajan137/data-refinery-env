@@ -41,6 +41,8 @@ def test_frontend_stays_storage_free_and_capability_aware() -> None:
     )
     assert "normalizeBackendUrl" in body
     assert "advanced_available" in body
+    assert "agent_available" in body
+    assert "repair_mode" in body
     assert "streaming_available" in body
     assert "workflow_event_v1" in body
     assert "analyzeStream" in body
