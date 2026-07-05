@@ -55,6 +55,21 @@
     },
     {
       "blockers": [],
+      "claim": "The playground can run the real verified agent loop against the remote trained model in dry-run mode, gated on availability, with each proposed fix safety- and SMT-verified before it is shown.",
+      "claim_policy": "May be cited as a hosted, dry-run, availability-gated agent surface over research-grade model evidence; not a model-quality claim (GRPO F1 is low) and not an autonomous or persistent apply claim.",
+      "evidence_paths": [
+        "tests/integration/test_playground_smoke.py",
+        "tests/unit/test_agent_remote_backend.py",
+        "tests/unit/test_agent_policy.py",
+        "docs/evidence/models/DataForge-0.5B-GRPO.verification.json"
+      ],
+      "id": "playground_trained_model_agent_beta",
+      "public_claim_allowed": true,
+      "status": "beta",
+      "surface": "playground"
+    },
+    {
+      "blockers": [],
       "claim": "DataForge-0.5B-SFT has public verifier evidence as a smoke/research checkpoint.",
       "claim_policy": "May be cited as public SFT verifier evidence, not as production model quality.",
       "evidence_paths": [
@@ -200,5 +215,5 @@
   ],
   "north_star": "DataForge is a verified, reversible data-repair pipeline; models may propose repairs only when evidence shows they improve quality without bypassing safety.",
   "schema_version": "dataforge_evidence_ledger_v1",
-  "updated_at_utc": "2026-06-26T00:00:00Z"
+  "updated_at_utc": "2026-07-05T00:00:00Z"
 }

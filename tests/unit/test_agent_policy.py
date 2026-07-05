@@ -132,13 +132,14 @@ class TestBackendSelection:
 
     def test_available_policies_lists_builtins(self) -> None:
         kinds = available_policies()
-        assert {"hosted", "local", "deterministic"}.issubset(set(kinds))
+        assert {"hosted", "local", "remote", "deterministic"}.issubset(set(kinds))
 
     def test_hosted_without_key_fails_fast(self, monkeypatch) -> None:  # noqa: ANN001
         import pytest
 
         monkeypatch.delenv("GROQ_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
         monkeypatch.delenv("DATAFORGE_LLM_PROVIDER", raising=False)
         with pytest.raises(PolicyUnavailableError, match="No API key"):
             make_policy("hosted")
@@ -167,6 +168,19 @@ class TestBackendSelection:
         monkeypatch.setattr("dataforge.agent.backends.local.build_local_completion", _boom)
         with pytest.raises(PolicyUnavailableError, match="Local model backend"):
             make_policy("local")
+
+    def test_remote_without_url_fails_fast(self, monkeypatch) -> None:  # noqa: ANN001
+        import pytest
+
+        monkeypatch.delenv("DATAFORGE_REMOTE_MODEL_URL", raising=False)
+        with pytest.raises(PolicyUnavailableError, match="Remote model backend"):
+            make_policy("remote")
+
+    def test_remote_with_url_builds_llm_policy(self, monkeypatch) -> None:  # noqa: ANN001
+        monkeypatch.setenv("DATAFORGE_REMOTE_MODEL_URL", "https://example.hf.space")
+        policy = make_policy("remote")
+        assert isinstance(policy, LLMPolicy)
+        assert policy.name == "remote"
 
     def test_custom_registry_resolves(self) -> None:
         register_policy("unit_script", lambda **_kwargs: DeterministicPolicy())

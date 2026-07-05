@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import cast
+from typing import Protocol, cast
 
 import httpx
 
@@ -17,6 +17,15 @@ class ProviderRequestError(RuntimeError):
 
 class ProviderRateLimitError(ProviderRequestError):
     """Raised when a provider asks us to wait longer than the configured cap."""
+
+
+class CostCapExceededError(RuntimeError):
+    """Raised when cumulative estimated spend crosses the configured USD cap.
+
+    This is a hard stop: once raised, no further billable calls are made. The
+    estimate uses conservative (high) per-token prices so the guard trips early
+    rather than late.
+    """
 
 
 def _is_rate_limit_error(exc: BaseException) -> bool:
@@ -48,6 +57,24 @@ class GroqCompletion:
     prompt_tokens: int
     completion_tokens: int
     warnings: tuple[str, ...]
+
+
+class BenchLLMClient(Protocol):
+    """Structural interface shared by all benchmark LLM clients."""
+
+    @property
+    def model(self) -> str:
+        """Return the configured provider model name."""
+        ...
+
+    @property
+    def provider(self) -> str:
+        """Return the provider identifier."""
+        ...
+
+    def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
+        """Send one benchmark completion request to the provider."""
+        ...
 
 
 class OpenAICompatBenchClient:
@@ -251,6 +278,7 @@ class GeminiBenchClient:
         max_retries: int = 5,
         max_retry_after_s: float = 120.0,
         timeout_s: float = 60.0,
+        temperature: float = 0.0,
     ) -> None:
         self._api_key = api_key
         self._model = model.removeprefix("models/")
@@ -259,6 +287,7 @@ class GeminiBenchClient:
         self._max_retries = max_retries
         self._max_retry_after_s = max_retry_after_s
         self._timeout_s = timeout_s
+        self._temperature = temperature
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -300,7 +329,7 @@ class GeminiBenchClient:
         payload: dict[str, object] = {
             "contents": contents,
             "generationConfig": {
-                "temperature": 0.0,
+                "temperature": self._temperature,
                 "maxOutputTokens": self._max_tokens,
             },
         }
@@ -378,6 +407,184 @@ class GeminiBenchClient:
             text = "".join(str(part.get("text", "")) for part in parts)
         except (KeyError, IndexError, TypeError) as exc:
             raise ValueError(f"Unexpected gemini response payload: {json.dumps(payload)}") from exc
+        return GroqCompletion(
+            text=text,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            warnings=tuple(warnings),
+        )
+
+
+class BedrockBenchClient:
+    """Sequential Amazon Bedrock client adapted to the benchmark interface.
+
+    Uses the bearer-token Converse API (not SigV4, not OpenAI-compatible):
+    the system prompt is a top-level field, message content is a list of
+    typed blocks, and inference parameters live under ``inferenceConfig``.
+    """
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        region: str = "us-east-1",
+        min_interval_s: float = 2.0,
+        max_tokens: int = 512,
+        max_retries: int = 5,
+        max_retry_after_s: float = 120.0,
+        timeout_s: float = 60.0,
+        max_usd: float | None = None,
+        usd_per_1k_input: float = 0.003,
+        usd_per_1k_output: float = 0.015,
+        temperature: float = 0.0,
+    ) -> None:
+        self._api_key = api_key
+        self._model = model
+        self._region = region
+        self._min_interval_s = min_interval_s
+        self._max_tokens = max_tokens
+        self._max_retries = max_retries
+        self._max_retry_after_s = max_retry_after_s
+        self._timeout_s = timeout_s
+        self._max_usd = max_usd
+        self._usd_per_1k_input = usd_per_1k_input
+        self._usd_per_1k_output = usd_per_1k_output
+        self._temperature = temperature
+        self._cumulative_usd = 0.0
+        self._last_success_at: float | None = None
+        self._client = httpx.Client(
+            timeout=self._timeout_s,
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+
+    @property
+    def cumulative_usd(self) -> float:
+        """Return the running estimated spend across all completed calls."""
+        return self._cumulative_usd
+
+    @property
+    def model(self) -> str:
+        """Return the configured Bedrock model / inference-profile ID."""
+        return self._model
+
+    @property
+    def provider(self) -> str:
+        """Return the provider identifier."""
+        return "bedrock"
+
+    def _respect_spacing(self) -> None:
+        """Sleep long enough to keep requests sequential with a fixed gap."""
+        if self._last_success_at is None:
+            return
+        elapsed = time.monotonic() - self._last_success_at
+        remaining = self._min_interval_s - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
+
+    def _payload(self, messages: list[dict[str, str]]) -> dict[str, object]:
+        """Convert OpenAI-style chat messages to a Converse request payload."""
+        system_blocks: list[dict[str, str]] = []
+        converse_messages: list[dict[str, object]] = []
+        for message in messages:
+            role = message.get("role", "user")
+            content = message.get("content", "")
+            if role == "system":
+                system_blocks.append({"text": content})
+                continue
+            converse_messages.append({"role": role, "content": [{"text": content}]})
+
+        payload: dict[str, object] = {
+            "messages": converse_messages,
+            "inferenceConfig": {
+                "temperature": self._temperature,
+                "maxTokens": self._max_tokens,
+            },
+        }
+        if system_blocks:
+            payload["system"] = system_blocks
+        return payload
+
+    def _post(self, messages: list[dict[str, str]]) -> dict[str, object]:
+        """Issue the underlying Bedrock Converse request."""
+        endpoint = (
+            f"https://bedrock-runtime.{self._region}.amazonaws.com/model/{self._model}/converse"
+        )
+        last_rate_limit_error: httpx.HTTPStatusError | None = None
+        for attempt in range(self._max_retries):
+            response: httpx.Response | None = None
+            try:
+                response = self._client.post(endpoint, json=self._payload(messages))
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if not _is_retryable_provider_error(exc) or attempt == self._max_retries - 1:
+                    body = exc.response.text[:500].replace("\n", " ")
+                    raise ProviderRequestError(
+                        f"bedrock request rejected with HTTP {exc.response.status_code}: {body}"
+                    ) from exc
+                last_rate_limit_error = exc
+                retry_s = _retry_after_s(exc, fallback_s=2.0 * (attempt + 1))
+                if retry_s > self._max_retry_after_s:
+                    body = exc.response.text[:500].replace("\n", " ")
+                    raise ProviderRateLimitError(
+                        f"bedrock rate limit retry-after {retry_s:.2f}s "
+                        f"exceeds cap {self._max_retry_after_s:.2f}s: {body}"
+                    ) from exc
+                logging.getLogger("dataforge.bench.groq_client").warning(
+                    "bedrock_rate_limit attempt=%d retry_after_s=%.2f",
+                    attempt + 1,
+                    retry_s,
+                )
+                time.sleep(retry_s)
+                continue
+            except httpx.TimeoutException as exc:
+                raise TimeoutError(
+                    f"bedrock request timed out after {self._timeout_s:.1f} seconds."
+                ) from exc
+            return dict(response.json())
+        if last_rate_limit_error is not None:
+            raise last_rate_limit_error
+        raise RuntimeError("bedrock request failed without a response.")
+
+    def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
+        """Send one benchmark completion request to Bedrock."""
+        self._respect_spacing()
+        payload = self._post(messages)
+        self._last_success_at = time.monotonic()
+
+        warnings: list[str] = []
+        usage = payload.get("usage", {})
+        prompt_tokens = int(usage.get("inputTokens", 0)) if isinstance(usage, dict) else 0
+        completion_tokens = int(usage.get("outputTokens", 0)) if isinstance(usage, dict) else 0
+        if not usage:
+            warnings.append("missing_usage_payload")
+            logging.getLogger("dataforge.bench.groq_client").warning(
+                "bedrock_missing_usage_payload"
+            )
+
+        try:
+            output = cast(dict[str, object], payload["output"])
+            message = cast(dict[str, object], output["message"])
+            content = cast(list[dict[str, object]], message["content"])
+            text = "".join(str(block.get("text", "")) for block in content)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ValueError(f"Unexpected bedrock response payload: {json.dumps(payload)}") from exc
+
+        # Accumulate a conservative cost estimate and hard-stop if it crosses
+        # the configured USD cap, so a bounded run can never overspend.
+        self._cumulative_usd += (
+            prompt_tokens / 1000.0 * self._usd_per_1k_input
+            + completion_tokens / 1000.0 * self._usd_per_1k_output
+        )
+        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
+            raise CostCapExceededError(
+                f"Bedrock spend guard tripped: estimated ${self._cumulative_usd:.4f} "
+                f"exceeds cap ${self._max_usd:.2f}. No further calls will be made."
+            )
+
         return GroqCompletion(
             text=text,
             prompt_tokens=prompt_tokens,

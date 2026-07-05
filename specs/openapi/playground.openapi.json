@@ -1,9 +1,123 @@
 {
   "components": {
     "schemas": {
+      "AgentSummaryView": {
+        "description": "Verified-agent run summary attached to an analysis in agent mode.\n\nThe agent is a remote fine-tuned 0.5B model driving the same deterministic\nfloor plus safety constitution and SMT verifier as the default path. It\nnever applies data; ``agent_fixes`` are the residual fixes the model\nproposed beyond the deterministic floor, each independently verified.",
+        "properties": {
+          "agent_fix_count": {
+            "title": "Agent Fix Count",
+            "type": "integer"
+          },
+          "agent_fixes": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFixView"
+            },
+            "title": "Agent Fixes",
+            "type": "array"
+          },
+          "agent_txn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Txn Id"
+          },
+          "floor_fix_count": {
+            "title": "Floor Fix Count",
+            "type": "integer"
+          },
+          "max_steps": {
+            "title": "Max Steps",
+            "type": "integer"
+          },
+          "policy_name": {
+            "title": "Policy Name",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "residual_count": {
+            "title": "Residual Count",
+            "type": "integer"
+          },
+          "steps_used": {
+            "title": "Steps Used",
+            "type": "integer"
+          },
+          "trace": {
+            "items": {
+              "$ref": "#/components/schemas/AgentTraceStepView"
+            },
+            "title": "Trace",
+            "type": "array"
+          }
+        },
+        "required": [
+          "policy_name",
+          "steps_used",
+          "max_steps",
+          "floor_fix_count",
+          "agent_fix_count",
+          "residual_count",
+          "reason"
+        ],
+        "title": "AgentSummaryView",
+        "type": "object"
+      },
+      "AgentTraceStepView": {
+        "description": "One step of the verified agent's audit trace, safe for the browser.",
+        "properties": {
+          "accepted": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted"
+          },
+          "action_type": {
+            "title": "Action Type",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "action_type",
+          "detail"
+        ],
+        "title": "AgentTraceStepView",
+        "type": "object"
+      },
       "AnalyzeResponse": {
         "description": "Primary Playground proof-loop response.",
         "properties": {
+          "agent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentSummaryView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "apply_handoff": {
             "$ref": "#/components/schemas/ApplyHandoff"
           },
@@ -122,6 +236,11 @@
             "contentMediaType": "application/octet-stream",
             "title": "File",
             "type": "string"
+          },
+          "repair_mode": {
+            "default": "deterministic",
+            "title": "Repair Mode",
+            "type": "string"
           }
         },
         "required": [
@@ -146,6 +265,11 @@
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
+            "type": "string"
+          },
+          "repair_mode": {
+            "default": "deterministic",
+            "title": "Repair Mode",
             "type": "string"
           }
         },
@@ -369,6 +493,14 @@
             "title": "Advanced Available",
             "type": "boolean"
           },
+          "agent_available": {
+            "title": "Agent Available",
+            "type": "boolean"
+          },
+          "agent_max_steps": {
+            "title": "Agent Max Steps",
+            "type": "integer"
+          },
           "api_version": {
             "title": "Api Version",
             "type": "string"
@@ -434,6 +566,8 @@
           "service",
           "status",
           "advanced_available",
+          "agent_available",
+          "agent_max_steps",
           "max_upload_bytes",
           "streaming_available",
           "workflow_contract_version",

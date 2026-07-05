@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from dataforge.bench.core import SeedBenchmarkResult
-from dataforge.bench.groq_client import GroqCompletion
+from dataforge.bench.groq_client import GroqCompletion, ProviderRequestError
 from dataforge.bench.methods import corrector_promotion_verdict, run_llm_corrector_episode
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
 from dataforge.datasets.registry import DatasetMetadata
@@ -52,12 +52,47 @@ def _dataset() -> RealWorldDataset:
     )
 
 
+def _multi_issue_dataset() -> RealWorldDataset:
+    # Several blank cells in a populated column yield multiple missing_value
+    # detections, so the max_issues cap has something to trim.
+    populated = ["Boston", "Denver", "Austin", "Reno", "Miami", "Chicago", "Dallas", "Portland"]
+    dirty_df = pd.DataFrame({"city": [*populated, "", "", "", ""]})
+    clean_df = pd.DataFrame({"city": [*populated, "Seattle", "Tampa", "Fresno", "Tucson"]})
+    metadata = DatasetMetadata(
+        name="hospital",
+        domain="healthcare",
+        n_rows=12,
+        n_columns=1,
+        error_types=("missing_value",),
+        source_urls=("dirty", "clean"),
+        source_revision="fixture",
+        dirty_sha256=FIXTURE_SHA,
+        clean_sha256=FIXTURE_SHA,
+        citation="fixture",
+    )
+    return RealWorldDataset(
+        metadata=metadata,
+        dirty_df=dirty_df,
+        clean_df=clean_df,
+        canonical_columns=("city",),
+        ground_truth=(
+            GroundTruthCell(row=8, column="city", dirty_value="", clean_value="Seattle"),
+            GroundTruthCell(row=9, column="city", dirty_value="", clean_value="Tampa"),
+            GroundTruthCell(row=10, column="city", dirty_value="", clean_value="Fresno"),
+            GroundTruthCell(row=11, column="city", dirty_value="", clean_value="Tucson"),
+        ),
+        dirty_sha256=FIXTURE_SHA,
+        clean_sha256=FIXTURE_SHA,
+    )
+
+
 @dataclass
 class _FixedClient:
     """Stub provider that returns a fixed completion for every call."""
 
     text: str
     model: str = "fake-model"
+    provider: str = "fake-provider"
     calls: int = field(default=0)
 
     def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
@@ -93,7 +128,7 @@ class TestRunLLMCorrectorEpisode:
         assert result.ece is not None
         assert result.precision_at_auto_apply == 1.0
         assert result.auto_apply_count == 1
-        assert result.provider == "groq"
+        assert result.provider == "fake-provider"
         assert result.model == "fake-model"
 
     def test_wrong_fill_lowers_precision_at_auto_apply(self) -> None:
@@ -107,6 +142,58 @@ class TestRunLLMCorrectorEpisode:
         assert result.auto_apply_count == 1
         assert result.precision_at_auto_apply == 0.0
         assert result.tp == 0
+
+    def test_max_issues_caps_llm_calls_and_records_sampling(self) -> None:
+        dataset = _multi_issue_dataset()
+        client = _FixedClient(text="Seattle")
+
+        result = run_llm_corrector_episode(dataset, seed=0, client=client, samples=3, max_issues=2)
+
+        # The cap trims 4 detected issues to 2 and discloses it in the warnings
+        # so the report stays honest about coverage.
+        assert any(w == "corrector_sampled_2_of_4" for w in result.warnings)
+        # Calls never exceed the capped issue count x self-consistency samples.
+        # (Identical blank cells share a content cache, so this is an upper bound.)
+        assert 0 < client.calls <= 2 * 3
+
+    def test_max_issues_above_total_scores_all_without_sampling(self) -> None:
+        dataset = _multi_issue_dataset()
+        client = _FixedClient(text="Seattle")
+
+        uncapped = run_llm_corrector_episode(dataset, seed=0, client=client, samples=3)
+        client_capped = _FixedClient(text="Seattle")
+        capped = run_llm_corrector_episode(
+            dataset, seed=0, client=client_capped, samples=3, max_issues=10_000
+        )
+
+        # A cap larger than the detected issue count is a no-op.
+        assert client_capped.calls == client.calls
+        assert not any(w.startswith("corrector_sampled_") for w in capped.warnings)
+        assert not any(w.startswith("corrector_sampled_") for w in uncapped.warnings)
+
+    def test_provider_errors_are_skipped_not_fatal(self) -> None:
+        dataset = _multi_issue_dataset()
+
+        @dataclass
+        class _FlakyClient:
+            model: str = "fake-model"
+            provider: str = "fake-provider"
+            calls: int = field(default=0)
+
+            def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
+                self.calls += 1
+                # Every call throttles: a non-resilient episode would abort.
+                raise ProviderRequestError("bedrock rate limited")
+
+        result = run_llm_corrector_episode(
+            dataset, seed=0, client=_FlakyClient(), samples=3, max_issues=2
+        )
+
+        # The run completes and produces a report rather than aborting, and it
+        # discloses the failed calls in the warnings.
+        assert isinstance(result, SeedBenchmarkResult)
+        assert result.status == "ok"
+        assert any(w.startswith("corrector_call_failures_") for w in result.warnings)
 
 
 class TestPromotionVerdict:

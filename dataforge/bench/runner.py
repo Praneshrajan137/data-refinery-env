@@ -20,7 +20,7 @@ from dataforge.bench.core import (
     validate_estimated_calls,
     write_run_output,
 )
-from dataforge.bench.groq_client import GroqBenchClient
+from dataforge.bench.groq_client import BedrockBenchClient, GeminiBenchClient, GroqBenchClient
 from dataforge.bench.methods import (
     run_heuristic_episode,
     run_llm_corrector_episode,
@@ -68,11 +68,100 @@ def _reproduction_command(
 def _llm_skip_reason() -> str | None:
     """Return a skip reason when LLM methods cannot run."""
     provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
-    if provider != "groq":
-        return "DATAFORGE_LLM_PROVIDER must be set to groq."
-    if not os.environ.get("GROQ_API_KEY"):
-        return "GROQ_API_KEY is not set."
-    return None
+    if provider == "groq":
+        if not os.environ.get("GROQ_API_KEY"):
+            return "GROQ_API_KEY is not set."
+        return None
+    if provider == "bedrock":
+        if not os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+            return "AWS_BEARER_TOKEN_BEDROCK is not set."
+        if not os.environ.get("DATAFORGE_BEDROCK_MODEL"):
+            return "DATAFORGE_BEDROCK_MODEL is not set."
+        return None
+    if provider == "gemini":
+        if not os.environ.get("GEMINI_API_KEY"):
+            return "GEMINI_API_KEY is not set."
+        return None
+    return "DATAFORGE_LLM_PROVIDER must be set to groq, bedrock, or gemini."
+
+
+def _env_float(name: str, default: float) -> float:
+    """Read a float env var, falling back to a default on parse failure."""
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an int env var, falling back to a default on parse failure."""
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _corrector_max_issues() -> int | None:
+    """Read the optional corrector issue cap; None means no cap (all issues)."""
+    raw = os.environ.get("DATAFORGE_CORRECTOR_MAX_ISSUES", "").strip()
+    if not raw:
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def _build_groq_client() -> GroqBenchClient:
+    """Construct a Groq benchmark client from env-driven knobs."""
+    return GroqBenchClient(
+        api_key=os.environ["GROQ_API_KEY"],
+        model=os.environ.get("DATAFORGE_GROQ_MODEL", "llama-3.3-70b-versatile"),
+        min_interval_s=_env_float("DATAFORGE_GROQ_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_GROQ_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_GROQ_MAX_RETRIES", 3),
+        timeout_s=_env_float("DATAFORGE_GROQ_TIMEOUT_S", 30.0),
+    )
+
+
+def _build_bedrock_client() -> BedrockBenchClient:
+    """Construct a Bedrock benchmark client from env-driven knobs."""
+    raw_cap = os.environ.get("DATAFORGE_BEDROCK_MAX_USD", "").strip()
+    max_usd: float | None = None
+    if raw_cap:
+        try:
+            parsed = float(raw_cap)
+        except ValueError:
+            parsed = 0.0
+        if parsed > 0:
+            max_usd = parsed
+    return BedrockBenchClient(
+        api_key=os.environ["AWS_BEARER_TOKEN_BEDROCK"],
+        model=os.environ["DATAFORGE_BEDROCK_MODEL"],
+        region=os.environ.get("AWS_REGION", "us-east-1"),
+        min_interval_s=_env_float("DATAFORGE_BEDROCK_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_BEDROCK_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_BEDROCK_MAX_RETRIES", 3),
+        timeout_s=_env_float("DATAFORGE_BEDROCK_TIMEOUT_S", 30.0),
+        max_usd=max_usd,
+        usd_per_1k_input=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_INPUT", 0.003),
+        usd_per_1k_output=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_OUTPUT", 0.015),
+        temperature=_env_float("DATAFORGE_BEDROCK_TEMPERATURE", 0.0),
+    )
+
+
+def _build_gemini_client() -> GeminiBenchClient:
+    """Construct a Gemini benchmark client from env-driven knobs."""
+    return GeminiBenchClient(
+        api_key=os.environ["GEMINI_API_KEY"],
+        model=os.environ.get("DATAFORGE_GEMINI_MODEL", "gemini-3.1-pro-preview"),
+        min_interval_s=_env_float("DATAFORGE_GEMINI_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_GEMINI_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_GEMINI_MAX_RETRIES", 5),
+        timeout_s=_env_float("DATAFORGE_GEMINI_TIMEOUT_S", 60.0),
+        temperature=_env_float("DATAFORGE_GEMINI_TEMPERATURE", 0.0),
+    )
 
 
 def _skipped_result(
@@ -119,10 +208,12 @@ def run_agent_comparison(
     _validate_inputs(methods, datasets)
     resolved_seed_list = build_seed_list(seeds=seeds, seed_list=seed_list)
 
+    corrector_max_issues = _corrector_max_issues()
     estimated_calls = estimate_llm_calls(
         methods=methods,
         datasets=datasets,
         seeds=len(resolved_seed_list),
+        corrector_max_issues=corrector_max_issues,
     )
     # Validate call budget before any client instantiation or dataset loads that could
     # trigger network access in tests with environment variables set.
@@ -149,34 +240,15 @@ def run_agent_comparison(
 
     llm_methods_requested = any(method.startswith("llm_") for method in methods)
     skip_reason = _llm_skip_reason() if llm_methods_requested else None
-    client = None
+    client: GroqBenchClient | BedrockBenchClient | GeminiBenchClient | None = None
     if llm_methods_requested and skip_reason is None:
-        # Allow env-driven tuning for tiny CI checks.
-        model = os.environ.get("DATAFORGE_GROQ_MODEL", "llama-3.3-70b-versatile")
-        try:
-            min_interval_s = float(os.environ.get("DATAFORGE_GROQ_MIN_INTERVAL_S", "1.0"))
-        except ValueError:
-            min_interval_s = 1.0
-        try:
-            timeout_s = float(os.environ.get("DATAFORGE_GROQ_TIMEOUT_S", "30"))
-        except ValueError:
-            timeout_s = 30.0
-        try:
-            max_tokens = int(os.environ.get("DATAFORGE_GROQ_MAX_TOKENS", "256"))
-        except ValueError:
-            max_tokens = 256
-        try:
-            max_retries = int(os.environ.get("DATAFORGE_GROQ_MAX_RETRIES", "3"))
-        except ValueError:
-            max_retries = 3
-        client = GroqBenchClient(
-            api_key=os.environ["GROQ_API_KEY"],
-            model=model,
-            min_interval_s=min_interval_s,
-            max_tokens=max_tokens,
-            max_retries=max_retries,
-            timeout_s=timeout_s,
-        )
+        provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
+        if provider == "bedrock":
+            client = _build_bedrock_client()
+        elif provider == "gemini":
+            client = _build_gemini_client()
+        else:
+            client = _build_groq_client()
 
     for dataset_name in datasets:
         dataset = loaded_datasets[dataset_name]
@@ -213,7 +285,12 @@ def run_agent_comparison(
                             reproduction_command=reproduction_command,
                         )
                     else:
-                        result = run_llm_corrector_episode(dataset, seed=seed, client=client)
+                        result = run_llm_corrector_episode(
+                            dataset,
+                            seed=seed,
+                            client=client,
+                            max_issues=corrector_max_issues,
+                        )
                 else:
                     if client is None or skip_reason is not None:
                         result = _skipped_result(

@@ -68,6 +68,59 @@ def _assert_problem_response(response, *, status: int, error: str) -> dict[str, 
     return body
 
 
+def _fake_agent_result() -> object:
+    """Build a verified-agent result with one floor fix and one agent fix."""
+    from dataforge import VerifiedFix
+    from dataforge.agent.controller import AgentActionRecord, AgentRepairResult
+
+    return AgentRepairResult(
+        mode="dry_run",
+        applied=False,
+        source_path="upload.csv",
+        source_sha256="a" * 64,
+        policy_name="remote",
+        steps_used=2,
+        max_steps=8,
+        floor_fix_count=1,
+        agent_fix_count=1,
+        fixes_count=2,
+        residual_count=0,
+        issues_count=3,
+        safety_verdict="allow",
+        reason="Agent finalized after resolving residual issues.",
+        fixes=[
+            VerifiedFix(
+                row=0,
+                column="amount",
+                old_value="1020",
+                new_value="102.0",
+                detector_id="decimal_shift",
+                operation="update",
+                reason="decimal shift",
+                confidence=0.9,
+                provenance="deterministic",
+                verifier_reason="smt: sat",
+            ),
+            VerifiedFix(
+                row=1,
+                column="ward",
+                old_value="",
+                new_value="north",
+                detector_id="fd_violation",
+                operation="update",
+                reason="fd repair",
+                confidence=0.7,
+                provenance="llm_live",
+                verifier_reason="smt: sat",
+            ),
+        ],
+        trace=[
+            AgentActionRecord(step=1, action_type="INSPECT_ROWS", accepted=None, detail="rows 0-2"),
+            AgentActionRecord(step=2, action_type="FIX", accepted=True, detail="verified ward fix"),
+        ],
+    )
+
+
 def _stable_analyze_payload(payload: dict[str, object]) -> dict[str, object]:
     """Normalize request-specific transaction fields before comparing endpoint parity."""
     stable = json.loads(json.dumps(payload))
@@ -137,6 +190,88 @@ def test_health_reports_advanced_capability_when_keyed(
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["advanced_available"] is True
+
+
+@pytest.mark.integration
+def test_health_reports_agent_capability(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """GET /api/health reports agent availability gated on the remote model URL."""
+    monkeypatch.delenv("DATAFORGE_REMOTE_MODEL_URL", raising=False)
+    body = client.get("/api/health").json()
+    assert body["agent_available"] is False
+    assert isinstance(body["agent_max_steps"], int)
+    assert body["agent_max_steps"] >= 1
+
+    monkeypatch.setenv("DATAFORGE_REMOTE_MODEL_URL", "https://example.hf.space")
+    assert client.get("/api/health").json()["agent_available"] is True
+
+
+@pytest.mark.integration
+def test_analyze_agent_mode_unavailable_is_problem(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Agent mode without a configured remote model returns a stable problem."""
+    monkeypatch.delenv("DATAFORGE_REMOTE_MODEL_URL", raising=False)
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+        data={"repair_mode": "agent"},
+    )
+    _assert_problem_response(response, status=400, error="agent_mode_unavailable")
+
+
+@pytest.mark.integration
+def test_analyze_invalid_repair_mode_is_problem(client: TestClient) -> None:
+    """An unknown repair_mode value is rejected as a stable problem."""
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+        data={"repair_mode": "banana"},
+    )
+    _assert_problem_response(response, status=400, error="invalid_repair_mode")
+
+
+@pytest.mark.integration
+def test_analyze_agent_mode_attaches_verified_agent_summary(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Agent mode runs the verified loop and attaches an agent summary + trace."""
+    monkeypatch.setenv("DATAFORGE_REMOTE_MODEL_URL", "https://example.hf.space")
+    monkeypatch.setattr(playground_api, "run_agent_repair", lambda request: _fake_agent_result())
+
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+        data={"repair_mode": "agent"},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    agent = body["agent"]
+    assert agent is not None
+    assert agent["policy_name"] == "remote"
+    assert agent["agent_fix_count"] == 1
+    assert agent["floor_fix_count"] == 1
+    assert len(agent["trace"]) == 2
+    # agent_fixes exposes only residual (non-deterministic) verified fixes.
+    assert len(agent["agent_fixes"]) == 1
+    assert agent["agent_fixes"][0]["provenance"] == "llm_live"
+    # The default deterministic response has no agent block.
+    assert "Agent proposals come from a remote" in " ".join(body["limitations"])
+
+
+@pytest.mark.integration
+def test_analyze_default_mode_has_no_agent_block(client: TestClient) -> None:
+    """The default deterministic analyze response omits the agent summary."""
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+    )
+    assert response.status_code == 200
+    assert response.json()["agent"] is None
 
 
 @pytest.mark.integration

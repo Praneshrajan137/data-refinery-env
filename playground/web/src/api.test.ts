@@ -74,6 +74,29 @@ describe("problem detail handling", () => {
     expect((body as FormData).get("accepted_constraint_ids")).toBe("[\"cnd-1\"]");
   });
 
+  it("sends repair_mode only when agent mode is selected", async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ input, init });
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const client = new DataForgeClient("https://api.example.test");
+    const file = new File(["id\n1"], "sample.csv", { type: "text/csv" });
+
+    await client.analyze(file, false, []);
+    expect((calls[0].init?.body as FormData).get("repair_mode")).toBeNull();
+
+    await client.analyze(file, false, [], "agent");
+    expect((calls[1].init?.body as FormData).get("repair_mode")).toBe("agent");
+  });
+
   it("parses NDJSON workflow events and returns the final stream analysis", async () => {
     const finalAnalysis = {
       source: { name: "sample.csv", sha256: "a".repeat(64), rows: 1, columns: 1, column_names: ["id"] },

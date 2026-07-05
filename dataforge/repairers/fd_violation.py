@@ -29,6 +29,16 @@ async def complete(messages: list[Message], *, model: str, temperature: float) -
     return await provider_complete(messages, model=model, temperature=temperature)
 
 
+def _resolve_model() -> str:
+    """Resolve the effective model from the active provider's env/default."""
+    try:
+        from dataforge.agent.providers import resolve_model
+    except ImportError:  # pragma: no cover - exercised only without extra
+        return "gemini-2.0-flash"
+    resolved = resolve_model()
+    return resolved or "gemini-2.0-flash"
+
+
 def _normalize_cell(value: object) -> str:
     """Normalize a DataFrame cell into a comparable string."""
     return str(value)
@@ -49,11 +59,11 @@ class FDViolationRepairer:
         *,
         cache_dir: Path | None,
         allow_llm: bool = False,
-        model: str = "gemini-2.0-flash",
+        model: str | None = None,
     ) -> None:
         self._cache_dir = cache_dir
         self._allow_llm = allow_llm
-        self._model = model
+        self._model = model or _resolve_model()
 
     def _propose(
         self,

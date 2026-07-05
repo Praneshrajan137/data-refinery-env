@@ -411,6 +411,7 @@ def dataforge_agent_repair(
     mode: Literal["dry_run", "apply"] = "dry_run",
     policy: str = "hosted",
     provider: str | None = None,
+    model: str | None = None,
     max_steps: int = 30,
     confirm_escalations: bool = True,
 ) -> AgentRepairReceipt:
@@ -429,6 +430,8 @@ def dataforge_agent_repair(
             no LLM), or ``custom:<name>`` for a registered policy.
         provider: Hosted provider override (``groq`` or ``gemini``); falls back
             to ``DATAFORGE_LLM_PROVIDER`` / key autodetect.
+        model: Model id override for the hosted provider. When omitted, falls back
+            to ``DATAFORGE_<PROVIDER>_MODEL`` and then the provider default.
         max_steps: Maximum agent reasoning steps.
         confirm_escalations: Acknowledge that live LLM-originated writes are
             auto-confirmed past the soft safety-escalation gate. Required for an
@@ -456,6 +459,7 @@ def dataforge_agent_repair(
             schema=None,
             policy=policy,
             provider=provider,
+            model=model,
             max_steps=max_steps,
             confirm_escalations=confirm_escalations,
         )

@@ -19,6 +19,26 @@ from dataforge.detectors.base import Issue, Severity
 from dataforge.repairers.llm_corrector import LLMCorrectorRepairer
 
 
+class TestCorrectorModelResolution:
+    """The corrector resolves its model from the active provider env (BYOM)."""
+
+    def test_none_model_resolves_from_env(self, tmp_path: Path) -> None:
+        with patch.dict(
+            "os.environ",
+            {"DATAFORGE_LLM_PROVIDER": "gemini", "DATAFORGE_GEMINI_MODEL": "gemini-byom-x"},
+        ):
+            corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model=None)
+        assert corrector._model == "gemini-byom-x"
+
+    def test_explicit_model_wins(self, tmp_path: Path) -> None:
+        with patch.dict(
+            "os.environ",
+            {"DATAFORGE_LLM_PROVIDER": "gemini", "DATAFORGE_GEMINI_MODEL": "gemini-byom-x"},
+        ):
+            corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model="explicit")
+        assert corrector._model == "explicit"
+
+
 def _issue(
     *,
     row: int,

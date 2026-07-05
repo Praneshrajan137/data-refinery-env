@@ -38,7 +38,7 @@ def run_table_store_repair(
     mode: str,
     schema: Schema | None,
     allow_llm: bool = False,
-    model: str = "gemini-2.0-flash",
+    model: str | None = None,
     allow_pii: bool = False,
     confirm_pii: bool = False,
     confirm_escalations: bool = False,

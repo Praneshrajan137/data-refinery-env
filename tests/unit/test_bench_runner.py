@@ -48,10 +48,11 @@ class TestRunAgentComparison:
         output_json = tmp_path / "eval" / "results" / "agent_comparison.json"
         _populate_cache(cache_root)
 
-        # Force a non-Groq provider and neutralize any local .env GROQ_API_KEY.
+        # Force a provider whose credential is absent so LLM methods skip.
         # load_dotenv() in the runner will not override existing env vars by default.
         monkeypatch.setenv("DATAFORGE_LLM_PROVIDER", "gemini")
         monkeypatch.setenv("GROQ_API_KEY", "")
+        monkeypatch.setenv("GEMINI_API_KEY", "")
 
         result = run_agent_comparison(
             methods=["heuristic", "llm_zeroshot"],
@@ -205,6 +206,160 @@ class TestRunAgentComparison:
             == "dataforge bench --methods llm_zeroshot,llm_react --datasets hospital --seeds 1"
             for record in output.records
         )
+
+    def test_runner_uses_bedrock_client_when_provider_is_bedrock(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Provider bedrock constructs a BedrockBenchClient from env config."""
+        cache_root = tmp_path / "cache"
+        _populate_cache(cache_root)
+        output_json = tmp_path / "agent_comparison.json"
+        monkeypatch.setenv("DATAFORGE_LLM_PROVIDER", "bedrock")
+        monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "test-key")
+        monkeypatch.setenv("DATAFORGE_BEDROCK_MODEL", "us.anthropic.claude-sonnet-5-test-v1:0")
+        monkeypatch.setenv("AWS_REGION", "us-east-1")
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+        zero_result = SeedBenchmarkResult(
+            method="llm_zeroshot",
+            dataset="hospital",
+            seed=0,
+            status="ok",
+            tp=1,
+            fp=0,
+            fn=0,
+            precision=1.0,
+            recall=1.0,
+            f1=1.0,
+            avg_steps=1,
+            runtime_s=0.1,
+            llm_calls=1,
+            prompt_tokens=10,
+            completion_tokens=2,
+            quota_units=0.001,
+            provider="bedrock",
+            model="us.anthropic.claude-sonnet-5-test-v1:0",
+            reproduction_command="cmd",
+        )
+
+        with (
+            patch(
+                "dataforge.bench.runner.BedrockBenchClient", return_value=MagicMock()
+            ) as bedrock_client,
+            patch("dataforge.bench.runner.GroqBenchClient") as groq_client,
+            patch(
+                "dataforge.bench.runner.run_llm_zeroshot_episode",
+                return_value=zero_result,
+            ) as zeroshot,
+        ):
+            run_agent_comparison(
+                methods=["llm_zeroshot"],
+                datasets=["hospital"],
+                seeds=1,
+                output_json=output_json,
+                really_run_big_bench=True,
+                cache_root=cache_root,
+                verify_dataset_hashes=False,
+            )
+
+        bedrock_client.assert_called_once()
+        assert bedrock_client.call_args.kwargs["model"] == (
+            "us.anthropic.claude-sonnet-5-test-v1:0"
+        )
+        assert bedrock_client.call_args.kwargs["region"] == "us-east-1"
+        groq_client.assert_not_called()
+        zeroshot.assert_called_once()
+
+    def test_runner_skips_bedrock_without_key(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Bedrock provider without the bearer token yields a skipped result."""
+        cache_root = tmp_path / "cache"
+        _populate_cache(cache_root)
+        output_json = tmp_path / "agent_comparison.json"
+        monkeypatch.setenv("DATAFORGE_LLM_PROVIDER", "bedrock")
+        monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
+
+        output = run_agent_comparison(
+            methods=["llm_zeroshot"],
+            datasets=["hospital"],
+            seeds=1,
+            output_json=output_json,
+            really_run_big_bench=True,
+            cache_root=cache_root,
+            verify_dataset_hashes=False,
+        )
+
+        assert all(record.status == "skipped" for record in output.records)
+        assert all(
+            record.skip_reason == "AWS_BEARER_TOKEN_BEDROCK is not set."
+            for record in output.records
+        )
+
+    def test_runner_uses_gemini_client_when_provider_is_gemini(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Provider gemini constructs a GeminiBenchClient from env config."""
+        cache_root = tmp_path / "cache"
+        _populate_cache(cache_root)
+        output_json = tmp_path / "agent_comparison.json"
+        monkeypatch.setenv("DATAFORGE_LLM_PROVIDER", "gemini")
+        monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+        monkeypatch.setenv("DATAFORGE_GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+        zero_result = SeedBenchmarkResult(
+            method="llm_zeroshot",
+            dataset="hospital",
+            seed=0,
+            status="ok",
+            tp=1,
+            fp=0,
+            fn=0,
+            precision=1.0,
+            recall=1.0,
+            f1=1.0,
+            avg_steps=1,
+            runtime_s=0.1,
+            llm_calls=1,
+            prompt_tokens=10,
+            completion_tokens=2,
+            quota_units=0.001,
+            provider="gemini",
+            model="gemini-3.1-flash-lite-preview",
+            reproduction_command="cmd",
+        )
+
+        with (
+            patch(
+                "dataforge.bench.runner.GeminiBenchClient", return_value=MagicMock()
+            ) as gemini_client,
+            patch("dataforge.bench.runner.GroqBenchClient") as groq_client,
+            patch(
+                "dataforge.bench.runner.run_llm_zeroshot_episode",
+                return_value=zero_result,
+            ) as zeroshot,
+        ):
+            run_agent_comparison(
+                methods=["llm_zeroshot"],
+                datasets=["hospital"],
+                seeds=1,
+                output_json=output_json,
+                really_run_big_bench=True,
+                cache_root=cache_root,
+                verify_dataset_hashes=False,
+            )
+
+        gemini_client.assert_called_once()
+        assert gemini_client.call_args.kwargs["model"] == "gemini-3.1-flash-lite-preview"
+        groq_client.assert_not_called()
+        zeroshot.assert_called_once()
 
     def test_runner_records_explicit_seed_list_and_dataset_evidence(
         self,

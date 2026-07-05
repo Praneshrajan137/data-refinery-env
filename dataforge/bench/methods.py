@@ -15,7 +15,7 @@ from dataforge.bench.error_classes import (
     precision_at_auto_apply,
     score_repairs_by_class,
 )
-from dataforge.bench.groq_client import GroqBenchClient
+from dataforge.bench.groq_client import BenchLLMClient, CostCapExceededError, ProviderRequestError
 from dataforge.datasets.real_world import RealWorldDataset
 from dataforge.detectors import run_all_detectors
 from dataforge.repairers import propose_fixes
@@ -105,8 +105,9 @@ def run_llm_corrector_episode(
     dataset: RealWorldDataset,
     *,
     seed: int,
-    client: GroqBenchClient,
+    client: BenchLLMClient,
     samples: int = _CORRECTOR_SAMPLES,
+    max_issues: int | None = None,
 ) -> SeedBenchmarkResult:
     """Run the grounded, contract-bound LLM corrector as a benchmark method.
 
@@ -117,6 +118,11 @@ def run_llm_corrector_episode(
     coverage, this reports calibration quality (ECE) and the precision the tool
     would achieve if it auto-applied only high-agreement outputs
     (``precision_at_auto_apply`` at a fixed agreement threshold).
+
+    When ``max_issues`` is set and the detector finds more issues than the cap,
+    a deterministic ``seed``-derived random subset of that size is scored. This
+    bounds LLM spend for real-provider runs; the returned warnings record the
+    sampling so the report stays honest about coverage.
     """
     start = time.perf_counter()
     counters = {"llm_calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
@@ -135,6 +141,13 @@ def run_llm_corrector_episode(
     )
     working = dataset.dirty_df.copy(deep=True)
     issues = run_all_detectors(working, schema=inferred_schema)
+    if max_issues is not None and len(issues) > max_issues:
+        warnings.append(f"corrector_sampled_{max_issues}_of_{len(issues)}")
+        sampler = random.Random(seed)
+        issues = sorted(
+            sampler.sample(issues, max_issues),
+            key=lambda issue: (issue.row, issue.column),
+        )
     detected_cells = {(issue.row, issue.column) for issue in issues}
 
     corrector = LLMCorrectorRepairer(
@@ -149,11 +162,22 @@ def run_llm_corrector_episode(
     repairs: list[BenchmarkRepair] = []
     calibration_samples: list[tuple[float, bool]] = []
     auto_apply_samples: list[tuple[bool, bool]] = []
+    call_failures = 0
     # The corrector runs against the schema-less product path (schema=None) so it
     # infers its own high-confidence verification constraints, mirroring how a
     # user with an undeclared CSV would run it.
     for issue in issues:
-        fix = corrector.propose(issue, working, None)
+        try:
+            fix = corrector.propose(issue, working, None)
+        except CostCapExceededError:
+            # A tripped spend guard is a hard stop; never swallow it.
+            raise
+        except (ProviderRequestError, TimeoutError):
+            # A single throttled/failed provider call must not abort the whole
+            # run: skip this issue (counts as no repair) and keep going so the
+            # benchmark still produces a report on flaky-quota accounts.
+            call_failures += 1
+            continue
         if fix is None:
             continue
         new_value = fix.fix.new_value
@@ -169,6 +193,9 @@ def run_llm_corrector_episode(
         calibration_samples.append((fix.confidence, was_correct))
         auto_applied = fix.confidence >= _CORRECTOR_AUTO_APPLY_CONFIDENCE
         auto_apply_samples.append((auto_applied, was_correct))
+
+    if call_failures:
+        warnings.append(f"corrector_call_failures_{call_failures}")
 
     metrics = score_repairs(dataset.ground_truth, repairs)
     by_class = score_repairs_by_class(dataset.ground_truth, repairs, detected_cells)
@@ -195,7 +222,7 @@ def run_llm_corrector_episode(
             completion_tokens=counters["completion_tokens"],
         ),
         runtime_s=runtime_s,
-        provider="groq",
+        provider=client.provider,
         model=client.model,
         warnings=warnings,
         ece=expected_calibration_error(calibration_samples),
@@ -408,7 +435,7 @@ def run_llm_zeroshot_episode(
     dataset: RealWorldDataset,
     *,
     seed: int,
-    client: GroqBenchClient,
+    client: BenchLLMClient,
 ) -> SeedBenchmarkResult:
     """Run the zero-shot Groq baseline across fixed contiguous row chunks."""
     start = time.perf_counter()
@@ -485,7 +512,7 @@ def run_llm_react_episode(
     dataset: RealWorldDataset,
     *,
     seed: int,
-    client: GroqBenchClient,
+    client: BenchLLMClient,
 ) -> SeedBenchmarkResult:
     """Run the constrained ReAct-style Groq baseline with one optional tool step."""
     start = time.perf_counter()

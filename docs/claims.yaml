@@ -38,6 +38,9 @@ claims:
   - claim: workers_dev_playground
     status: beta
     evidence: The full-vision gate verifies https://dataforge.praneshrajan15.workers.dev/playground serves the Cloudflare frontend, points at the expected HF backend, and passes live repair-flow checks.
+  - claim: playground_trained_model_agent
+    status: beta
+    evidence: The playground agent mode runs the verified run_agent_repair loop over a torch-free remote model policy (dry-run only, step- and wall-clock-bounded); each proposed fix passes the safety constitution and SMT verifier before display, and the surface degrades gracefully (agent_available=false) when no remote model is configured. Backed by tests/integration/test_playground_smoke.py and tests/unit/test_agent_remote_backend.py; model evidence is research-grade only (docs/evidence/models/DataForge-0.5B-GRPO.verification.json; GRPO F1 0.1393, not a production quality claim).
   - claim: trained_model_family
     status: roadmap
     evidence: docs/evidence/ledger.json is the canonical claim index; public leaf-verifier evidence covers 0.5B SFT plus 0.5B GRPO research evidence, 0.5B-GRPO v2 is preserved as quality_gate_failed_no_upload diagnostic evidence, SFT-v5/v6/v7/v8 are failed or blocked private diagnostic lineages, SFT-v9 is only a private action-envelope curriculum/preflight candidate whose first Kaggle smoke failed before training on a P100 capability guard and whose fixed smoke v2 is running, GRPO-v4 is blocked until SFT-v9-or-later has a promoted private checkpoint, and larger SFT/GRPO/GiGPO plus full-family quality claims remain blocked.

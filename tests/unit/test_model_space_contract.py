@@ -36,7 +36,10 @@ class TestModelSpaceContract:
         assert metadata["sdk"] == "gradio"
         assert metadata["app_file"] == "app.py"
         assert "hardware" not in metadata
-        assert metadata["models"] == ["Praneshrajan15/DataForge-0.5B-SFT"]
+        assert metadata["models"] == [
+            "Praneshrajan15/DataForge-0.5B-GRPO",
+            "Praneshrajan15/DataForge-0.5B-SFT",
+        ]
 
     def test_requirements_do_not_include_model_weights_or_caches(self) -> None:
         requirements = [

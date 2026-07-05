@@ -17,6 +17,7 @@ from dataforge.agent.providers import (
     ProviderError,
     complete,
     get_provider_name,
+    resolve_model,
 )
 
 
@@ -38,6 +39,97 @@ class TestProviderDispatch:
         """Provider name is lowercased."""
         with patch.dict(os.environ, {"DATAFORGE_LLM_PROVIDER": "GROQ"}):
             assert get_provider_name() == "groq"
+
+    def test_bedrock_autodetected_from_bearer_token(self) -> None:
+        """With only AWS_BEARER_TOKEN_BEDROCK set, autodetect bedrock."""
+        with patch.dict(os.environ, {}, clear=True):
+            os.environ["AWS_BEARER_TOKEN_BEDROCK"] = "test-key"
+            assert get_provider_name() == "bedrock"
+
+
+class TestModelResolution:
+    """resolve_model() and DATAFORGE_<PROVIDER>_MODEL env fallback (BYOM)."""
+
+    def test_resolve_model_reads_env_per_provider(self) -> None:
+        with patch.dict(os.environ, {"DATAFORGE_GROQ_MODEL": "groq-x"}, clear=True):
+            assert resolve_model("groq") == "groq-x"
+        with patch.dict(os.environ, {"DATAFORGE_GEMINI_MODEL": "gem-x"}, clear=True):
+            assert resolve_model("gemini") == "gem-x"
+
+    def test_resolve_model_falls_back_to_default(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert resolve_model("groq") == "llama-3.1-70b-versatile"
+            assert resolve_model("gemini") == "gemini-2.0-flash"
+            assert resolve_model("bedrock") == ""
+
+    def test_groq_complete_honors_env_model(self) -> None:
+        """complete() with no explicit model uses DATAFORGE_GROQ_MODEL."""
+        response = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "groq",
+                    "GROQ_API_KEY": "test-key",
+                    "DATAFORGE_GROQ_MODEL": "my-custom-groq",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}]))
+
+        assert mock_client.post.call_args.kwargs["json"]["model"] == "my-custom-groq"
+
+    def test_gemini_complete_honors_env_model(self) -> None:
+        """complete() with no explicit model uses DATAFORGE_GEMINI_MODEL in the URL."""
+        response = _make_mock_response({"candidates": [{"content": {"parts": [{"text": "ok"}]}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "gemini",
+                    "GEMINI_API_KEY": "test-key",
+                    "DATAFORGE_GEMINI_MODEL": "gemini-3.1-flash-lite-preview",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}]))
+
+        assert "gemini-3.1-flash-lite-preview" in mock_client.post.call_args[0][0]
+
+    def test_explicit_model_overrides_env(self) -> None:
+        """An explicitly passed model wins over the env var."""
+        response = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "groq",
+                    "GROQ_API_KEY": "test-key",
+                    "DATAFORGE_GROQ_MODEL": "env-model",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}], model="explicit-model"))
+
+        assert mock_client.post.call_args.kwargs["json"]["model"] == "explicit-model"
 
 
 class TestUnsupportedProviders:
@@ -197,3 +289,71 @@ class TestProviderErrors:
                 else call_kwargs.kwargs.get("json")
             )
             assert "systemInstruction" in payload
+
+
+class TestBedrockProvider:
+    """Bedrock provider — mocked Converse HTTP calls."""
+
+    def test_bedrock_calls_converse_endpoint_and_parses_output(self) -> None:
+        """Bedrock posts a Converse payload and parses output.message.content."""
+        response = _make_mock_response(
+            {"output": {"message": {"content": [{"text": "bedrock says hi"}]}}}
+        )
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "DATAFORGE_LLM_PROVIDER": "bedrock",
+                    "AWS_BEARER_TOKEN_BEDROCK": "test-key",
+                    "DATAFORGE_BEDROCK_MODEL": "us.anthropic.claude-sonnet-5-test-v1:0",
+                    "AWS_REGION": "us-east-1",
+                },
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            messages: list[Message] = [
+                {"role": "system", "content": "You are helpful"},
+                {"role": "user", "content": "hi"},
+            ]
+            result = asyncio.run(complete(messages))
+
+        assert result == "bedrock says hi"
+        mock_client.post.assert_called_once()
+        call_url = mock_client.post.call_args[0][0]
+        assert call_url == (
+            "https://bedrock-runtime.us-east-1.amazonaws.com/"
+            "model/us.anthropic.claude-sonnet-5-test-v1:0/converse"
+        )
+        payload = mock_client.post.call_args.kwargs["json"]
+        # System prompt is hoisted to a top-level field, not a message role.
+        assert payload["system"] == [{"text": "You are helpful"}]
+        assert payload["messages"] == [{"role": "user", "content": [{"text": "hi"}]}]
+        assert "maxTokens" in payload["inferenceConfig"]
+        headers = mock_client.post.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer test-key"
+
+    def test_bedrock_missing_api_key(self) -> None:
+        """Bedrock without AWS_BEARER_TOKEN_BEDROCK raises ProviderError."""
+        with patch.dict(os.environ, {"DATAFORGE_LLM_PROVIDER": "bedrock"}, clear=True):
+            os.environ.pop("AWS_BEARER_TOKEN_BEDROCK", None)
+            messages: list[Message] = [{"role": "user", "content": "hi"}]
+            with pytest.raises(ProviderError, match="AWS_BEARER_TOKEN_BEDROCK"):
+                asyncio.run(complete(messages))
+
+    def test_bedrock_missing_model(self) -> None:
+        """Bedrock without a configured model raises ProviderError."""
+        with patch.dict(
+            os.environ,
+            {"DATAFORGE_LLM_PROVIDER": "bedrock", "AWS_BEARER_TOKEN_BEDROCK": "test-key"},
+            clear=True,
+        ):
+            os.environ.pop("DATAFORGE_BEDROCK_MODEL", None)
+            messages: list[Message] = [{"role": "user", "content": "hi"}]
+            with pytest.raises(ProviderError, match="model"):
+                asyncio.run(complete(messages))

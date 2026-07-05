@@ -241,7 +241,7 @@ class RepairPipelineRequest(BaseModel):
     mode: RepairMode = "dry_run"
     repair_schema: Schema | None = Field(default=None, alias="schema")
     allow_llm: bool = False
-    model: str = "gemini-2.0-flash"
+    model: str | None = None
     allow_pii: bool = False
     confirm_pii: bool = False
     confirm_escalations: bool = False
@@ -448,7 +448,7 @@ def propose_repairs(
     schema: Schema | None,
     *,
     allow_llm: bool,
-    model: str,
+    model: str | None,
     allow_pii: bool,
     confirm_pii: bool,
     confirm_escalations: bool,

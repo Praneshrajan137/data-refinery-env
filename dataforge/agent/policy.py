@@ -16,6 +16,13 @@ Selectable backends (via :func:`make_policy`):
     An :class:`LLMPolicy` over the fine-tuned local model (free, private,
     offline). Fails fast if transformers/the model are unavailable.
 
+``remote``
+    An :class:`LLMPolicy` over a hosted model Space, driven over HTTP with no
+    ``torch``/``transformers`` install (see
+    :mod:`dataforge.agent.backends.remote`). Lets a CPU-only deployment run the
+    real agent loop against the trained checkpoint. Fails fast if
+    ``DATAFORGE_REMOTE_MODEL_URL`` is unset.
+
 ``deterministic``
     A no-op :class:`DeterministicPolicy`: the controller's deterministic floor
     already did everything provable. Used for the parity mode.
@@ -59,10 +66,14 @@ __all__ = [
 logger = logging.getLogger("dataforge.agent.policy")
 
 # Built-in selectable policy kinds (custom kinds use the ``custom:<name>`` form).
-_BUILTIN_KINDS = ("hosted", "local", "deterministic")
+_BUILTIN_KINDS = ("hosted", "local", "remote", "deterministic")
 
 # Hosted provider -> required API key environment variable.
-_PROVIDER_KEY_ENV = {"groq": "GROQ_API_KEY", "gemini": "GEMINI_API_KEY"}
+_PROVIDER_KEY_ENV = {
+    "groq": "GROQ_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "bedrock": "AWS_BEARER_TOKEN_BEDROCK",
+}
 
 
 class PolicyUnavailableError(RuntimeError):
@@ -424,8 +435,9 @@ def make_policy(
     """Build a policy by kind.
 
     Args:
-        kind: ``"hosted"`` (default surface), ``"local"``, ``"deterministic"``,
-            or ``"custom:<name>"`` for a registered custom policy.
+        kind: ``"hosted"`` (default surface), ``"local"``, ``"remote"``,
+            ``"deterministic"``, or ``"custom:<name>"`` for a registered custom
+            policy.
         model: Optional model name for LLM policies.
         temperature: Sampling temperature for LLM policies.
         provider: Hosted provider override (``"groq"`` or ``"gemini"``). When
@@ -460,6 +472,8 @@ def make_policy(
         return _build_hosted_policy(model=model, temperature=temperature, provider=provider)
     if normalized == "local":
         return _build_local_policy(model=model, temperature=temperature)
+    if normalized == "remote":
+        return _build_remote_policy(model=model, temperature=temperature)
 
     if normalized.startswith("custom:") or normalized in _POLICY_REGISTRY:
         registry_name = normalized.split(":", 1)[1] if ":" in normalized else normalized
@@ -544,4 +558,26 @@ def _build_local_policy(*, model: str | None, temperature: float) -> Policy:
         ) from exc
     return LLMPolicy(
         complete_fn, model=model, temperature=temperature, provenance="llm_live", name="local"
+    )
+
+
+def _build_remote_policy(*, model: str | None, temperature: float) -> Policy:
+    """Construct an LLM policy over a hosted model Space, failing fast.
+
+    Raises:
+        PolicyUnavailableError: If the remote backend is not configured
+            (``DATAFORGE_REMOTE_MODEL_URL`` unset) or cannot be built.
+    """
+    try:
+        from dataforge.agent.backends.remote import build_remote_completion
+
+        complete_fn = build_remote_completion(model)
+    except Exception as exc:  # backend unavailable / not configured
+        raise PolicyUnavailableError(
+            "Remote model backend is unavailable "
+            f"({exc}). Set DATAFORGE_REMOTE_MODEL_URL to your hosted model Space, "
+            "or use --policy hosted, --policy local, or --policy deterministic."
+        ) from exc
+    return LLMPolicy(
+        complete_fn, model=model, temperature=temperature, provenance="llm_live", name="remote"
     )

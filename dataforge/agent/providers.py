@@ -1,8 +1,9 @@
 """Multi-provider LLM client for DataForge.
 
 Reads ``DATAFORGE_LLM_PROVIDER`` from the environment and dispatches to the
-matching provider.  Week 1 implements **groq** and **gemini** only; other
-providers raise ``NotImplementedError``.
+matching provider.  Implemented providers are **groq**, **gemini**, and
+**bedrock** (Amazon Bedrock Converse API, bearer-token auth); other providers
+raise ``NotImplementedError``.
 
 No LLM calls are made by detectors — this module is for the agent loop
 (Week 2+) and is stubbed here to establish the interface.
@@ -52,7 +53,9 @@ class ProviderError(Exception):
 
 # ── Provider dispatch ─────────────────────────────────────────────────────
 
-_SUPPORTED_PROVIDERS = frozenset({"groq", "gemini", "cerebras", "openrouter", "hf", "cloudflare"})
+_SUPPORTED_PROVIDERS = frozenset(
+    {"groq", "gemini", "bedrock", "cerebras", "openrouter", "hf", "cloudflare"}
+)
 
 
 def get_provider_name() -> str:
@@ -76,7 +79,44 @@ def get_provider_name() -> str:
         return "groq"
     if os.environ.get("GEMINI_API_KEY"):
         return "gemini"
+    if os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+        return "bedrock"
     return "groq"
+
+
+# Environment overrides for the per-provider model, mirroring the bench runner
+# naming so a user can bring their own model with one variable.
+_PROVIDER_MODEL_ENV = {
+    "groq": "DATAFORGE_GROQ_MODEL",
+    "gemini": "DATAFORGE_GEMINI_MODEL",
+    "bedrock": "DATAFORGE_BEDROCK_MODEL",
+}
+
+
+def resolve_model(provider: str | None = None) -> str:
+    """Resolve the effective model id for a provider from env, else its default.
+
+    This is the single source of truth for "which model" when no explicit model
+    is passed: it lets a user set ``DATAFORGE_<PROVIDER>_MODEL`` and have it apply
+    everywhere in the product (agent policy and LLM repairers), not just the bench.
+
+    Args:
+        provider: Provider name; defaults to the active provider from the env.
+
+    Returns:
+        The model id from ``DATAFORGE_<PROVIDER>_MODEL`` if set, otherwise the
+        provider's built-in default (empty string for bedrock, which has no default).
+    """
+    name = (provider or get_provider_name()).strip().lower()
+    env_var = _PROVIDER_MODEL_ENV.get(name)
+    override = os.environ.get(env_var, "").strip() if env_var else ""
+    if override:
+        return override
+    if name == "gemini":
+        return _GEMINI_DEFAULT_MODEL
+    if name == "bedrock":
+        return ""
+    return _GROQ_DEFAULT_MODEL
 
 
 async def complete(
@@ -110,11 +150,13 @@ async def complete(
         return await _complete_groq(messages, model=model, temperature=temperature)
     if provider == "gemini":
         return await _complete_gemini(messages, model=model, temperature=temperature)
+    if provider == "bedrock":
+        return await _complete_bedrock(messages, model=model, temperature=temperature)
 
     if provider in _SUPPORTED_PROVIDERS:
         raise NotImplementedError(
             f"Provider '{provider}' is planned but not yet implemented. "
-            f"Use 'groq' or 'gemini' for Week 1."
+            f"Use 'groq', 'gemini', or 'bedrock'."
         )
 
     raise NotImplementedError(
@@ -158,7 +200,7 @@ async def _complete_groq(
         raise ProviderError("groq", "GROQ_API_KEY environment variable not set")
 
     payload = {
-        "model": model or _GROQ_DEFAULT_MODEL,
+        "model": model or resolve_model("groq"),
         "messages": [dict(m) for m in messages],
         "temperature": temperature,
     }
@@ -218,7 +260,7 @@ async def _complete_gemini(
     if not api_key:
         raise ProviderError("gemini", "GEMINI_API_KEY environment variable not set")
 
-    model_name = model or _GEMINI_DEFAULT_MODEL
+    model_name = model or resolve_model("gemini")
     url = _GEMINI_URL_TEMPLATE.format(model=model_name)
 
     # Convert OpenAI-style messages to Gemini format.
@@ -257,3 +299,88 @@ async def _complete_gemini(
         return str(data["candidates"][0]["content"]["parts"][0]["text"])
     except (KeyError, IndexError) as exc:
         raise ProviderError("gemini", f"Unexpected response format: {data}") from exc
+
+
+# ── Bedrock provider ─────────────────────────────────────────────────────
+
+_BEDROCK_URL_TEMPLATE = "https://bedrock-runtime.{region}.amazonaws.com/model/{model}/converse"
+_BEDROCK_DEFAULT_REGION = "us-east-1"
+_BEDROCK_MAX_TOKENS = 256
+
+
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    wait=wait_exponential(multiplier=1, min=1, max=30),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
+async def _complete_bedrock(
+    messages: list[Message],
+    *,
+    model: str | None = None,
+    temperature: float = 0.0,
+) -> str:
+    """Call Amazon Bedrock's Converse API using a bearer-token API key.
+
+    Bedrock is not OpenAI-compatible: the ``system`` prompt is a top-level
+    field (not a message role), each message's content is a list of typed
+    blocks, and inference parameters live under ``inferenceConfig``.
+
+    Args:
+        messages: Chat messages (converted to Converse format).
+        model: Bedrock model / inference-profile ID. Falls back to
+            ``DATAFORGE_BEDROCK_MODEL`` when None.
+        temperature: Sampling temperature.
+
+    Returns:
+        The assistant's response text.
+
+    Raises:
+        ProviderError: If the key/model is missing or the response is malformed.
+    """
+    api_key = os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "")
+    if not api_key:
+        raise ProviderError("bedrock", "AWS_BEARER_TOKEN_BEDROCK environment variable not set")
+
+    model_name = model or os.environ.get("DATAFORGE_BEDROCK_MODEL", "")
+    if not model_name:
+        raise ProviderError(
+            "bedrock",
+            "No model configured. Set DATAFORGE_BEDROCK_MODEL or pass model=.",
+        )
+
+    region = os.environ.get("AWS_REGION", _BEDROCK_DEFAULT_REGION)
+    url = _BEDROCK_URL_TEMPLATE.format(region=region, model=model_name)
+
+    # Convert OpenAI-style messages to Converse format: system is top-level.
+    system_blocks: list[dict[str, str]] = []
+    converse_messages: list[dict[str, object]] = []
+    for msg in messages:
+        if msg["role"] == "system":
+            system_blocks.append({"text": msg["content"]})
+        else:
+            converse_messages.append({"role": msg["role"], "content": [{"text": msg["content"]}]})
+
+    payload: dict[str, object] = {
+        "messages": converse_messages,
+        "inferenceConfig": {"temperature": temperature, "maxTokens": _BEDROCK_MAX_TOKENS},
+    }
+    if system_blocks:
+        payload["system"] = system_blocks
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            url,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        response.raise_for_status()
+
+    data = response.json()
+    try:
+        return str(data["output"]["message"]["content"][0]["text"])
+    except (KeyError, IndexError) as exc:
+        raise ProviderError("bedrock", f"Unexpected response format: {data}") from exc

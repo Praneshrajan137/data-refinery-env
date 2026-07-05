@@ -376,7 +376,13 @@ def quota_units(*, llm_calls: int, prompt_tokens: int, completion_tokens: int) -
     return round(max(request_fraction, token_fraction), 4)
 
 
-def estimate_llm_calls(*, methods: list[str], datasets: list[str], seeds: int) -> int:
+def estimate_llm_calls(
+    *,
+    methods: list[str],
+    datasets: list[str],
+    seeds: int,
+    corrector_max_issues: int | None = None,
+) -> int:
     """Estimate total LLM calls for the selected run configuration."""
     estimated = 0
     for dataset_name in datasets:
@@ -390,7 +396,9 @@ def estimate_llm_calls(*, methods: list[str], datasets: list[str], seeds: int) -
             elif method == "llm_corrector":
                 # Conservative upper bound: at most one detected issue per row,
                 # each resolved with the default self-consistency sample count.
-                estimated += n_rows * _CORRECTOR_ESTIMATE_SAMPLES * seeds
+                # A configured issue cap bounds this directly.
+                issue_bound = n_rows if corrector_max_issues is None else corrector_max_issues
+                estimated += issue_bound * _CORRECTOR_ESTIMATE_SAMPLES * seeds
     return estimated
 
 
