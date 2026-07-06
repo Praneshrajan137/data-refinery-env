@@ -7,3 +7,7 @@ uvicorn[standard]==0.35.0
 slowapi==0.1.9
 python-multipart==0.0.31
 pandas==2.3.3
+# Required by dataforge.agent.providers (imported when the agent repair path is
+# enabled). tenacity lives in a dataforge extra, so it is not pulled by the
+# core install; pin it here for the API-only backend image.
+tenacity==9.1.4
