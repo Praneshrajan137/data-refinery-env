@@ -38,6 +38,18 @@ def deploy_space(
         value = os.environ.get(key)
         if value:
             api.add_space_secret(repo_id, key, value, token=token)
+    # Agent mode (trained-model remote policy) stays live across redeploys when
+    # these are provided in the environment. They are optional: when unset the
+    # backend degrades gracefully to deterministic-only (agent_available=false).
+    for variable in (
+        "DATAFORGE_REMOTE_MODEL_URL",
+        "DATAFORGE_PLAYGROUND_AGENT_MAX_STEPS",
+        "DATAFORGE_PLAYGROUND_AGENT_TIMEOUT_SECONDS",
+        "DATAFORGE_LLM_PROVIDER",
+    ):
+        value = os.environ.get(variable)
+        if value:
+            api.add_space_variable(repo_id, variable, value, token=token)
 
     if stage_dir is None:
         with tempfile.TemporaryDirectory() as tmpdir:

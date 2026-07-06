@@ -15,6 +15,9 @@ jobs:
     env:
       HF_SPACE_ID: Praneshrajan15/dataforge-playground
       DATAFORGE_PLAYGROUND_ORIGINS: https://dataforge.praneshrajan15.workers.dev
+      DATAFORGE_REMOTE_MODEL_URL: https://Praneshrajan15-dataforge-model.hf.space
+      DATAFORGE_PLAYGROUND_AGENT_MAX_STEPS: "2"
+      DATAFORGE_PLAYGROUND_AGENT_TIMEOUT_SECONDS: "240"
     steps:
       - uses: actions/checkout@v4
 
@@ -35,11 +38,21 @@ jobs:
           from huggingface_hub import HfApi
 
           api = HfApi(token=os.environ["HF_TOKEN"])
+          space = os.environ["HF_SPACE_ID"]
           api.add_space_variable(
-              os.environ["HF_SPACE_ID"],
+              space,
               "DATAFORGE_PLAYGROUND_ORIGINS",
               os.environ["DATAFORGE_PLAYGROUND_ORIGINS"],
           )
+          # Keep agent mode (trained-model remote policy) live across redeploys.
+          for variable in (
+              "DATAFORGE_REMOTE_MODEL_URL",
+              "DATAFORGE_PLAYGROUND_AGENT_MAX_STEPS",
+              "DATAFORGE_PLAYGROUND_AGENT_TIMEOUT_SECONDS",
+          ):
+              value = os.environ.get(variable, "").strip()
+              if value:
+                  api.add_space_variable(space, variable, value)
           PY
 
       - name: Stage Hugging Face Space contents
