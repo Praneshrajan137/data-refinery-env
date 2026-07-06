@@ -250,21 +250,21 @@ def _run_chat(
     device = next(model.parameters()).device
 
     try:
-        input_ids = tokenizer.apply_chat_template(
+        prompt = tokenizer.apply_chat_template(
             messages,
+            tokenize=False,
             add_generation_prompt=True,
-            return_tensors="pt",
-        ).to(device)
+        )
     except Exception:
         prompt = (
             "\n".join(f"{message['role']}: {message['content']}" for message in messages)
             + "\nassistant:"
         )
-        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
 
     gen_kwargs: dict[str, Any] = {
         "max_new_tokens": max_new_tokens,
-        "pad_token_id": tokenizer.eos_token_id,
+        "pad_token_id": tokenizer.pad_token_id or tokenizer.eos_token_id,
     }
     if temperature and temperature > 0:
         gen_kwargs["do_sample"] = True
@@ -272,8 +272,8 @@ def _run_chat(
     else:
         gen_kwargs["do_sample"] = False
 
-    outputs = model.generate(input_ids=input_ids, **gen_kwargs)
-    generated = outputs[0][input_ids.shape[-1] :]
+    outputs = model.generate(**inputs, **gen_kwargs)
+    generated = outputs[0][inputs["input_ids"].shape[-1] :]
     text = tokenizer.decode(generated, skip_special_tokens=True)
 
     if torch.cuda.is_available():
