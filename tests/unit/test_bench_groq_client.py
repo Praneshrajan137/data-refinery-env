@@ -8,6 +8,7 @@ import httpx
 import pytest
 
 from dataforge.bench.groq_client import (
+    AzureBenchClient,
     BedrockBenchClient,
     CerebrasBenchClient,
     CostCapExceededError,
@@ -538,3 +539,144 @@ class TestBedrockBenchClient:
 
         assert completion.text == "ok"
         assert client.cumulative_usd > 0.0
+
+
+class TestAzureBenchClient:
+    """Azure OpenAI benchmark client behavior with mocked chat/completions."""
+
+    def _resp(self, text: str, *, prompt: int = 10, completion: int = 4) -> MagicMock:
+        return _mock_response(
+            {
+                "choices": [{"message": {"content": text}}],
+                "usage": {"prompt_tokens": prompt, "completion_tokens": completion},
+            }
+        )
+
+    def test_azure_builds_deployment_url_with_api_version_and_key_header(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = self._resp('{"repairs": []}')
+
+        with patch(
+            "dataforge.bench.groq_client.httpx.Client", return_value=mock_client
+        ) as mock_client_cls:
+            client = AzureBenchClient(
+                api_key="secret",
+                model="gpt-5.5",
+                endpoint="https://my-res.openai.azure.com/",
+                api_version="2025-04-01-preview",
+            )
+            completion = client.complete(
+                [
+                    {"role": "system", "content": "sys"},
+                    {"role": "user", "content": "hi"},
+                ]
+            )
+
+        assert completion.text == '{"repairs": []}'
+        assert completion.prompt_tokens == 10
+        assert completion.completion_tokens == 4
+        # Deployment-name URL, trailing slash on endpoint normalized.
+        assert mock_client.post.call_args.args[0] == (
+            "https://my-res.openai.azure.com/openai/deployments/gpt-5.5/chat/completions"
+        )
+        assert mock_client.post.call_args.kwargs["params"]["api-version"] == "2025-04-01-preview"
+        # api-key header auth (constructed at __init__).
+        assert mock_client_cls.call_args.kwargs["headers"]["api-key"] == "secret"
+        payload = mock_client.post.call_args.kwargs["json"]
+        # System stays inline (OpenAI-compatible), modern token field, no temperature.
+        assert payload["messages"][0] == {"role": "system", "content": "sys"}
+        assert "max_completion_tokens" in payload
+        assert "max_tokens" not in payload
+        assert "temperature" not in payload
+
+    def test_azure_sends_temperature_only_when_opted_in(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = self._resp("ok")
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            AzureBenchClient(
+                api_key="k",
+                model="m",
+                endpoint="https://e.openai.azure.com",
+                send_temperature=True,
+                temperature=0.4,
+            ).complete([{"role": "user", "content": "hi"}])
+
+        assert mock_client.post.call_args.kwargs["json"]["temperature"] == 0.4
+
+    def test_azure_sends_reasoning_effort_when_configured(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = self._resp("ok")
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            AzureBenchClient(
+                api_key="k",
+                model="gpt-5-mini",
+                endpoint="https://e.openai.azure.com",
+                reasoning_effort="low",
+            ).complete([{"role": "user", "content": "hi"}])
+
+        assert mock_client.post.call_args.kwargs["json"]["reasoning_effort"] == "low"
+
+    def test_azure_warns_when_usage_missing(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response(
+            {"choices": [{"message": {"content": "ok"}}]}
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            completion = AzureBenchClient(
+                api_key="k", model="m", endpoint="https://e.openai.azure.com"
+            ).complete([{"role": "user", "content": "hi"}])
+
+        assert completion.warnings == ("missing_usage_payload",)
+
+    def test_azure_raises_on_unexpected_payload(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = _mock_response({"choices": []})
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            pytest.raises(ValueError, match="Unexpected azure response payload"),
+        ):
+            AzureBenchClient(
+                api_key="k", model="m", endpoint="https://e.openai.azure.com"
+            ).complete([{"role": "user", "content": "hi"}])
+
+    def test_azure_raises_provider_request_error_with_body(self) -> None:
+        request = httpx.Request("POST", "https://e.openai.azure.com/x")
+        response = httpx.Response(400, text='{"error":"bad deployment"}', request=request)
+        bad_request = httpx.HTTPStatusError("bad", request=request, response=response)
+        mock_response = MagicMock()
+        mock_response.raise_for_status.side_effect = bad_request
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            pytest.raises(ProviderRequestError, match="bad deployment"),
+        ):
+            AzureBenchClient(
+                api_key="k", model="m", endpoint="https://e.openai.azure.com"
+            ).complete([{"role": "user", "content": "hi"}])
+
+    def test_azure_cost_guard_hard_stops_when_cap_exceeded(self) -> None:
+        mock_client = MagicMock()
+        mock_client.post.return_value = self._resp("ok", prompt=1000, completion=1000)
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            # Each call costs 1000/1000*0.003 + 1000/1000*0.015 = $0.018.
+            client = AzureBenchClient(
+                api_key="k",
+                model="m",
+                endpoint="https://e.openai.azure.com",
+                max_usd=0.05,
+                usd_per_1k_input=0.003,
+                usd_per_1k_output=0.015,
+            )
+            client.complete([{"role": "user", "content": "hi"}])
+            client.complete([{"role": "user", "content": "hi"}])
+            with pytest.raises(CostCapExceededError, match="Azure spend guard tripped"):
+                client.complete([{"role": "user", "content": "hi"}])
+
+        assert client.cumulative_usd == pytest.approx(0.054)

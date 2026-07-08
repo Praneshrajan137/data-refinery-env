@@ -20,7 +20,12 @@ from dataforge.bench.core import (
     validate_estimated_calls,
     write_run_output,
 )
-from dataforge.bench.groq_client import BedrockBenchClient, GeminiBenchClient, GroqBenchClient
+from dataforge.bench.groq_client import (
+    AzureBenchClient,
+    BedrockBenchClient,
+    GeminiBenchClient,
+    GroqBenchClient,
+)
 from dataforge.bench.methods import (
     run_heuristic_episode,
     run_llm_corrector_episode,
@@ -82,7 +87,15 @@ def _llm_skip_reason() -> str | None:
         if not os.environ.get("GEMINI_API_KEY"):
             return "GEMINI_API_KEY is not set."
         return None
-    return "DATAFORGE_LLM_PROVIDER must be set to groq, bedrock, or gemini."
+    if provider == "azure":
+        if not os.environ.get("AZURE_API_KEY"):
+            return "AZURE_API_KEY is not set."
+        if not os.environ.get("AZURE_OPENAI_ENDPOINT"):
+            return "AZURE_OPENAI_ENDPOINT is not set."
+        if not os.environ.get("DATAFORGE_AZURE_MODEL"):
+            return "DATAFORGE_AZURE_MODEL (deployment name) is not set."
+        return None
+    return "DATAFORGE_LLM_PROVIDER must be set to groq, bedrock, gemini, or azure."
 
 
 def _env_float(name: str, default: float) -> float:
@@ -164,6 +177,37 @@ def _build_gemini_client() -> GeminiBenchClient:
     )
 
 
+def _build_azure_client() -> AzureBenchClient:
+    """Construct an Azure OpenAI benchmark client from env-driven knobs."""
+    raw_cap = os.environ.get("DATAFORGE_AZURE_MAX_USD", "").strip()
+    max_usd: float | None = None
+    if raw_cap:
+        try:
+            parsed = float(raw_cap)
+        except ValueError:
+            parsed = 0.0
+        if parsed > 0:
+            max_usd = parsed
+    return AzureBenchClient(
+        api_key=os.environ["AZURE_API_KEY"],
+        model=os.environ["DATAFORGE_AZURE_MODEL"],
+        endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
+        min_interval_s=_env_float("DATAFORGE_AZURE_MIN_INTERVAL_S", 1.0),
+        max_tokens=_env_int("DATAFORGE_AZURE_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_AZURE_MAX_RETRIES", 5),
+        timeout_s=_env_float("DATAFORGE_AZURE_TIMEOUT_S", 60.0),
+        max_usd=max_usd,
+        usd_per_1k_input=_env_float("DATAFORGE_AZURE_USD_PER_1K_INPUT", 0.005),
+        usd_per_1k_output=_env_float("DATAFORGE_AZURE_USD_PER_1K_OUTPUT", 0.015),
+        send_temperature=os.environ.get("DATAFORGE_AZURE_SEND_TEMPERATURE", "").strip().lower()
+        in {"1", "true", "yes", "on"},
+        temperature=_env_float("DATAFORGE_AZURE_TEMPERATURE", 0.0),
+        reasoning_effort=os.environ.get("DATAFORGE_AZURE_REASONING_EFFORT", "").strip().lower()
+        or None,
+    )
+
+
 def _skipped_result(
     *,
     method: str,
@@ -240,13 +284,17 @@ def run_agent_comparison(
 
     llm_methods_requested = any(method.startswith("llm_") for method in methods)
     skip_reason = _llm_skip_reason() if llm_methods_requested else None
-    client: GroqBenchClient | BedrockBenchClient | GeminiBenchClient | None = None
+    client: GroqBenchClient | BedrockBenchClient | GeminiBenchClient | AzureBenchClient | None = (
+        None
+    )
     if llm_methods_requested and skip_reason is None:
         provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
         if provider == "bedrock":
             client = _build_bedrock_client()
         elif provider == "gemini":
             client = _build_gemini_client()
+        elif provider == "azure":
+            client = _build_azure_client()
         else:
             client = _build_groq_client()
 

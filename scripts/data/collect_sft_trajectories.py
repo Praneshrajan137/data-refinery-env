@@ -19,6 +19,7 @@ from rich.console import Console
 
 from dataforge.bench.core import BenchmarkRepair, RepairScore, score_repairs
 from dataforge.bench.groq_client import (
+    AzureBenchClient,
     CerebrasBenchClient,
     GeminiBenchClient,
     GroqBenchClient,
@@ -37,7 +38,7 @@ from dataforge.evaluation_contract import InferabilityLabel
 
 Difficulty = Literal["easy", "medium"]
 Preset = Literal["smoke", "full"]
-TeacherProvider = Literal["groq", "cerebras", "gemini"]
+TeacherProvider = Literal["groq", "cerebras", "gemini", "azure"]
 FlightsRepairMode = Literal["strict", "verified"]
 NormalizationCandidate = dict[str, str | int]
 
@@ -1596,6 +1597,9 @@ def _default_teacher_model(provider: TeacherProvider) -> str:
     """Return the default model for one teacher provider."""
     if provider == "gemini":
         return DEFAULT_GEMINI_MODEL
+    if provider == "azure":
+        # Azure has no built-in default: the deployment name is account-specific.
+        return os.environ.get("DATAFORGE_AZURE_MODEL", "")
     return DEFAULT_CEREBRAS_MODEL if provider == "cerebras" else DEFAULT_GROQ_MODEL
 
 
@@ -1697,8 +1701,8 @@ def _validate_collection_settings(settings: CollectionSettings) -> None:
         raise ValueError("--max-total-requests must be >= 1.")
     if settings.daily_request_budget < 1:
         raise ValueError("--daily-request-budget must be >= 1.")
-    if settings.teacher_provider not in {"groq", "cerebras", "gemini"}:
-        raise ValueError("--teacher-provider must be groq, cerebras, or gemini.")
+    if settings.teacher_provider not in {"groq", "cerebras", "gemini", "azure"}:
+        raise ValueError("--teacher-provider must be groq, cerebras, gemini, or azure.")
     if settings.teacher_max_tokens < 1:
         raise ValueError("--teacher-max-tokens must be >= 1.")
     if settings.teacher_timeout_s <= 0:
@@ -1727,6 +1731,8 @@ def _teacher_api_key_env(provider: TeacherProvider) -> str:
     """Return the API-key environment variable for a teacher provider."""
     if provider == "gemini":
         return "GEMINI_API_KEY"
+    if provider == "azure":
+        return "AZURE_API_KEY"
     return "CEREBRAS_API_KEY" if provider == "cerebras" else "GROQ_API_KEY"
 
 
@@ -1756,6 +1762,40 @@ def _build_provider_client(
     timeout_s: float,
 ) -> CompletionClient:
     """Build one OpenAI-compatible provider client."""
+    if provider == "azure":
+        endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "").strip()
+        if not endpoint:
+            raise ValueError(
+                "AZURE_OPENAI_ENDPOINT must be set to use the azure teacher provider "
+                "(e.g. https://<resource>.openai.azure.com). See docs/azure-teacher-setup.md."
+            )
+        raw_cap = os.environ.get("DATAFORGE_AZURE_MAX_USD", "").strip()
+        max_usd: float | None = None
+        if raw_cap:
+            try:
+                parsed = float(raw_cap)
+            except ValueError:
+                parsed = 0.0
+            if parsed > 0:
+                max_usd = parsed
+        return AzureBenchClient(
+            api_key=api_key,
+            model=model,
+            endpoint=endpoint,
+            api_version=os.environ.get("AZURE_OPENAI_API_VERSION", "2025-04-01-preview"),
+            min_interval_s=min_interval_s,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+            max_retry_after_s=max_retry_after_s,
+            timeout_s=timeout_s,
+            max_usd=max_usd,
+            usd_per_1k_input=float(os.environ.get("DATAFORGE_AZURE_USD_PER_1K_INPUT", "0.005")),
+            usd_per_1k_output=float(os.environ.get("DATAFORGE_AZURE_USD_PER_1K_OUTPUT", "0.015")),
+            send_temperature=os.environ.get("DATAFORGE_AZURE_SEND_TEMPERATURE", "").strip().lower()
+            in {"1", "true", "yes", "on"},
+            reasoning_effort=os.environ.get("DATAFORGE_AZURE_REASONING_EFFORT", "").strip().lower()
+            or None,
+        )
     client_cls: type[CerebrasBenchClient] | type[GeminiBenchClient] | type[GroqBenchClient]
     if provider == "gemini":
         client_cls = GeminiBenchClient
@@ -1896,7 +1936,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-root", type=Path, default=None)
     parser.add_argument("--push-to-hub", action="store_true")
     parser.add_argument("--hf-dataset-repo", default="auto")
-    parser.add_argument("--teacher-provider", choices=("groq", "cerebras", "gemini"), default=None)
+    parser.add_argument(
+        "--teacher-provider", choices=("groq", "cerebras", "gemini", "azure"), default=None
+    )
     parser.add_argument("--teacher-model", default=None)
     parser.add_argument("--teacher-max-tokens", type=int, default=None)
     parser.add_argument("--teacher-timeout-s", type=float, default=None)
