@@ -19,6 +19,7 @@ boundary is grounded in measured precision, not guesswork.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -26,9 +27,11 @@ from pydantic import BaseModel, Field
 __all__ = [
     "AbstentionAction",
     "AbstentionPolicy",
+    "conformal_corrector_policy",
     "corrector_default_policy",
     "default_policy",
     "fit_thresholds",
+    "guard_policy_for_drift",
     "policy_from_corrector_samples",
     "severity_for_action",
 ]
@@ -185,3 +188,82 @@ def fit_thresholds(
                 best_threshold = confidence
         thresholds[issue_type] = round(best_threshold, 4)
     return thresholds
+
+
+def conformal_corrector_policy(
+    calibration_by_class: Mapping[str, Sequence[tuple[float, bool]]],
+    *,
+    alpha: float = 0.05,
+    delta: float = 0.05,
+    min_support: int = 30,
+) -> AbstentionPolicy:
+    """Build an auto-apply policy with a *distribution-free* per-class guarantee.
+
+    This is the rigorous replacement for :func:`policy_from_corrector_samples`.
+    Where that function fits a threshold to a precision floor **in-sample** (which
+    overstates precision on new data), this certifies each class's threshold with
+    conformal risk control (:func:`dataforge.conformal.certify_thresholds_by_class`):
+    with probability >= ``1 - delta``, an auto-applied class's true error rate is
+    <= ``alpha`` on data exchangeable with the calibration sample. Classes that
+    cannot be certified stay propose-not-apply.
+
+    The caller MUST pass the **calibration split only** and reserve a disjoint
+    test split for honest metric reporting (see
+    :func:`dataforge.conformal.split_by_class`). The SMT verifier and safety
+    constitution remain hard gates beneath this policy - it only ever narrows
+    what is eligible for auto-apply.
+
+    Args:
+        calibration_by_class: ``{issue_type: [(confidence, was_correct), ...]}``
+            from the calibration split.
+        alpha: Maximum tolerated per-class auto-apply error (``1 - target_precision``).
+        delta: Failure probability of the guarantee.
+        min_support: Minimum accepted-sample count to certify a class.
+
+    Returns:
+        An :class:`AbstentionPolicy` auto-applying only certified classes.
+    """
+    from dataforge.conformal import certify_thresholds_by_class
+
+    thresholds = certify_thresholds_by_class(
+        calibration_by_class,
+        alpha=alpha,
+        delta=delta,
+        min_support=min_support,
+    )
+    return AbstentionPolicy(
+        target_precision=1.0 - alpha,
+        auto_apply_thresholds=thresholds,
+        default_threshold=1.01,
+    )
+
+
+def guard_policy_for_drift(
+    policy: AbstentionPolicy,
+    reference_confidences: Sequence[float],
+    live_confidences: Sequence[float],
+    *,
+    psi_threshold: float = 0.2,
+) -> AbstentionPolicy:
+    """Downgrade to propose-not-apply when the live distribution has drifted.
+
+    A conformal certificate is valid only for data exchangeable with the
+    calibration sample. If the confidence distribution on the table being
+    repaired differs materially from calibration (Population Stability Index
+    above ``psi_threshold``), the guarantee no longer holds, so we return the
+    conservative propose-not-apply policy instead of the certified one. When
+    distributions agree, the certified policy is returned unchanged.
+
+    Args:
+        policy: The certified policy to use when no drift is detected.
+        reference_confidences: Calibration-time confidence scores.
+        live_confidences: Confidence scores on the current table.
+        psi_threshold: PSI above which auto-apply is downgraded (default 0.2).
+
+    Returns:
+        ``policy`` if stable, else :func:`corrector_default_policy`.
+    """
+    from dataforge.conformal import population_stability_index
+
+    psi = population_stability_index(reference_confidences, live_confidences)
+    return corrector_default_policy() if psi > psi_threshold else policy

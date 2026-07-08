@@ -130,6 +130,10 @@ class TestRunLLMCorrectorEpisode:
         assert result.auto_apply_count == 1
         assert result.provider == "fake-provider"
         assert result.model == "fake-model"
+        # Raw per-class labeled pairs persisted for distribution-free certification.
+        assert result.calibration_samples_by_class is not None
+        pooled = [s for pairs in result.calibration_samples_by_class.values() for s in pairs]
+        assert (1.0, True) in [(round(c, 4), ok) for c, ok in pooled] or len(pooled) == 1
 
     def test_wrong_fill_lowers_precision_at_auto_apply(self) -> None:
         dataset = _dataset()

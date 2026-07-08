@@ -10,7 +10,9 @@ precision floor on benchmark data -- says it is safe to auto-apply.
 from __future__ import annotations
 
 from dataforge.calibration import (
+    conformal_corrector_policy,
     corrector_default_policy,
+    guard_policy_for_drift,
     policy_from_corrector_samples,
 )
 
@@ -82,3 +84,50 @@ class TestFitFromSamples:
 
         assert policy.action_for("format_violation", 0.9) == "auto_apply"
         assert policy.action_for("format_violation", 0.3) == "review"
+
+
+class TestConformalCorrectorPolicy:
+    """Distribution-free (conformal) auto-apply policy replacing in-sample fit."""
+
+    def test_reliable_class_is_certified(self) -> None:
+        # A large, clean high-confidence class earns a certified auto-apply.
+        samples = {"categorical_normalization": [(0.99, True)] * 200}
+        policy = conformal_corrector_policy(samples, alpha=0.1, delta=0.05, min_support=30)
+        assert policy.action_for("categorical_normalization", 0.99) == "auto_apply"
+
+    def test_unreliable_class_stays_propose_not_apply(self) -> None:
+        samples = {"missing_value": [(0.99, i % 2 == 0) for i in range(200)]}
+        policy = conformal_corrector_policy(samples, alpha=0.1, delta=0.05, min_support=30)
+        assert policy.action_for("missing_value", 0.99) == "review"
+
+    def test_low_support_class_cannot_certify(self) -> None:
+        samples = {"outlier": [(0.99, True)] * 5}
+        policy = conformal_corrector_policy(samples, alpha=0.1, delta=0.05, min_support=30)
+        assert policy.action_for("outlier", 0.99) == "review"
+
+    def test_target_precision_reflects_alpha(self) -> None:
+        policy = conformal_corrector_policy({}, alpha=0.05)
+        assert policy.target_precision == 0.95
+
+
+class TestDriftGuard:
+    """Distribution-shift guard: downgrade auto-apply when exchangeability breaks."""
+
+    def _certified_policy(self) -> object:
+        samples = {"categorical_normalization": [(0.99, True)] * 200}
+        return conformal_corrector_policy(samples, alpha=0.1, delta=0.05, min_support=30)
+
+    def test_no_drift_keeps_certified_policy(self) -> None:
+        policy = self._certified_policy()
+        ref = [0.99] * 500
+        live = [0.99] * 500
+        guarded = guard_policy_for_drift(policy, ref, live, psi_threshold=0.2)
+        assert guarded.action_for("categorical_normalization", 0.99) == "auto_apply"
+
+    def test_drift_downgrades_to_propose_not_apply(self) -> None:
+        policy = self._certified_policy()
+        ref = [0.2 + 0.0005 * i for i in range(500)]  # low-confidence calibration
+        live = [0.95 + 0.0001 * i for i in range(500)]  # high-confidence live
+        guarded = guard_policy_for_drift(policy, ref, live, psi_threshold=0.2)
+        # Guarantee void under drift => nothing auto-applies.
+        assert guarded.action_for("categorical_normalization", 0.99) == "review"

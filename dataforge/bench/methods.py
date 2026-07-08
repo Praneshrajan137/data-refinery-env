@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, cast
 
 from dataforge.bench.core import BenchmarkRepair, SeedBenchmarkResult, quota_units, score_repairs
 from dataforge.bench.error_classes import (
+    classify_error_cell,
     expected_calibration_error,
     precision_at_auto_apply,
     score_repairs_by_class,
@@ -162,6 +163,11 @@ def run_llm_corrector_episode(
     repairs: list[BenchmarkRepair] = []
     calibration_samples: list[tuple[float, bool]] = []
     auto_apply_samples: list[tuple[bool, bool]] = []
+    samples_by_class: dict[str, list[tuple[float, bool]]] = {}
+    gt_class = {
+        (cell.row, cell.column): classify_error_cell(cell.dirty_value, cell.clean_value)
+        for cell in dataset.ground_truth
+    }
     call_failures = 0
     # The corrector runs against the schema-less product path (schema=None) so it
     # infers its own high-confidence verification constraints, mirroring how a
@@ -193,6 +199,8 @@ def run_llm_corrector_episode(
         calibration_samples.append((fix.confidence, was_correct))
         auto_applied = fix.confidence >= _CORRECTOR_AUTO_APPLY_CONFIDENCE
         auto_apply_samples.append((auto_applied, was_correct))
+        error_class = gt_class.get((fix.fix.row, fix.fix.column), "other")
+        samples_by_class.setdefault(error_class, []).append((fix.confidence, was_correct))
 
     if call_failures:
         warnings.append(f"corrector_call_failures_{call_failures}")
@@ -228,6 +236,7 @@ def run_llm_corrector_episode(
         ece=expected_calibration_error(calibration_samples),
         precision_at_auto_apply=precision_at_auto_apply(auto_apply_samples),
         auto_apply_count=sum(1 for auto_applied, _ in auto_apply_samples if auto_applied),
+        calibration_samples_by_class=samples_by_class or None,
         reproduction_command=_reproduction_command("llm_corrector", dataset.metadata.name, 1),
     )
 
