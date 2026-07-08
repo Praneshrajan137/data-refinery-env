@@ -18,10 +18,12 @@ from scripts.data.collect_sft_trajectories import (
     RuntimeDeadline,
     TrajectoryKey,
     _build_parser,
+    _build_provider_client,
     _context_row_indices,
     _normalization_candidates,
     _repairs_for_rows,
     _resolve_collection_settings,
+    _teacher_api_key_env,
     collect_episode_trajectories,
     ensure_ready_for_push,
     existing_trajectory_keys,
@@ -555,6 +557,59 @@ def test_gemini_provider_resolves_default_model() -> None:
 
     assert settings.teacher_provider == "gemini"
     assert settings.teacher_model == "gemini-3.1-pro-preview"
+
+
+def test_azure_teacher_resolves_deployment_from_env_and_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Azure teacher: deployment comes from DATAFORGE_AZURE_MODEL; key is AZURE_API_KEY."""
+    monkeypatch.setenv("DATAFORGE_AZURE_MODEL", "gpt-5.5")
+    args = _build_parser().parse_args(["--preset", "smoke", "--teacher-provider", "azure"])
+
+    settings = _resolve_collection_settings(args)
+
+    assert settings.teacher_provider == "azure"
+    assert settings.teacher_model == "gpt-5.5"
+    assert _teacher_api_key_env("azure") == "AZURE_API_KEY"
+
+
+def test_azure_teacher_client_uses_endpoint_and_deployment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """_build_provider_client builds an AzureBenchClient from env endpoint."""
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://my-res.openai.azure.com")
+    monkeypatch.setenv("AZURE_OPENAI_API_VERSION", "2025-04-01-preview")
+
+    client = _build_provider_client(
+        provider="azure",
+        model="gpt-5.5",
+        api_key="test-key",
+        min_interval_s=1.0,
+        max_tokens=256,
+        max_retries=3,
+        max_retry_after_s=60.0,
+        timeout_s=30.0,
+    )
+
+    assert client.provider == "azure"
+    assert client.model == "gpt-5.5"
+
+
+def test_azure_teacher_client_requires_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Missing AZURE_OPENAI_ENDPOINT fails fast with an actionable message."""
+    monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+
+    with pytest.raises(ValueError, match="AZURE_OPENAI_ENDPOINT"):
+        _build_provider_client(
+            provider="azure",
+            model="gpt-5.5",
+            api_key="test-key",
+            min_interval_s=1.0,
+            max_tokens=256,
+            max_retries=3,
+            max_retry_after_s=60.0,
+            timeout_s=30.0,
+        )
 
 
 def test_flights_verified_mode_resolves_verifier_model() -> None:

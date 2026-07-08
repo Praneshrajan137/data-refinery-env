@@ -140,9 +140,18 @@ trustworthy rather than impressive:
   (including the schema-less inferred-constraint guard) and the safety
   constitution, and any applied change is journaled and byte-for-byte reversible.
 - **Propose-not-apply by default.** Corrector proposals surface as reviewable
-  `suggested_fixes`; they are auto-applied **only** when a per-class threshold
-  fit to a >= 0.95 precision floor is cleared *and* the operator confirms LLM
-  writes. Nothing LLM-origin is silently written.
+  `suggested_fixes`; they are auto-applied **only** when a per-class threshold is
+  cleared *and* the operator confirms LLM writes. Nothing LLM-origin is silently
+  written.
+- **Distribution-free auto-apply guarantee.** Auto-apply thresholds are no longer
+  fit in-sample (which overstates precision on new data). `dataforge/conformal.py`
+  certifies each class's threshold with conformal risk control (fixed sequential
+  testing + exact Clopper-Pearson bounds): with probability >= 1 - delta, a
+  certified class's auto-applied error rate is <= alpha on data exchangeable with
+  the calibration split. A Population Stability Index monitor downgrades auto-apply
+  back to review when the live distribution drifts, so the guarantee is never
+  claimed outside its scope. The SMT verifier and safety constitution remain the
+  hard floor beneath all of this.
 
 Cost is explicit: the corrector spends `k` LLM calls per detected issue. The
 `llm_corrector` benchmark method reports per-class correction F1, calibration
@@ -162,23 +171,60 @@ propose-not-apply — exactly the intended default. No error class has earned
 auto-apply on measured data. (The bench also runs on Bedrock and Groq via
 `DATAFORGE_LLM_PROVIDER`.)
 
+A second live report on a frontier model - Azure OpenAI `gpt-5-mini`,
+[`eval/results/corrector_gpt5mini_hospital.json`](eval/results/corrector_gpt5mini_hospital.json) -
+reinforces the finding rather than overturning it: `precision_at_auto_apply`
+0.077 and ECE 0.82 are *worse* than the smaller model's, confirming that frontier
+capability does not buy calibration. Auto-apply eligibility is therefore decided
+by the distribution-free certified-coverage report (calibrate on a held-out
+split, measure on a disjoint test split), not by model size.
+
 This is the design center, not an apology: a data-repair tool you can trust is
 one that tells you exactly what it will and will not touch, and proves it.
+
+#### Selective-Repair Calibration Benchmark
+
+The flagship artifact makes that proof reproducible. Framing the auto-apply gate
+as selective classification (Geifman and El-Yaniv, 2017), it certifies per-class
+thresholds with conformal risk control on a calibration split and measures them
+on a disjoint test split, then reports a risk-coverage curve with its AURC, an
+alpha sweep, a 200-way random-split validity check, and a reliability diagram.
+Committed at
+[`eval/results/selective_repair_calibration.json`](eval/results/selective_repair_calibration.json)
+with a methods note at
+[`docs/selective-repair-calibration.md`](docs/selective-repair-calibration.md).
+
+Measured on Azure `gpt-5-mini` (hospital), the dominant error class reaches
+adequate support (n=78, above the 30-sample floor), so the result is not a
+small-sample artifact: certified auto-apply coverage is 0.0 at every tested
+error budget from 1% to 20%, AURC is ~0.95 (no safe operating point), and across
+200 random splits the gate never once auto-applied a wrong fix. Raising the
+model's reasoning effort from minimal to medium does not help (ECE 0.84 vs 0.89),
+confirming that calibration - not capability or effort - is the binding
+constraint. Propose-not-apply is therefore the provably correct policy, by
+measurement rather than by assertion.
 
 ### Bring your own model
 
 The LLM paths (the corrector and the `--agent` policy) are provider- and
 model-agnostic. Choose a provider with `DATAFORGE_LLM_PROVIDER` (`groq`,
-`gemini`, or `bedrock`) and its key, and choose the model with one environment
-variable per provider -- the single source of truth used everywhere (agent
-policy and repairers), not just the benchmark:
+`gemini`, `bedrock`, or `azure`) and its key, and choose the model with one
+environment variable per provider -- the single source of truth used everywhere
+(agent policy and repairers), not just the benchmark:
 
 ```bash
 export DATAFORGE_LLM_PROVIDER=gemini
 export GEMINI_API_KEY=...
-export DATAFORGE_GEMINI_MODEL=gemini-3.1-flash-lite-preview   # or DATAFORGE_GROQ_MODEL / DATAFORGE_BEDROCK_MODEL
+export DATAFORGE_GEMINI_MODEL=gemini-3.1-flash-lite-preview   # or DATAFORGE_GROQ_MODEL / DATAFORGE_BEDROCK_MODEL / DATAFORGE_AZURE_MODEL
 dataforge repair data.csv --agent --dry-run
 ```
+
+For **Azure OpenAI** (first-party GPT-5 family, works on trial credit; Anthropic
+Claude on Foundry needs pay-as-you-go and is rejected fast on credit-only
+subscriptions), set `AZURE_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and
+`DATAFORGE_AZURE_MODEL` (your deployment name). See
+[`docs/azure-teacher-setup.md`](docs/azure-teacher-setup.md) for the full runbook
+(teacher-data generation, corrector benchmark, and the hard USD cost guard).
 
 An explicit `--llm-model` (CLI) or `model=` (MCP `dataforge_agent_repair`)
 overrides the env var; when neither is set, the provider's default model is

@@ -12,6 +12,97 @@ Format for every entry:
 
 ---
 
+## 2026-07-07 - Reframe to verified+calibrated gate; conformal risk control; 1.5B is no-go for auto-apply
+**Context**: A prior plan pursued "better teacher data + bigger base model" to lift
+repair quality. The measured evidence collected while executing it refutes that
+premise as the highest-leverage path:
+- LLM corrector on the strongest models is rejected by its own promotion gate:
+  Gemini precision@auto-apply 0.16 / ECE 0.79; Azure gpt-5-mini 0.077 / ECE 0.82
+  (`eval/results/corrector_gpt5mini_hospital.json`). Gate needs >= 0.95 precision,
+  <= 0.10 ECE.
+- Deterministic correction F1 is 0.00 on flights and 0.039 on beers
+  (`BENCHMARK_REPORT.md`); correction is unsolved on 2 of 3 datasets.
+- Root cause of untrustworthy auto-apply is NOT model capability. It is (a)
+  calibration - models do not know when they are wrong (ECE 0.8), and (b)
+  statistical rigor - `dataforge.calibration.fit_thresholds` fit the auto-apply
+  threshold IN-SAMPLE (no held-out split, no distribution-free guarantee), so a
+  "0.95" threshold silently drops below 0.95 on new data. A bigger local model
+  fixes neither.
+**Alternatives**:
+- Continue scaling the local model to 1.5B/3B. Cost: paid GPU + hours. Expected
+  gain: tiny (0.5B already near ceiling per the training note; a 1.5B cannot clear
+  a gate GPT-5-mini fails by 12x). Rejected as the primary thrust.
+- Invest in the gate: distribution-free guaranteed auto-apply precision (conformal
+  risk control) + detection breadth + an honest calibration benchmark. Chosen.
+**Decision**:
+1. Add `dataforge/conformal.py`: class-conditional (Mondrian) selective-risk
+   control via fixed sequential testing + exact Clopper-Pearson bounds, giving a
+   distribution-free finite-sample guarantee that an auto-applied class's error
+   <= alpha w.p. >= 1 - delta; plus a calibration/test split, a certified-coverage
+   report, and a PSI distribution-shift monitor. Refs: Bates et al. RCPS (2021);
+   Angelopoulos et al. Learn-then-Test (2021); Conformal Risk Control
+   (arXiv:2208.02814); Angelopoulos & Bates gentle intro (arXiv:2107.07511).
+2. Wire `conformal_corrector_policy` + `guard_policy_for_drift` behind the
+   unchanged `AbstentionPolicy` seam. The SMT verifier and safety constitution
+   remain the hard floor; conformal only ever narrows what may auto-apply.
+3. 1.5B / teacher-scaling is NO-GO for improving auto-apply. The shipped
+   `sft_15b_v10.yaml` + Azure teacher pipeline remain documented, ready-to-run
+   rungs, not the roadmap. Any future model work is scoped to exactly the error
+   classes conformal can certify at >= 0.95 precision - never a blanket auto-apply.
+**Reasoning**: Decision theory over sunk cost. The defensible moat is the verified,
+now statistically-guaranteed, honest-abstention gate - not proposer capability
+(proposers are commodities). Value is measured (Monte-Carlo validity test proves
+the guarantee), never assumed.
+**Reviewed with**: (solo) - primary sources verified (the two arXiv papers);
+measured corrector reports and the `bench --quick` coverage matrix.
+**Reversal criteria**: If a certified-coverage run shows a non-empty corrector
+auto-apply slice at >= 0.95 precision on the held-out test split, scope a model
+upgrade to those classes. If a specific deployment needs on-prem/offline correction
+where hosted models are unavailable, revisit local-model scaling for that context.
+**Measured status**: conformal machinery shipped, 1043+ tests, ruff+mypy --strict
+clean. Detection (`bench --quick`): flights text_normalization detection = 0.00
+(n=1729) is the top winnable-half gap; beers value_format detection is already
+1.00 and text_normalization 0.87 (the old 0.40 floor was stale/conservative).
+
+## 2026-07-06 - Azure OpenAI (GPT-5.5) teacher/measurement; 1.5B base; broaden datasets
+**Context**: The trained repair policy (Qwen2.5-0.5B) is near its ceiling on
+exact-value correction. The two highest-impact levers are better teacher data
+and a bigger base model. A $200 Azure free-trial credit is available and the
+user wanted "the best model (Opus/GPT-5.5)".
+**Alternatives**:
+- Use Anthropic Claude (Sonnet 5 / Opus) on Azure Foundry. Pros: strongest.
+  Cons: Microsoft docs exclude Claude (a third-party Marketplace SaaS offer)
+  from "free trial" and "credit-only" subscriptions - it will NOT run on the
+  trial credit. Dishonest to promise it.
+- Use Azure OpenAI GPT-5.5 (first-party, "sold directly by Azure"). Pros: billed
+  against the subscription so it works on trial credit; strongest usable model;
+  OpenAI-compatible surface. Cons: GPT-5 rejects `temperature != 1` and needs
+  `max_completion_tokens`.
+- Skip Azure; keep oracle-only teacher and 0.5B. Cons: forgoes both levers.
+**Decision**: Add a first-party Azure OpenAI provider (product `complete()` +
+bench `AzureBenchClient`) with a hard USD cost guard; wire it as a selectable
+teacher provider (F1=1.0 verified filter) and corrector-benchmark backend.
+Author `sft_15b_v10.yaml` (Qwen2.5-1.5B, bf16, paid GPU) as a structural mirror
+of the proven `sft_05b_v9`. Add `rayyan` + `tax` RAHA datasets (verified pinned
+SHAs). Keep propose-not-apply and the SMT+safety verifier gate for all
+LLM-origin fixes.
+**Reasoning**: Honest about what the trial credit can actually run (GPT-5.5, not
+Claude); the provider fails fast with an actionable message if a Claude
+deployment is requested. Value stays measured, never assumed - the promotion
+gates and corrector_promotion_verdict decide "enough".
+**Reviewed with**: (solo) - authenticity cross-checked against Microsoft Foundry
+docs (models-from-partners, models-sold-directly-by-azure) and Anthropic model
+overview.
+**Reversal criteria**: If the user moves to pay-as-you-go, enable the Claude
+path via the Anthropic Messages endpoint. If GPT-5.5's corrector precision fails
+the 0.95 auto-apply gate, the corrector stays propose-not-apply.
+**Gating (honest status)**: The Azure provider, teacher wiring, datasets, and
+1.5B config are shipped and offline-verified (1010 tests, ruff+mypy --strict
+clean). The live teacher-data run and corrector benchmark are gated on a
+configured Azure endpoint (see docs/azure-teacher-setup.md); the 1.5B SFT->GRPO
+training is gated on the user's paid GPU. Coverage floors for rayyan/tax are to
+be seeded from the first measured `dataforge bench --quick` run.
+
 ## 2026-06-30 - Reposition as verified+calibrated repair; ensemble + honest coverage
 **Context**: A per-error-class instrument (built first) exposed that the
 deterministic stack scored F1 0.79 on hospital but 0.00 on flights and 0.04 on

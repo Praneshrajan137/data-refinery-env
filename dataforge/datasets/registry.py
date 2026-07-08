@@ -85,6 +85,38 @@ DATASET_REGISTRY: dict[str, DatasetMetadata] = {
         clean_sha256="373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
         citation=("Mahdavi et al. Raha benchmark dataset (Beers) via the BigDaMa/raha repository."),
     ),
+    "rayyan": DatasetMetadata(
+        name="rayyan",
+        domain="bibliographic",
+        n_rows=1000,
+        n_columns=11,
+        error_types=("typo", "missing_value", "formatting"),
+        source_urls=(
+            f"{_BASE_URL}/rayyan/dirty.csv",
+            f"{_BASE_URL}/rayyan/clean.csv",
+        ),
+        source_revision=RAHA_GIT_REVISION,
+        dirty_sha256="7e25e6db262b0c72ca2d9735d5959599cf5a582e1c705459507c7b45d0d1d174",
+        clean_sha256="23159f43c0706782388ed8957ad0c74eb7b88bc98f34d65bd49296e186d4673f",
+        citation=(
+            "Mahdavi et al. Raha benchmark dataset (Rayyan) via the BigDaMa/raha repository."
+        ),
+    ),
+    "tax": DatasetMetadata(
+        name="tax",
+        domain="finance",
+        n_rows=200000,
+        n_columns=15,
+        error_types=("typo", "formatting", "rule_violation"),
+        source_urls=(
+            f"{_BASE_URL}/tax/dirty.csv",
+            f"{_BASE_URL}/tax/clean.csv",
+        ),
+        source_revision=RAHA_GIT_REVISION,
+        dirty_sha256="8dd3429ec4791b2ed1a688c308a57a9f3d1a94f77d1f4e98294a67273270b973",
+        clean_sha256="201290927ae92e65b3940d776b3df5b4d953c5dfd9abb231715a2e65ecca87b0",
+        citation=("Mahdavi et al. Raha benchmark dataset (Tax) via the BigDaMa/raha repository."),
+    ),
 }
 
 

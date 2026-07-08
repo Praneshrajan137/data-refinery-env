@@ -361,6 +361,98 @@ class TestRunAgentComparison:
         groq_client.assert_not_called()
         zeroshot.assert_called_once()
 
+    def test_runner_uses_azure_client_when_provider_is_azure(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Provider azure constructs an AzureBenchClient from env config."""
+        cache_root = tmp_path / "cache"
+        _populate_cache(cache_root)
+        output_json = tmp_path / "agent_comparison.json"
+        monkeypatch.setenv("DATAFORGE_LLM_PROVIDER", "azure")
+        monkeypatch.setenv("AZURE_API_KEY", "test-key")
+        monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://my-res.openai.azure.com")
+        monkeypatch.setenv("DATAFORGE_AZURE_MODEL", "gpt-5.5")
+        monkeypatch.delenv("GROQ_API_KEY", raising=False)
+
+        zero_result = SeedBenchmarkResult(
+            method="llm_zeroshot",
+            dataset="hospital",
+            seed=0,
+            status="ok",
+            tp=1,
+            fp=0,
+            fn=0,
+            precision=1.0,
+            recall=1.0,
+            f1=1.0,
+            avg_steps=1,
+            runtime_s=0.1,
+            llm_calls=1,
+            prompt_tokens=10,
+            completion_tokens=2,
+            quota_units=0.001,
+            provider="azure",
+            model="gpt-5.5",
+            reproduction_command="cmd",
+        )
+
+        with (
+            patch(
+                "dataforge.bench.runner.AzureBenchClient", return_value=MagicMock()
+            ) as azure_client,
+            patch("dataforge.bench.runner.GroqBenchClient") as groq_client,
+            patch(
+                "dataforge.bench.runner.run_llm_zeroshot_episode",
+                return_value=zero_result,
+            ) as zeroshot,
+        ):
+            run_agent_comparison(
+                methods=["llm_zeroshot"],
+                datasets=["hospital"],
+                seeds=1,
+                output_json=output_json,
+                really_run_big_bench=True,
+                cache_root=cache_root,
+                verify_dataset_hashes=False,
+            )
+
+        azure_client.assert_called_once()
+        assert azure_client.call_args.kwargs["model"] == "gpt-5.5"
+        assert azure_client.call_args.kwargs["endpoint"] == "https://my-res.openai.azure.com"
+        groq_client.assert_not_called()
+        zeroshot.assert_called_once()
+
+    def test_runner_skips_azure_without_endpoint(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Azure provider without an endpoint yields a skipped result."""
+        cache_root = tmp_path / "cache"
+        _populate_cache(cache_root)
+        output_json = tmp_path / "agent_comparison.json"
+        monkeypatch.setenv("DATAFORGE_LLM_PROVIDER", "azure")
+        monkeypatch.setenv("AZURE_API_KEY", "test-key")
+        monkeypatch.setenv("DATAFORGE_AZURE_MODEL", "gpt-5.5")
+        monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+
+        output = run_agent_comparison(
+            methods=["llm_zeroshot"],
+            datasets=["hospital"],
+            seeds=1,
+            output_json=output_json,
+            really_run_big_bench=True,
+            cache_root=cache_root,
+            verify_dataset_hashes=False,
+        )
+
+        assert all(record.status == "skipped" for record in output.records)
+        assert all(
+            record.skip_reason == "AZURE_OPENAI_ENDPOINT is not set." for record in output.records
+        )
+
     def test_runner_records_explicit_seed_list_and_dataset_evidence(
         self,
         tmp_path: Path,

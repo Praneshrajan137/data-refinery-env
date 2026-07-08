@@ -120,6 +120,14 @@ class SeedBenchmarkResult(BaseModel):
         default=None,
         description="How many proposals cleared the auto-apply confidence threshold.",
     )
+    calibration_samples_by_class: dict[str, list[tuple[float, bool]]] | None = Field(
+        default=None,
+        description=(
+            "Raw per-error-class (confidence, was_correct) pairs, persisted so a "
+            "distribution-free certified-coverage report can be computed from the "
+            "committed artifact (never an in-sample number). None if not computed."
+        ),
+    )
 
 
 class AggregateBenchmarkResult(BaseModel):

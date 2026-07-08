@@ -415,6 +415,182 @@ class GeminiBenchClient:
         )
 
 
+class AzureBenchClient:
+    """Sequential Azure OpenAI client adapted to the benchmark interface.
+
+    Azure OpenAI is first-party ("sold directly by Azure"), so it is billed
+    against the subscription and works on free-trial credit. It is
+    OpenAI-compatible (system stays a message role) but the model is addressed
+    by *deployment name* in the URL, auth is an ``api-key`` header, and the
+    ``api-version`` is a query parameter. GPT-5 / reasoning deployments reject
+    ``temperature != 1`` and require ``max_completion_tokens``; temperature is
+    therefore only sent when ``send_temperature`` is True.
+
+    A hard USD cost guard (mirroring the Bedrock client) prevents a bounded run
+    from ever overspending the finite trial credit.
+    """
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str,
+        endpoint: str,
+        api_version: str = "2025-04-01-preview",
+        min_interval_s: float = 1.0,
+        max_tokens: int = 512,
+        max_retries: int = 5,
+        max_retry_after_s: float = 120.0,
+        timeout_s: float = 60.0,
+        max_usd: float | None = None,
+        usd_per_1k_input: float = 0.005,
+        usd_per_1k_output: float = 0.015,
+        send_temperature: bool = False,
+        temperature: float = 0.0,
+        reasoning_effort: str | None = None,
+    ) -> None:
+        self._api_key = api_key
+        self._model = model
+        self._endpoint = endpoint.rstrip("/")
+        self._api_version = api_version
+        self._min_interval_s = min_interval_s
+        self._max_tokens = max_tokens
+        self._max_retries = max_retries
+        self._max_retry_after_s = max_retry_after_s
+        self._timeout_s = timeout_s
+        self._max_usd = max_usd
+        self._usd_per_1k_input = usd_per_1k_input
+        self._usd_per_1k_output = usd_per_1k_output
+        self._send_temperature = send_temperature
+        self._temperature = temperature
+        self._reasoning_effort = reasoning_effort
+        self._cumulative_usd = 0.0
+        self._last_success_at: float | None = None
+        self._client = httpx.Client(
+            timeout=self._timeout_s,
+            headers={"api-key": self._api_key, "Content-Type": "application/json"},
+        )
+
+    @property
+    def cumulative_usd(self) -> float:
+        """Return the running estimated spend across all completed calls."""
+        return self._cumulative_usd
+
+    @property
+    def model(self) -> str:
+        """Return the configured Azure deployment name."""
+        return self._model
+
+    @property
+    def provider(self) -> str:
+        """Return the provider identifier."""
+        return "azure"
+
+    def _respect_spacing(self) -> None:
+        """Sleep long enough to keep requests sequential with a fixed gap."""
+        if self._last_success_at is None:
+            return
+        elapsed = time.monotonic() - self._last_success_at
+        remaining = self._min_interval_s - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
+
+    def _payload(self, messages: list[dict[str, str]]) -> dict[str, object]:
+        """Build an Azure OpenAI chat/completions request payload."""
+        payload: dict[str, object] = {
+            "messages": list(messages),
+            "max_completion_tokens": self._max_tokens,
+        }
+        if self._reasoning_effort:
+            payload["reasoning_effort"] = self._reasoning_effort
+        if self._send_temperature:
+            payload["temperature"] = self._temperature
+        return payload
+
+    def _post(self, messages: list[dict[str, str]]) -> dict[str, object]:
+        """Issue the underlying Azure OpenAI chat/completions request."""
+        endpoint = f"{self._endpoint}/openai/deployments/{self._model}/chat/completions"
+        last_rate_limit_error: httpx.HTTPStatusError | None = None
+        for attempt in range(self._max_retries):
+            response: httpx.Response | None = None
+            try:
+                response = self._client.post(
+                    endpoint,
+                    params={"api-version": self._api_version},
+                    json=self._payload(messages),
+                )
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                if not _is_retryable_provider_error(exc) or attempt == self._max_retries - 1:
+                    body = exc.response.text[:500].replace("\n", " ")
+                    raise ProviderRequestError(
+                        f"azure request rejected with HTTP {exc.response.status_code}: {body}"
+                    ) from exc
+                last_rate_limit_error = exc
+                retry_s = _retry_after_s(exc, fallback_s=2.0 * (attempt + 1))
+                if retry_s > self._max_retry_after_s:
+                    body = exc.response.text[:500].replace("\n", " ")
+                    raise ProviderRateLimitError(
+                        f"azure rate limit retry-after {retry_s:.2f}s "
+                        f"exceeds cap {self._max_retry_after_s:.2f}s: {body}"
+                    ) from exc
+                logging.getLogger("dataforge.bench.groq_client").warning(
+                    "azure_rate_limit attempt=%d retry_after_s=%.2f",
+                    attempt + 1,
+                    retry_s,
+                )
+                time.sleep(retry_s)
+                continue
+            except httpx.TimeoutException as exc:
+                raise TimeoutError(
+                    f"azure request timed out after {self._timeout_s:.1f} seconds."
+                ) from exc
+            return dict(response.json())
+        if last_rate_limit_error is not None:
+            raise last_rate_limit_error
+        raise RuntimeError("azure request failed without a response.")
+
+    def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
+        """Send one benchmark completion request to Azure OpenAI."""
+        self._respect_spacing()
+        payload = self._post(messages)
+        self._last_success_at = time.monotonic()
+
+        warnings: list[str] = []
+        usage = payload.get("usage", {})
+        prompt_tokens = int(usage.get("prompt_tokens", 0)) if isinstance(usage, dict) else 0
+        completion_tokens = int(usage.get("completion_tokens", 0)) if isinstance(usage, dict) else 0
+        if not usage:
+            warnings.append("missing_usage_payload")
+            logging.getLogger("dataforge.bench.groq_client").warning("azure_missing_usage_payload")
+
+        try:
+            choices = cast(list[dict[str, object]], payload["choices"])
+            message = cast(dict[str, object], choices[0]["message"])
+            text = str(message["content"])
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ValueError(f"Unexpected azure response payload: {json.dumps(payload)}") from exc
+
+        # Accumulate a conservative cost estimate and hard-stop if it crosses the
+        # configured USD cap, so a bounded run can never overspend trial credit.
+        self._cumulative_usd += (
+            prompt_tokens / 1000.0 * self._usd_per_1k_input
+            + completion_tokens / 1000.0 * self._usd_per_1k_output
+        )
+        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
+            raise CostCapExceededError(
+                f"Azure spend guard tripped: estimated ${self._cumulative_usd:.4f} "
+                f"exceeds cap ${self._max_usd:.2f}. No further calls will be made."
+            )
+
+        return GroqCompletion(
+            text=text,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            warnings=tuple(warnings),
+        )
+
+
 class BedrockBenchClient:
     """Sequential Amazon Bedrock client adapted to the benchmark interface.
 

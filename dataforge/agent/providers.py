@@ -1,9 +1,15 @@
 """Multi-provider LLM client for DataForge.
 
 Reads ``DATAFORGE_LLM_PROVIDER`` from the environment and dispatches to the
-matching provider.  Implemented providers are **groq**, **gemini**, and
-**bedrock** (Amazon Bedrock Converse API, bearer-token auth); other providers
-raise ``NotImplementedError``.
+matching provider.  Implemented providers are **groq**, **gemini**, **bedrock**
+(Amazon Bedrock Converse API, bearer-token auth), and **azure** (Azure OpenAI,
+first-party, ``api-key`` auth); other providers raise ``NotImplementedError``.
+
+Azure OpenAI is "sold directly by Azure" (first-party), so it is billed against
+the subscription and works on free-trial credit. Anthropic Claude on Foundry is
+a third-party Marketplace SaaS offer that requires pay-as-you-go billing and a
+different (Anthropic Messages) endpoint; requesting a Claude model through this
+first-party path fails fast with an actionable message.
 
 No LLM calls are made by detectors — this module is for the agent loop
 (Week 2+) and is stubbed here to establish the interface.
@@ -53,8 +59,14 @@ class ProviderError(Exception):
 
 # ── Provider dispatch ─────────────────────────────────────────────────────
 
+
+def _env_truthy(name: str) -> bool:
+    """Return whether an env var is set to a truthy value (1/true/yes/on)."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 _SUPPORTED_PROVIDERS = frozenset(
-    {"groq", "gemini", "bedrock", "cerebras", "openrouter", "hf", "cloudflare"}
+    {"groq", "gemini", "bedrock", "azure", "cerebras", "openrouter", "hf", "cloudflare"}
 )
 
 
@@ -81,6 +93,8 @@ def get_provider_name() -> str:
         return "gemini"
     if os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
         return "bedrock"
+    if os.environ.get("AZURE_API_KEY"):
+        return "azure"
     return "groq"
 
 
@@ -90,6 +104,7 @@ _PROVIDER_MODEL_ENV = {
     "groq": "DATAFORGE_GROQ_MODEL",
     "gemini": "DATAFORGE_GEMINI_MODEL",
     "bedrock": "DATAFORGE_BEDROCK_MODEL",
+    "azure": "DATAFORGE_AZURE_MODEL",
 }
 
 
@@ -114,7 +129,9 @@ def resolve_model(provider: str | None = None) -> str:
         return override
     if name == "gemini":
         return _GEMINI_DEFAULT_MODEL
-    if name == "bedrock":
+    if name in ("bedrock", "azure"):
+        # No built-in default: the Bedrock model ID / Azure deployment name is
+        # account-specific and must be provided by the user.
         return ""
     return _GROQ_DEFAULT_MODEL
 
@@ -152,11 +169,13 @@ async def complete(
         return await _complete_gemini(messages, model=model, temperature=temperature)
     if provider == "bedrock":
         return await _complete_bedrock(messages, model=model, temperature=temperature)
+    if provider == "azure":
+        return await _complete_azure(messages, model=model, temperature=temperature)
 
     if provider in _SUPPORTED_PROVIDERS:
         raise NotImplementedError(
             f"Provider '{provider}' is planned but not yet implemented. "
-            f"Use 'groq', 'gemini', or 'bedrock'."
+            f"Use 'groq', 'gemini', 'bedrock', or 'azure'."
         )
 
     raise NotImplementedError(
@@ -384,3 +403,136 @@ async def _complete_bedrock(
         return str(data["output"]["message"]["content"][0]["text"])
     except (KeyError, IndexError) as exc:
         raise ProviderError("bedrock", f"Unexpected response format: {data}") from exc
+
+
+# ── Azure OpenAI provider ────────────────────────────────────────────────
+
+_AZURE_DEFAULT_API_VERSION = "2025-04-01-preview"
+_AZURE_MAX_TOKENS = 512
+
+
+def _azure_max_tokens() -> int:
+    """Return the Azure completion-token budget from env, else the default.
+
+    GPT-5 / reasoning deployments spend hidden reasoning tokens against this
+    budget, so a too-small cap yields empty content. ``DATAFORGE_AZURE_MAX_TOKENS``
+    lets callers raise it (the runbook sets 2048).
+    """
+    raw = os.environ.get("DATAFORGE_AZURE_MAX_TOKENS", "").strip()
+    if not raw:
+        return _AZURE_MAX_TOKENS
+    try:
+        value = int(raw)
+    except ValueError:
+        return _AZURE_MAX_TOKENS
+    return value if value > 0 else _AZURE_MAX_TOKENS
+
+
+# Anthropic Claude on Microsoft Foundry is a third-party Marketplace SaaS offer:
+# it requires a pay-as-you-go subscription (blocked on free-trial / credit-only
+# accounts) and uses the Anthropic Messages API, not this first-party Azure
+# OpenAI chat/completions surface. Fail fast with an honest message rather than
+# emit a confusing 400/404 from the wrong endpoint.
+_AZURE_MARKETPLACE_MARKERS = ("claude", "sonnet", "opus", "haiku")
+
+
+def _azure_marketplace_guard(model_name: str) -> None:
+    """Reject Anthropic/Marketplace models on the first-party Azure OpenAI path."""
+    lowered = model_name.lower()
+    if any(marker in lowered for marker in _AZURE_MARKETPLACE_MARKERS):
+        raise ProviderError(
+            "azure",
+            f"Model '{model_name}' looks like an Anthropic Claude model. On "
+            "Microsoft Foundry, Claude is a third-party Marketplace offer that "
+            "requires a pay-as-you-go Azure subscription (it is unavailable on "
+            "free-trial or credit-only accounts) and is served via the Anthropic "
+            "Messages API, not this first-party Azure OpenAI path. Deploy a "
+            "first-party Azure OpenAI model (e.g. a GPT-5 family deployment) and "
+            "set DATAFORGE_AZURE_MODEL to its deployment name, or upgrade to "
+            "pay-as-you-go to use Claude.",
+        )
+
+
+@retry(
+    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    wait=wait_exponential(multiplier=1, min=1, max=30),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
+async def _complete_azure(
+    messages: list[Message],
+    *,
+    model: str | None = None,
+    temperature: float = 0.0,
+) -> str:
+    """Call an Azure OpenAI deployment's chat/completions API.
+
+    Azure OpenAI is OpenAI-compatible (system stays a message role), but the
+    model is addressed by *deployment name* in the URL path, authentication is
+    via an ``api-key`` header, and the ``api-version`` is a query parameter.
+
+    GPT-5 / reasoning deployments reject ``temperature != 1`` and require
+    ``max_completion_tokens`` instead of ``max_tokens``. To stay compatible by
+    default, temperature is omitted unless ``DATAFORGE_AZURE_SEND_TEMPERATURE``
+    is truthy, and ``max_completion_tokens`` is always used.
+
+    Args:
+        messages: Chat messages (sent as-is; system is a normal role).
+        model: Azure deployment name. Falls back to ``DATAFORGE_AZURE_MODEL``.
+        temperature: Sampling temperature (only sent when opted in).
+
+    Returns:
+        The assistant's response text.
+
+    Raises:
+        ProviderError: If the key/endpoint/deployment is missing, the model is a
+            Marketplace (Anthropic) model, or the response is malformed.
+    """
+    api_key = os.environ.get("AZURE_API_KEY", "")
+    if not api_key:
+        raise ProviderError("azure", "AZURE_API_KEY environment variable not set")
+
+    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT", "").strip()
+    if not endpoint:
+        raise ProviderError(
+            "azure",
+            "AZURE_OPENAI_ENDPOINT is not set. Set it to your Azure OpenAI "
+            "resource endpoint, e.g. https://<resource>.openai.azure.com.",
+        )
+
+    model_name = model or os.environ.get("DATAFORGE_AZURE_MODEL", "")
+    if not model_name:
+        raise ProviderError(
+            "azure",
+            "No Azure deployment configured. Set DATAFORGE_AZURE_MODEL to your "
+            "deployment name or pass model=.",
+        )
+    _azure_marketplace_guard(model_name)
+
+    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", _AZURE_DEFAULT_API_VERSION)
+    url = f"{endpoint.rstrip('/')}/openai/deployments/{model_name}/chat/completions"
+
+    payload: dict[str, object] = {
+        "messages": [dict(m) for m in messages],
+        "max_completion_tokens": _azure_max_tokens(),
+    }
+    effort = os.environ.get("DATAFORGE_AZURE_REASONING_EFFORT", "").strip().lower()
+    if effort:
+        payload["reasoning_effort"] = effort
+    if _env_truthy("DATAFORGE_AZURE_SEND_TEMPERATURE"):
+        payload["temperature"] = temperature
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(
+            url,
+            json=payload,
+            params={"api-version": api_version},
+            headers={"api-key": api_key, "Content-Type": "application/json"},
+        )
+        response.raise_for_status()
+
+    data = response.json()
+    try:
+        return str(data["choices"][0]["message"]["content"])
+    except (KeyError, IndexError) as exc:
+        raise ProviderError("azure", f"Unexpected response format: {data}") from exc

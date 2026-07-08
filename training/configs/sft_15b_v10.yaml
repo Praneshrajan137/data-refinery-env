@@ -1,0 +1,264 @@
+schema_version: sft_15b_v10
+
+environment:
+  resolved_on: "2026-07-06"
+  runtime_target: "Paid GPU (A100/L4/H100 via Colab Pro, Lambda, RunPod, or HF Jobs); bf16 LoRA, no 4-bit"
+  torch_index_url: "https://download.pytorch.org/whl/cu121"
+  torch_pip_packages:
+    - "torch==2.5.1"
+  uninstall_packages:
+    - "torchvision"
+    - "torchaudio"
+    - "torchtext"
+    - "torchao"
+  pip_packages:
+    - "trl==1.4.0"
+    - "transformers==5.7.0"
+    - "accelerate==1.13.0"
+    - "peft==0.19.1"
+    - "bitsandbytes==0.49.2"
+    - "datasets==4.8.5"
+    - "huggingface_hub==1.13.0"
+    - "pyyaml==6.0.3"
+    - "pandas==2.3.3"
+
+kaggle:
+  auth_mode: "oauth"
+  credentials_path: 'C:\Users\Pranesh\.kaggle\credentials.json'
+
+repos:
+  dataset_repo_template: "{hf_user}/dataforge-sft-trajectories"
+  model_repo_template: "{hf_user}/DataForge-1.5B-SFT-v10-candidate"
+  trajectory_filename: expert_v9_action_envelope.jsonl
+  split_manifest_filename: split_manifest_v4.json
+  config_filename: sft_15b_v10.yaml
+  model_card_template_filename: MODEL_CARD_TEMPLATE.md
+
+release:
+  require_hf_token: true
+  require_hf_token_for_candidate: true
+  upload_eval_diagnostics: true
+  max_failure_samples: 25
+  promoted_status: "private_action_envelope_candidate"
+  private_candidate_only: true
+  public_upload_allowed: false
+  public_model_update_allowed: false
+  promotion_report_schema: "dataforge_sft_v9_candidate_eval_report_v1"
+  grpo_consumer_label: "GRPO-1.5B"
+  candidate_label: "SFT-1.5B-v10"
+  candidate_kind: "action-envelope"
+  promote_to_grpo_only_if:
+    strict_macro_f1_min: 0.10
+    parse_success_min: 0.99
+    schema_case_error_max: 0
+    deterministic_normalization_slice_f1_min: 0.30
+    not_inferable_slice_f1_min: 0.90
+
+model:
+  base_model: "Qwen/Qwen2.5-1.5B-Instruct"
+  model_license: "apache-2.0"
+  trust_remote_code: true
+  torch_dtype: "bfloat16"
+  quantization:
+    load_in_4bit: false
+    bnb_4bit_quant_type: "nf4"
+    bnb_4bit_use_double_quant: true
+    bnb_4bit_compute_dtype: "bfloat16"
+
+lora:
+  r: 16
+  alpha: 16
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - "q_proj"
+    - "k_proj"
+    - "v_proj"
+    - "o_proj"
+
+training:
+  output_dir: "/workspace/dataforge-1.5b-sft-v10"
+  adapter_dir: "/workspace/dataforge-1.5b-sft-v10-adapter"
+  merged_dir: "/workspace/DataForge-1.5B-SFT-v10-candidate-merged"
+  dataset_format: "prompt_completion"
+  completion_only_loss: true
+  assistant_only_loss: false
+  num_train_epochs: 2
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 0.00002
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  max_seq_length: 1536
+  packing: false
+  logging_steps: 10
+  save_steps: 100
+  save_total_limit: 3
+  fp16: false
+  bf16: true
+  gradient_checkpointing: true
+  loss_type: "chunked_nll"
+  report_to: "none"
+
+training_sequence:
+  stages:
+    - name: "smoke"
+      max_steps: 40
+      allow_upload_after_gate: false
+      require_hf_token: false
+      purpose: "Validate action-envelope curriculum, completion-only loss, constrained product baseline, dtype guard, and no-upload evidence path on the 1.5B base."
+    - name: "diagnostic"
+      max_steps: 180
+      allow_upload_after_gate: false
+      require_hf_token: false
+      purpose: "No-upload action-envelope diagnostic; continue only if raw parse reaches >=0.90 and strict F1 improves over the 0.5B SFT-v9 predecessor."
+    - name: "candidate"
+      max_steps: 360
+      allow_upload_after_gate: true
+      require_hf_token: true
+      purpose: "Private 1.5B candidate upload only if strict held-out predecessor gates pass and an HF token is visible."
+  selection_order:
+    - "highest_raw_parse_success"
+    - "lowest_action_envelope_errors"
+    - "highest_strict_macro_f1"
+    - "highest_deterministic_normalization_f1"
+    - "highest_not_inferable_f1"
+    - "lowest_gpu_hours"
+
+collection:
+  schema_version: "expert_v4"
+  curriculum_version: "expert_v9_action_envelope"
+  prompt_contract_version: "repair_contract_v3"
+  max_trajectories: 5000
+  min_episode_f1: 1.0
+  collection_methods:
+    - "oracle_from_clean_diff"
+    - "synthetic_from_canonical_train_rows"
+    - "contract_minimal_curriculum"
+    - "schema_distill_prompt_completion"
+    - "action_envelope_negative_contrast"
+  primary_collection_method: "oracle_from_clean_diff"
+  curriculum:
+    builder: "scripts/data/build_action_envelope_curriculum.py"
+    source_trajectory_filename: "expert_v8_schema_distill.jsonl"
+    output_trajectory_filename: "expert_v9_action_envelope.jsonl"
+    training_format: "prompt_completion"
+    submit_repair_copies: 1
+    finish_copies: 1
+    submit_envelope_drills: 700
+    finish_envelope_drills: 700
+    minimum_submit_repair_records: 1000
+    minimum_finish_records: 1000
+    target_submit_ratio_min: 0.45
+    target_submit_ratio_max: 0.60
+    require_zero_completion_parse_failures: true
+    require_zero_reason_text: true
+    require_zero_code_fences: true
+    require_zero_finish_with_repairs: true
+    require_negative_contrast_examples: true
+    require_negative_contrast_not_supervised: true
+    leakage_policy: "reject_any_eval_row_overlap"
+    label_mask_policy: "prompt_tokens_ignored_completion_tokens_supervised"
+  oracle:
+    provider: "oracle"
+    model: "clean-diff-v1"
+    split_seed: 42
+    eval_fraction: 0.1
+    min_eval_rows: 1
+    chunk_rows: 4
+    context_window_rows: 8
+    include_noop_records: true
+    max_repairs_per_record: 2
+    min_noop_ratio: 0.40
+    ready_min_records: 512
+    min_inferable_records: 128
+    min_deterministic_records: 128
+    min_abstention_records: 128
+    inferability: "auto"
+    train_only_inferable: false
+    abstain_noninferable: true
+    include_context_derivable: false
+    include_hospital_synthetic: true
+    hospital_synthetic_records_per_difficulty: 128
+    label_source: "dirty_clean_csv_diff"
+  max_total_requests: 0
+  daily_request_budget: 0
+  teacher_provider: "oracle"
+  teacher_model: "clean-diff-v1"
+  accepted_teachers:
+    - provider: "oracle"
+      model: "clean-diff-v1"
+  datasets:
+    - "hospital"
+    - "flights"
+    - "beers"
+  difficulties:
+    - "easy"
+    - "medium"
+
+evaluation:
+  heldout_tasks: 100
+  seeds_start: 10000
+  chunk_width: 4
+  max_new_tokens: 1024
+  temperature: 0.0
+  promotion_slice: "deterministic_normalization"
+  report_tracks:
+    raw_research:
+      enabled: true
+      decoding: "unconstrained_greedy"
+      claim_policy: "public research metric only"
+    product_constrained:
+      enabled: true
+      decoding: "json_schema_or_grammar_constrained"
+      claim_policy: "parse reliability reported separately from repair F1"
+      schema_contract: "repair_contract_v3_action_json_schema"
+      prototype_status: "safe_finish_baseline_json_schema_action_prototype_runs_locally"
+  smoke_gate:
+    label_mask_audit_required: true
+    curriculum_parse_failures_max: 0
+    constrained_product_parse_min: 0.99
+    micro_probe_parse_min: 0.95
+    reason_text_max: 0
+    code_fence_max: 0
+    finish_with_repairs_max: 0
+    negative_contrast_target_leakage_max: 0
+  diagnostic_gate:
+    raw_parse_min: 0.90
+    schema_case_error_max: 0
+    strict_macro_f1_must_improve_over: "sft_05b_v9_candidate"
+    constrained_track_required: true
+  report_slices:
+    - "deterministic_normalization"
+    - "external_reference_required"
+    - "not_inferable_from_prompt"
+    - "context_derivable"
+  auxiliary_slices:
+    - "context_derivable"
+  parse_success_min: 0.99
+  schema_case_error_max: 0
+  strict_macro_f1_gain_min: 0.03
+  diagnostic_strict_macro_f1_min: 0.10
+  public_strict_macro_f1_min: 0.50
+  require_macro_f1_gain: true
+  remote_only: true
+  datasets:
+    - "hospital"
+    - "flights"
+    - "beers"
+
+data_sources:
+  hospital:
+    dirty_url: "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/hospital/dirty.csv"
+    clean_url: "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/hospital/clean.csv"
+    citation: "Mahdavi et al. Raha benchmark dataset (Hospital) via the BigDaMa/raha repository."
+  flights:
+    dirty_url: "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/flights/dirty.csv"
+    clean_url: "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/flights/clean.csv"
+    citation: "Mahdavi et al. Raha benchmark dataset (Flights) via the BigDaMa/raha repository."
+  beers:
+    dirty_url: "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/beers/dirty.csv"
+    clean_url: "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/beers/clean.csv"
+    citation: "Mahdavi et al. Raha benchmark dataset (Beers) via the BigDaMa/raha repository."

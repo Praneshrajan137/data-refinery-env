@@ -73,6 +73,7 @@ _PROVIDER_KEY_ENV = {
     "groq": "GROQ_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "bedrock": "AWS_BEARER_TOKEN_BEDROCK",
+    "azure": "AZURE_API_KEY",
 }
 
 
