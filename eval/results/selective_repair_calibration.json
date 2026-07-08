@@ -1,0 +1,275 @@
+{
+  "artifact": "dataforge_selective_repair_calibration_v1",
+  "purpose": "Distribution-free certified auto-apply coverage for the LLM corrector, framed as selective classification. Thresholds are certified on a calibration split (conformal risk control) and measured on a disjoint test split - never an in-sample number - and summarized by a risk-coverage curve (AURC), an alpha sweep, real-data split validity, and a reliability diagram.",
+  "primary_alpha": 0.05,
+  "delta": 0.05,
+  "min_support": 30,
+  "splits": 200,
+  "conditions": {
+    "minimal": {
+      "provider": "azure",
+      "model": "gpt-5-mini",
+      "dataset": "hospital",
+      "aggregate": {
+        "precision": 0.037,
+        "recall": 0.0059,
+        "f1": 0.0102,
+        "ece": 0.8436,
+        "precision_at_auto_apply": 0.0508,
+        "auto_apply_count": 59
+      },
+      "per_class_support": {
+        "other": 78,
+        "text_normalization": 3
+      },
+      "pooled_samples": 81,
+      "certified_coverage": {
+        "alpha": 0.05,
+        "delta": 0.05,
+        "min_support": 30,
+        "seed": 0,
+        "calib_fraction": 0.5,
+        "overall_test_error": 0.0,
+        "overall_test_coverage": 0.0,
+        "auto_applied_total": 0,
+        "test_total": 40,
+        "per_class": {
+          "other": {
+            "threshold": 1.01,
+            "test_support": 39,
+            "auto_applied": 0,
+            "test_error": 0.0,
+            "test_coverage": 0.0
+          },
+          "text_normalization": {
+            "threshold": 1.01,
+            "test_support": 1,
+            "auto_applied": 0,
+            "test_error": 0.0,
+            "test_coverage": 0.0
+          }
+        }
+      },
+      "alpha_sweep": [
+        {
+          "alpha": 0.01,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.02,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.05,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.1,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.2,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        }
+      ],
+      "risk_coverage": {
+        "aurc": 0.951149,
+        "curve": [
+          {
+            "threshold": 1.0,
+            "coverage": 0.728395,
+            "selective_risk": 0.949153
+          },
+          {
+            "threshold": 0.666667,
+            "coverage": 0.91358,
+            "selective_risk": 0.959459
+          },
+          {
+            "threshold": 0.333333,
+            "coverage": 1.0,
+            "selective_risk": 0.962963
+          }
+        ]
+      },
+      "repeated_split_validity": {
+        "splits": 200.0,
+        "certified_rate": 0.0,
+        "over_alpha_rate": 0.0,
+        "mean_test_coverage": 0.0,
+        "mean_test_error": 0.0
+      },
+      "reliability": {
+        "ece": 0.8436,
+        "curve": [
+          {
+            "bin_lower": 0.2,
+            "bin_upper": 0.4,
+            "mean_confidence": 0.333333,
+            "accuracy": 0.0,
+            "count": 7
+          },
+          {
+            "bin_lower": 0.6,
+            "bin_upper": 0.8,
+            "mean_confidence": 0.666667,
+            "accuracy": 0.0,
+            "count": 15
+          },
+          {
+            "bin_lower": 0.8,
+            "bin_upper": 1.0,
+            "mean_confidence": 1.0,
+            "accuracy": 0.050847,
+            "count": 59
+          }
+        ]
+      },
+      "promotion_verdict": {
+        "promoted": false,
+        "reasons": [
+          "precision_at_auto_apply 0.0508 < 0.95",
+          "ECE 0.8436 > 0.1 (confidence poorly calibrated)"
+        ]
+      }
+    },
+    "medium": {
+      "provider": "azure",
+      "model": "gpt-5-mini",
+      "dataset": "hospital",
+      "aggregate": {
+        "precision": 0.037,
+        "recall": 0.002,
+        "f1": 0.0037,
+        "ece": 0.8889,
+        "precision_at_auto_apply": 0.0435,
+        "auto_apply_count": 23
+      },
+      "per_class_support": {
+        "other": 26,
+        "text_normalization": 1
+      },
+      "pooled_samples": 27,
+      "certified_coverage": {
+        "alpha": 0.05,
+        "delta": 0.05,
+        "min_support": 30,
+        "seed": 0,
+        "calib_fraction": 0.5,
+        "overall_test_error": 0.0,
+        "overall_test_coverage": 0.0,
+        "auto_applied_total": 0,
+        "test_total": 14,
+        "per_class": {
+          "other": {
+            "threshold": 1.01,
+            "test_support": 13,
+            "auto_applied": 0,
+            "test_error": 0.0,
+            "test_coverage": 0.0
+          },
+          "text_normalization": {
+            "threshold": 1.01,
+            "test_support": 1,
+            "auto_applied": 0,
+            "test_error": 0.0,
+            "test_coverage": 0.0
+          }
+        }
+      },
+      "alpha_sweep": [
+        {
+          "alpha": 0.01,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.02,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.05,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.1,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        },
+        {
+          "alpha": 0.2,
+          "overall_test_coverage": 0.0,
+          "overall_test_error": 0.0
+        }
+      ],
+      "risk_coverage": {
+        "aurc": 0.957018,
+        "curve": [
+          {
+            "threshold": 1.0,
+            "coverage": 0.851852,
+            "selective_risk": 0.956522
+          },
+          {
+            "threshold": 0.666667,
+            "coverage": 0.925926,
+            "selective_risk": 0.96
+          },
+          {
+            "threshold": 0.333333,
+            "coverage": 1.0,
+            "selective_risk": 0.962963
+          }
+        ]
+      },
+      "repeated_split_validity": {
+        "splits": 200.0,
+        "certified_rate": 0.0,
+        "over_alpha_rate": 0.0,
+        "mean_test_coverage": 0.0,
+        "mean_test_error": 0.0
+      },
+      "reliability": {
+        "ece": 0.8889,
+        "curve": [
+          {
+            "bin_lower": 0.2,
+            "bin_upper": 0.4,
+            "mean_confidence": 0.333333,
+            "accuracy": 0.0,
+            "count": 2
+          },
+          {
+            "bin_lower": 0.6,
+            "bin_upper": 0.8,
+            "mean_confidence": 0.666667,
+            "accuracy": 0.0,
+            "count": 2
+          },
+          {
+            "bin_lower": 0.8,
+            "bin_upper": 1.0,
+            "mean_confidence": 1.0,
+            "accuracy": 0.043478,
+            "count": 23
+          }
+        ]
+      },
+      "promotion_verdict": {
+        "promoted": false,
+        "reasons": [
+          "precision_at_auto_apply 0.0435 < 0.95",
+          "ECE 0.8889 > 0.1 (confidence poorly calibrated)"
+        ]
+      }
+    }
+  },
+  "conclusion": "No condition earned any distribution-free certified auto-apply coverage at the tested alphas (primary alpha=0.05). Propose-not-apply is the provably correct policy; calibration - not model capability or effort - is the binding constraint."
+}
