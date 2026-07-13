@@ -180,6 +180,11 @@ def bench(
         seeds = 1
         seed_list = None
     try:
+        # Load .env at the CLI boundary (not in the library runner) so real runs
+        # pick up provider credentials while the library stays hermetic for tests.
+        from dotenv import load_dotenv
+
+        load_dotenv()
         output = _runner()(
             methods=_parse_csv_list(methods),
             datasets=_parse_csv_list(datasets),

@@ -1,0 +1,46 @@
+{
+  "artifact": "dataforge_certified_coverage_v1",
+  "purpose": "Distribution-free certified auto-apply coverage for the LLM corrector. Certifies per-class thresholds on a calibration split (conformal risk control) and MEASURES on a disjoint test split - never an in-sample number.",
+  "provider": "azure",
+  "model": "gpt-5-mini",
+  "dataset": "hospital",
+  "sampled_issues": 15,
+  "fixes_scored": 9,
+  "aggregate": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "ece": 0.963,
+    "precision_at_auto_apply": 0.0,
+    "auto_apply_count": 8
+  },
+  "certified_coverage": {
+    "alpha": 0.05,
+    "delta": 0.05,
+    "min_support": 30,
+    "seed": 0,
+    "calib_fraction": 0.5,
+    "overall_test_error": 0.0,
+    "overall_test_coverage": 0.0,
+    "auto_applied_total": 0,
+    "test_total": 5,
+    "per_class": {
+      "other": {
+        "threshold": 1.01,
+        "test_support": 5,
+        "auto_applied": 0,
+        "test_error": 0.0,
+        "test_coverage": 0.0
+      }
+    }
+  },
+  "promotion_verdict": {
+    "promoted": false,
+    "reasons": [
+      "precision_at_auto_apply 0.0 < 0.95",
+      "ECE 0.963 > 0.1 (confidence poorly calibrated)"
+    ]
+  },
+  "conclusion": "Conformal certifies ZERO auto-apply coverage at alpha=0.05, delta=0.05. Propose-not-apply is the provably correct policy for this model+dataset; no error class earns silent auto-apply. Bigger models do not change this (calibration, not capability, is the bottleneck).",
+  "reproduction": "DATAFORGE_LLM_PROVIDER=azure DATAFORGE_AZURE_MODEL=gpt-5-mini DATAFORGE_CORRECTOR_MAX_ISSUES=15 DATAFORGE_AZURE_REASONING_EFFORT=minimal dataforge bench --methods llm_corrector --datasets hospital --seeds 1 --really-run-big-bench --output-json eval/results/corrector_gpt5mini_certified_hospital.json"
+}

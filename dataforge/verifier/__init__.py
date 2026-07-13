@@ -8,6 +8,7 @@ __all__ = [
     "AggregateDependency",
     "AcceptedValues",
     "ConstraintIR",
+    "DirectVerifier",
     "DomainBound",
     "FunctionalDependency",
     "RegexConstraint",
@@ -40,10 +41,18 @@ def __getattr__(name: str) -> Any:
         from dataforge.verifier import constraint_ir as constraint_ir_module
 
         return getattr(constraint_ir_module, name)
-    if name in {"SchemaToSMT", "VerificationResult", "VerificationVerdict"}:
+    if name in {"SchemaToSMT"}:
         from dataforge.verifier import smt as smt_module
 
         return getattr(smt_module, name)
+    if name == "DirectVerifier":
+        from dataforge.verifier import direct as direct_module
+
+        return direct_module.DirectVerifier
+    if name in {"VerificationResult", "VerificationVerdict"}:
+        from dataforge.verifier import result as result_module
+
+        return getattr(result_module, name)
     if name == "SMTVerifier":
         from dataforge.verifier import gate as gate_module
 

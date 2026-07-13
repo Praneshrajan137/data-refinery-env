@@ -12,7 +12,7 @@ flowchart LR
     A["CSV/table store + optional schema"] --> B["Detectors"]
     B --> C["Repairers"]
     C --> D["SafetyFilter"]
-    D --> E["SMTVerifier"]
+    D --> E["Differential verify (SMTVerifier + DirectVerifier, fail-closed)"]
     E --> F["Transaction journal + source snapshot"]
     F --> G["CSV mutation"]
     G --> H["Byte-for-byte revert"]
@@ -59,11 +59,38 @@ flowchart LR
   path are byte-identical. Corrector output is propose-not-apply: it surfaces as
   `suggested_fixes` and auto-applies only under a confirmed LLM write plus a
   calibrated per-class threshold (`calibration.py`).
+- **Provable-only auto-apply**: every accepted fix is classified `proven`
+  (deterministic OR verified against an authoritative schema) or
+  `plausibility_only` (an LLM value with no authoritative schema, vetted only by
+  the advisory inferred guard). Only proven fixes auto-apply; a plausibility-only
+  fix is held (`review_reason="floor_cannot_verify"`) unless the explicit
+  `allow_unproven_autoapply` opt-in is set, in which case the receipt records it
+  truthfully as `plausibility_only`. This keeps the known inferred-guard gaps
+  latent by construction, under any policy.
+- **Trust certificate**: the receipt is a self-contained record (source/post
+  hashes, `applied_fixes` with `verification_strength`, proof obligations, revert
+  command). `certificate.verify_certificate` re-checks hashes and structural trust
+  invariants; `certificate.reverify_certificate` re-derives ACCEPT per applied
+  cell against the certified data and confirms the recorded strength labels are
+  truthful. On the authoritative-schema path this re-derivation is run through the
+  differential pair (SMT + Direct, fail-closed), so it is independent in data,
+  execution, AND implementation (`reverify_independent_agreement`).
 - **Safety**: constitution-backed policy checks that deny unsafe edits,
   row deletion, conflicting batch writes, and unconfirmed sensitive changes.
   Unconfirmed-LLM-write escalation covers both live and cached LLM provenance.
-- **Verification**: Z3-backed SMT checks that reject fixes which violate schema
-  constraints or cannot be proven safe.
+- **Verification (N-version)**: two independently-written constraint checkers
+  enforce the authoritative-schema specification. The primary `SMTVerifier`
+  (`verifier/smt.py`) compiles constraints into a z3 SMT problem; the diverse
+  `DirectVerifier` (`verifier/direct.py`) evaluates the same spec by direct Python
+  table inspection and imports no z3 (the shared result contract lives in the
+  dependency-free `verifier/result.py`). `verifier/differential.py` runs both and
+  combines them FAIL-CLOSED -- a fix auto-applies only when both accept, so a bug
+  in either checker can only withhold a fix, never wave through a corrupting one.
+  Default-on for the authoritative path via
+  `RepairPipelineRequest.require_independent_agreement`; the schema-less advisory
+  inferred guard remains single-implementation by design (it only gates
+  non-auto-applying plausibility fixes). Equivalence is pinned by a Hypothesis
+  suite that asserts the two agree over random schemas/tables/fixes.
 - **Patch planning**: `PatchPlan` is the backend-neutral write contract for
   table stores. It records row identity, expected old values, forward SQL,
   rollback SQL, preflight probes, verifier obligations, safety verdicts, and

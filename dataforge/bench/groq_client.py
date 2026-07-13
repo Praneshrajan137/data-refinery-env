@@ -92,6 +92,9 @@ class OpenAICompatBenchClient:
         max_retries: int = 5,
         max_retry_after_s: float = 120.0,
         timeout_s: float = 60.0,
+        usd_per_1k_input: float | None = None,
+        usd_per_1k_output: float | None = None,
+        max_usd: float | None = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
@@ -102,6 +105,10 @@ class OpenAICompatBenchClient:
         self._max_retries = max_retries
         self._max_retry_after_s = max_retry_after_s
         self._timeout_s = timeout_s
+        self._usd_per_1k_input = usd_per_1k_input
+        self._usd_per_1k_output = usd_per_1k_output
+        self._max_usd = max_usd
+        self._cumulative_usd = 0.0
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -120,6 +127,11 @@ class OpenAICompatBenchClient:
     def provider(self) -> str:
         """Return the configured provider identifier."""
         return self._provider
+
+    @property
+    def cumulative_usd(self) -> float:
+        """Return the cumulative estimated spend so far (0 when guard is off)."""
+        return self._cumulative_usd
 
     def _respect_spacing(self) -> None:
         """Sleep long enough to keep requests sequential with a fixed gap."""
@@ -203,12 +215,31 @@ class OpenAICompatBenchClient:
             raise ValueError(
                 f"Unexpected {self._provider} response payload: {json.dumps(payload)}"
             ) from exc
+        self._enforce_cost_guard(prompt_tokens, completion_tokens)
         return GroqCompletion(
             text=content,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             warnings=tuple(warnings),
         )
+
+    def _enforce_cost_guard(self, prompt_tokens: int, completion_tokens: int) -> None:
+        """Accumulate estimated spend and hard-stop if it crosses the USD cap.
+
+        A no-op when no per-token prices are configured (the default), so Groq
+        and Cerebras behavior is unchanged.
+        """
+        if self._usd_per_1k_input is None or self._usd_per_1k_output is None:
+            return
+        self._cumulative_usd += (prompt_tokens / 1000.0) * self._usd_per_1k_input + (
+            completion_tokens / 1000.0
+        ) * self._usd_per_1k_output
+        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
+            raise CostCapExceededError(
+                f"{self._provider} spend guard tripped: estimated "
+                f"${self._cumulative_usd:.4f} exceeds cap ${self._max_usd:.2f}. "
+                "No further calls will be made."
+            )
 
 
 class GroqBenchClient(OpenAICompatBenchClient):
@@ -262,6 +293,44 @@ class CerebrasBenchClient(OpenAICompatBenchClient):
             max_retries=max_retries,
             max_retry_after_s=max_retry_after_s,
             timeout_s=timeout_s,
+        )
+
+
+class GrokBenchClient(OpenAICompatBenchClient):
+    """Sequential xAI Grok client (OpenAI-compatible) with a USD cost guard.
+
+    NOTE: "grok" (xAI) is not the repo's "groq" (Groq Inc.) provider. Grok is
+    metered ($/token), so the USD guard is on by default with conservative
+    xAI list prices; override via the runner env.
+    """
+
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        model: str = "grok-4.5",
+        min_interval_s: float = 0.5,
+        max_tokens: int = 512,
+        max_retries: int = 5,
+        max_retry_after_s: float = 120.0,
+        timeout_s: float = 60.0,
+        usd_per_1k_input: float = 0.002,
+        usd_per_1k_output: float = 0.006,
+        max_usd: float | None = 15.0,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            model=model,
+            endpoint="https://api.x.ai/v1/chat/completions",
+            provider="grok",
+            min_interval_s=min_interval_s,
+            max_tokens=max_tokens,
+            max_retries=max_retries,
+            max_retry_after_s=max_retry_after_s,
+            timeout_s=timeout_s,
+            usd_per_1k_input=usd_per_1k_input,
+            usd_per_1k_output=usd_per_1k_output,
+            max_usd=max_usd,
         )
 
 

@@ -62,7 +62,8 @@ from dataforge.transactions.log import (
     snapshot_path_for,
 )
 from dataforge.transactions.txn import CellFix, RepairTransaction, generate_txn_id
-from dataforge.verifier import SMTVerifier, VerificationVerdict
+from dataforge.verifier import SMTVerifier, VerificationResult, VerificationVerdict
+from dataforge.verifier.differential import differential_verify
 
 RepairMode = Literal["dry_run", "apply"]
 EscalationResolver = Callable[
@@ -122,6 +123,27 @@ RootCauseCategory = Literal[
     "unknown",
 ]
 
+# Machine-parseable, honest reason a proposed fix was NOT auto-applied. This is
+# the "honestly flags the rest" half of the trust promise: every held fix says
+# WHY, so a human (or downstream automation) can triage without guessing.
+ReviewReason = Literal[
+    "failed_conformal_threshold",
+    "safety_escalation",
+    "not_inferable_from_data",
+    "floor_cannot_verify",
+    "ambiguous_fd",
+    "out_of_inferred_domain",
+]
+
+# How strongly a fix was verified, which decides whether it may auto-apply.
+# "proven"  -> deterministic (correct by construction) OR verified against an
+#              authoritative declared/reviewed schema (real SMT constraints).
+# "plausibility_only" -> no authoritative schema AND an LLM-origin value, so it
+#              was only checked by the advisory inferred guard (where the known
+#              verifier-floor gaps live). Never auto-applied unless explicitly
+#              opted in, and then recorded truthfully as unproven.
+VerificationStrength = Literal["proven", "plausibility_only"]
+
 
 class RootCause(BaseModel):
     """Public diagnosis attached to an issue before repair is applied."""
@@ -140,6 +162,8 @@ class CandidateRepair(CandidateFix):
     """Public repair candidate with verifier context."""
 
     verifier_reason: str = Field(min_length=1)
+    review_reason: ReviewReason | None = None
+    verification_strength: VerificationStrength | None = None
 
 
 class VerifiedFix(CandidateRepair):
@@ -215,10 +239,12 @@ class RepairReceipt(BaseModel):
     valid_rows: list[int] = Field(default_factory=list)
     safety_verdict: str = Field(default="allow", min_length=1)
     verifier_verdict: str = Field(default="not_run", min_length=1)
+    independent_verification: Literal["agreed", "not_run"] = "not_run"
     candidate_provenance: list[str] = Field(default_factory=list)
     root_causes: list[RootCause] = Field(default_factory=list)
     candidate_repairs: list[CandidateRepair] = Field(default_factory=list)
     suggested_fixes: list[CandidateRepair] = Field(default_factory=list)
+    applied_fixes: list[VerifiedFix] = Field(default_factory=list)
     proof_obligations: list[ProofObligation] = Field(default_factory=list)
     accepted_constraint_ids: list[str] = Field(default_factory=list)
     constraints_artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
@@ -245,6 +271,8 @@ class RepairPipelineRequest(BaseModel):
     allow_pii: bool = False
     confirm_pii: bool = False
     confirm_escalations: bool = False
+    allow_unproven_autoapply: bool = False
+    require_independent_agreement: bool = True
     interactive: bool = False
     create_dry_run_transaction: bool = False
     constraints: ConstraintReviewArtifact | None = None
@@ -455,6 +483,7 @@ def propose_repairs(
     interactive: bool,
     escalation_resolver: EscalationResolver | None = None,
     verification_schema: Schema | None = None,
+    require_independent_agreement: bool = True,
 ) -> tuple[list[ProposedFix], list[list[RepairAttempt]]]:
     """Run repairers and gates issue-by-issue against a working dataframe.
 
@@ -464,6 +493,12 @@ def propose_repairs(
     than structurally auto-accepted. Deterministic fixes are correct by
     construction and are never second-guessed by it, which keeps schema-less
     deterministic runs byte-identical.
+
+    When an authoritative ``schema`` is present and ``require_independent_agreement``
+    is set, each candidate is verified by TWO independently-written checkers (the
+    z3-backed ``SMTVerifier`` and the direct-evaluation ``DirectVerifier``) and is
+    accepted only if both agree (fail-closed). A bug in either checker can then only
+    withhold a fix for review, never wave through a corrupting one.
     """
     with repair_stage_span("propose", step="repairers_build", allow_llm=allow_llm):
         repairers = build_repairers(
@@ -562,12 +597,23 @@ def propose_repairs(
                     if (schema is None and preferred.provenance != "deterministic")
                     else None
                 )
-                verifier_result = verifier.verify(
-                    working_df,
-                    [preferred],
-                    schema,
-                    verification_schema=guard_schema,
-                )
+                if schema is not None and require_independent_agreement:
+                    # Authoritative path: cross-check the primary z3 verifier with
+                    # the independently-written DirectVerifier, fail-closed. Only a
+                    # fix both implementations accept can auto-apply.
+                    differential = differential_verify(working_df, [preferred], schema)
+                    verifier_result = VerificationResult(
+                        verdict=differential.verdict,
+                        reason=differential.reason,
+                        unsat_core=differential.unsat_core,
+                    )
+                else:
+                    verifier_result = verifier.verify(
+                        working_df,
+                        [preferred],
+                        schema,
+                        verification_schema=guard_schema,
+                    )
             if verifier_result.verdict == VerificationVerdict.ACCEPT:
                 accepted_fixes.append(preferred)
                 set_cell_value(
@@ -630,23 +676,40 @@ _LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
 def _partition_auto_apply(
     fixes: list[ProposedFix],
     policy: AbstentionPolicy,
-) -> tuple[list[ProposedFix], list[ProposedFix]]:
-    """Split verified fixes into auto-apply vs review (suggestion) by policy.
+    *,
+    authoritative_schema_present: bool,
+    allow_unproven_autoapply: bool,
+) -> tuple[list[ProposedFix], list[ProposedFix], list[ProposedFix]]:
+    """Split verified fixes into (auto_apply, calibration_held, plausibility_held).
 
-    Deterministic fixes are correct by construction and always auto-apply.
-    LLM-origin fixes auto-apply only when their calibrated confidence clears the
-    per-class threshold; otherwise they are held as reviewable suggestions. With
-    the default propose-not-apply policy, every LLM fix becomes a suggestion.
+    The enforced product invariant: only PROVEN fixes auto-apply. A fix is proven
+    when it is deterministic (correct by construction) or was verified against an
+    authoritative schema. A ``plausibility_only`` fix (an LLM value with no
+    authoritative schema, checked only by the advisory inferred guard where the
+    verifier-floor gaps live) is NEVER auto-applied unless ``allow_unproven_autoapply``
+    is explicitly set -- and then it is recorded truthfully as unproven.
+
+    Among proven fixes, deterministic ones always auto-apply; LLM-proven ones
+    auto-apply only when their calibrated confidence clears the per-class
+    threshold, else they are held for calibration review. With the default
+    propose-not-apply policy every LLM fix is held.
     """
     auto: list[ProposedFix] = []
-    suggested: list[ProposedFix] = []
+    calibration_held: list[ProposedFix] = []
+    plausibility_held: list[ProposedFix] = []
     for fix in fixes:
+        strength = _verification_strength(
+            fix.provenance, authoritative_schema_present=authoritative_schema_present
+        )
+        if strength == "plausibility_only" and not allow_unproven_autoapply:
+            plausibility_held.append(fix)
+            continue
         deterministic = fix.provenance not in _LLM_PROVENANCE
         if deterministic or policy.action_for(fix.fix.detector_id, fix.confidence) == "auto_apply":
             auto.append(fix)
         else:
-            suggested.append(fix)
-    return auto, suggested
+            calibration_held.append(fix)
+    return auto, calibration_held, plausibility_held
 
 
 def _escalated_llm_suggestions(
@@ -670,23 +733,42 @@ def _escalated_llm_suggestions(
     return suggestions
 
 
-def _suggestion_candidates(fixes: list[ProposedFix]) -> list[CandidateRepair]:
-    """Build public suggestion payloads for corrector fixes held for review."""
+def _suggestion_candidates(
+    fixes: list[ProposedFix],
+    *,
+    review_reason: ReviewReason,
+    verifier_reason: str,
+) -> list[CandidateRepair]:
+    """Build public suggestion payloads with a structured, honest review reason."""
     return [
         CandidateRepair(
             **CandidateFix.from_proposed(fix).model_dump(),
-            verifier_reason=(
-                "Held for human review: LLM-origin correction not auto-applied by "
-                "default (calibrated abstention / unconfirmed LLM write)."
-            ),
+            verifier_reason=verifier_reason,
+            review_reason=review_reason,
         )
         for fix in fixes
     ]
 
 
+def _verification_strength(
+    provenance: str, *, authoritative_schema_present: bool
+) -> VerificationStrength:
+    """Classify how strongly a fix was verified.
+
+    A fix is ``proven`` when it is deterministic (correct by construction) or was
+    checked against an authoritative declared/reviewed schema. Otherwise it was
+    only checked by the advisory inferred guard -> ``plausibility_only``.
+    """
+    if provenance not in _LLM_PROVENANCE or authoritative_schema_present:
+        return "proven"
+    return "plausibility_only"
+
+
 def _verified_fixes(
     fixes: list[ProposedFix],
     attempt_groups: list[list[RepairAttempt]],
+    *,
+    authoritative_schema_present: bool,
 ) -> list[VerifiedFix]:
     """Build public verified fix payloads using accepted attempt reasons."""
     accepted_reasons: dict[tuple[int, str, str], str] = {}
@@ -702,6 +784,9 @@ def _verified_fixes(
             verifier_reason=accepted_reasons.get(
                 (fix.fix.row, fix.fix.column, fix.fix.new_value),
                 "Accepted by verifier.",
+            ),
+            verification_strength=_verification_strength(
+                fix.provenance, authoritative_schema_present=authoritative_schema_present
             ),
         )
         for fix in fixes
@@ -911,6 +996,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
             confirm_escalations=request.confirm_escalations,
             interactive=request.interactive,
             verification_schema=verification_schema,
+            require_independent_agreement=request.require_independent_agreement,
         )
 
     # Route LLM-origin corrections: auto-apply only when a calibrated per-class
@@ -919,8 +1005,14 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     # suggestions. Deterministic fixes are unaffected -> allow_llm=False runs
     # stay byte-identical.
     corrector_policy = request.corrector_policy or corrector_default_policy()
-    accepted_fixes, policy_suggestions = _partition_auto_apply(accepted_fixes, corrector_policy)
-    suggested_fixes = policy_suggestions + _escalated_llm_suggestions(attempt_groups)
+    authoritative_schema_present = effective_schema is not None
+    accepted_fixes, calibration_suggestions, plausibility_suggestions = _partition_auto_apply(
+        accepted_fixes,
+        corrector_policy,
+        authoritative_schema_present=authoritative_schema_present,
+        allow_unproven_autoapply=request.allow_unproven_autoapply,
+    )
+    escalated_suggestions = _escalated_llm_suggestions(attempt_groups)
 
     with repair_stage_span("safety_gate", fixes_count=len(accepted_fixes)):
         batch_safety = SafetyFilter().evaluate_batch(
@@ -960,9 +1052,39 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
         # minimal receipt is intentionally enough for API callers.
         transaction = None
 
-    verified_fixes = _verified_fixes(accepted_fixes, attempt_groups)
+    verified_fixes = _verified_fixes(
+        accepted_fixes,
+        attempt_groups,
+        authoritative_schema_present=authoritative_schema_present,
+    )
     candidate_repairs = _candidate_repairs(attempt_groups)
-    suggestion_candidates = _suggestion_candidates(suggested_fixes)
+    suggestion_candidates = (
+        _suggestion_candidates(
+            calibration_suggestions,
+            review_reason="failed_conformal_threshold",
+            verifier_reason=(
+                "Held for human review: correction is verified-plausible but its "
+                "calibrated confidence did not clear the auto-apply threshold."
+            ),
+        )
+        + _suggestion_candidates(
+            plausibility_suggestions,
+            review_reason="floor_cannot_verify",
+            verifier_reason=(
+                "Held for human review: only the advisory inferred guard could "
+                "vouch for this value (no authoritative schema); it is not proven, "
+                "so it is never auto-applied unless allow_unproven_autoapply is set."
+            ),
+        )
+        + _suggestion_candidates(
+            escalated_suggestions,
+            review_reason="safety_escalation",
+            verifier_reason=(
+                "Held for human review: an LLM-origin write requires explicit "
+                "confirmation (unconfirmed-LLM-write safety rule)."
+            ),
+        )
+    )
     proof_obligations = _proof_obligations(attempt_groups)
     root_causes = _root_causes(issues, attempt_groups)
     limitations = _receipt_limitations(request, failures, batch_safety, txn_id)
@@ -985,10 +1107,16 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
             valid_rows=list(range(row_count(df))),
             safety_verdict=batch_safety.verdict.value,
             verifier_verdict=_receipt_verifier_verdict(accepted_fixes, failures),
+            independent_verification=(
+                "agreed"
+                if (authoritative_schema_present and request.require_independent_agreement)
+                else "not_run"
+            ),
             candidate_provenance=sorted({fix.provenance for fix in accepted_fixes}),
             root_causes=root_causes,
             candidate_repairs=candidate_repairs,
             suggested_fixes=suggestion_candidates,
+            applied_fixes=verified_fixes if applied else [],
             proof_obligations=proof_obligations,
             accepted_constraint_ids=accepted_constraint_ids,
             constraints_artifact_sha256=request.constraints_artifact_sha256,

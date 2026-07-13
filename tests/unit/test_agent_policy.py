@@ -137,10 +137,20 @@ class TestBackendSelection:
     def test_hosted_without_key_fails_fast(self, monkeypatch) -> None:  # noqa: ANN001
         import pytest
 
-        monkeypatch.delenv("GROQ_API_KEY", raising=False)
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
-        monkeypatch.delenv("DATAFORGE_LLM_PROVIDER", raising=False)
+        # Establish the precondition explicitly: NO provider credential of any
+        # kind is present. Clearing every known key (not a subset) makes this
+        # assertion order-independent -- it cannot be polluted by a credential a
+        # prior test loaded from a local .env.
+        for env_var in (
+            "DATAFORGE_LLM_PROVIDER",
+            "GROQ_API_KEY",
+            "GEMINI_API_KEY",
+            "AWS_BEARER_TOKEN_BEDROCK",
+            "AZURE_API_KEY",
+            "XAI_API_KEY",
+            "CEREBRAS_API_KEY",
+        ):
+            monkeypatch.delenv(env_var, raising=False)
         with pytest.raises(PolicyUnavailableError, match="No API key"):
             make_policy("hosted")
 

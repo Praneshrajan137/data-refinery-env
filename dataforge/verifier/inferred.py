@@ -59,18 +59,36 @@ def type_violation(value: str, column_type: str) -> str | None:
 
 
 def domain_violation(value: str, bound: DomainBound) -> str | None:
-    """Return a reason if numeric ``value`` is far outside the inferred bound."""
+    """Return a reason if numeric ``value`` is far outside the inferred bound.
+
+    Two-sided bounds use a symmetric pad of the observed span. When only one
+    bound is known, the known side is still enforced (a magnitude-based pad),
+    rather than skipping the check entirely -- a one-sided bound must not be a
+    silent hole through which an arbitrarily extreme value passes.
+    """
     numeric = parse_numeric(value)
     if numeric is None:
         return None
     low = bound.min_value
     high = bound.max_value
-    if low is None or high is None:
+    if low is None and high is None:
         return None
-    span = high - low
-    pad = (abs(high) * _DOMAIN_PAD_FRACTION if span == 0 else span * _DOMAIN_PAD_FRACTION) or 1.0
-    if numeric < low - pad or numeric > high + pad:
-        return f"value {numeric} is far outside the inferred numeric range [{low}, {high}]"
+    if low is not None and high is not None:
+        span = high - low
+        pad = (
+            abs(high) * _DOMAIN_PAD_FRACTION if span == 0 else span * _DOMAIN_PAD_FRACTION
+        ) or 1.0
+        if numeric < low - pad or numeric > high + pad:
+            return f"value {numeric} is far outside the inferred numeric range [{low}, {high}]"
+        return None
+    if low is not None:
+        pad = (abs(low) * _DOMAIN_PAD_FRACTION) or 1.0
+        if numeric < low - pad:
+            return f"value {numeric} is far below the inferred minimum {low}"
+    if high is not None:
+        pad = (abs(high) * _DOMAIN_PAD_FRACTION) or 1.0
+        if numeric > high + pad:
+            return f"value {numeric} is far above the inferred maximum {high}"
     return None
 
 

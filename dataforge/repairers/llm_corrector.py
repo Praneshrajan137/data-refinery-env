@@ -17,6 +17,11 @@ fills). It is built to be safe and honest, not impressive:
   fraction among all samples for the chosen (contract-passing) value. Low
   agreement yields low confidence, which the calibration layer turns into a
   human-review suggestion rather than an auto-apply.
+* **Calibration-aware.** When the model emits its own ``confidence`` for a value,
+  it is combined with the self-consistency agreement by ``min(...)`` -- a strict
+  monotonic-safety invariant: model confidence can only *lower*, never raise, the
+  effective confidence. It is fed only into the calibrated abstention policy and
+  can never push a fix past the SMT/constitution/conformal floor.
 * **Cached.** Results are keyed by a content hash of the grounded prompt and the
   model, so repeated runs are deterministic and free; a cache hit is reported
   with ``llm_cache`` provenance.
@@ -98,6 +103,35 @@ def _parse_value(raw: str) -> str:
     if len(text) >= 2 and text[0] == text[-1] and text[0] in {'"', "'"}:
         text = text[1:-1].strip()
     return text
+
+
+def _parse_confidence(raw: str) -> float | None:
+    """Extract an optional model-emitted ``confidence`` (0-1), else ``None``.
+
+    This reads untrusted model output: any missing, malformed, or out-of-range
+    value yields ``None`` so the corrector falls back to self-consistency.
+    """
+    text = raw.strip()
+    if not (text.startswith("{") and text.endswith("}")):
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    raw_conf = parsed.get("confidence")
+    if isinstance(raw_conf, bool) or not isinstance(raw_conf, int | float):
+        return None
+    conf = float(raw_conf)
+    if not 0.0 <= conf <= 1.0:
+        return None
+    return conf
+
+
+def _parse_sample(raw: str) -> tuple[str, float | None]:
+    """Parse one raw completion into (value, optional model confidence)."""
+    return _parse_value(raw), _parse_confidence(raw)
 
 
 class LLMCorrectorRepairer:
@@ -193,9 +227,11 @@ class LLMCorrectorRepairer:
             return chosen, agreement, "llm_cache"
 
         raw_samples = [self._one_sample(prompt) for _ in range(self._samples)]
-        values = [_parse_value(raw) for raw in raw_samples]
-        self._write_cache(cache_path, issue, raw_samples, values)
-        chosen, agreement = self._vote(values, issue, df, contract, constraints)
+        samples = [_parse_sample(raw) for raw in raw_samples]
+        values = [value for value, _ in samples]
+        confidences = [confidence for _, confidence in samples]
+        self._write_cache(cache_path, issue, raw_samples, values, confidences)
+        chosen, agreement = self._vote(samples, issue, df, contract, constraints)
         return chosen, agreement, "llm_live"
 
     def _one_sample(self, prompt: list[Message]) -> str:
@@ -206,22 +242,38 @@ class LLMCorrectorRepairer:
 
     def _vote(
         self,
-        values: list[str],
+        samples: list[tuple[str, float | None]],
         issue: Issue,
         df: TableLike,
         contract: CorrectionContract,
         constraints: Schema,
     ) -> tuple[str | None, float]:
-        """Majority vote among contract- and guard-passing candidate values."""
-        total = len(values) or 1
+        """Majority vote among contract- and guard-passing candidate values.
+
+        The confidence is the self-consistency agreement fraction, optionally
+        lowered (never raised) by the model's own emitted confidence for the
+        chosen value -- the monotonic-safety invariant.
+        """
+        total = len(samples) or 1
         passing = [
-            value for value in values if self._candidate_ok(value, issue, df, contract, constraints)
+            (value, confidence)
+            for value, confidence in samples
+            if self._candidate_ok(value, issue, df, contract, constraints)
         ]
         if not passing:
             return None, 0.0
-        counts = Counter(passing)
+        counts = Counter(value for value, _ in passing)
         chosen, votes = counts.most_common(1)[0]
-        return chosen, votes / total
+        agreement = votes / total
+        model_confidences = [
+            confidence
+            for value, confidence in passing
+            if value == chosen and confidence is not None
+        ]
+        if model_confidences:
+            mean_model_confidence = sum(model_confidences) / len(model_confidences)
+            return chosen, min(agreement, mean_model_confidence)
+        return chosen, agreement
 
     def _candidate_ok(
         self,
@@ -330,8 +382,13 @@ class LLMCorrectorRepairer:
         return self._cache_dir / f"corrector_{digest}_{model_slug}.json"
 
     @staticmethod
-    def _read_cache(cache_path: Path | None) -> list[str] | None:
-        """Return cached parsed sample values, or ``None`` on miss."""
+    def _read_cache(cache_path: Path | None) -> list[tuple[str, float | None]] | None:
+        """Return cached (value, confidence) samples, or ``None`` on miss.
+
+        Backward-compatible: older caches carry only ``values`` (no confidences),
+        which read back with ``None`` confidence and therefore fall back to pure
+        self-consistency.
+        """
         if cache_path is None or not cache_path.exists():
             return None
         try:
@@ -339,9 +396,22 @@ class LLMCorrectorRepairer:
             values = cached["values"]
         except (json.JSONDecodeError, KeyError, OSError):
             return None
-        if isinstance(values, list):
-            return [str(value) for value in values]
-        return None
+        if not isinstance(values, list):
+            return None
+        confidences = cached.get("confidences")
+        samples: list[tuple[str, float | None]] = []
+        for index, value in enumerate(values):
+            confidence: float | None = None
+            if isinstance(confidences, list) and index < len(confidences):
+                raw_conf = confidences[index]
+                if (
+                    isinstance(raw_conf, int | float)
+                    and not isinstance(raw_conf, bool)
+                    and 0.0 <= float(raw_conf) <= 1.0
+                ):
+                    confidence = float(raw_conf)
+            samples.append((str(value), confidence))
+        return samples
 
     def _write_cache(
         self,
@@ -349,8 +419,9 @@ class LLMCorrectorRepairer:
         issue: Issue,
         raw_samples: list[str],
         values: list[str],
+        confidences: list[float | None],
     ) -> None:
-        """Persist raw and parsed samples for deterministic replay."""
+        """Persist raw samples, parsed values, and model confidences for replay."""
         if cache_path is None:
             return
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -361,6 +432,7 @@ class LLMCorrectorRepairer:
                     "model": self._model,
                     "raw_samples": raw_samples,
                     "values": values,
+                    "confidences": confidences,
                 },
                 sort_keys=True,
             ),

@@ -21,6 +21,7 @@ The interface is:
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 import httpx
@@ -66,7 +67,7 @@ def _env_truthy(name: str) -> bool:
 
 
 _SUPPORTED_PROVIDERS = frozenset(
-    {"groq", "gemini", "bedrock", "azure", "cerebras", "openrouter", "hf", "cloudflare"}
+    {"groq", "gemini", "bedrock", "azure", "grok", "cerebras", "openrouter", "hf", "cloudflare"}
 )
 
 
@@ -95,6 +96,10 @@ def get_provider_name() -> str:
         return "bedrock"
     if os.environ.get("AZURE_API_KEY"):
         return "azure"
+    if os.environ.get("XAI_API_KEY"):
+        return "grok"
+    if os.environ.get("CEREBRAS_API_KEY"):
+        return "cerebras"
     return "groq"
 
 
@@ -105,6 +110,8 @@ _PROVIDER_MODEL_ENV = {
     "gemini": "DATAFORGE_GEMINI_MODEL",
     "bedrock": "DATAFORGE_BEDROCK_MODEL",
     "azure": "DATAFORGE_AZURE_MODEL",
+    "grok": "DATAFORGE_GROK_MODEL",
+    "cerebras": "DATAFORGE_CEREBRAS_MODEL",
 }
 
 
@@ -127,6 +134,8 @@ def resolve_model(provider: str | None = None) -> str:
     override = os.environ.get(env_var, "").strip() if env_var else ""
     if override:
         return override
+    if name in _OPENAI_COMPAT_CONFIG:
+        return _OPENAI_COMPAT_CONFIG[name].default_model
     if name == "gemini":
         return _GEMINI_DEFAULT_MODEL
     if name in ("bedrock", "azure"):
@@ -163,8 +172,10 @@ async def complete(
     """
     provider = get_provider_name()
 
-    if provider == "groq":
-        return await _complete_groq(messages, model=model, temperature=temperature)
+    if provider in _OPENAI_COMPAT_CONFIG:
+        return await _complete_openai_compat(
+            messages, provider=provider, model=model, temperature=temperature
+        )
     if provider == "gemini":
         return await _complete_gemini(messages, model=model, temperature=temperature)
     if provider == "bedrock":
@@ -175,7 +186,7 @@ async def complete(
     if provider in _SUPPORTED_PROVIDERS:
         raise NotImplementedError(
             f"Provider '{provider}' is planned but not yet implemented. "
-            f"Use 'groq', 'gemini', 'bedrock', or 'azure'."
+            f"Use 'groq', 'grok', 'cerebras', 'gemini', 'bedrock', or 'azure'."
         )
 
     raise NotImplementedError(
@@ -183,10 +194,42 @@ async def complete(
     )
 
 
-# ── Groq provider ────────────────────────────────────────────────────────
+# ── OpenAI-compatible providers (groq, grok/xAI, cerebras) ────────────────
+#
+# These providers share one wire format: a Bearer-token POST to a
+# /chat/completions endpoint with {model, messages, temperature}. A single
+# generic path serves all of them; adding another is one config entry.
 
 _GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 _GROQ_DEFAULT_MODEL = "llama-3.1-70b-versatile"
+
+
+@dataclass(frozen=True, slots=True)
+class _OpenAICompatConfig:
+    """Wire config for one OpenAI-compatible provider."""
+
+    url: str
+    api_key_env: str
+    default_model: str
+
+
+_OPENAI_COMPAT_CONFIG: dict[str, _OpenAICompatConfig] = {
+    "groq": _OpenAICompatConfig(
+        url=_GROQ_URL, api_key_env="GROQ_API_KEY", default_model=_GROQ_DEFAULT_MODEL
+    ),
+    # xAI Grok is OpenAI-compatible (base https://api.x.ai/v1, Bearer auth).
+    # NOTE: "grok" (xAI model) is NOT the repo's "groq" provider (Groq Inc.).
+    "grok": _OpenAICompatConfig(
+        url="https://api.x.ai/v1/chat/completions",
+        api_key_env="XAI_API_KEY",
+        default_model="grok-4.5",
+    ),
+    "cerebras": _OpenAICompatConfig(
+        url="https://api.cerebras.ai/v1/chat/completions",
+        api_key_env="CEREBRAS_API_KEY",
+        default_model="qwen-3-235b-a22b-instruct-2507",
+    ),
+}
 
 
 @retry(
@@ -195,38 +238,41 @@ _GROQ_DEFAULT_MODEL = "llama-3.1-70b-versatile"
     stop=stop_after_attempt(3),
     reraise=True,
 )
-async def _complete_groq(
+async def _complete_openai_compat(
     messages: list[Message],
     *,
+    provider: str,
     model: str | None = None,
     temperature: float = 0.0,
 ) -> str:
-    """Call Groq's OpenAI-compatible chat completions API.
+    """Call any OpenAI-compatible chat completions API (groq, grok, cerebras).
 
     Args:
         messages: Chat messages.
-        model: Model name (defaults to llama-3.1-70b-versatile).
+        provider: One of the keys in ``_OPENAI_COMPAT_CONFIG``.
+        model: Model name (defaults to the provider's configured default).
         temperature: Sampling temperature.
 
     Returns:
         The assistant's response text.
 
     Raises:
-        ProviderError: If the response is malformed.
+        ProviderError: If the API key is missing or the response is malformed.
     """
-    api_key = os.environ.get("GROQ_API_KEY", "")
+    config = _OPENAI_COMPAT_CONFIG[provider]
+    api_key = os.environ.get(config.api_key_env, "")
     if not api_key:
-        raise ProviderError("groq", "GROQ_API_KEY environment variable not set")
+        raise ProviderError(provider, f"{config.api_key_env} environment variable not set")
 
     payload = {
-        "model": model or resolve_model("groq"),
+        "model": model or resolve_model(provider),
         "messages": [dict(m) for m in messages],
         "temperature": temperature,
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
-            _GROQ_URL,
+            config.url,
             json=payload,
             headers={
                 "Authorization": f"Bearer {api_key}",
@@ -239,7 +285,19 @@ async def _complete_groq(
     try:
         return str(data["choices"][0]["message"]["content"])
     except (KeyError, IndexError) as exc:
-        raise ProviderError("groq", f"Unexpected response format: {data}") from exc
+        raise ProviderError(provider, f"Unexpected response format: {data}") from exc
+
+
+async def _complete_groq(
+    messages: list[Message],
+    *,
+    model: str | None = None,
+    temperature: float = 0.0,
+) -> str:
+    """Backward-compatible Groq entry point; delegates to the generic path."""
+    return await _complete_openai_compat(
+        messages, provider="groq", model=model, temperature=temperature
+    )
 
 
 # ── Gemini provider ──────────────────────────────────────────────────────

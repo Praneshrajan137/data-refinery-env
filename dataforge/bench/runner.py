@@ -6,8 +6,6 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from dataforge.bench.core import (
     AggregateBenchmarkResult,
     BenchmarkRunOutput,
@@ -24,6 +22,7 @@ from dataforge.bench.groq_client import (
     AzureBenchClient,
     BedrockBenchClient,
     GeminiBenchClient,
+    GrokBenchClient,
     GroqBenchClient,
 )
 from dataforge.bench.methods import (
@@ -95,7 +94,11 @@ def _llm_skip_reason() -> str | None:
         if not os.environ.get("DATAFORGE_AZURE_MODEL"):
             return "DATAFORGE_AZURE_MODEL (deployment name) is not set."
         return None
-    return "DATAFORGE_LLM_PROVIDER must be set to groq, bedrock, gemini, or azure."
+    if provider == "grok":
+        if not os.environ.get("XAI_API_KEY"):
+            return "XAI_API_KEY is not set."
+        return None
+    return "DATAFORGE_LLM_PROVIDER must be set to groq, grok, bedrock, gemini, or azure."
 
 
 def _env_float(name: str, default: float) -> float:
@@ -135,6 +138,32 @@ def _build_groq_client() -> GroqBenchClient:
         max_tokens=_env_int("DATAFORGE_GROQ_MAX_TOKENS", 256),
         max_retries=_env_int("DATAFORGE_GROQ_MAX_RETRIES", 3),
         timeout_s=_env_float("DATAFORGE_GROQ_TIMEOUT_S", 30.0),
+    )
+
+
+def _build_grok_client() -> GrokBenchClient:
+    """Construct an xAI Grok benchmark client from env-driven knobs.
+
+    Grok is metered, so the USD guard is on by default (DATAFORGE_GROK_MAX_USD).
+    """
+    raw_cap = os.environ.get("DATAFORGE_GROK_MAX_USD", "").strip()
+    max_usd: float | None = 15.0
+    if raw_cap:
+        try:
+            parsed = float(raw_cap)
+        except ValueError:
+            parsed = 0.0
+        max_usd = parsed if parsed > 0 else None
+    return GrokBenchClient(
+        api_key=os.environ["XAI_API_KEY"],
+        model=os.environ.get("DATAFORGE_GROK_MODEL", "grok-4.5"),
+        min_interval_s=_env_float("DATAFORGE_GROK_MIN_INTERVAL_S", 0.5),
+        max_tokens=_env_int("DATAFORGE_GROK_MAX_TOKENS", 256),
+        max_retries=_env_int("DATAFORGE_GROK_MAX_RETRIES", 5),
+        timeout_s=_env_float("DATAFORGE_GROK_TIMEOUT_S", 60.0),
+        usd_per_1k_input=_env_float("DATAFORGE_GROK_USD_PER_1K_INPUT", 0.002),
+        usd_per_1k_output=_env_float("DATAFORGE_GROK_USD_PER_1K_OUTPUT", 0.006),
+        max_usd=max_usd,
     )
 
 
@@ -247,8 +276,14 @@ def run_agent_comparison(
     seed_list: list[int] | None = None,
     verify_dataset_hashes: bool = True,
 ) -> BenchmarkRunOutput:
-    """Run the selected benchmark methods across real-world datasets."""
-    load_dotenv()
+    """Run the selected benchmark methods across real-world datasets.
+
+    Note: this library function never loads ``.env`` -- environment loading is an
+    application-boundary concern owned by the entry points (the ``dataforge bench``
+    CLI and the ``scripts/bench`` runners). Keeping it out here makes the function
+    hermetic and order-independent under test, so the proof suite cannot be
+    polluted by a ``.env`` file loaded mid-run.
+    """
     _validate_inputs(methods, datasets)
     resolved_seed_list = build_seed_list(seeds=seeds, seed_list=seed_list)
 
@@ -284,9 +319,14 @@ def run_agent_comparison(
 
     llm_methods_requested = any(method.startswith("llm_") for method in methods)
     skip_reason = _llm_skip_reason() if llm_methods_requested else None
-    client: GroqBenchClient | BedrockBenchClient | GeminiBenchClient | AzureBenchClient | None = (
-        None
-    )
+    client: (
+        GroqBenchClient
+        | GrokBenchClient
+        | BedrockBenchClient
+        | GeminiBenchClient
+        | AzureBenchClient
+        | None
+    ) = None
     if llm_methods_requested and skip_reason is None:
         provider = os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower()
         if provider == "bedrock":
@@ -295,6 +335,8 @@ def run_agent_comparison(
             client = _build_gemini_client()
         elif provider == "azure":
             client = _build_azure_client()
+        elif provider == "grok":
+            client = _build_grok_client()
         else:
             client = _build_groq_client()
 

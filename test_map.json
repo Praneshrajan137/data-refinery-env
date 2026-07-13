@@ -152,6 +152,29 @@
     "benchmark_tests": ["tests/benchmarks/bench_smt.py"],
     "regression_tests": ["tests/regression/test_env.py"]
   },
+  "dataforge/verifier/direct.py": {
+    "direct_tests": [
+      "tests/unit/test_direct_verifier.py",
+      "tests/unit/test_differential_verifier.py",
+      "tests/property/test_verifier_equivalence.py"
+    ],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/verifier/differential.py": {
+    "direct_tests": [
+      "tests/unit/test_differential_verifier.py",
+      "tests/property/test_verifier_equivalence.py",
+      "tests/unit/test_certificate.py"
+    ],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
+  "dataforge/verifier/result.py": {
+    "direct_tests": [
+      "tests/unit/test_smt_verifier.py",
+      "tests/unit/test_direct_verifier.py"
+    ],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
   "dataforge/verifier/explain.py": {
     "direct_tests": [
       "tests/unit/test_smt_verifier.py",

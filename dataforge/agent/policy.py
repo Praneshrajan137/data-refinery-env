@@ -74,6 +74,8 @@ _PROVIDER_KEY_ENV = {
     "gemini": "GEMINI_API_KEY",
     "bedrock": "AWS_BEARER_TOKEN_BEDROCK",
     "azure": "AZURE_API_KEY",
+    "grok": "XAI_API_KEY",
+    "cerebras": "CEREBRAS_API_KEY",
 }
 
 

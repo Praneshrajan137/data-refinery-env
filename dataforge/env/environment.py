@@ -776,7 +776,8 @@ class DataForgeEnv:
             from dataforge.repairers.base import ProposedFix
             from dataforge.safety.filter import SafetyContext, SafetyFilter, SafetyVerdict
             from dataforge.transactions.txn import CellFix
-            from dataforge.verifier.smt import SMTVerifier, VerificationVerdict
+            from dataforge.verifier.result import VerificationVerdict
+            from dataforge.verifier.smt import SMTVerifier
 
             old_val = str(self._df.at[action.row, action.column])
             cell_fix = CellFix(

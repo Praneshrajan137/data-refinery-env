@@ -120,18 +120,23 @@ def load_config(path: Path) -> dict[str, Any]:
         )
 
     training = _as_mapping(config["training"], name="training")
-    if training.get("fp16") is not True or training.get("bf16") is not False:
-        raise SftReadinessError("Kaggle config must use fp16=True and bf16=False.")
-    stale_settings = {
-        key: training.get(key)
-        for key, expected in EXPECTED_T4_TRAINING.items()
-        if training.get(key) != expected
-    }
-    if stale_settings:
-        raise SftReadinessError(
-            "Kaggle T4 training settings are stale. Expected "
-            f"{EXPECTED_T4_TRAINING}; got {stale_settings}."
-        )
+    # The fp16/T4 hardware assertions below are a Week-9 Kaggle-T4 relic. They
+    # only apply to fp16/T4 configs; a config that declares bf16=True is a
+    # paid-GPU config (e.g. the 1.5B run) whose authoritative validation is
+    # structural parity with the proven config, not these stale hardware pins.
+    if training.get("bf16") is not True:
+        if training.get("fp16") is not True or training.get("bf16") is not False:
+            raise SftReadinessError("Kaggle config must use fp16=True and bf16=False.")
+        stale_settings = {
+            key: training.get(key)
+            for key, expected in EXPECTED_T4_TRAINING.items()
+            if training.get(key) != expected
+        }
+        if stale_settings:
+            raise SftReadinessError(
+                "Kaggle T4 training settings are stale. Expected "
+                f"{EXPECTED_T4_TRAINING}; got {stale_settings}."
+            )
     _validate_dataset_readme(path=path, config=config)
     return config
 
