@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import enum
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
 from z3 import (  # type: ignore[import-untyped]
     And,
     Bool,
@@ -40,28 +38,11 @@ from dataforge.table import (
 )
 from dataforge.verifier.explain import explain_unsat_core
 from dataforge.verifier.inferred import inferred_value_violation
+from dataforge.verifier.result import VerificationResult, VerificationVerdict
 from dataforge.verifier.schema import DomainBound, FunctionalDependency, Schema
 
 Z3ExprFactory = Callable[[Any], Any]
 Z3ValueFactory = Callable[[str], Any]
-
-
-class VerificationVerdict(enum.Enum):
-    """Possible outcomes of the verifier gate."""
-
-    ACCEPT = "accept"
-    REJECT = "reject"
-    UNKNOWN = "unknown"
-
-
-class VerificationResult(BaseModel):
-    """Typed result for the Week 3 verifier gate."""
-
-    verdict: VerificationVerdict
-    reason: str = Field(min_length=1)
-    unsat_core: tuple[str, ...] = Field(default_factory=tuple)
-
-    model_config = {"frozen": True}
 
 
 @dataclass(frozen=True)

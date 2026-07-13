@@ -20,6 +20,7 @@ from dataforge.detectors.fd_violation import FDViolationDetector
 from dataforge.detectors.format_violation import FormatViolationDetector
 from dataforge.detectors.missing_value import MissingValueDetector
 from dataforge.detectors.outlier import OutlierDetector
+from dataforge.detectors.time_format_cruft import TimeFormatCruftDetector
 from dataforge.detectors.type_mismatch import TypeMismatchDetector
 from dataforge.table import TableLike
 
@@ -34,6 +35,7 @@ __all__ = [
     "OutlierDetector",
     "Schema",
     "Severity",
+    "TimeFormatCruftDetector",
     "TypeMismatchDetector",
     "default_detectors",
     "run_all_detectors",
@@ -63,6 +65,7 @@ def default_detectors() -> list[Detector]:
         CategoricalNormalizationDetector(),
         OutlierDetector(),
         DuplicateRowDetector(),
+        TimeFormatCruftDetector(),
     ]
 
 

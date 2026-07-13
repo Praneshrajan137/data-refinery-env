@@ -5,9 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
+from dataforge.calibration_targets import strict_cell_value
 from dataforge.repair_contract import (
     RepairFix,
     RepairParseResult,
+    parse_cell_confidences,
     parse_repair_action,
     repair_failure_taxonomy,
     score_repair_fixes,
@@ -22,6 +24,74 @@ class TruthCell:
     row: int
     column: str
     clean_value: str
+
+
+@dataclass(frozen=True, slots=True)
+class CalibrationWeights:
+    """Weights for the optional, flag-gated selective-prediction reward term.
+
+    Kept small so exact F1 still dominates the reward: calibration nudges the
+    model toward honest confidence and abstention without overriding accuracy.
+    """
+
+    brier: float = 0.15
+    confident_wrong: float = 0.20
+    correct_abstention: float = 0.10
+    confident_threshold: float = 0.5
+
+
+DEFAULT_CALIBRATION_WEIGHTS = CalibrationWeights()
+
+
+def calibration_reward_adjustment(
+    *,
+    repairs: list[RepairFix],
+    truth: list[TruthCell],
+    confidences: dict[tuple[int, str], float],
+    abstention_slice: bool,
+    weights: CalibrationWeights = DEFAULT_CALIBRATION_WEIGHTS,
+) -> tuple[float, dict[str, float]]:
+    """Return the selective-prediction reward delta and its components.
+
+    The delta rewards well-calibrated confidence (low Brier score), penalizes
+    confident-wrong repairs, and rewards correct abstention on the non-inferable
+    slices. It is purely a function of ground-truth correctness and model-emitted
+    confidence -- never the model's self-reported certainty alone.
+    """
+    truth_map = {(cell.row, cell.column): strict_cell_value(cell.clean_value) for cell in truth}
+    graded: list[tuple[float, int]] = []
+    for repair in repairs:
+        confidence = confidences.get((repair.row, repair.column))
+        if confidence is None:
+            continue
+        expected = truth_map.get((repair.row, repair.column))
+        correct = (
+            1 if expected is not None and strict_cell_value(repair.new_value) == expected else 0
+        )
+        graded.append((confidence, correct))
+
+    brier = sum((conf - correct) ** 2 for conf, correct in graded) / len(graded) if graded else 0.0
+    confident_wrong = (
+        sum(1 for conf, correct in graded if correct == 0 and conf >= weights.confident_threshold)
+        / len(graded)
+        if graded
+        else 0.0
+    )
+    correct_abstention = 1.0 if (abstention_slice and not repairs) else 0.0
+
+    delta = (
+        (weights.correct_abstention * correct_abstention)
+        - (weights.brier * brier)
+        - (weights.confident_wrong * confident_wrong)
+    )
+    components = {
+        "calibration_brier": round(brier, 6),
+        "calibration_confident_wrong_frac": round(confident_wrong, 6),
+        "calibration_correct_abstention": correct_abstention,
+        "calibration_graded_count": float(len(graded)),
+        "calibration_delta": round(delta, 6),
+    }
+    return delta, components
 
 
 def completion_text(completion: object) -> str:
@@ -154,6 +224,8 @@ def score_grpo_completion(
     raw_allowed_columns: object,
     raw_valid_rows: object,
     raw_inferability: object = None,
+    enable_calibration: bool = False,
+    calibration_weights: CalibrationWeights = DEFAULT_CALIBRATION_WEIGHTS,
 ) -> tuple[float, dict[str, Any]]:
     """Score one completion with the strict ``repair_contract_v2`` GRPO reward.
 
@@ -161,6 +233,11 @@ def score_grpo_completion(
     reward only guides GRPO rollouts: exact F1 dominates, canonicalized value
     matches and precision provide small learning signal, and contract errors
     always receive zero reward.
+
+    When ``enable_calibration`` is True an additive selective-prediction term is
+    layered on top of the F1 reward (rewarding calibrated confidence and correct
+    abstention, penalizing confident-wrong). The flag defaults to False so the
+    reproducible F1-only reward path is byte-identical.
     """
     text = completion_text(completion)
     truth = truth_cells(raw_truth)
@@ -228,9 +305,9 @@ def score_grpo_completion(
             "predicted_repair_count": predicted_repair_count,
             "empty_repair_on_truth_positive": False,
             "score": score_repair_fixes(truth, repairs).model_dump(mode="json"),
-            "canonicalized_score": score_repair_fixes_canonicalized(
-                truth, repairs
-            ).model_dump(mode="json"),
+            "canonicalized_score": score_repair_fixes_canonicalized(truth, repairs).model_dump(
+                mode="json"
+            ),
             "failure_taxonomy": taxonomy,
             "reward_components": {
                 "contract_valid": 1.0,
@@ -264,6 +341,25 @@ def score_grpo_completion(
         - penalty
         - empty_truth_positive_penalty
     )
+    reward_components: dict[str, float] = {
+        "strict_f1": score.f1,
+        "canonicalized_f1": canonicalized_score.f1,
+        "precision": score.precision,
+        "recall": score.recall,
+        "recall_gap": round(1.0 - score.recall, 6) if truth_cell_count else 0.0,
+        "penalty": round(penalty, 6),
+        "empty_truth_positive_penalty": empty_truth_positive_penalty,
+    }
+    if enable_calibration:
+        calibration_delta, calibration_components = calibration_reward_adjustment(
+            repairs=repairs,
+            truth=truth,
+            confidences=parse_cell_confidences(text),
+            abstention_slice=abstention_slice,
+            weights=calibration_weights,
+        )
+        shaped += calibration_delta
+        reward_components.update(calibration_components)
     reward = max(0.0, min(1.0, round(float(shaped), 6)))
     diagnostics = {
         "parse_ok": True,
@@ -275,14 +371,6 @@ def score_grpo_completion(
         "score": score.model_dump(mode="json"),
         "canonicalized_score": canonicalized_score.model_dump(mode="json"),
         "failure_taxonomy": taxonomy,
-        "reward_components": {
-            "strict_f1": score.f1,
-            "canonicalized_f1": canonicalized_score.f1,
-            "precision": score.precision,
-            "recall": score.recall,
-            "recall_gap": round(1.0 - score.recall, 6) if truth_cell_count else 0.0,
-            "penalty": round(penalty, 6),
-            "empty_truth_positive_penalty": empty_truth_positive_penalty,
-        },
+        "reward_components": reward_components,
     }
     return reward, diagnostics

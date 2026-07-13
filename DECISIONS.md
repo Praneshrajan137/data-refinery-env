@@ -12,6 +12,39 @@ Format for every entry:
 
 ---
 
+## 2026-07-11 - Enforce provable-only auto-apply; deep self-verifiable certificate
+**Context**: The Corruption Oracle proved the default deterministic auto-apply path
+never corrupts, and that the known verifier-floor gaps are LATENT (they live in the
+advisory inferred guard, reachable only by an LLM value with no authoritative schema).
+But a permissive `corrector_policy` could still auto-apply such a plausibility-only
+fix, silently activating a gap. Separately, `verify_certificate` only checked hashes
+and structure, not the constraints themselves.
+**Alternatives**:
+- (a) Never auto-apply plausibility-only fixes at all - maximally strict, removes a
+  legitimate power-user escape hatch.
+- (b) Opt-in, honestly recorded - off by default; explicit `allow_unproven_autoapply`
+  permits it and the certificate records those cells as `plausibility_only`.
+- (c) Leave as-is and rely on the default policy - fragile (a permissive policy
+  re-opens the gap) and not an enforced guarantee.
+- Re-verification: (d) hashes only (status quo); (e) re-run the real verifier per
+  applied cell against the certified data; (f) a second, diverse re-implementation
+  of constraint semantics.
+**Decision**: (b) for enforcement + (e) for re-verification. A fix is `proven`
+(deterministic OR authoritative-schema-verified) or `plausibility_only`; only proven
+fixes auto-apply unless `allow_unproven_autoapply` is set, and then the receipt's
+`applied_fixes[].verification_strength` records it truthfully. `reverify_certificate`
+reconstructs the applied fixes and re-runs `SMTVerifier` per cell (mirroring the
+engine's guard selection) plus a truthfulness check on the recorded labels.
+**Reasoning**: (b) makes "the gaps stay latent" an ENFORCED, tested invariant under
+any policy while keeping an honest escape hatch; the certificate never lies. (e)
+gives independence in data and execution (catches tampering, drift, receipt/data
+mismatch) at low cost; (f) was rejected as itself-unverified and disproportionate.
+**Reviewed with**: user (chose "opt-in, honestly recorded").
+**Reversal criteria**: if a real deployment needs zero unproven auto-applies, drop
+the flag (option a); if a diverse second checker becomes worth its cost, add (f).
+
+---
+
 ## 2026-07-07 - Reframe to verified+calibrated gate; conformal risk control; 1.5B is no-go for auto-apply
 **Context**: A prior plan pursued "better teacher data + bigger base model" to lift
 repair quality. The measured evidence collected while executing it refutes that
@@ -897,3 +930,48 @@ than an in-sample fit to avoid a circular, self-flattering metric.
 the floor with a calibrated confidence signal on held-out data, raise that
 class's default threshold so it auto-applies; if the corrector cannot beat the
 deterministic stack on any class, keep it suggestion-only.
+
+## 2026-07-12 - N-version differential verification: a second, independent constraint checker
+
+**Decision**: Add a second, independently-written constraint checker,
+`DirectVerifier` (`dataforge/verifier/direct.py`), that evaluates the same
+authoritative-schema specification as the primary z3-backed `SMTVerifier` but
+by DIRECT Python table evaluation -- set membership, comparison, enumeration --
+sharing none of its checking logic and importing no z3. The result contract
+(`VerificationVerdict`/`VerificationResult`) was relocated to a
+dependency-free `dataforge/verifier/result.py` so the diverse checker's import
+graph is genuinely z3-free. `differential_verify`
+(`dataforge/verifier/differential.py`) runs both and combines their verdicts
+FAIL-CLOSED: a fix auto-applies only when BOTH accept; any disagreement (or a
+non-accept from either) holds the fix and is recorded. The engine gate is
+default-on for the authoritative-schema path
+(`RepairPipelineRequest.require_independent_agreement=True`,
+`RepairReceipt.independent_verification`), and `reverify_certificate` now
+re-derives ACCEPT through the differential pair on that path (recording
+`reverify_independent_agreement`), removing the prior "not a diverse
+re-implementation" caveat.
+**Reasoning**: "trust the verifier" was a single point of failure -- a bug in the
+one checker would pass at repair time AND at reverify time. Two implementations
+built from different mechanisms make a common-mode logic bug very unlikely; when
+they diverge, fail-closed means the diverse checker can only ever REDUCE
+auto-applies (hold a fix for review), never wave through a corrupting one. A
+Hypothesis equivalence suite (`tests/property/test_verifier_equivalence.py`)
+generates random schemas/tables/fixes and asserts the two agree; a 1500-example
+stress showed 919 accept/accept + 581 reject/reject and ZERO disagreements. The
+gate engages only when an authoritative schema is present, so schema-less
+deterministic runs (hospital 0.7926) are byte-identical and untouched.
+**Honest boundary**: N-version targets checking LOGIC diversity. The two share
+the specification (`Schema`), the output contract, and table I/O; a defect in
+the shared spec itself, or in a shared dependency, is not covered. The advisory
+inferred guard (heuristic, schema-less) is intentionally single-implementation
+because it only ever gates non-auto-applying plausibility fixes.
+**Reviewed with**: nversion-independent-constraint-checker plan,
+`dataforge/verifier/{direct,differential,result,smt,gate}.py`,
+`dataforge/engine/repair.py`, `dataforge/certificate.py`,
+`tests/unit/test_direct_verifier.py`, `tests/unit/test_differential_verifier.py`,
+`tests/property/test_verifier_equivalence.py`.
+**Reversal criteria**: if the equivalence suite ever surfaces a persistent
+divergence rooted in the shared spec (not an implementation bug), promote the
+spec itself to the object of verification; if per-fix dual verification proves
+too slow at scale, batch it or gate it behind a size threshold, never behind
+correctness.

@@ -22,6 +22,7 @@ from dataforge.bench.groq_client import (
     AzureBenchClient,
     CerebrasBenchClient,
     GeminiBenchClient,
+    GrokBenchClient,
     GroqBenchClient,
     GroqCompletion,
     ProviderRequestError,
@@ -38,7 +39,7 @@ from dataforge.evaluation_contract import InferabilityLabel
 
 Difficulty = Literal["easy", "medium"]
 Preset = Literal["smoke", "full"]
-TeacherProvider = Literal["groq", "cerebras", "gemini", "azure"]
+TeacherProvider = Literal["groq", "grok", "cerebras", "gemini", "azure"]
 FlightsRepairMode = Literal["strict", "verified"]
 NormalizationCandidate = dict[str, str | int]
 
@@ -48,6 +49,7 @@ DEFAULT_DIFFICULTIES: tuple[Difficulty, ...] = ("easy", "medium")
 DEFAULT_OUTPUT = Path("data/sft_traj/expert_v1.jsonl")
 DEFAULT_DATASET_REPO_NAME = "dataforge-sft-trajectories"
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROK_MODEL = "grok-4.5"
 DEFAULT_CEREBRAS_MODEL = "llama3.1-8b"
 DEFAULT_GEMINI_MODEL = "gemini-3.1-pro-preview"
 LIGHT_WINDOW_SIZES: dict[str, int] = {"easy": 48, "medium": 96}
@@ -351,6 +353,8 @@ class TrajectoryRecord(BaseModel):
     provenance: dict[str, Any]
     prompt_contract_version: str | None = None
     inferability: InferabilityLabel | None = None
+    target_confidence: float | None = None
+    should_abstain: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1600,6 +1604,8 @@ def _default_teacher_model(provider: TeacherProvider) -> str:
     if provider == "azure":
         # Azure has no built-in default: the deployment name is account-specific.
         return os.environ.get("DATAFORGE_AZURE_MODEL", "")
+    if provider == "grok":
+        return DEFAULT_GROK_MODEL
     return DEFAULT_CEREBRAS_MODEL if provider == "cerebras" else DEFAULT_GROQ_MODEL
 
 
@@ -1702,7 +1708,7 @@ def _validate_collection_settings(settings: CollectionSettings) -> None:
     if settings.daily_request_budget < 1:
         raise ValueError("--daily-request-budget must be >= 1.")
     if settings.teacher_provider not in {"groq", "cerebras", "gemini", "azure"}:
-        raise ValueError("--teacher-provider must be groq, cerebras, gemini, or azure.")
+        raise ValueError("--teacher-provider must be groq, grok, cerebras, gemini, or azure.")
     if settings.teacher_max_tokens < 1:
         raise ValueError("--teacher-max-tokens must be >= 1.")
     if settings.teacher_timeout_s <= 0:
@@ -1733,6 +1739,8 @@ def _teacher_api_key_env(provider: TeacherProvider) -> str:
         return "GEMINI_API_KEY"
     if provider == "azure":
         return "AZURE_API_KEY"
+    if provider == "grok":
+        return "XAI_API_KEY"
     return "CEREBRAS_API_KEY" if provider == "cerebras" else "GROQ_API_KEY"
 
 
@@ -1796,11 +1804,18 @@ def _build_provider_client(
             reasoning_effort=os.environ.get("DATAFORGE_AZURE_REASONING_EFFORT", "").strip().lower()
             or None,
         )
-    client_cls: type[CerebrasBenchClient] | type[GeminiBenchClient] | type[GroqBenchClient]
+    client_cls: (
+        type[CerebrasBenchClient]
+        | type[GeminiBenchClient]
+        | type[GrokBenchClient]
+        | type[GroqBenchClient]
+    )
     if provider == "gemini":
         client_cls = GeminiBenchClient
     elif provider == "cerebras":
         client_cls = CerebrasBenchClient
+    elif provider == "grok":
+        client_cls = GrokBenchClient
     else:
         client_cls = GroqBenchClient
     return client_cls(
@@ -1937,7 +1952,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--push-to-hub", action="store_true")
     parser.add_argument("--hf-dataset-repo", default="auto")
     parser.add_argument(
-        "--teacher-provider", choices=("groq", "cerebras", "gemini", "azure"), default=None
+        "--teacher-provider", choices=("groq", "grok", "cerebras", "gemini", "azure"), default=None
     )
     parser.add_argument("--teacher-model", default=None)
     parser.add_argument("--teacher-max-tokens", type=int, default=None)

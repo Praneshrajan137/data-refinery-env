@@ -637,6 +637,22 @@ def test_config_rejects_stale_t4_training_settings(tmp_path: Path) -> None:
         load_config(config_path)
 
 
+def test_config_accepts_bf16_paid_gpu_config(tmp_path: Path) -> None:
+    # A bf16 (paid-GPU / 1.5B) config is validated by structural parity, not the
+    # stale Week-9 T4 hardware pins, so it must not be rejected by those pins.
+    config_path = _config(tmp_path / "sft_15b.yaml")
+    config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    config["training"]["fp16"] = False
+    config["training"]["bf16"] = True
+    config["training"]["max_seq_length"] = 1536
+    config["training"]["per_device_train_batch_size"] = 2
+    config["training"]["gradient_accumulation_steps"] = 8
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+
+    loaded = load_config(config_path)
+    assert loaded["training"]["bf16"] is True
+
+
 def test_config_rejects_old_trl_pin_for_chunked_nll(tmp_path: Path) -> None:
     config_path = _config(tmp_path / "sft_05b.yaml")
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))

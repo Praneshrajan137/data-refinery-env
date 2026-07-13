@@ -653,3 +653,75 @@ def repair_failure_taxonomy(
         if key not in predictions:
             counts["missed_repair"] += 1
     return {kind: count for kind, count in sorted(counts.items()) if count}
+
+
+CALIBRATED_CONFIDENCE_KEY = "confidence"
+
+
+def render_calibrated_completion(
+    repairs: Sequence[Mapping[str, Any]],
+) -> str:
+    """Render a training completion that optionally carries per-cell confidence.
+
+    Calibration is kept out of the core ``RepairFix``/``RepairAction`` models so
+    every existing artifact stays byte-identical. This helper is the single,
+    opt-in producer of the *calibrated* action envelope consumed by the v10
+    curriculum and the calibration-aware GRPO reward. Each repair mapping must
+    provide ``row``/``column``/``new_value`` and may provide ``confidence`` in
+    [0, 1]; the ``confidence`` key is emitted only when present, so a completion
+    built with no confidences is byte-identical to the strict v3 envelope.
+    """
+    rendered: list[dict[str, Any]] = []
+    for repair in repairs:
+        entry: dict[str, Any] = {
+            "row": int(repair["row"]),
+            "column": str(repair["column"]),
+            "new_value": str(repair["new_value"]),
+        }
+        confidence = repair.get(CALIBRATED_CONFIDENCE_KEY)
+        if confidence is not None:
+            value = float(confidence)
+            if not 0.0 <= value <= 1.0:
+                raise ValueError("confidence must be within [0, 1]")
+            entry[CALIBRATED_CONFIDENCE_KEY] = round(value, 6)
+        rendered.append(entry)
+    payload = {
+        "action": "submit_repairs" if rendered else "finish",
+        "repairs": rendered,
+    }
+    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def parse_cell_confidences(text: str) -> dict[tuple[int, str], float]:
+    """Extract optional per-cell confidences from a calibrated completion.
+
+    Returns an empty mapping when the text cannot be parsed or carries no
+    confidences, so callers can treat "no signal" and "malformed" uniformly and
+    fall back to a self-consistency estimate. Confidences outside [0, 1] are
+    dropped rather than raised on, because this reads untrusted model output.
+    """
+    try:
+        payload = extract_json_payload(text)
+    except ValueError:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    repairs = payload.get("repairs")
+    if not isinstance(repairs, list):
+        return {}
+    confidences: dict[tuple[int, str], float] = {}
+    for repair in repairs:
+        if not isinstance(repair, dict):
+            continue
+        raw = repair.get(CALIBRATED_CONFIDENCE_KEY)
+        if not isinstance(raw, int | float) or isinstance(raw, bool):
+            continue
+        value = float(raw)
+        if not 0.0 <= value <= 1.0:
+            continue
+        row = repair.get("row")
+        column = repair.get("column")
+        if not isinstance(row, int) or isinstance(row, bool) or not isinstance(column, str):
+            continue
+        confidences[(row, column)] = value
+    return confidences

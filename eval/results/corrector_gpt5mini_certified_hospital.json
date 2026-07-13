@@ -1,0 +1,181 @@
+{
+  "metadata": {
+    "schema_version": "dataforge_benchmark_run_v2",
+    "methods": [
+      "llm_corrector"
+    ],
+    "datasets": [
+      "hospital"
+    ],
+    "seeds": 1,
+    "seed_list": [
+      0
+    ],
+    "git_commit": "a5f3877e2c1f1f38ac05704153c75f2cf4d5acf1",
+    "git_dirty": true,
+    "generated_at_utc": "2026-07-08T05:58:02+00:00",
+    "python_version": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "dependency_versions": {
+      "dataforge": "0.1.0",
+      "httpx": "0.28.1",
+      "pandas": "2.3.3",
+      "pydantic": "2.13.4",
+      "python-dotenv": "1.2.2",
+      "typer": "0.24.1"
+    },
+    "generator_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+    "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+    "dataset_evidence": [
+      {
+        "name": "hospital",
+        "source_urls": [
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/hospital/dirty.csv",
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/hospital/clean.csv"
+        ],
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "n_rows": 1000,
+        "n_columns": 20
+      }
+    ],
+    "artifact_sha256s": {
+      "dataset:hospital:dirty.csv": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+      "dataset:hospital:clean.csv": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b"
+    }
+  },
+  "records": [
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "seed": 0,
+      "status": "ok",
+      "skip_reason": null,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 9,
+      "fn": 509,
+      "avg_steps": 45.0,
+      "llm_calls": 45,
+      "prompt_tokens": 15021,
+      "completion_tokens": 609,
+      "quota_units": 0.1563,
+      "gpu_hours": 0.0,
+      "runtime_s": 79.3687,
+      "provider": "azure",
+      "model": "gpt-5-mini",
+      "warnings": [
+        "corrector_sampled_15_of_10372"
+      ],
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 77,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 423,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": 0.963,
+      "precision_at_auto_apply": 0.0,
+      "auto_apply_count": 8,
+      "calibration_samples_by_class": {
+        "other": [
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ]
+        ]
+      }
+    }
+  ],
+  "aggregates": [
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "status": "ok",
+      "skip_reason": null,
+      "seeds_requested": 1,
+      "seeds_completed": 1,
+      "precision_mean": 0.0,
+      "precision_std": 0.0,
+      "recall_mean": 0.0,
+      "recall_std": 0.0,
+      "f1_mean": 0.0,
+      "f1_std": 0.0,
+      "avg_steps_mean": 45.0,
+      "avg_steps_std": 0.0,
+      "quota_units_mean": 0.1563,
+      "quota_units_std": 0.0,
+      "gpu_hours_mean": 0.0,
+      "gpu_hours_std": 0.0,
+      "runtime_s_mean": 79.3687,
+      "runtime_s_std": 0.0,
+      "provider": "azure",
+      "model": "gpt-5-mini",
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1"
+    }
+  ]
+}

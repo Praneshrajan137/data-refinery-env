@@ -80,10 +80,63 @@ class TestSuggestionByDefault:
         assert csv_path.read_bytes() == original
         suggested_values = {(s.row, s.column, s.new_value) for s in result.receipt.suggested_fixes}
         assert (7, "city", "Seattle") in suggested_values
+        # Every held fix carries a structured, honest reason it was not applied.
+        reasons = {s.review_reason for s in result.receipt.suggested_fixes}
+        assert reasons == {"safety_escalation"}
+
+    def test_plausibility_only_fill_is_held_by_proven_only_gate(self, tmp_path: Path) -> None:
+        # No authoritative schema + LLM value = plausibility-only. Even with the
+        # escalation confirmed, the proven-only gate holds it (never auto-applied),
+        # with the honest structured reason floor_cannot_verify.
+        csv_path = tmp_path / "data.csv"
+        _write_missing_value_csv(csv_path)
+        original = csv_path.read_bytes()
+
+        with patch("dataforge.repairers.llm_corrector.complete", _fake_complete("Seattle")):
+            result = run_repair_pipeline(
+                RepairPipelineRequest(
+                    source_path=csv_path,
+                    mode="apply",
+                    allow_llm=True,
+                    confirm_escalations=True,
+                )
+            )
+
+        assert result.receipt.applied is False
+        assert csv_path.read_bytes() == original
+        reasons = {s.review_reason for s in result.receipt.suggested_fixes}
+        assert reasons == {"floor_cannot_verify"}
+
+    def test_held_by_calibration_reports_conformal_reason(self, tmp_path: Path) -> None:
+        # With the unproven opt-in, the plausibility gate is passed, so the fix is
+        # then held by the default (propose-not-apply) CALIBRATION policy -> a
+        # distinct, honest structured reason (gate ordering: proven-gate first,
+        # then calibration).
+        csv_path = tmp_path / "data.csv"
+        _write_missing_value_csv(csv_path)
+        original = csv_path.read_bytes()
+
+        with patch("dataforge.repairers.llm_corrector.complete", _fake_complete("Seattle")):
+            result = run_repair_pipeline(
+                RepairPipelineRequest(
+                    source_path=csv_path,
+                    mode="apply",
+                    allow_llm=True,
+                    confirm_escalations=True,
+                    allow_unproven_autoapply=True,
+                )
+            )
+
+        assert result.receipt.applied is False
+        assert csv_path.read_bytes() == original
+        reasons = {s.review_reason for s in result.receipt.suggested_fixes}
+        assert reasons == {"failed_conformal_threshold"}
 
 
 class TestConfirmedCalibratedAutoApply:
-    def test_applies_only_with_confirmation_and_permissive_policy(self, tmp_path: Path) -> None:
+    def test_applies_only_with_confirmation_permissive_policy_and_unproven_optin(
+        self, tmp_path: Path
+    ) -> None:
         csv_path = tmp_path / "data.csv"
         _write_missing_value_csv(csv_path)
 
@@ -95,11 +148,15 @@ class TestConfirmedCalibratedAutoApply:
                     allow_llm=True,
                     confirm_escalations=True,
                     corrector_policy=_permissive_policy(),
+                    allow_unproven_autoapply=True,
                 )
             )
 
-        # With the escalation confirmed and a calibrated policy that clears the
-        # class, the corrector fill is auto-applied through the verified gate.
+        # Auto-apply requires the FULL chain for a plausibility-only fill:
+        # confirmed escalation + permissive policy + explicit unproven opt-in.
         assert result.receipt.applied is True
         assert "Seattle" in csv_path.read_text(encoding="utf-8")
         assert result.receipt.suggested_fixes == []
+        # The certificate records it truthfully as unproven -- it never lies.
+        strengths = {f.verification_strength for f in result.receipt.applied_fixes}
+        assert strengths == {"plausibility_only"}

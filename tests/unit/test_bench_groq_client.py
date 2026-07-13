@@ -13,6 +13,7 @@ from dataforge.bench.groq_client import (
     CerebrasBenchClient,
     CostCapExceededError,
     GeminiBenchClient,
+    GrokBenchClient,
     GroqBenchClient,
     ProviderRateLimitError,
     ProviderRequestError,
@@ -76,6 +77,64 @@ class TestGroqBenchClient:
         assert mock_client.post.call_args.kwargs["json"]["model"] == (
             "qwen-3-235b-a22b-instruct-2507"
         )
+
+    def test_grok_client_uses_x_ai_endpoint_and_default_model(self) -> None:
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        mock_client.post.return_value = _mock_response(
+            {
+                "choices": [{"message": {"content": '{"repairs": []}'}}],
+                "usage": {"prompt_tokens": 12, "completion_tokens": 5},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            completion = GrokBenchClient(api_key="test").complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        assert completion.text == '{"repairs": []}'
+        assert mock_client.post.call_args.args[0] == "https://api.x.ai/v1/chat/completions"
+        assert mock_client.post.call_args.kwargs["json"]["model"] == "grok-4.5"
+
+    def test_grok_cost_guard_trips_when_over_budget(self) -> None:
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        mock_client.post.return_value = _mock_response(
+            {
+                "choices": [{"message": {"content": '{"repairs": []}'}}],
+                "usage": {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000},
+            }
+        )
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            pytest.raises(CostCapExceededError, match="grok spend guard"),
+        ):
+            GrokBenchClient(api_key="test", max_usd=1.0).complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+    def test_groq_client_has_no_cost_guard_by_default(self) -> None:
+        # Groq/Cerebras keep the guard OFF (behavior unchanged): a huge usage
+        # payload does not raise and cumulative_usd stays 0.
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        mock_client.post.return_value = _mock_response(
+            {
+                "choices": [{"message": {"content": '{"repairs": []}'}}],
+                "usage": {"prompt_tokens": 1_000_000, "completion_tokens": 1_000_000},
+            }
+        )
+
+        with patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client):
+            client = GroqBenchClient(api_key="test")
+            client.complete([{"role": "user", "content": "hi"}])
+
+        assert client.cumulative_usd == 0.0
 
     def test_gemini_client_uses_generate_content_payload(self) -> None:
         mock_client = MagicMock()

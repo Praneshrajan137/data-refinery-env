@@ -135,7 +135,7 @@ class TestModelResolution:
 class TestUnsupportedProviders:
     """Unimplemented providers raise NotImplementedError."""
 
-    @pytest.mark.parametrize("provider", ["cerebras", "openrouter", "hf", "cloudflare"])
+    @pytest.mark.parametrize("provider", ["openrouter", "hf", "cloudflare"])
     def test_unimplemented_raises(self, provider: str) -> None:
         with patch.dict(os.environ, {"DATAFORGE_LLM_PROVIDER": provider}):
             messages: list[Message] = [{"role": "user", "content": "hello"}]
@@ -195,6 +195,64 @@ class TestGroqProvider:
             mock_client.post.assert_called_once()
             call_url = mock_client.post.call_args[0][0]
             assert "groq" in call_url
+
+
+class TestGrokProvider:
+    """xAI Grok provider (OpenAI-compatible) — mocked HTTP calls."""
+
+    def test_grok_calls_x_ai_with_bearer_and_default_model(self) -> None:
+        response = _make_mock_response({"choices": [{"message": {"content": "grok says hi"}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAFORGE_LLM_PROVIDER": "grok", "XAI_API_KEY": "test-key"},
+                clear=True,
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            messages: list[Message] = [{"role": "user", "content": "hi"}]
+            result = asyncio.run(complete(messages))
+
+        assert result == "grok says hi"
+        call_url = mock_client.post.call_args[0][0]
+        assert "api.x.ai" in call_url
+        headers = mock_client.post.call_args.kwargs["headers"]
+        assert headers["Authorization"] == "Bearer test-key"
+        assert mock_client.post.call_args.kwargs["json"]["model"] == "grok-4.5"
+
+    def test_grok_missing_api_key_raises(self) -> None:
+        with patch.dict(os.environ, {"DATAFORGE_LLM_PROVIDER": "grok"}, clear=True):
+            messages: list[Message] = [{"role": "user", "content": "hi"}]
+            with pytest.raises(ProviderError, match="XAI_API_KEY"):
+                asyncio.run(complete(messages))
+
+    def test_cerebras_now_dispatches_through_generic_path(self) -> None:
+        # cerebras was previously unimplemented in complete(); the generic
+        # OpenAI-compatible path now serves it (no NotImplementedError).
+        response = _make_mock_response({"choices": [{"message": {"content": "cerebras hi"}}]})
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.post.return_value = response
+
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAFORGE_LLM_PROVIDER": "cerebras", "CEREBRAS_API_KEY": "test-key"},
+                clear=True,
+            ),
+            patch("dataforge.agent.providers.httpx.AsyncClient", return_value=mock_client),
+        ):
+            messages: list[Message] = [{"role": "user", "content": "hi"}]
+            result = asyncio.run(complete(messages))
+
+        assert result == "cerebras hi"
+        assert "api.cerebras.ai" in mock_client.post.call_args[0][0]
 
 
 class TestGeminiProvider:

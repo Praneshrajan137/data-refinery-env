@@ -22,6 +22,10 @@ def _parse_seed_list(raw_value: str | None) -> list[int] | None:
 
 def main() -> int:
     """Run the selected benchmark methods and write JSON output."""
+    # Load .env at the script entry point (the library runner is hermetic).
+    from dotenv import load_dotenv
+
+    load_dotenv()
     parser = argparse.ArgumentParser(description="Run DataForge agent comparisons.")
     parser.add_argument("--methods", default="heuristic,llm_zeroshot")
     parser.add_argument("--datasets", default="hospital")
