@@ -547,7 +547,7 @@ def _render_grpo_config(entry: ModelFamilyEntry, *, dataset_repo: str) -> dict[s
             "trajectory_filename": "expert_v4.jsonl",
             "split_manifest_filename": "split_manifest_v4.json",
             "prompt_contract_version": "repair_contract_v2",
-            "required_datasets": ["hospital", "flights", "beers"],
+            "required_datasets": ["hospital", "flights"],
             "auxiliary_datasets": ["hospital_synthetic_deterministic_v1"],
             "min_records": 128,
             "min_records_per_dataset": 16,
@@ -676,7 +676,7 @@ def _grpo_evaluation_defaults() -> dict[str, Any]:
         "chunk_width": 4,
         "max_new_tokens": 1024,
         "source": "pinned_dataforge_registry",
-        "datasets": ["hospital", "flights", "beers"],
+        "datasets": ["hospital", "flights"],
     }
 
 

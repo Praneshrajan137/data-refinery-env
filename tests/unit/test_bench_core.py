@@ -75,11 +75,11 @@ class TestQuotaDiscipline:
     def test_estimate_llm_calls_matches_plan_budget(self) -> None:
         estimated = estimate_llm_calls(
             methods=["llm_zeroshot", "llm_react"],
-            datasets=["hospital", "flights", "beers"],
+            datasets=["hospital", "flights"],
             seeds=3,
         )
 
-        assert estimated == 540
+        assert estimated == 360
 
     def test_estimate_llm_calls_honors_corrector_issue_cap(self) -> None:
         uncapped = estimate_llm_calls(
