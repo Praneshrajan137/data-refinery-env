@@ -26,13 +26,6 @@
       "text_normalization@detection": 0.80,
       "other@detection": 0.90
     },
-    "heuristic/beers": {
-      "value_format": 0.02,
-      "missing_value@detection": 0.90,
-      "value_format@detection": 0.95,
-      "text_normalization@detection": 0.85,
-      "other@detection": 0.90
-    },
     "heuristic/flights": {
       "missing_value": 0.0,
       "value_format": 0.0,

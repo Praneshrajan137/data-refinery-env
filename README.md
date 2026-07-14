@@ -49,7 +49,7 @@ Shipped in the current worktree:
   dry-run-only cloud warehouse boundaries
 - Reversible hash-chained transaction journals with immutable source snapshots
 - Public backend repair engine at `dataforge.engine.repair`
-- Real-world benchmark harness for Hospital, Flights, and Beers
+- Real-world benchmark harness for Hospital and Flights
 - OpenEnv-compatible HTTP environment with eight typed actions, including
   read-only `ROOT_CAUSE`
 - Causal root-cause analyzer for cascading data-quality errors
@@ -82,7 +82,7 @@ dataforge constraints review constraints.json
 dataforge repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
 dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --dry-run
 dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
-dataforge bench --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --seed-list 0,1,2
+dataforge bench --methods random,heuristic --datasets hospital,flights --seeds 3 --seed-list 0,1,2
 ```
 
 Or just run the zero-config demo (works from any install, no files needed):
@@ -104,7 +104,6 @@ reproduce with `dataforge bench --quick`):
 | Dataset  | Correction F1 | Detection coverage (recall by class)                                   |
 | -------- | ------------- | ---------------------------------------------------------------------- |
 | hospital | 0.79          | value_format 1.00, text_normalization 0.87, other 1.00                 |
-| beers    | 0.04          | missing_value 1.00, other 1.00, value_format 0.52                      |
 | flights  | 0.00          | missing_value 1.00 (2370 cells)                                        |
 
 How to read this honestly:
@@ -114,7 +113,7 @@ How to read this honestly:
   duplicate rows) it deliberately does not auto-correct.
 - It only **auto-corrects** where a value is derivable and provable
   (decimal-shift inverse, FD majority/lookup), which is why correction F1 is
-  high on hospital (FD/typo-dominated) and low on flights/beers (dominated by
+  high on hospital (FD/typo-dominated) and low on flights (dominated by
   missing values and free-form formatting with no derivable canonical).
 - Auto-correctable classes pass an SMT proof and the safety constitution before
   being applied inside a reversible transaction. Format and categorical
@@ -126,7 +125,7 @@ How to read this honestly:
 
 The correction bottleneck is the classes with no derivable canonical value:
 missing-value fills, free-text normalization, and context-dependent typos
-(the bulk of flights and beers errors). For these, an opt-in LLM corrector
+(the bulk of flights errors). For these, an opt-in LLM corrector
 (`dataforge repair --allow-llm`) proposes an exact value, but it is built to be
 trustworthy rather than impressive:
 
@@ -483,7 +482,7 @@ Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark
 
 See `BENCHMARK_REPORT.md` for per-dataset tables, error bars, and citation-only SOTA rows.
 
-Dataset bytes are pinned to BigDaMa/raha revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c` for hospital, flights, beers; dirty/clean SHA-256s are recorded in the JSON metadata.
+Dataset bytes are pinned to BigDaMa/raha revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c` for hospital, flights; dirty/clean SHA-256s are recorded in the JSON metadata.
 <!-- BENCH:END -->
 
 ## Local Setup

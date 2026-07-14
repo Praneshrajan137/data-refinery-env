@@ -70,21 +70,6 @@ DATASET_REGISTRY: dict[str, DatasetMetadata] = {
             "Mahdavi et al. Raha benchmark dataset (Flights) via the BigDaMa/raha repository."
         ),
     ),
-    "beers": DatasetMetadata(
-        name="beers",
-        domain="consumer",
-        n_rows=2410,
-        n_columns=11,
-        error_types=("formatting", "missing_value", "normalization"),
-        source_urls=(
-            f"{_BASE_URL}/beers/dirty.csv",
-            f"{_BASE_URL}/beers/clean.csv",
-        ),
-        source_revision=RAHA_GIT_REVISION,
-        dirty_sha256="7110bf4931a9445a1675e544d6c996817c739136239f8a2b02e088c7ec0a1f68",
-        clean_sha256="373227df59ad197e154dd5149125789e415019535c7223355e9486ee1b3b93de",
-        citation=("Mahdavi et al. Raha benchmark dataset (Beers) via the BigDaMa/raha repository."),
-    ),
     "rayyan": DatasetMetadata(
         name="rayyan",
         domain="bibliographic",

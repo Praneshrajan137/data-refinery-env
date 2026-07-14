@@ -975,3 +975,42 @@ divergence rooted in the shared spec (not an implementation bug), promote the
 spec itself to the object of verification; if per-fix dual verification proves
 too slow at scale, batch it or gate it behind a size threshold, never behind
 correctness.
+
+## 2026-07-12 - Dataset scope: exclude beers; focus hospital + flights
+
+**Decision**: The `beers` benchmark dataset is removed from the project's active,
+forward-looking surfaces and is not used in any new work. Removed from
+`dataforge/datasets/registry.py` (registry entry), `dataforge/cli/bench.py`
+(the `--quick` default expansion, now `hospital,flights`),
+`dataforge/release/model_family.py` (required/eval dataset lists),
+`eval/thresholds/coverage_floors.json` (the `heuristic/beers` floor block), and
+the README benchmark docs. Live bench tests were repointed to hospital/flights.
+The durable rule is recorded in `CLAUDE.md` (DATASET SCOPE RULE) so every future
+session follows it. The remaining RAHA datasets are NOT ranked by a fixed
+priority: they are one canonical suite of equal provenance that differ by error
+profile, not quality. Dataset selection for new work is capability-based:
+`hospital` is the flagship and hard regression anchor (heuristic F1 must never
+regress below 0.7926 — the one measured SOTA win); `tax` for provable
+FD/rule-violation repair at scale; `rayyan` for datetime/format canonicalization;
+`flights` for the not-inferable-in-table frontier. `tax`/`rayyan` must be measured
+before being prioritized for accuracy work (`tax` = 200k rows, needs a
+scale-aware/sampled bench and has no floors yet; `rayyan` has only detection
+floors, no measured correction baseline).
+**Reasoning**: the product's effort should concentrate on the capability a change
+is meant to prove, not on a dataset popularity ranking; `beers` added surface area
+without being a focus, so it is removed. Framing the others by capability (not a
+rigid hospital>flights>others order) keeps the roadmap honest: `tax`'s
+denial-constraint/rule-violation errors align with DataForge's provable FD stack
+and are a plausible SECOND place to beat SOTA once measured.
+**Honest boundary**: frozen historical artifacts (past SFT/GRPO training curricula
+such as `training/grpo_config.py` and the `expert_v*` trajectories, archived
+`eval/results/` run snapshots, and released-model tokenizer vocab) still reference
+beers because that is a factual record of what past runs did; they were
+deliberately left untouched. Only forward-looking use of beers is prohibited.
+**Reviewed with**: CLAUDE.md DATASET SCOPE RULE, dataforge/datasets/registry.py,
+dataforge/cli/bench.py, dataforge/release/model_family.py,
+eval/thresholds/coverage_floors.json, tests/unit/test_bench_real_world.py,
+tests/unit/test_bench_core.py, tests/unit/test_bench_runner.py, README.md.
+**Reversal criteria**: if a future benchmark need requires beers, re-add its
+registry entry (RAHA revision + SHA-256s are preserved in git history) and update
+the DATASET SCOPE RULE accordingly.

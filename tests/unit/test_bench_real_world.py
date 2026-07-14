@@ -32,7 +32,6 @@ class TestDatasetRegistry:
         assert DATASET_REGISTRY["hospital"].domain == "healthcare"
         assert DATASET_REGISTRY["hospital"].n_rows == 1000
         assert DATASET_REGISTRY["flights"].n_columns == 7
-        assert DATASET_REGISTRY["beers"].n_rows == 2410
         assert DATASET_REGISTRY["hospital"].source_revision == RAHA_GIT_REVISION
         assert "refs/heads/master" not in DATASET_REGISTRY["hospital"].source_urls[0]
         assert len(DATASET_REGISTRY["hospital"].dirty_sha256) == 64
@@ -74,7 +73,7 @@ class TestRealWorldLoader:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         cache_root = tmp_path / "cache"
-        _populate_cache(cache_root, "beers", "beers_dirty.csv", "beers_clean.csv")
+        _populate_cache(cache_root, "flights", "flights_dirty.csv", "flights_clean.csv")
 
         def _unexpected_download(*args: object, **kwargs: object) -> None:
             raise AssertionError("download should not be called when cache is populated")
@@ -84,13 +83,13 @@ class TestRealWorldLoader:
         )
 
         dataset = load_real_world_dataset(
-            "beers",
+            "flights",
             cache_root=cache_root,
             verify_hashes=False,
         )
 
-        assert dataset.metadata.name == "beers"
-        assert len(dataset.ground_truth) == 2
+        assert dataset.metadata.name == "flights"
+        assert len(dataset.ground_truth) == 1
 
     def test_cache_miss_uses_embedded_fallback_when_available(
         self,

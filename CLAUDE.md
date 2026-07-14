@@ -6,6 +6,22 @@ the date.
 
 ## Project Conventions
 
+- **DATASET SCOPE RULE (must follow every session):** The `beers` dataset is
+  EXCLUDED from the project. Never add, benchmark, train on, calibrate against,
+  set coverage floors for, or document `beers` in any forward-looking work.
+  For the remaining RAHA datasets, do NOT rank by a fixed priority — they are one
+  canonical suite of equal provenance that differ by ERROR PROFILE, not quality.
+  Choose datasets by the CAPABILITY a given change is meant to prove:
+  `hospital` is the flagship and hard regression anchor (its heuristic F1 must
+  never drop below 0.7926 — it is the one measured SOTA win); `tax` for provable
+  FD/rule-violation repair at scale; `rayyan` for datetime/format canonicalization;
+  `flights` for the not-inferable-in-table frontier. Never prioritize `tax` or
+  `rayyan` for accuracy work on an UNMEASURED baseline — measure first (`tax` needs
+  a scale-aware/sampled bench; `rayyan` needs a full correction run). Frozen
+  historical artifacts (past SFT/GRPO training curricula, archived `eval/results/`
+  run snapshots, released-model tokenizer vocab) may still mention `beers` because
+  that is a historical fact and must NOT be rewritten. New work simply must not use
+  `beers`.
 - Python 3.11 / 3.12. `pyproject.toml` pins `requires-python = ">=3.11,<3.13"`.
 - The top-level `dataforge/` package exports the product API. Root-level legacy
   wrappers exist only for compatibility.
@@ -63,3 +79,18 @@ the date.
   hundred rows.
 
 ## Append-Only From Here Onward
+
+## 2026-07-12 Notes
+
+- **`beers` removed from the active project (dataset-scope rule).** Per the DATASET
+  SCOPE RULE above, `beers` was removed from the live, forward-looking surfaces:
+  `dataforge/datasets/registry.py` (registry entry), `dataforge/cli/bench.py`
+  (default dataset expansion), `dataforge/release/model_family.py` (required/eval
+  dataset lists), `eval/thresholds/coverage_floors.json` (the `heuristic/beers`
+  floor block), and the README benchmark docs. Live bench tests were updated to
+  hospital+flights. Frozen curricula (`training/grpo_config.py`, `expert_v*`
+  trajectories) and archived `eval/results/` snapshots were intentionally left
+  untouched — they record what past runs actually did. Dataset selection for new
+  work is capability-based (see the DATASET SCOPE RULE above): `hospital` is the
+  flagship/regression anchor; `tax`/`rayyan`/`flights` are chosen by the capability
+  a change proves, measured before prioritized.

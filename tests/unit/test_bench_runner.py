@@ -105,8 +105,8 @@ class TestRunAgentComparison:
         with pytest.raises(ValueError, match="really-run-big-bench"):
             run_agent_comparison(
                 methods=["llm_zeroshot", "llm_react"],
-                datasets=["hospital", "flights", "beers"],
-                seeds=3,
+                datasets=["hospital", "flights"],
+                seeds=5,
                 output_json=tmp_path / "out.json",
                 really_run_big_bench=False,
                 cache_root=tmp_path / "cache",

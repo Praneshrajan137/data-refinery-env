@@ -176,7 +176,7 @@ def bench(
     """Run real-world benchmark methods across cached benchmark datasets."""
     if quick:
         methods = "random,heuristic"
-        datasets = datasets if datasets != "hospital" else "hospital,flights,beers"
+        datasets = datasets if datasets != "hospital" else "hospital,flights"
         seeds = 1
         seed_list = None
     try:
