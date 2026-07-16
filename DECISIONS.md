@@ -1014,3 +1014,147 @@ tests/unit/test_bench_core.py, tests/unit/test_bench_runner.py, README.md.
 **Reversal criteria**: if a future benchmark need requires beers, re-add its
 registry entry (RAHA revision + SHA-256s are preserved in git history) and update
 the DATASET SCOPE RULE accordingly.
+
+---
+
+## 2026-07-14 - The honest frontier: deterministic in-table correction is maxed; add post-hoc calibration for the LLM path
+
+**Context**: A fixing-elevation push aimed to raise correction accuracy (beat
+Raha+Baran F1 where provable, raise safe auto-apply coverage) WITHOUT weakening
+the no-corruption guarantee. Three candidate slices were measured first (offline,
+deterministic, no code shipped until proven). All three turned out to be NOT
+in-table-provable, for one shared reason worth recording.
+
+**What was measured** (each an offline read-only measurement against the pinned
+RAHA revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c`):
+
+- **flights value_format (time-in-cruft), Phase 1A = NO-GO.** `TimeFormatCruftDetector`
+  flags 126 cells with 0 false positives, but stripping the date/timezone cruft
+  reproduces `clean.csv` on only **57/126 (precision 0.452)**. The 57 matches are
+  the `value_format` class; the 69 misses are `other` cells whose embedded time is
+  an ESTIMATE, not the actual time (`'6:47 p.m. (Estimated runway)'` -> clean
+  `'6:30 p.m.'`). Byte-identical residues (`'(Estimated)'`, `'(Estimated runway)'`,
+  `'12/2/11'`) occur on BOTH correct and wrong cells, so no function of the dirty
+  cell separates them. The only 1.0-precision rule ("residue is exactly a zero
+  offset +/-00:00") has support 4. Auto-applying the strip would write ~69
+  confidently-wrong values.
+- **tax FD/rule-violation, Phase 1B = NOT VIABLE near-term.** tax is 200k x 15 with
+  121,219 errors, but **97.9% are `numeric`** (rate 87,342; zip 31,311), not
+  cross-column FD; the genuine FD-repairable slice (city+state) is ~800 cells.
+  Schema inference is super-linear (2k 0.7s -> 20k 9.8s) and does not finish on
+  200k in >8 min; the FD repairer is O(issues x rows). The 90%-confidence
+  single-column FD heuristic invents spurious dependencies (`zip->salary`,
+  `zip->rate`, `f_name->gender`), so on a 3k sample **detection precision is 0.0317**
+  (263 real of 8305 flagged; fd_violation alone: 19 real of 7808). Only
+  `decimal_shift` is useful (244/375). No SOTA win without exact-FD/denial-constraint
+  mining + precision control + a vectorized scale rewrite. `sota_comparison.json`
+  also has no tax row, so any tax claim needs a new sourced citation.
+- **rayyan datetime_format, Phase 1C = NO-GO for auto-apply (but exact reviewed fix).**
+  722 cells, all in `article_jcreated_at`, are a systematic `Y/M/D` -> `M/D/YY`
+  transposition. A deterministic left-rotation reproduces `clean` on **722/722
+  (correction precision 1.0000)** and the value sets are perfectly disjoint (0
+  collisions). BUT every error value is ALSO a syntactically valid `M/D/YY` date,
+  so no single-cell validity rule fires; the best genuine structural detector is
+  **0.944 precision (27 would-be corruptions)** and the verifier cannot catch it
+  (a rotated date is still a valid date). Worse, the corrupted `Y/M/D` form is the
+  column MAJORITY (79%), so "canonicalize to dominant" points the wrong way.
+
+**Alternatives**:
+- (A) Ship one/all of the above as auto-apply corrections to raise headline F1.
+  Rejected: each would auto-apply confidently-wrong values (flights/rayyan) or
+  massive false positives (tax), violating "fix only what you can prove / never
+  corrupt". The whole thesis forbids it.
+- (B) Ship the tiny provably-safe microslices (flights zero-offset = 4 cells;
+  rayyan rotation as a REVIEWED, never-auto-applied suggestion). Deferred: near-zero
+  accuracy impact; the rayyan rotation is a good future propose-not-apply feature.
+- (C) Accept the deterministic frontier and invest in the path that CAN fix
+  semantic errors -- the calibrated LLM corrector -- starting with the one piece
+  buildable offline without API keys: post-hoc probability calibration. Chosen.
+
+**Decision**: (1) Do NOT ship any of the three as auto-apply corrections; keep the
+flights/rayyan slices detection-only and leave the flights `value_format`
+correction floor at 0.0 (honest -- we cannot provably fix it). (2) Add
+`dataforge/calibration_map.py`: a pure-Python (no new deps), per-class,
+leakage-free post-hoc calibration map (PAVA isotonic + Platt) that rescales the
+corrector's self-consistency agreement into a calibrated probability before the
+existing `dataforge.conformal` auto-apply gate. It is advisory only -- the SMT
+verifier, safety constitution, and provable-only gate remain hard gates beneath
+it, so a bad map can only withhold fixes, never wave through a corrupting write.
+
+**Reasoning**: THREE consecutive in-table NO-GOs share one root cause -- the
+residual errors across the measured RAHA datasets are SEMANTIC value errors (a
+wrong/estimated time, a transposed date, a spurious near-FD), not syntactic ones,
+so they are not inferable from in-table signal without either a declared
+schema/convention or an external model. That means DataForge's deterministic
+in-table correction is already at its HONEST FRONTIER; further auto-apply accuracy
+must come from schema-directed reviewed repair or the calibrated LLM path, not
+from more detector hunting. This validates rather than undermines the product
+thesis: the gates correctly refused every tempting-but-wrong fix. The calibration
+map is the offline-buildable foundation of the LLM path (measured corrector ECE
+~0.8 is the wall); live ECE gains require corrector samples from a provider run
+and are deferred with the API-key work.
+
+**Reviewed with**: eval/thresholds/coverage_floors.json (`_frontier_map`),
+dataforge/detectors/time_format_cruft.py, dataforge/schema_inference.py
+(`_fd_candidates`), dataforge/bench/methods.py, dataforge/conformal.py,
+dataforge/calibration_map.py, tests/unit/test_calibration_map.py.
+
+**Reversal criteria**: (a) if a declared/confirmed column schema is available,
+the rayyan rotation becomes a provable schema-directed fix worth shipping as a
+reviewed suggestion; (b) if the FD inference is hardened to exact/denial
+constraints with a vectorized scale pass, re-measure tax for a provable
+rule-violation win; (c) once corrector correctness samples exist (API-key phase),
+wire `calibration_map` into the corrector policy and confirm ECE drops below the
+0.10 promotion bar on a disjoint test split.
+
+---
+
+## 2026-07-15 - Post-hoc calibration breaks the ECE wall; safe calibrated auto-apply wired (live Azure gpt-5-mini)
+
+**Context**: Prior sessions proved a bigger/reasoning model does not fix corrector
+calibration (gpt-5-mini ECE ~0.84, precision@auto-apply ~0.05, certified coverage
+0.0). This API-key phase asked the complementary question: does POST-HOC calibration
+(the new `dataforge/calibration_map.py`, isotonic PAVA + Platt) make the corrector's
+confidence an honest probability, and can calibrated + conformally-certified scores
+enable safe auto-apply without ever corrupting?
+
+**What was run (live, Azure OpenAI gpt-5-mini, $10 guard, reasoning_effort=minimal)**:
+- Fresh corrector benchmark, hospital (60 issues / 180 calls, ECE 0.838) and flights
+  (40 issues / 120 calls, ECE 0.525, precision@auto-apply 0.25, 1 tp / 39 fp). Samples
+  captured per issue_type (`CellFix.detector_id`), the key the auto-apply gate uses.
+- `scripts/bench/calibrate_corrector.py` fit the calibration map on the calibration
+  split and measured ECE on a disjoint test split: **overall ECE 0.807 -> 0.0**. The
+  certified per-issue-type policy ABSTAINS (thresholds 1.01) -> certified auto-apply
+  coverage 0.0 -> 0.0.
+
+**Decision**: (1) Ship the post-hoc calibration map + wire it into the auto-apply gate:
+`calibrated_conformal_corrector_policy` (fit maps -> certify thresholds on calibrated
+scores, keyed by issue_type) and `_partition_auto_apply` now rescales an LLM fix's raw
+confidence through its per-issue-type map before the policy decides. CLI:
+`dataforge repair --corrector-calibration <artifact>` under `--allow-llm`. (2) Keep the
+corrector propose-not-apply for gpt-5-mini: the certified policy correctly abstains
+(precision far below any usable alpha), so nothing auto-applies.
+
+**Reasoning**: Post-hoc calibration is the right tool for a high-ECE, low-precision
+proposer -- it makes the reported confidence trustworthy (honest "flags"), which serves
+the trust thesis. But it is a MONOTONE rescale: it preserves proposal ranking, so it
+lowers ECE WITHOUT changing conformal-certifiable coverage. Calibration therefore fixes
+honesty, not accuracy; auto-apply coverage stays gated on the corrector actually being
+precise (it is not). This is the honest, non-corrupting outcome: the wiring is real and
+tested, and it will let a genuinely-precise future model auto-apply safely, but it never
+manufactures coverage from a weak model. All auto-apply remains triple-gated
+(authoritative schema -> differential SMT -> certified calibrated threshold);
+plausibility-only fixes stay held.
+
+**Reviewed with**: dataforge/calibration_map.py, dataforge/calibration.py
+(`calibrated_conformal_corrector_policy`, `load_corrector_calibration`),
+dataforge/engine/repair.py (`_partition_auto_apply`, `_calibrated_confidence`),
+dataforge/cli/repair.py (`--corrector-calibration`), scripts/bench/calibrate_corrector.py,
+eval/results/corrector_calibration.json, tests/unit/test_calibration_map_real.py,
+tests/unit/test_corrector_autoapply_wiring.py.
+
+**Reversal criteria**: if a future corrector reaches precision high enough that the
+conformal gate certifies a per-issue-type threshold below 1.01, calibrated auto-apply
+activates automatically for schema-proven fixes -- re-verify the certified coverage
+report and the never-corrupt invariants (byte-identical `allow_llm=False`, apply->revert,
+hospital 0.7926) before promoting.

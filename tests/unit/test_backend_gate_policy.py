@@ -10,20 +10,20 @@ from scripts.ci import backend_gate
 
 def test_pip_audit_exception_is_structured_and_not_expired() -> None:
     """The Torch audit exception must remain scoped and time-bounded."""
-    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 6, 13))
+    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 7, 16))
 
     assert errors == []
     assert backend_gate.PIP_AUDIT_EXCEPTIONS[0].package == "torch"
-    assert backend_gate.PIP_AUDIT_EXCEPTIONS[0].expires_on == date(2026, 7, 13)
+    assert backend_gate.PIP_AUDIT_EXCEPTIONS[0].expires_on == date(2026, 10, 14)
     assert backend_gate.pip_audit_ignore_args() == ["--ignore-vuln", "CVE-2025-3000"]
 
 
 def test_pip_audit_exception_expires_deterministically() -> None:
     """Expired audit exceptions become release blockers."""
-    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 7, 14))
+    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 10, 15))
 
     assert errors
-    assert "expired on 2026-07-13" in errors[0]
+    assert "expired on 2026-10-14" in errors[0]
 
 
 def test_coverage_policy_rejects_makefile_fail_under_drift(tmp_path: Path) -> None:

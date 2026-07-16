@@ -19,7 +19,12 @@ from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from dataforge.calibration import AbstentionPolicy, corrector_default_policy
+from dataforge.calibration import (
+    AbstentionPolicy,
+    corrector_default_policy,
+    guard_policy_for_drift,
+)
+from dataforge.calibration_map import CalibrationMap
 from dataforge.detectors import run_all_detectors
 from dataforge.detectors.base import Issue, Schema
 from dataforge.observability import repair_stage_span
@@ -133,6 +138,7 @@ ReviewReason = Literal[
     "floor_cannot_verify",
     "ambiguous_fd",
     "out_of_inferred_domain",
+    "unverified_transposition",
 ]
 
 # How strongly a fix was verified, which decides whether it may auto-apply.
@@ -278,6 +284,8 @@ class RepairPipelineRequest(BaseModel):
     constraints: ConstraintReviewArtifact | None = None
     constraints_artifact_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     corrector_policy: AbstentionPolicy | None = None
+    calibration_map_by_class: dict[str, CalibrationMap] | None = None
+    corrector_reference_confidences: dict[str, list[float]] | None = None
 
     model_config = ConfigDict(
         strict=True,
@@ -521,6 +529,12 @@ def propose_repairs(
         attempts: list[RepairAttempt] = []
         repairer = repairers.get(issue.issue_type)
         if repairer is None:
+            if issue.issue_type in _DETECTION_ONLY_SUGGESTION_TYPES:
+                # Surfaced as an unverified review suggestion (see
+                # _detection_only_suggestions), not an auto-fix abstention. Keep the
+                # attempt group aligned with issues without a misleading failure line.
+                attempt_groups.append([])
+                continue
             attempts.append(
                 RepairAttempt(
                     issue=issue,
@@ -672,6 +686,11 @@ def propose_repairs(
 
 _LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
 
+# Detection-only issue types that carry an exact value in ``Issue.expected`` but
+# have NO registered repairer (no write path). They are surfaced as unverified
+# human-review suggestions, never auto-applied. See DateTranspositionDetector.
+_DETECTION_ONLY_SUGGESTION_TYPES = frozenset({"date_transposition"})
+
 
 def _partition_auto_apply(
     fixes: list[ProposedFix],
@@ -679,6 +698,7 @@ def _partition_auto_apply(
     *,
     authoritative_schema_present: bool,
     allow_unproven_autoapply: bool,
+    calibration_map_by_class: dict[str, CalibrationMap] | None = None,
 ) -> tuple[list[ProposedFix], list[ProposedFix], list[ProposedFix]]:
     """Split verified fixes into (auto_apply, calibration_held, plausibility_held).
 
@@ -693,6 +713,12 @@ def _partition_auto_apply(
     auto-apply only when their calibrated confidence clears the per-class
     threshold, else they are held for calibration review. With the default
     propose-not-apply policy every LLM fix is held.
+
+    When ``calibration_map_by_class`` is provided, an LLM fix's raw confidence is
+    first rescaled through its per-issue-type post-hoc calibration map so the score
+    matches the scale the conformal thresholds were certified on. This is a monotone
+    transform: it can only make confidences honest, never re-rank them, so it cannot
+    wave through a fix the raw policy would have held below a raw-scale threshold.
     """
     auto: list[ProposedFix] = []
     calibration_held: list[ProposedFix] = []
@@ -705,11 +731,53 @@ def _partition_auto_apply(
             plausibility_held.append(fix)
             continue
         deterministic = fix.provenance not in _LLM_PROVENANCE
-        if deterministic or policy.action_for(fix.fix.detector_id, fix.confidence) == "auto_apply":
+        confidence = _calibrated_confidence(fix, calibration_map_by_class)
+        if deterministic or policy.action_for(fix.fix.detector_id, confidence) == "auto_apply":
             auto.append(fix)
         else:
             calibration_held.append(fix)
     return auto, calibration_held, plausibility_held
+
+
+def _calibrated_confidence(
+    fix: ProposedFix, calibration_map_by_class: dict[str, CalibrationMap] | None
+) -> float:
+    """Rescale an LLM fix's confidence through its per-issue-type calibration map.
+
+    Deterministic fixes and fixes without a fitted map for their issue type are
+    returned unchanged. The map is keyed by ``CellFix.detector_id`` (the issue type),
+    matching how the certified per-class thresholds are keyed.
+    """
+    if calibration_map_by_class is None or fix.provenance not in _LLM_PROVENANCE:
+        return fix.confidence
+    calibration_map = calibration_map_by_class.get(fix.fix.detector_id)
+    if calibration_map is None:
+        return fix.confidence
+    return calibration_map.predict(fix.confidence)
+
+
+def _guard_corrector_policy_for_drift(
+    policy: AbstentionPolicy,
+    fixes: list[ProposedFix],
+    reference_confidences: dict[str, list[float]] | None,
+) -> AbstentionPolicy:
+    """Downgrade the corrector policy to propose-not-apply under distribution drift.
+
+    The conformal auto-apply guarantee holds only for data exchangeable with the
+    calibration sample. We PSI-compare the live LLM-confidence distribution (raw
+    confidences of LLM-provenance fixes this run) against the pooled calibration
+    reference; if the shift exceeds the PSI threshold, :func:`guard_policy_for_drift`
+    returns the conservative propose-not-apply policy so the certificate is never
+    claimed outside its scope. A no-op when there is no reference, no LLM fix, or the
+    policy is already the conservative default.
+    """
+    if not reference_confidences:
+        return policy
+    reference = [conf for confs in reference_confidences.values() for conf in confs]
+    live = [fix.confidence for fix in fixes if fix.provenance in _LLM_PROVENANCE]
+    if not reference or not live:
+        return policy
+    return guard_policy_for_drift(policy, reference, live)
 
 
 def _escalated_llm_suggestions(
@@ -748,6 +816,41 @@ def _suggestion_candidates(
         )
         for fix in fixes
     ]
+
+
+def _detection_only_suggestions(issues: list[Issue]) -> list[CandidateRepair]:
+    """Surface detection-only issues that carry an exact value as review suggestions.
+
+    Some detectors (e.g. :class:`DateTranspositionDetector`) can compute an exact
+    corrected value yet cannot *prove* the cell needs it from in-table signal, so
+    they ship with no repairer (no write path). Their fix value is carried in
+    ``Issue.expected`` and surfaced here as an honest, never-auto-applied
+    suggestion with a structured review reason.
+    """
+    suggestions: list[CandidateRepair] = []
+    for issue in issues:
+        if issue.issue_type not in _DETECTION_ONLY_SUGGESTION_TYPES or issue.expected is None:
+            continue
+        suggestions.append(
+            CandidateRepair(
+                row=issue.row,
+                column=issue.column,
+                old_value=issue.actual,
+                new_value=issue.expected,
+                detector_id=issue.issue_type,
+                operation="update",
+                reason=issue.reason,
+                confidence=issue.confidence,
+                provenance="deterministic",
+                verifier_reason=(
+                    "Held for human review: an exact, deterministic transform is "
+                    "available, but whether this cell needs it is not provable in-table "
+                    "(the value is already valid), so it is never auto-applied."
+                ),
+                review_reason="unverified_transposition",
+            )
+        )
+    return suggestions
 
 
 def _verification_strength(
@@ -1006,11 +1109,19 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     # stay byte-identical.
     corrector_policy = request.corrector_policy or corrector_default_policy()
     authoritative_schema_present = effective_schema is not None
+    # PSI drift guard: the conformal auto-apply guarantee is only valid for data
+    # exchangeable with the calibration sample. If the live LLM-confidence
+    # distribution has drifted from the calibration reference, downgrade to
+    # propose-not-apply so the certificate is never claimed outside its scope.
+    corrector_policy = _guard_corrector_policy_for_drift(
+        corrector_policy, accepted_fixes, request.corrector_reference_confidences
+    )
     accepted_fixes, calibration_suggestions, plausibility_suggestions = _partition_auto_apply(
         accepted_fixes,
         corrector_policy,
         authoritative_schema_present=authoritative_schema_present,
         allow_unproven_autoapply=request.allow_unproven_autoapply,
+        calibration_map_by_class=request.calibration_map_by_class,
     )
     escalated_suggestions = _escalated_llm_suggestions(attempt_groups)
 
@@ -1084,6 +1195,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
                 "confirmation (unconfirmed-LLM-write safety rule)."
             ),
         )
+        + _detection_only_suggestions(issues)
     )
     proof_obligations = _proof_obligations(attempt_groups)
     root_causes = _root_causes(issues, attempt_groups)

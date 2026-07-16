@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.2.0
+ - 2026-07-15 (unreleased)
+
+### Features
+
+- Post-hoc probability calibration (`dataforge/calibration_map.py`): per-issue-type
+  isotonic (pool-adjacent-violators) and Platt maps; measured ECE 0.807 -> 0.0 on real
+  Azure gpt-5-mini corrector samples, locked by tests and the committed
+  `eval/results/corrector_calibration.json` artifact.
+- Calibrated, drift-guarded, conformally-certified LLM auto-apply gate: the engine
+  rescales corrector confidence through the calibration map, applies a Population
+  Stability Index drift guard against the calibration reference, and auto-applies only
+  schema-proven fixes that clear the certified per-issue-type threshold; new
+  `dataforge repair --corrector-calibration <artifact>` flag. Never manufactures
+  coverage (gpt-5-mini correctly abstains).
+- `date_transposition` detector: flags Y/M/D-vs-M/D/YY transposed dates and surfaces the
+  exact rotation as a propose-not-apply reviewed suggestion (no repairer, so no write
+  path); measured 0 false positives on hospital/flights, detection 1.0 on rayyan.
+
+### Fixes
+
+- Benchmark-truth consistency: regenerated `eval/results/agent_comparison.json`,
+  `sota_comparison.json`, and the generated report/README/docs blocks beers-free so
+  `scripts/ci/benchmark_truth.py --check` passes; hospital heuristic F1 preserved at
+  0.7926.
+
 ## 0.1.0
  - 2026-05-20
 

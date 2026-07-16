@@ -164,6 +164,7 @@ def run_llm_corrector_episode(
     calibration_samples: list[tuple[float, bool]] = []
     auto_apply_samples: list[tuple[bool, bool]] = []
     samples_by_class: dict[str, list[tuple[float, bool]]] = {}
+    samples_by_type: dict[str, list[tuple[float, bool]]] = {}
     gt_class = {
         (cell.row, cell.column): classify_error_cell(cell.dirty_value, cell.clean_value)
         for cell in dataset.ground_truth
@@ -201,6 +202,9 @@ def run_llm_corrector_episode(
         auto_apply_samples.append((auto_applied, was_correct))
         error_class = gt_class.get((fix.fix.row, fix.fix.column), "other")
         samples_by_class.setdefault(error_class, []).append((fix.confidence, was_correct))
+        # Key by the issue_type the repairer stamps on the fix (== detector_id),
+        # which is the key the auto-apply policy uses at inference time.
+        samples_by_type.setdefault(fix.fix.detector_id, []).append((fix.confidence, was_correct))
 
     if call_failures:
         warnings.append(f"corrector_call_failures_{call_failures}")
@@ -237,6 +241,7 @@ def run_llm_corrector_episode(
         precision_at_auto_apply=precision_at_auto_apply(auto_apply_samples),
         auto_apply_count=sum(1 for auto_applied, _ in auto_apply_samples if auto_applied),
         calibration_samples_by_class=samples_by_class or None,
+        calibration_samples_by_type=samples_by_type or None,
         reproduction_command=_reproduction_command("llm_corrector", dataset.metadata.name, 1),
     )
 

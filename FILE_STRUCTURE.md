@@ -23,6 +23,9 @@ data_quality_env/
     transactions/            Append-only journals, snapshots, revert.
     ui/                      Rich rendering helpers.
     verifier/                SMT verifier and explanations.
+    calibration.py           Abstention policy (auto-apply/review thresholds).
+    calibration_map.py       Post-hoc isotonic/Platt probability calibration.
+    conformal.py             Distribution-free certified auto-apply + PSI drift.
   dataforge-mcp/             Standalone MCP source package and tests; planned PyPI name is dataforge_07_mcp.
   playground/
     api/                     Hugging Face Docker Space backend.
