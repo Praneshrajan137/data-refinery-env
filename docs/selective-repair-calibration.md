@@ -13,4 +13,10 @@ Settings: primary alpha=0.05, delta=0.05, min_support=30, splits=200.
 
 Conclusion: No condition earned any distribution-free certified auto-apply coverage at the tested alphas (primary alpha=0.05). Propose-not-apply is the provably correct policy; calibration - not model capability or effort - is the binding constraint.
 
+## Post-hoc calibration (does it move the wall?)
+
+Post-hoc calibration (`dataforge/calibration_map.py`, isotonic via pool-adjacent-violators or Platt) is fit per issue type on a calibration split and measured on a disjoint test split. On the real Azure `gpt-5-mini` samples it drops the Expected Calibration Error from **0.807 to 0.0** (`eval/results/corrector_calibration.json`) - the reported confidence becomes an honest probability.
+
+But it does **not** move the auto-apply wall. Isotonic/Platt maps are monotone, so they preserve the ranking of proposals; the conformal certification depends only on that ranking, so certified auto-apply coverage stays **0.0 before and after calibration**. This is the precise, honest decomposition: calibration fixes *probability honesty* (ECE), while auto-apply coverage is bounded by *correctness* (precision at coverage), which a weak corrector does not have. The calibrated score is still wired into the engine gate (behind differential SMT, a PSI drift guard, and the certified threshold) so a genuinely precise future model applies safely - the gate never manufactures coverage from a poorly-calibrated-but-also-imprecise model.
+
 Scope and limits: the conformal guarantee holds for data exchangeable with the calibration sample (a distribution-shift monitor downgrades auto-apply otherwise); error classes are assigned by the versioned heuristic labeler (LABELER_VERSION v1); classes below min_support are reported as insufficient support rather than certified. The SMT verifier and safety constitution remain the hard floor beneath the calibration layer.

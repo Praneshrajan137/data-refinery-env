@@ -19,19 +19,26 @@ boundary is grounded in measured precision, not guesswork.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping, Sequence
-from typing import Literal
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from dataforge.calibration_map import CalibrationMap
 
 __all__ = [
     "AbstentionAction",
     "AbstentionPolicy",
+    "calibrated_conformal_corrector_policy",
     "conformal_corrector_policy",
     "corrector_default_policy",
     "default_policy",
     "fit_thresholds",
     "guard_policy_for_drift",
+    "load_corrector_calibration",
     "policy_from_corrector_samples",
     "severity_for_action",
 ]
@@ -236,6 +243,102 @@ def conformal_corrector_policy(
         auto_apply_thresholds=thresholds,
         default_threshold=1.01,
     )
+
+
+def calibrated_conformal_corrector_policy(
+    calibration_by_type: Mapping[str, Sequence[tuple[float, bool]]],
+    *,
+    method: Literal["isotonic", "platt"] = "isotonic",
+    alpha: float = 0.05,
+    delta: float = 0.05,
+    min_support: int = 30,
+) -> tuple[AbstentionPolicy, dict[str, CalibrationMap]]:
+    """Fit per-issue-type calibration maps, then certify thresholds on calibrated scores.
+
+    This is the auto-apply-ready counterpart of :func:`conformal_corrector_policy`.
+    It (1) fits a post-hoc calibration map per issue type on the calibration split,
+    (2) rescales the samples through those maps, and (3) certifies distribution-free
+    per-class thresholds on the *calibrated* scores. The returned maps MUST be applied
+    to a fix's raw confidence at inference (before :meth:`AbstentionPolicy.action_for`)
+    so the threshold and the score live on the same calibrated scale.
+
+    Samples and maps are keyed by **issue_type** (``CellFix.detector_id``), which is the
+    key the engine uses at auto-apply time -- not the ground-truth error class. The SMT
+    verifier, safety constitution, and provable-only gate remain hard gates beneath this
+    policy; calibration only ever narrows what is eligible for auto-apply.
+
+    Args:
+        calibration_by_type: ``{issue_type: [(confidence, was_correct), ...]}`` from the
+            calibration split only.
+        method: Post-hoc calibration family (``"isotonic"`` default, or ``"platt"``).
+        alpha: Maximum tolerated per-class auto-apply error (``1 - target_precision``).
+        delta: Failure probability of the conformal guarantee.
+        min_support: Minimum accepted-sample count to fit a map and certify a class.
+
+    Returns:
+        ``(policy, maps_by_issue_type)``. Classes that cannot be certified stay
+        propose-not-apply (threshold ``1.01``); classes below ``min_support`` get an
+        identity map.
+    """
+    from dataforge.calibration_map import calibrate_samples_by_class, fit_calibration_map_by_class
+
+    maps = fit_calibration_map_by_class(calibration_by_type, method=method, min_support=min_support)
+    calibrated = calibrate_samples_by_class(maps, calibration_by_type)
+    policy = conformal_corrector_policy(
+        calibrated, alpha=alpha, delta=delta, min_support=min_support
+    )
+    return policy, maps
+
+
+def load_corrector_calibration(
+    path: Path,
+) -> tuple[AbstentionPolicy, dict[str, CalibrationMap], dict[str, list[float]]]:
+    """Load a persisted certified corrector policy, per-issue-type maps, and drift reference.
+
+    The artifact is the committed output of the calibration pipeline. Its ``policy``
+    block reconstructs an :class:`AbstentionPolicy` (certified per-issue-type thresholds),
+    its ``maps`` block reconstructs one :class:`CalibrationMap` per issue type, and its
+    ``reference_confidences`` block carries the raw calibration-split confidences per issue
+    type. The engine applies the maps to a fix's raw confidence before the policy decides
+    auto-apply (so both live on the same calibrated scale) and PSI-compares the live
+    confidence distribution against the reference to downgrade auto-apply under drift.
+
+    Args:
+        path: Path to the certified corrector-calibration JSON artifact.
+
+    Returns:
+        ``(policy, maps_by_issue_type, reference_confidences_by_issue_type)`` ready to
+        pass into ``RepairPipelineRequest``. ``reference_confidences`` is ``{}`` for
+        older artifacts that predate the drift-guard field.
+
+    Raises:
+        ValueError: If the artifact is malformed.
+    """
+    from dataforge.calibration_map import CalibrationMap
+
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("Corrector calibration artifact must be a JSON object.")
+    policy_block = raw.get("policy")
+    if not isinstance(policy_block, dict):
+        raise ValueError("Corrector calibration artifact is missing a 'policy' object.")
+    policy = AbstentionPolicy.model_validate(policy_block)
+    maps_block = raw.get("maps", {})
+    if not isinstance(maps_block, dict):
+        raise ValueError("Corrector calibration artifact 'maps' must be an object.")
+    maps = {
+        str(issue_type): CalibrationMap.model_validate(dump, strict=False)
+        for issue_type, dump in maps_block.items()
+    }
+    reference_block = raw.get("reference_confidences", {})
+    if not isinstance(reference_block, dict):
+        raise ValueError(
+            "Corrector calibration artifact 'reference_confidences' must be an object."
+        )
+    reference_confidences = {
+        str(issue_type): [float(c) for c in confs] for issue_type, confs in reference_block.items()
+    }
+    return policy, maps, reference_confidences
 
 
 def guard_policy_for_drift(

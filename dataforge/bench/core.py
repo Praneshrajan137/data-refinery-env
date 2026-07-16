@@ -128,6 +128,17 @@ class SeedBenchmarkResult(BaseModel):
             "committed artifact (never an in-sample number). None if not computed."
         ),
     )
+    calibration_samples_by_type: dict[str, list[tuple[float, bool]]] | None = Field(
+        default=None,
+        description=(
+            "Raw per-detector-issue-type (confidence, was_correct) pairs. Keyed by the "
+            "issue_type the repairer stamps on each fix (CellFix.detector_id), which is "
+            "the key the auto-apply policy uses at inference. This is the correct key to "
+            "fit calibration maps and certify conformal thresholds against; the by_class "
+            "variant (ground-truth error class) is for the human-readable ECE report only. "
+            "None if not computed."
+        ),
+    )
 
 
 class AggregateBenchmarkResult(BaseModel):

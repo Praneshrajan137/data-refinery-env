@@ -92,6 +92,7 @@ IssueTypeLiteral = Literal[
     "categorical_normalization",
     "outlier",
     "duplicate_row",
+    "date_transposition",
 ]
 
 
