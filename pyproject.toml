@@ -14,6 +14,9 @@ classifiers = [
 dependencies = [
     "pydantic>=2.7",
     "typer>=0.24,<0.25",
+    # click is typer's engine (transitive). Pin a security floor so the resolver
+    # cannot backtrack to click 8.2.1 (PYSEC-2026-2132) during multi-step CI installs.
+    "click>=8.3.3",
     "rich>=13.7",
     "textual>=8.2,<9",
     "z3-solver>=4.13",
