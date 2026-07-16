@@ -110,10 +110,10 @@ PIP_AUDIT_EXCEPTIONS = [
         vuln_id="CVE-2025-3000",
         package="torch",
         scope="optional train/HF-local evaluation extras only",
-        expires_on=date(2026, 7, 13),
+        expires_on=date(2026, 10, 14),
         reason=(
-            "pip-audit reports no fixed version as of 2026-06-13; DataForge core, "
-            "playground, and MCP runtime surfaces do not require Torch."
+            "Re-triaged 2026-07-16: pip-audit still reports no fixed version; DataForge "
+            "core, playground, and MCP runtime surfaces do not require Torch."
         ),
         upstream_reference="https://github.com/advisories/GHSA-rrmf-rvhw-rf47",
     ),
