@@ -68,11 +68,15 @@ class AbstentionPolicy(BaseModel):
         target_precision: The precision the auto-apply thresholds were fit for.
         auto_apply_thresholds: Per-issue-type minimum confidence to auto-apply.
         default_threshold: Threshold for issue types not listed.
+        uncertified_classes: Per-issue-type reason a class is disabled (threshold
+            >= 1.01). Makes the "never auto-apply" sentinel self-documenting:
+            distinguishes detection-only-by-design from data/precision limits.
     """
 
     target_precision: float = Field(default=0.95, ge=0.0, le=1.0)
     auto_apply_thresholds: dict[str, float] = Field(default_factory=dict)
     default_threshold: float = Field(default=0.90, ge=0.0, le=1.01)
+    uncertified_classes: dict[str, str] = Field(default_factory=dict)
 
     model_config = {"frozen": True}
 
@@ -230,9 +234,15 @@ def conformal_corrector_policy(
     Returns:
         An :class:`AbstentionPolicy` auto-applying only certified classes.
     """
-    from dataforge.conformal import certify_thresholds_by_class
+    from dataforge.conformal import certify_thresholds_by_class, uncertified_reasons_by_class
 
     thresholds = certify_thresholds_by_class(
+        calibration_by_class,
+        alpha=alpha,
+        delta=delta,
+        min_support=min_support,
+    )
+    uncertified = uncertified_reasons_by_class(
         calibration_by_class,
         alpha=alpha,
         delta=delta,
@@ -242,6 +252,7 @@ def conformal_corrector_policy(
         target_precision=1.0 - alpha,
         auto_apply_thresholds=thresholds,
         default_threshold=1.01,
+        uncertified_classes=uncertified,
     )
 
 
