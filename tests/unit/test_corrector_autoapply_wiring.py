@@ -20,6 +20,7 @@ from dataforge.calibration import (
     load_corrector_calibration,
 )
 from dataforge.calibration_map import CalibrationMap
+from dataforge.conformal import certification_reason, min_samples_for_certification
 from dataforge.engine.repair import _guard_corrector_policy_for_drift, _partition_auto_apply
 from dataforge.repairers.base import ProposedFix
 from dataforge.transactions.txn import CellFix
@@ -208,3 +209,83 @@ class TestDriftGuard:
         assert (
             _guard_corrector_policy_for_drift(_POLICY, [_deterministic_fix()], reference) is _POLICY
         )
+
+
+_COMMITTED_ARTIFACT = (
+    Path(__file__).resolve().parents[2] / "eval" / "results" / "corrector_calibration.json"
+)
+
+
+class TestRealArtifactSelectsNothing:
+    """The shipped gpt-5-mini artifact must auto-apply NOTHING and say why.
+
+    Locks in the honest operative reality (all thresholds are the 1.01 disabled
+    sentinel) so a future edit cannot silently enable auto-apply from a weak,
+    uncertified corrector. This is the regression anchor for the trust thesis.
+    """
+
+    def test_committed_artifact_auto_applies_nothing(self) -> None:
+        policy, maps, _reference = load_corrector_calibration(_COMMITTED_ARTIFACT)
+        # A maximally confident LLM fix on the dominant class, calibrated through
+        # the shipped map, must still be HELD (calibrated score < 1.01 sentinel).
+        fix = _llm_fix(1.0, issue_type="fd_violation")
+        auto, held, _ = _partition_auto_apply(
+            [fix],
+            policy,
+            authoritative_schema_present=True,
+            allow_unproven_autoapply=False,
+            calibration_map_by_class=maps,
+        )
+        assert auto == []
+        assert held == [fix]
+
+    def test_committed_artifact_documents_every_disabled_class(self) -> None:
+        # Invariant: any class parked at the 1.01 sentinel MUST carry a reason,
+        # so the disabled state is never an opaque magic number.
+        policy, _maps, _reference = load_corrector_calibration(_COMMITTED_ARTIFACT)
+        for issue_type, threshold in policy.auto_apply_thresholds.items():
+            if threshold >= 1.01:
+                assert issue_type in policy.uncertified_classes, issue_type
+                assert policy.uncertified_classes[issue_type]
+
+
+class TestCertificationReasons:
+    def test_min_samples_floor_is_59_at_95_percent(self) -> None:
+        # The honest data budget: even a PERFECT corrector needs >= 59 all-correct
+        # accepted samples to certify 95% precision at delta=0.05.
+        assert min_samples_for_certification(0.05, 0.05) == 59
+
+    def test_insufficient_support_reason(self) -> None:
+        reason = certification_reason([(1.0, True)] * 3, alpha=0.05, min_support=30)
+        assert reason is not None
+        assert "insufficient_support" in reason
+        assert "n=3" in reason
+
+    def test_precision_below_target_reason(self) -> None:
+        # Enough support (>= min_support) but a near-0-accuracy corrector.
+        samples = [(1.0, i < 2) for i in range(40)]
+        reason = certification_reason(samples, alpha=0.05, min_support=30)
+        assert reason is not None
+        assert "precision_below_target" in reason
+        assert "n=40" in reason
+
+    def test_certifiable_class_has_no_reason(self) -> None:
+        # A perfect corrector with ample support IS certifiable -> reason None.
+        samples = [(1.0, True)] * 80
+        assert certification_reason(samples, alpha=0.05, min_support=30) is None
+
+
+class TestCalibrationPlateauBehavior:
+    """Isotonic maps are piecewise-constant, not strictly monotone.
+
+    Documents that two distinct raw confidences on the same plateau collapse to
+    one calibrated value -- the exact reason calibration is NOT a pure no-op at the
+    threshold boundary (it can move a live score across a fixed threshold).
+    """
+
+    def test_plateau_collapses_distinct_confidences(self) -> None:
+        flat = CalibrationMap(method="isotonic", x_knots=(0.0, 0.5, 1.0), y_knots=(0.2, 0.2, 0.9))
+        # 0.1 and 0.4 both sit on the first flat segment -> identical calibrated value.
+        assert flat.predict(0.1) == flat.predict(0.4)
+        # A value past the plateau rises -> monotone non-decreasing preserved.
+        assert flat.predict(1.0) > flat.predict(0.4)

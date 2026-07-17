@@ -121,10 +121,11 @@ class DateTranspositionDetector:
                         expected=rotated,
                         actual=value.strip(),
                         reason=(
-                            f"Value {value.strip()!r} in column '{name}' is a valid date but "
-                            f"may be a Y/M/D transposition of the canonical M/D/YY form "
-                            f"'{rotated}'. Unverified: the cell is already a valid date, so "
-                            f"this is surfaced for review, never auto-applied."
+                            f"Value {value.strip()!r} in column '{name}' is ambiguous: it is "
+                            f"already a valid M/D/YY date (keep as-is), but may also be a Y/M/D "
+                            f"transposition whose canonical M/D/YY form is '{rotated}'. Both "
+                            f"readings are valid dates, so no in-table rule can decide - surfaced "
+                            f"for human review at confidence 0.5, never auto-applied."
                         ),
                     )
                 )

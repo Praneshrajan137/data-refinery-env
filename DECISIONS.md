@@ -1158,3 +1158,46 @@ conformal gate certifies a per-issue-type threshold below 1.01, calibrated auto-
 activates automatically for schema-proven fixes -- re-verify the certified coverage
 report and the never-corrupt invariants (byte-identical `allow_llm=False`, apply->revert,
 hospital 0.7926) before promoting.
+
+## 2026-07-17 - Truth-in-numbers correction of the 2026-07-15 calibration claims
+
+**Context**: An adversarial re-audit of the 2026-07-15 work put its own claims on trial
+against the project thesis ("hard numbers that never mislead"). The audit found the
+substantive machinery (calibration_map, conformal gate, PSI drift) correct and well-tested,
+but three presentation/rigor defects that this entry corrects. This does not reverse the
+2026-07-15 decision; it sharpens its honesty.
+
+**What was wrong**:
+1. "ECE 0.807 -> 0.0" was headlined without its context. Evidence: the disjoint test split
+   is **n=18**; the isotonic map for the dominant class is `y_knots=[0,0,0]` / `[0,0,0.0417]`,
+   i.e. the corrector is ~4% precise, so calibration collapses its confidence to ~0. ECE~0
+   is the *degenerate* "confidently-wrong proposer now says ~0" regime - it proves honesty,
+   not skill. Publishing 0.0 bare oversold a degenerate artifact.
+2. "gpt-5-mini correctly abstains" mis-framed a data limitation as model judgment. The real
+   cause is that with 36 outcomes at ~4% precision the conformal procedure **cannot certify**
+   any threshold at 95%/delta=0.05, so it falls back to the opaque `1.01` sentinel.
+3. The flagship artifact's provenance (`_scratch_azure_corr2.json`) is a scratch file not in
+   the repo -> not regenerable from committed inputs.
+
+**Decision**: (1) Requalify the ECE number everywhere (README, docs, CHANGELOG) with n=18 and
+the degenerate-regime reading. (2) Make the disabled state self-documenting: new
+`AbstentionPolicy.uncertified_classes` reason map + `dataforge.conformal.certification_reason`
+and `min_samples_for_certification` (>= 59 all-correct accepted samples to certify 95% at
+delta=0.05); populated in the artifact and asserted by tests. (3) Reframe "abstains" as
+"cannot certify with current data" and document the labelled-data budget as the true unlock.
+(4) Note the provenance limitation honestly in the artifact. No behavior change: auto-apply
+remains empty; the deterministic path and never-corrupt invariants are untouched.
+
+**Reasoning**: For a trust tool, an unqualified degenerate number and a magic-number gate are
+themselves trust defects. The fix is to make the numbers self-explaining and tie the "why not"
+to a concrete data budget, so the gate's silence is legible rather than mysterious.
+
+**Reviewed with**: dataforge/conformal.py (certification_reason, min_samples_for_certification,
+uncertified_reasons_by_class), dataforge/calibration.py (AbstentionPolicy.uncertified_classes,
+conformal_corrector_policy), eval/results/corrector_calibration.json, README.md,
+docs/selective-repair-calibration.md, CHANGELOG.md, tests/unit/test_corrector_autoapply_wiring.py.
+
+**Process lesson**: Diagnose from the authoritative artifact (CI logs / actually-tested SHA,
+which for PRs is the refs/pull/**/merge commit), not from code plus a session summary - the
+same session shipped a torch pip-audit-exception re-triage for a check that CI showed as PASS.
+

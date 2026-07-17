@@ -29,7 +29,8 @@ it does not claim design-partner or customer validation evidence yet.
 - Distribution-free calibrated auto-apply: conformal per-class thresholds, post-hoc
   probability calibration (`calibration_map`), and a PSI drift guard, combined in the
   engine gate so LLM corrections auto-apply only when proven, in-distribution, and
-  certified (else propose-not-apply).
+  certified (else propose-not-apply). Today no class is certified (the shipped
+  gpt-5-mini corrector is too imprecise), so all LLM corrections stay propose-not-apply.
 - Append-only hash-chained transaction journals with immutable source snapshots.
 - OpenEnv-compatible actions for data inspection, SQL, statistics, diagnosis,
   repair, and root-cause analysis.

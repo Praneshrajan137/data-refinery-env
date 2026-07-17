@@ -210,12 +210,14 @@ Calibration is treated as its own problem, separately from capability.
 monotone probability map per issue type (isotonic via pool-adjacent-violators, or
 Platt), so a reported confidence reads as an honest probability. On the real
 Azure `gpt-5-mini` samples the Expected Calibration Error drops from **0.807 to
-0.0** on a disjoint test split
-([`eval/results/corrector_calibration.json`](eval/results/corrector_calibration.json)) -
-the wall a bigger model could not move. The honest caveat is stated in the
-artifact: the map is monotone, so it preserves proposal ranking and therefore
-does **not** change conformal-certifiable auto-apply coverage (it stays 0.0 for
-`gpt-5-mini`). Calibration fixes honesty, not accuracy.
+0.0** on a disjoint test split of **n=18**
+([`eval/results/corrector_calibration.json`](eval/results/corrector_calibration.json)).
+Read that number honestly: the corrector is only ~4% precise here, so isotonic
+collapses its confidence toward 0 - which is *trivially* well-calibrated (a
+proposer that is almost always wrong, now saying so). It proves the confidence is
+honest, not that the corrector improved. The map is monotone, so it preserves
+proposal ranking and therefore does **not** change conformal-certifiable
+auto-apply coverage (it stays 0.0). Calibration fixes honesty, not accuracy.
 
 The calibrated score is wired into the auto-apply gate end to end. Under an
 authoritative schema, an LLM correction auto-applies only when it clears every
@@ -225,9 +227,13 @@ the policy to propose-not-apply, so the certificate is never claimed outside its
 scope), and a certified per-issue-type threshold on the calibrated confidence.
 Pass a certified artifact with `dataforge repair --allow-llm --schema ...
 --corrector-calibration <artifact.json>`; without it every LLM correction stays
-propose-not-apply. Because `gpt-5-mini`'s certified thresholds abstain, nothing
-auto-applies today - the wiring lets a genuinely precise future model apply
-safely, and never manufactures coverage from a weak one.
+propose-not-apply. With only 36 labelled outcomes at ~4% precision, the conformal
+procedure **cannot certify any threshold** at 95%/delta=0.05, so every issue type
+falls back to a disabled `1.01` sentinel - recorded with its reason in the
+artifact's `uncertified_classes`, not left as a magic number. Certifying even a
+perfect corrector would need >= 59 all-correct accepted samples. Nothing
+auto-applies today; the wiring lets a genuinely precise, sufficiently-sampled
+future model apply safely, and never manufactures coverage from a weak one.
 
 ### Bring your own model
 
