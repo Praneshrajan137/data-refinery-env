@@ -34,6 +34,7 @@ from dataforge.detectors.base import Issue, Schema
 from dataforge.engine.repair import (
     CandidateFix,
     RepairMode,
+    RepairReceipt,
     VerifiedFix,
     apply_transaction,
     propose_repairs,
@@ -114,6 +115,39 @@ class AgentRepairResult(BaseModel):
     reason: str
 
     model_config = ConfigDict(frozen=True)
+
+    def to_receipt(self) -> RepairReceipt:
+        """Project this agent result into the canonical ``repair_receipt_v1``.
+
+        This lets the agent surface emit the SAME trust certificate that
+        ``dataforge.certificate.verify_certificate`` checks for the deterministic
+        pipeline. A deterministic-only applied run verifies as proven; an applied
+        run that includes an LLM write still verifies structurally but honestly
+        reports ``auto_apply_is_proven_deterministic`` as False (a
+        policy-permitted plausible write), exactly like the pipeline's own receipt.
+        The agent already writes through the shared ``apply_transaction`` path, so
+        the receipt describes the same journaled, reversible transaction.
+        """
+        applied_fixes = list(self.fixes) if self.applied else []
+        provenance = sorted({fix.provenance for fix in self.fixes})
+        verifier_verdict = "accept" if (self.applied and self.fixes) else "not_run"
+        return RepairReceipt(
+            mode=self.mode,
+            applied=self.applied,
+            reversible=self.reversible,
+            source_path=self.source_path,
+            source_sha256=self.source_sha256,
+            post_sha256=self.post_sha256,
+            txn_id=self.txn_id,
+            safety_verdict=self.safety_verdict,
+            verifier_verdict=verifier_verdict,
+            candidate_provenance=provenance,
+            applied_fixes=applied_fixes,
+            revert_command=self.revert_command,
+            issues_count=self.issues_count,
+            fixes_count=self.fixes_count,
+            reason=self.reason,
+        )
 
 
 def _residual_issue(issue: Issue) -> ResidualIssue:
