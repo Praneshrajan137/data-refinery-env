@@ -5,24 +5,25 @@
   "delta": 0.05,
   "min_support": 30,
   "splits": 200,
+  "min_samples_to_certify": 59,
   "conditions": {
     "minimal": {
       "provider": "azure",
       "model": "gpt-5-mini",
       "dataset": "hospital",
       "aggregate": {
-        "precision": 0.037,
+        "precision": 0.0588,
         "recall": 0.0059,
-        "f1": 0.0102,
-        "ece": 0.8436,
-        "precision_at_auto_apply": 0.0508,
-        "auto_apply_count": 59
+        "f1": 0.0107,
+        "ece": 0.7974,
+        "precision_at_auto_apply": 0.0811,
+        "auto_apply_count": 37
       },
       "per_class_support": {
-        "other": 78,
+        "other": 48,
         "text_normalization": 3
       },
-      "pooled_samples": 81,
+      "pooled_samples": 51,
       "certified_coverage": {
         "alpha": 0.05,
         "delta": 0.05,
@@ -32,11 +33,11 @@
         "overall_test_error": 0.0,
         "overall_test_coverage": 0.0,
         "auto_applied_total": 0,
-        "test_total": 40,
+        "test_total": 25,
         "per_class": {
           "other": {
             "threshold": 1.01,
-            "test_support": 39,
+            "test_support": 24,
             "auto_applied": 0,
             "test_error": 0.0,
             "test_coverage": 0.0
@@ -78,22 +79,22 @@
         }
       ],
       "risk_coverage": {
-        "aurc": 0.951149,
+        "aurc": 0.922218,
         "curve": [
           {
             "threshold": 1.0,
-            "coverage": 0.728395,
-            "selective_risk": 0.949153
+            "coverage": 0.72549,
+            "selective_risk": 0.918919
           },
           {
             "threshold": 0.666667,
-            "coverage": 0.91358,
-            "selective_risk": 0.959459
+            "coverage": 0.843137,
+            "selective_risk": 0.930233
           },
           {
             "threshold": 0.333333,
             "coverage": 1.0,
-            "selective_risk": 0.962963
+            "selective_risk": 0.941176
           }
         ]
       },
@@ -105,36 +106,42 @@
         "mean_test_error": 0.0
       },
       "reliability": {
-        "ece": 0.8436,
+        "ece": 0.7974,
         "curve": [
           {
             "bin_lower": 0.2,
             "bin_upper": 0.4,
             "mean_confidence": 0.333333,
             "accuracy": 0.0,
-            "count": 7
+            "count": 8
           },
           {
             "bin_lower": 0.6,
             "bin_upper": 0.8,
             "mean_confidence": 0.666667,
             "accuracy": 0.0,
-            "count": 15
+            "count": 6
           },
           {
             "bin_lower": 0.8,
             "bin_upper": 1.0,
             "mean_confidence": 1.0,
-            "accuracy": 0.050847,
-            "count": 59
+            "accuracy": 0.081081,
+            "count": 37
           }
         ]
+      },
+      "post_hoc_calibration": {
+        "method": "isotonic",
+        "test_n": 25,
+        "ece_before": 0.8533,
+        "ece_after": 0.0
       },
       "promotion_verdict": {
         "promoted": false,
         "reasons": [
-          "precision_at_auto_apply 0.0508 < 0.95",
-          "ECE 0.8436 > 0.1 (confidence poorly calibrated)"
+          "precision_at_auto_apply 0.0811 < 0.95",
+          "ECE 0.7974 > 0.1 (confidence poorly calibrated)"
         ]
       }
     },
@@ -143,18 +150,18 @@
       "model": "gpt-5-mini",
       "dataset": "hospital",
       "aggregate": {
-        "precision": 0.037,
+        "precision": 0.0556,
         "recall": 0.002,
-        "f1": 0.0037,
-        "ece": 0.8889,
-        "precision_at_auto_apply": 0.0435,
-        "auto_apply_count": 23
+        "f1": 0.0038,
+        "ece": 0.8704,
+        "precision_at_auto_apply": 0.0714,
+        "auto_apply_count": 14
       },
       "per_class_support": {
-        "other": 26,
+        "other": 17,
         "text_normalization": 1
       },
-      "pooled_samples": 27,
+      "pooled_samples": 18,
       "certified_coverage": {
         "alpha": 0.05,
         "delta": 0.05,
@@ -164,11 +171,11 @@
         "overall_test_error": 0.0,
         "overall_test_coverage": 0.0,
         "auto_applied_total": 0,
-        "test_total": 14,
+        "test_total": 10,
         "per_class": {
           "other": {
             "threshold": 1.01,
-            "test_support": 13,
+            "test_support": 9,
             "auto_applied": 0,
             "test_error": 0.0,
             "test_coverage": 0.0
@@ -210,22 +217,17 @@
         }
       ],
       "risk_coverage": {
-        "aurc": 0.957018,
+        "aurc": 0.930335,
         "curve": [
           {
             "threshold": 1.0,
-            "coverage": 0.851852,
-            "selective_risk": 0.956522
+            "coverage": 0.777778,
+            "selective_risk": 0.928571
           },
           {
             "threshold": 0.666667,
-            "coverage": 0.925926,
-            "selective_risk": 0.96
-          },
-          {
-            "threshold": 0.333333,
             "coverage": 1.0,
-            "selective_risk": 0.962963
+            "selective_risk": 0.944444
           }
         ]
       },
@@ -237,36 +239,35 @@
         "mean_test_error": 0.0
       },
       "reliability": {
-        "ece": 0.8889,
+        "ece": 0.8704,
         "curve": [
-          {
-            "bin_lower": 0.2,
-            "bin_upper": 0.4,
-            "mean_confidence": 0.333333,
-            "accuracy": 0.0,
-            "count": 2
-          },
           {
             "bin_lower": 0.6,
             "bin_upper": 0.8,
             "mean_confidence": 0.666667,
             "accuracy": 0.0,
-            "count": 2
+            "count": 4
           },
           {
             "bin_lower": 0.8,
             "bin_upper": 1.0,
             "mean_confidence": 1.0,
-            "accuracy": 0.043478,
-            "count": 23
+            "accuracy": 0.071429,
+            "count": 14
           }
         ]
+      },
+      "post_hoc_calibration": {
+        "method": "isotonic",
+        "test_n": 10,
+        "ece_before": 0.8333,
+        "ece_after": 0.0
       },
       "promotion_verdict": {
         "promoted": false,
         "reasons": [
-          "precision_at_auto_apply 0.0435 < 0.95",
-          "ECE 0.8889 > 0.1 (confidence poorly calibrated)"
+          "precision_at_auto_apply 0.0714 < 0.95",
+          "ECE 0.8704 > 0.1 (confidence poorly calibrated)"
         ]
       }
     }

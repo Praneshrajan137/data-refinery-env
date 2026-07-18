@@ -13,7 +13,7 @@ reported before AND after to make that explicit.
 
 Usage:
     python scripts/bench/calibrate_corrector.py \
-        --samples-json eval/results/corrector_gpt5mini_hospital_min.json \
+        --samples-json eval/results/corrector_gpt5mini_hospital_minimal.json \
         --output-json eval/results/corrector_calibration.json
 """
 

@@ -10,13 +10,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from dataforge.calibration import calibrated_conformal_corrector_policy
 from scripts.bench.calibrate_corrector import _pool_samples, build_calibration_report
 
 _REAL_SAMPLES = (
     Path(__file__).resolve().parents[2]
     / "eval"
     / "results"
-    / "corrector_gpt5mini_hospital_min.json"
+    / "corrector_gpt5mini_hospital_minimal.json"
+)
+_COMMITTED_ARTIFACT = (
+    Path(__file__).resolve().parents[2] / "eval" / "results" / "corrector_calibration.json"
 )
 
 
@@ -46,3 +50,36 @@ class TestRealDataCalibrationBreaksECEWall:
         # is honest. It must never INCREASE ECE.
         report = build_calibration_report(_pooled(), method="platt", seed=0)
         assert report["overall_ece_after"] <= report["overall_ece_before"]
+
+
+class TestArtifactReproducibleFromCommittedSamples:
+    """The committed corrector_calibration.json must be a deterministic function of the
+    committed samples: re-deriving it from eval/results/corrector_gpt5mini_hospital_minimal.json
+    reproduces the same ECE, thresholds, and uncertified reasons. This is the reproducibility
+    gate -- it fails if the artifact drifts from its committed source.
+    """
+
+    def _artifact(self) -> dict[str, object]:
+        return json.loads(_COMMITTED_ARTIFACT.read_text(encoding="utf-8"))
+
+    def test_ece_report_matches_committed_artifact(self) -> None:
+        report = build_calibration_report(_pooled(), method="isotonic", seed=0)
+        committed = self._artifact()["ece_report"]
+        assert isinstance(committed, dict)
+        assert round(float(report["overall_ece_before"]), 6) == round(
+            float(committed["overall_ece_before"]), 6
+        )
+        assert round(float(report["overall_ece_after"]), 6) == round(
+            float(committed["overall_ece_after"]), 6
+        )
+
+    def test_policy_matches_committed_artifact(self) -> None:
+        doc = json.loads(_REAL_SAMPLES.read_text(encoding="utf-8"))
+        by_type = _pool_samples(doc["records"], "calibration_samples_by_type")
+        policy, _maps = calibrated_conformal_corrector_policy(by_type, method="isotonic")
+        committed_policy = self._artifact()["policy"]
+        assert isinstance(committed_policy, dict)
+        assert policy.auto_apply_thresholds == committed_policy["auto_apply_thresholds"]
+        assert policy.uncertified_classes == committed_policy["uncertified_classes"]
+        # The shipped artifact must auto-apply nothing (all classes at the 1.01 sentinel).
+        assert all(t >= 1.01 for t in policy.auto_apply_thresholds.values())

@@ -6,17 +6,17 @@
 ### Features
 
 - Post-hoc probability calibration (`dataforge/calibration_map.py`): per-issue-type
-  isotonic (pool-adjacent-violators) and Platt maps; ECE 0.807 -> 0.0 on a disjoint
-  n=18 test split of real Azure gpt-5-mini samples. Honest reading: the corrector is
-  ~4% precise, so isotonic collapses its confidence toward 0 (trivially calibrated) -
-  this proves the confidence is honest, not that the corrector improved. Locked by
-  tests and the committed `eval/results/corrector_calibration.json` artifact.
+  isotonic (pool-adjacent-violators) and Platt maps; ECE 0.8533 -> 0.0 on a disjoint
+  n=25 test split of real Azure gpt-5-mini samples. Honest reading: the corrector is
+  ~6% precise, so isotonic collapses its confidence toward 0 (trivially calibrated) -
+  this proves the confidence is honest, not that the corrector improved. Reproducible
+  from the committed samples + response cache and locked by tests.
 - Calibrated, drift-guarded, conformally-certified LLM auto-apply gate: the engine
   rescales corrector confidence through the calibration map, applies a Population
   Stability Index drift guard against the calibration reference, and auto-applies only
   schema-proven fixes that clear the certified per-issue-type threshold; new
-  `dataforge repair --corrector-calibration <artifact>` flag. With gpt-5-mini's 36
-  outcomes at ~4% precision the conformal procedure cannot certify any threshold
+  `dataforge repair --corrector-calibration <artifact>` flag. With gpt-5-mini's 50
+  fd_violation outcomes at ~6% precision the conformal procedure cannot certify any threshold
   (needs >= 59 all-correct accepted samples), so every class is parked at a disabled
   1.01 sentinel recorded in `policy.uncertified_classes`; nothing auto-applies and the
   gate never manufactures coverage from a weak corrector.

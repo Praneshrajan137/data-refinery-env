@@ -24,6 +24,8 @@ from dataforge.repairers.llm_corrector import LLMCorrectorRepairer
 from dataforge.schema_inference import infer_schema
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from dataforge.agent.providers import Message
 
 # The corrector auto-apply diagnostic uses a fixed, pre-committed self-consistency
@@ -109,6 +111,7 @@ def run_llm_corrector_episode(
     client: BenchLLMClient,
     samples: int = _CORRECTOR_SAMPLES,
     max_issues: int | None = None,
+    cache_dir: Path | None = None,
 ) -> SeedBenchmarkResult:
     """Run the grounded, contract-bound LLM corrector as a benchmark method.
 
@@ -152,7 +155,7 @@ def run_llm_corrector_episode(
     detected_cells = {(issue.row, issue.column) for issue in issues}
 
     corrector = LLMCorrectorRepairer(
-        cache_dir=None,
+        cache_dir=cache_dir,
         allow_llm=True,
         model=client.model,
         samples=samples,

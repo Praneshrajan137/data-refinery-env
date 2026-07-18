@@ -194,11 +194,11 @@ with a methods note at
 [`docs/selective-repair-calibration.md`](docs/selective-repair-calibration.md).
 
 Measured on Azure `gpt-5-mini` (hospital), the dominant error class reaches
-adequate support (n=78, above the 30-sample floor), so the result is not a
+adequate support (n=48, above the 30-sample floor), so the result is not a
 small-sample artifact: certified auto-apply coverage is 0.0 at every tested
-error budget from 1% to 20%, AURC is ~0.95 (no safe operating point), and across
+error budget from 1% to 20%, AURC is ~0.92 (no safe operating point), and across
 200 random splits the gate never once auto-applied a wrong fix. Raising the
-model's reasoning effort from minimal to medium does not help (ECE 0.84 vs 0.89),
+model's reasoning effort from minimal to medium does not help (ECE 0.80 vs 0.87),
 confirming that calibration - not capability or effort - is the binding
 constraint. Propose-not-apply is therefore the provably correct policy, by
 measurement rather than by assertion.
@@ -209,10 +209,10 @@ Calibration is treated as its own problem, separately from capability.
 [`dataforge/calibration_map.py`](dataforge/calibration_map.py) fits a post-hoc,
 monotone probability map per issue type (isotonic via pool-adjacent-violators, or
 Platt), so a reported confidence reads as an honest probability. On the real
-Azure `gpt-5-mini` samples the Expected Calibration Error drops from **0.807 to
-0.0** on a disjoint test split of **n=18**
+Azure `gpt-5-mini` samples the Expected Calibration Error drops from **0.8533 to
+0.0** on a disjoint test split of **n=25**
 ([`eval/results/corrector_calibration.json`](eval/results/corrector_calibration.json)).
-Read that number honestly: the corrector is only ~4% precise here, so isotonic
+Read that number honestly: the corrector is only ~6% precise here, so isotonic
 collapses its confidence toward 0 - which is *trivially* well-calibrated (a
 proposer that is almost always wrong, now saying so). It proves the confidence is
 honest, not that the corrector improved. The map is monotone, so it preserves
@@ -227,8 +227,8 @@ the policy to propose-not-apply, so the certificate is never claimed outside its
 scope), and a certified per-issue-type threshold on the calibrated confidence.
 Pass a certified artifact with `dataforge repair --allow-llm --schema ...
 --corrector-calibration <artifact.json>`; without it every LLM correction stays
-propose-not-apply. With only 36 labelled outcomes at ~4% precision, the conformal
-procedure **cannot certify any threshold** at 95%/delta=0.05, so every issue type
+propose-not-apply. With only 50 labelled fd_violation outcomes at ~6% precision, the
+conformal procedure **cannot certify any threshold** at 95%/delta=0.05, so every issue type
 falls back to a disabled `1.01` sentinel - recorded with its reason in the
 artifact's `uncertified_classes`, not left as a magic number. Certifying even a
 perfect corrector would need >= 59 all-correct accepted samples. Nothing

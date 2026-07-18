@@ -19,15 +19,19 @@ are pooled only *within* a condition, never across, so the comparison is honest.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from typing import Literal
 
 from dataforge.bench.error_classes import expected_calibration_error
+from dataforge.calibration_map import calibrate_samples_by_class, fit_calibration_map_by_class
 from dataforge.conformal import (
     LabeledSample,
     area_under_risk_coverage,
     certified_coverage_report,
+    min_samples_for_certification,
     reliability_curve,
     repeated_split_certification,
     risk_coverage_curve,
+    split_by_class,
 )
 
 _ARTIFACT_SCHEMA = "dataforge_selective_repair_calibration_v1"
@@ -49,6 +53,34 @@ def _samples_by_class(record: Mapping[str, object]) -> dict[str, list[LabeledSam
     for error_class, pairs in raw.items():
         out[str(error_class)] = [(float(conf), bool(correct)) for conf, correct in pairs]
     return out
+
+
+def _post_hoc_calibration(
+    by_class: Mapping[str, Sequence[LabeledSample]],
+    *,
+    method: Literal["isotonic", "platt"] = "isotonic",
+    seed: int = 0,
+    calib_fraction: float = 0.5,
+) -> dict[str, object]:
+    """Fit a post-hoc calibration map on a split; measure ECE on the disjoint test split.
+
+    Mirrors ``scripts/bench/calibrate_corrector.py`` so the generated doc's post-hoc
+    numbers derive deterministically from the same committed samples. Monotone maps
+    lower ECE (honest probability) WITHOUT changing conformal-certifiable coverage.
+    """
+    calib, test = split_by_class(dict(by_class), seed=seed, calib_fraction=calib_fraction)
+    maps = fit_calibration_map_by_class(calib, method=method, min_support=1)
+    test_calibrated = calibrate_samples_by_class(maps, test)
+    flat_test: list[LabeledSample] = [s for pairs in test.values() for s in pairs]
+    flat_cal: list[LabeledSample] = [s for pairs in test_calibrated.values() for s in pairs]
+    if not flat_test:
+        return {"method": method, "test_n": 0, "ece_before": None, "ece_after": None}
+    return {
+        "method": method,
+        "test_n": len(flat_test),
+        "ece_before": expected_calibration_error([(c, b) for c, b in flat_test]),
+        "ece_after": expected_calibration_error([(c, b) for c, b in flat_cal]),
+    }
 
 
 def _promotion_verdict(
@@ -141,6 +173,7 @@ def build_calibration_artifact(
                 "ece": expected_calibration_error(pooled),
                 "curve": reliability_curve(pooled),
             },
+            "post_hoc_calibration": _post_hoc_calibration(by_class),
             "promotion_verdict": _promotion_verdict(
                 precision_at_auto_apply=record.get("precision_at_auto_apply"),  # type: ignore[arg-type]
                 ece=record.get("ece"),  # type: ignore[arg-type]
@@ -165,6 +198,7 @@ def build_calibration_artifact(
         "delta": delta,
         "min_support": min_support,
         "splits": splits,
+        "min_samples_to_certify": min_samples_for_certification(primary_alpha, delta),
         "conditions": conditions,
         "conclusion": conclusion,
     }
@@ -209,6 +243,43 @@ def render_methods_note(artifact: Mapping[str, object]) -> str:
         )
     lines.append("")
     lines.append(f"Conclusion: {artifact['conclusion']}")
+    lines.append("")
+    lines.append("## Post-hoc calibration (does it move the wall?)")
+    lines.append("")
+    lines.append(
+        "Post-hoc calibration (`dataforge/calibration_map.py`, isotonic via "
+        "pool-adjacent-violators or Platt) is fit per issue type on a calibration split and "
+        "measured on a disjoint test split. It makes the reported confidence an honest "
+        "probability, but is monotone: it preserves proposal ranking and therefore does NOT "
+        "change the conformal-certifiable coverage reported above."
+    )
+    for label, cond in conditions.items():
+        assert isinstance(cond, Mapping)
+        ph = cond["post_hoc_calibration"]
+        assert isinstance(ph, Mapping)
+        agg = cond["aggregate"]
+        assert isinstance(agg, Mapping)
+        lines.append("")
+        lines.append(
+            f"- {label}: ECE {ph['ece_before']} -> {ph['ece_after']} on a disjoint "
+            f"n={ph['test_n']} test split. Read honestly, this is a degenerate regime, not a "
+            f"calibration triumph: the corrector's precision is {agg['precision']}, so isotonic "
+            f"collapses its confidence toward 0 (trivially well-calibrated) -- the number proves "
+            f"the confidence is now honest, not that the corrector improved."
+        )
+    lines.append("")
+    lines.append("## What would it take to certify (the honest data budget)")
+    lines.append("")
+    lines.append(
+        "Auto-apply is bounded by correctness, not calibration. With zero observed errors the "
+        "Clopper-Pearson upper bound is `1 - delta**(1/n)`; certifying precision `1 - alpha` "
+        "needs that bound `<= alpha`, i.e. `n >= ln(delta) / ln(1 - alpha)` accepted-and-correct "
+        f"samples above the threshold. At alpha={artifact['primary_alpha']}, "
+        f"delta={artifact['delta']} that floor is **{artifact['min_samples_to_certify']}** "
+        "all-correct accepted samples -- the floor even for a PERFECT corrector. The unlock for "
+        "LLM auto-apply is therefore more labelled outcomes from a more precise corrector, not "
+        "more calibration math."
+    )
     lines.append("")
     lines.append(
         "Scope and limits: the conformal guarantee holds for data exchangeable with "

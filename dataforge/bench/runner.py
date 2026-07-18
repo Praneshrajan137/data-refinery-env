@@ -129,6 +129,30 @@ def _corrector_max_issues() -> int | None:
     return value if value > 0 else None
 
 
+def _corrector_cache_dir() -> Path | None:
+    """Read the optional corrector response-cache dir (for reproducible replay).
+
+    When set, the LLM corrector reads/writes per-call response samples under this
+    directory. A committed cache lets the benchmark replay byte-identically OFFLINE
+    (no provider/API key needed) -- the basis for reproducible calibration artifacts.
+    """
+    raw = os.environ.get("DATAFORGE_CORRECTOR_CACHE_DIR", "").strip()
+    return Path(raw) if raw else None
+
+
+def _bench_allow_embedded() -> bool:
+    """Whether dataset loads may fall back to the committed embedded CSVs.
+
+    Enables fully offline, network-free reproduction: with this set, an offline
+    replay uses the repo's hash-pinned embedded dataset instead of the user cache.
+    """
+    return os.environ.get("DATAFORGE_BENCH_ALLOW_EMBEDDED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
 def _build_groq_client() -> GroqBenchClient:
     """Construct a Groq benchmark client from env-driven knobs."""
     return GroqBenchClient(
@@ -288,6 +312,8 @@ def run_agent_comparison(
     resolved_seed_list = build_seed_list(seeds=seeds, seed_list=seed_list)
 
     corrector_max_issues = _corrector_max_issues()
+    corrector_cache_dir = _corrector_cache_dir()
+    allow_embedded = _bench_allow_embedded()
     estimated_calls = estimate_llm_calls(
         methods=methods,
         datasets=datasets,
@@ -313,6 +339,7 @@ def run_agent_comparison(
             dataset_name,
             cache_root=cache_root,
             verify_hashes=verify_dataset_hashes,
+            allow_embedded_fallback=allow_embedded,
         )
         for dataset_name in datasets
     }
@@ -380,6 +407,7 @@ def run_agent_comparison(
                             seed=seed,
                             client=client,
                             max_issues=corrector_max_issues,
+                            cache_dir=corrector_cache_dir,
                         )
                 else:
                     if client is None or skip_reason is not None:

@@ -1201,3 +1201,18 @@ docs/selective-repair-calibration.md, CHANGELOG.md, tests/unit/test_corrector_au
 which for PRs is the refs/pull/**/merge commit), not from code plus a session summary - the
 same session shipped a torch pip-audit-exception re-triage for a check that CI showed as PASS.
 
+## 2026-07-18 - Calibration artifacts made fully reproducible from committed inputs
+
+**Context**: The 2026-07-15 calibration artifact was built from `_scratch_azure_corr2.json`, a local file never committed, so `corrector_calibration.json` could not be regenerated. This closes that gap at the highest standard: every published calibration number is now a deterministic, replayable function of committed inputs.
+
+**What was done**:
+- Wired a response cache + offline-dataset fallback through the corrector benchmark (`DATAFORGE_CORRECTOR_CACHE_DIR`, `DATAFORGE_BENCH_ALLOW_EMBEDDED`; previously the bench hardcoded `cache_dir=None`). A committed SHA-256 response cache lets anyone replay the full run OFFLINE with no Azure key or cost (proven: live run 240 calls -> cached replay 0 calls, byte-identical samples).
+- Ran real Azure `gpt-5-mini` (hospital, seed 0): minimal effort (80 issues, precision 0.0588, ECE 0.7974) and medium effort (25 issues, precision 0.0556, ECE 0.8704). Committed the raw samples JSONs and the response cache under `eval/results/`.
+- Regenerated `corrector_calibration.json` (ECE 0.8533 -> 0.0 on n=25; fd_violation n=50; thresholds 1.01 with populated `uncertified_classes`) and `selective_repair_calibration.json` from the committed samples. Provenance now points to a committed file.
+- Made `docs/selective-repair-calibration.md` FULLY generated (moved the post-hoc ECE section and the certify data-budget into `render_methods_note`), so regeneration is idempotent and no hand-maintained section is clobbered.
+- Re-derived every hand-written number (README, CHANGELOG, ARCHITECTURE) from the new artifacts; hospital 0.7926 deterministic anchor untouched. Repointed the real-data test and script docstrings to the new committed samples; deleted the superseded `_min`/`_med` capture files.
+
+**Reasoning**: LLM outputs are non-deterministic, so reproducibility = capture-once-commit (samples + response cache) + deterministic post-processing. The committed cache makes the whole pipeline Azure-free and replayable; a CI gate re-derives the artifacts from the committed samples and asserts equality. The verdict is unchanged and expected: gpt-5-mini stays ~6% precise on out-of-table hospital errors, so no threshold certifies and nothing auto-applies. The win is provenance and reproducibility, not a better result.
+
+**Reversal criteria**: unchanged from 2026-07-15 - if a future corrector's precision lets the conformal gate certify a threshold below 1.01, calibrated auto-apply activates for schema-proven fixes; re-verify certified coverage and the never-corrupt invariants first.
+

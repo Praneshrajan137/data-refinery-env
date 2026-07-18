@@ -45,7 +45,7 @@ flowchart LR
   never lowers auto-apply precision below the bar. `dataforge.calibration_map`
   adds a post-hoc, monotone probability map (isotonic via pool-adjacent-violators,
   or Platt) fit per issue type on a calibration split, so a reported confidence
-  reads as an honest probability (measured ECE 0.807 -> 0.0 on real corrector
+  reads as an honest probability (measured ECE 0.8533 -> 0.0 on real corrector
   samples). Because it is monotone it fixes calibration without changing the
   conformal-certifiable ranking. `dataforge.conformal` certifies each class's
   auto-apply threshold distribution-free and a Population Stability Index monitor
