@@ -7,6 +7,11 @@ auditable data-quality repair system. The core package is
 kept separate from playground, training, and model-demo surfaces so the CLI can
 remain installable without web or model dependencies.
 
+The purpose, philosophy, first principles, honesty doctrine, vision, and mission
+this architecture serves are stated canonically in [PRODUCT.md](PRODUCT.md). This
+document describes *how* the system upholds that constitution; PRODUCT.md is the
+authority on *why*.
+
 ```mermaid
 flowchart LR
     A["CSV/table store + optional schema"] --> B["Detectors"]

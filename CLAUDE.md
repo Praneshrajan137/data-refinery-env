@@ -6,6 +6,10 @@ the date.
 
 ## Project Conventions
 
+- **Read [PRODUCT.md](PRODUCT.md) first.** It is the canonical constitution
+  (purpose, philosophy, first principles, honesty doctrine, vision, mission, and
+  the safety invariant). Every session's work must uphold it; when in doubt about
+  intent or a claim's wording, PRODUCT.md wins.
 - **DATASET SCOPE RULE (must follow every session):** The `beers` dataset is
   EXCLUDED from the project. Never add, benchmark, train on, calibrate against,
   set coverage floors for, or document `beers` in any forward-looking work.

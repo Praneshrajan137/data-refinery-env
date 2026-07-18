@@ -610,6 +610,7 @@ runs, and training/evaluation research.
 
 ## Repository Docs
 
+- [PRODUCT.md](PRODUCT.md) - the product constitution (purpose, philosophy, principles, vision, mission); the canonical source other docs defer to
 - [.cursor/rules/dataforge.md](.cursor/rules/dataforge.md) - always-applied contribution rules
 - [ARCHITECTURE.md](ARCHITECTURE.md) - current system architecture and dependencies
 - [DECISIONS.md](DECISIONS.md) - technical decision log

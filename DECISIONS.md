@@ -12,6 +12,34 @@ Format for every entry:
 
 ---
 
+## 2026-07-18 - Canonize the product constitution (PRODUCT.md) as single source of truth
+**Context**: Purpose, philosophy, vision, and mission were scattered and partially
+restated across README.md, ARCHITECTURE.md, CLAUDE.md, META_CONTEXT.md,
+CURSOR_MASTER.md, and docs/. Drift between them made it unclear which statement of
+intent was authoritative, and made honest-claim wording harder to enforce
+consistently.
+**Alternatives**:
+- (a) Leave intent distributed across existing docs - status quo; keeps drifting.
+- (b) Put the thesis in README - README is already large and is a
+  `readme_truth` truth-doc, so philosophical prose competes with claim-boundary
+  checks and command truth.
+- (c) A dedicated canonical `PRODUCT.md` constitution that other docs defer to via
+  short cross-links, and that states principle only (no numbers/claims that belong
+  to README/evidence).
+**Decision**: (c). Added `PRODUCT.md` (thesis, purpose, philosophy, first
+principles, honesty doctrine, vision, mission, safety invariant, positioning,
+wrong-tool scope). README, ARCHITECTURE, and CLAUDE now point to it; PRODUCT.md is
+authoritative on *why*, README/BENCHMARK_REPORT/evidence on *numbers*, ARCHITECTURE
+on *how*.
+**Reasoning**: A single, claim-free constitution ends intent drift without touching
+the measured-claim surface. Keeping numbers out of it means it never competes with
+`readme_truth`/`benchmark_truth`, and the honesty doctrine now has one home to cite.
+**Reviewed with**: user (plan `dataforge-definitive-standard`, Task 1).
+**Reversal criteria**: if maintaining a separate constitution proves to duplicate
+README intent in practice, fold it back into a README preamble.
+
+---
+
 ## 2026-07-11 - Enforce provable-only auto-apply; deep self-verifiable certificate
 **Context**: The Corruption Oracle proved the default deterministic auto-apply path
 never corrupts, and that the known verifier-floor gaps are LATENT (they live in the
