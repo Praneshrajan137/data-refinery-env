@@ -92,6 +92,20 @@ CRITICAL_COVERAGE_INCLUDE = ",".join(
 )
 CRITICAL_COVERAGE_FAIL_UNDER = "88"
 
+# Trust invariants that must ALWAYS run, even when --skip-full-tests drops the
+# full coverage suite. These enforce the product's core guarantee and must never
+# be silently skippable: the corruption oracle (no correct cell is ever changed;
+# plausibility-only fixes never auto-apply without the explicit opt-in), the
+# N-version differential-verifier equivalence suite, byte-for-byte revert, the
+# fail-closed differential combiner, and the self-verifying trust certificate.
+TRUST_INVARIANT_TESTS = [
+    "tests/property/test_no_corruption_invariant.py",
+    "tests/property/test_verifier_equivalence.py",
+    "tests/property/test_revert_is_bytes_identical.py",
+    "tests/unit/test_differential_verifier.py",
+    "tests/unit/test_certificate.py",
+]
+
 
 @dataclass(frozen=True)
 class PipAuditException:
@@ -379,6 +393,16 @@ def main() -> int:
             [PYTHON, "-m", "mypy", "--strict", *SIDE_PACKAGE_MYPY_PATHS],
         ),
     ]
+    # Trust invariants run UNCONDITIONALLY -- they must never be skippable, even
+    # under --skip-full-tests, because they enforce the product's core guarantee
+    # (no corruption; fail-closed N-version verification; reversible; honest
+    # certificate). Fast (bounded property examples), so always affordable.
+    checks.append(
+        _run(
+            "trust invariants",
+            [PYTHON, "-m", "pytest", *TRUST_INVARIANT_TESTS, "-p", "no:cacheprovider", "-q"],
+        )
+    )
     if not args.skip_full_tests:
         checks.append(
             _run(
