@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import httpx
@@ -287,4 +287,47 @@ def load_real_world_dataset(
         ground_truth=_compute_ground_truth(dirty_df, clean_df),
         dirty_sha256=dirty_sha256,
         clean_sha256=clean_sha256,
+    )
+
+
+def _sha256_frame(frame: pd.DataFrame) -> str:
+    """SHA-256 of a frame's canonical CSV serialization (for sampled datasets)."""
+    return hashlib.sha256(frame.to_csv(index=False).encode("utf-8")).hexdigest()
+
+
+def sample_dataset_rows(dataset: RealWorldDataset, max_rows: int) -> RealWorldDataset:
+    """Deterministic head-sample of a dataset for scale-aware measurement.
+
+    Keeps the first ``max_rows`` rows of the row-aligned dirty/clean frames and
+    only the ground-truth cells within that window (row indices are preserved by
+    a head slice, so no re-indexing is needed and scoring stays aligned). This
+    unblocks measuring datasets whose full size is impractical for the
+    deterministic bench (e.g. ``tax`` at 200k rows, where schema inference is
+    super-linear) WITHOUT fabricating results.
+
+    Honesty boundary: the returned dataset is an explicit SAMPLE. Its recomputed
+    ``dirty_sha256``/``clean_sha256`` describe the sampled bytes, NOT the pinned
+    upstream source, and ``metadata.n_rows`` is updated to the sample size. Never
+    use a sampled dataset for pinned-hash verification or for committed
+    ``benchmark_truth`` artifacts -- it is a measurement instrument only, and any
+    result derived from it must be reported as sampled (n = ``max_rows``), never
+    as the full-dataset number.
+    """
+    if max_rows < 0:
+        raise ValueError("max_rows must be non-negative")
+    total = len(dataset.dirty_df.index)
+    if max_rows >= total:
+        return dataset
+    dirty = dataset.dirty_df.head(max_rows).reset_index(drop=True)
+    clean = dataset.clean_df.head(max_rows).reset_index(drop=True)
+    ground_truth = tuple(cell for cell in dataset.ground_truth if cell.row < max_rows)
+    sampled_metadata = dataset.metadata.model_copy(update={"n_rows": max_rows})
+    return replace(
+        dataset,
+        metadata=sampled_metadata,
+        dirty_df=dirty,
+        clean_df=clean,
+        ground_truth=ground_truth,
+        dirty_sha256=_sha256_frame(dirty),
+        clean_sha256=_sha256_frame(clean),
     )
