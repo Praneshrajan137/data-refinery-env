@@ -1,7 +1,7 @@
 {
   "_comment": "Per-(method/dataset/error_class) minimum recall floors for the coverage regression gate. Floors are seeded from a verified full-RAHA `dataforge bench --quick` run and lock in current coverage so it cannot silently regress. Detection floors (@detection) credit flagging the error; plain keys credit exact correction. INVESTIGATED 2026-07-11: the flights text_normalization slice (n=1729) is NOT a normalization slice - it is act_dep_time/act_arr_time value errors (e.g. '9:22 a.m.' -> '9:32 a.m.') that the labeler tags text_normalization only because they are within edit-distance 2 as strings. The correct time is not derivable in-table (no dominant in-column canonical, no intra-row signal), so this is an ABSTENTION slice (not_inferable_from_prompt), not a detection lever. A precision-preserving normalization detector recovers 0/1729 here and 0/423 on hospital, so no such detector is shipped; the honest lever for this slice is calibrated abstention (dataforge.calibration_targets + conformal gate), not detection. Enforced by dataforge.bench.check_coverage_regression.",
   "labeler_version": "v1",
-  "source": "dataforge bench --quick (full RAHA, pinned revision 7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c); floors refreshed 2026-07-07. rayyan floors added 2026-07-11 from a measured offline run (missing_value@detection 1.00 -> floor 0.90; datetime_format@detection 0.12 -> floor 0.10). tax (200k rows) is impractically slow for the quick heuristic bench, so no tax floor is seeded rather than fabricated.",
+  "source": "dataforge bench --quick (full RAHA, pinned revision 7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c); floors refreshed 2026-07-07. rayyan floors added 2026-07-11 from a measured offline run (missing_value@detection 1.00 -> floor 0.90; datetime_format@detection 0.12 -> floor 0.10; raised to 0.90 on 2026-07-14 after DateTranspositionDetector lifted datetime_format detection recall to 1.00, 0 false positives). tax (200k rows) is impractically slow for the quick heuristic bench, so no tax floor is seeded rather than fabricated.",
   "_frontier_map": {
     "_doc": "Honest detectable-vs-abstention classification of undetected slices (measured 2026-07-11, cells inspected before any detector was built). DETECTABLE = the correct value is inferable in-table, so a precise additive detector can flag it. ABSTENTION = the correct value is NOT inferable from the data (e.g. a different actual time), so flagging-by-guessing would be dishonest; the honest path is calibrated abstention, not detection.",
     "flights": {
@@ -13,7 +13,7 @@
     "rayyan": {
       "missing_value": "DETECTABLE (1.00)",
       "numeric": "DETECTABLE (1.00)",
-      "datetime_format": "PARTIAL (n=722, detection 0.12; date-format variants; further detection possible but precision-sensitive)",
+      "datetime_format": "DETECTABLE @1.00 (n=722, all in article_jcreated_at): a Y/M/D transposition of the canonical M/D/YY form; DateTranspositionDetector flags all 722 with 0 false positives (correct cells have day>12 so are invalid as Y/M/D and excluded). The rotation reproduces clean exactly (722/722), but per-cell it is NOT provable (a valid date is indistinguishable from a transposed one), so correction is surfaced as a propose-not-apply review suggestion, never auto-applied (no repairer).",
       "value_format": "LIKELY ABSTENTION (n=107 free-text title/author punctuation reformat; precise detection risks false positives on free text)"
     }
   },
@@ -35,7 +35,7 @@
     },
     "heuristic/rayyan": {
       "missing_value@detection": 0.90,
-      "datetime_format@detection": 0.10
+      "datetime_format@detection": 0.90
     }
   }
 }

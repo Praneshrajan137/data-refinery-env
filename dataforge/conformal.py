@@ -242,6 +242,70 @@ def certify_thresholds_by_class(
     return thresholds
 
 
+def min_samples_for_certification(alpha: float, delta: float = 0.05) -> int:
+    """Smallest all-correct accepted-sample count that can certify precision ``1 - alpha``.
+
+    With zero observed errors the Clopper-Pearson upper bound is ``1 - delta**(1/n)``
+    (see :func:`_clopper_pearson_upper`); certification needs that bound ``<= alpha``,
+    i.e. ``n >= ln(delta) / ln(1 - alpha)``. This is the *floor* even for a perfect
+    corrector, so it is the honest data budget for any future auto-apply.
+
+    Example: at ``alpha = delta = 0.05`` a class needs at least 59 accepted-and-correct
+    samples above the threshold before any distribution-free 95% guarantee is possible.
+    """
+    if not 0.0 < alpha < 1.0 or not 0.0 < delta < 1.0:
+        raise ValueError("alpha and delta must be in (0, 1)")
+    return math.ceil(math.log(delta) / math.log(1.0 - alpha))
+
+
+def certification_reason(
+    samples: Sequence[LabeledSample],
+    *,
+    alpha: float,
+    delta: float = 0.05,
+    min_support: int = 30,
+) -> str | None:
+    """Explain why a class could NOT be certified, or ``None`` if it was.
+
+    Turns the opaque ``ABSTAIN_THRESHOLD`` (1.01) sentinel into a machine- and
+    human-readable reason so a disabled auto-apply class is self-documenting rather
+    than a magic number. Distinguishes the two distinct causes: too few labelled
+    outcomes (fixable by collecting data) versus a corrector too imprecise to certify
+    even with the data on hand (fixable only by a better corrector).
+    """
+    n = len(samples)
+    if certify_threshold(samples, alpha=alpha, delta=delta, min_support=min_support) is not None:
+        return None
+    needed = min_samples_for_certification(alpha, delta)
+    if n < min_support:
+        return (
+            f"insufficient_support: n={n} < min_support={min_support} "
+            f"(need >= {needed} all-correct accepted samples to certify {1.0 - alpha:.0%})"
+        )
+    errors = sum(1 for _, correct in samples if not correct)
+    cp_upper = _clopper_pearson_upper(errors, n, delta)
+    return (
+        f"precision_below_target: n={n} but Clopper-Pearson upper error {cp_upper:.3f} "
+        f"> alpha {alpha} (corrector too imprecise; need >= {needed} all-correct at threshold)"
+    )
+
+
+def uncertified_reasons_by_class(
+    calibration_by_class: Mapping[str, Sequence[LabeledSample]],
+    *,
+    alpha: float,
+    delta: float = 0.05,
+    min_support: int = 30,
+) -> dict[str, str]:
+    """Reason string for every class that cannot be certified (certifiable classes omitted)."""
+    reasons: dict[str, str] = {}
+    for error_class, samples in calibration_by_class.items():
+        reason = certification_reason(samples, alpha=alpha, delta=delta, min_support=min_support)
+        if reason is not None:
+            reasons[error_class] = reason
+    return reasons
+
+
 def certified_coverage_report(
     samples_by_class: Mapping[str, Sequence[LabeledSample]],
     *,

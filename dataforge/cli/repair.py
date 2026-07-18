@@ -376,6 +376,16 @@ def repair(
         bool,
         typer.Option("--json", help="Print repair result as JSON."),
     ] = False,
+    corrector_calibration: Annotated[
+        Path | None,
+        typer.Option(
+            "--corrector-calibration",
+            help="Path to a certified corrector-calibration artifact (per-issue-type "
+            "conformal thresholds + calibration maps). Only used with --allow-llm and an "
+            "authoritative --schema; lets high-agreement, schema-verified LLM corrections "
+            "auto-apply. Without it (default), every LLM correction stays propose-not-apply.",
+        ),
+    ] = None,
 ) -> None:
     """Detect, propose, and optionally apply reversible repairs to a CSV."""
     if dry_run == apply:
@@ -470,6 +480,22 @@ def repair(
     try:
         from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline
 
+        corrector_policy = None
+        calibration_maps = None
+        corrector_reference = None
+        if corrector_calibration is not None:
+            if not allow_llm:
+                _print_error(
+                    "--corrector-calibration requires --allow-llm.",
+                    hint="Add --allow-llm, or drop --corrector-calibration.",
+                )
+                raise typer.Exit(code=2)
+            from dataforge.calibration import load_corrector_calibration
+
+            corrector_policy, calibration_maps, corrector_reference = load_corrector_calibration(
+                corrector_calibration
+            )
+
         result = run_repair_pipeline(
             RepairPipelineRequest(
                 source_path=resolved_path,
@@ -483,6 +509,9 @@ def repair(
                 confirm_pii=confirm_pii,
                 confirm_escalations=confirm_escalations,
                 interactive=apply,
+                corrector_policy=corrector_policy,
+                calibration_map_by_class=calibration_maps,
+                corrector_reference_confidences=corrector_reference,
             )
         )
     except Exception as exc:

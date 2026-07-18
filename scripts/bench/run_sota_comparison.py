@@ -70,13 +70,6 @@ def build_sota_payload() -> dict[str, object]:
                 f1=0.477,
             ),
             _citation_row(
-                method="HoloClean",
-                dataset="beers",
-                precision=1.000,
-                recall=0.024,
-                f1=0.047,
-            ),
-            _citation_row(
                 method="Raha+Baran",
                 dataset="hospital",
                 precision=0.971,
@@ -89,13 +82,6 @@ def build_sota_payload() -> dict[str, object]:
                 precision=0.829,
                 recall=0.650,
                 f1=0.729,
-            ),
-            _citation_row(
-                method="Raha+Baran",
-                dataset="beers",
-                precision=0.873,
-                recall=0.872,
-                f1=0.873,
             ),
         ],
     }

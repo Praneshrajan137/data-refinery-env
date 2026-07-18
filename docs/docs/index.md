@@ -26,10 +26,15 @@ it does not claim design-partner or customer validation evidence yet.
 - Reviewable `constraint_review_v1` artifacts with explicit accept/reject
   decisions before inferred constraints affect repair.
 - Deterministic repairers wired through `SafetyFilter` and `SMTVerifier`.
+- Distribution-free calibrated auto-apply: conformal per-class thresholds, post-hoc
+  probability calibration (`calibration_map`), and a PSI drift guard, combined in the
+  engine gate so LLM corrections auto-apply only when proven, in-distribution, and
+  certified (else propose-not-apply). Today no class is certified (the shipped
+  gpt-5-mini corrector is too imprecise), so all LLM corrections stay propose-not-apply.
 - Append-only hash-chained transaction journals with immutable source snapshots.
 - OpenEnv-compatible actions for data inspection, SQL, statistics, diagnosis,
   repair, and root-cause analysis.
-- Benchmark scripts and generated reports for Hospital, Flights, and Beers.
+- Benchmark scripts and generated reports for Hospital and Flights.
 - A React playground deployed through Cloudflare Workers Static Assets, backed
   by a Hugging Face Docker Space API.
 - Published PyPI/TestPyPI packages for the core CLI, MCP server, eval harness,
@@ -43,16 +48,16 @@ the production playground surface and release URL.
 ## Benchmark Evidence
 
 <!-- BENCH:START -->
-Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `38ce0ca509ca`, dirty `true`).
+Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `236df758dbdd`, dirty `true`).
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3185 | 0.3025 | 0.2772 | 371.33 | 0.0000 | 0.0000 |
-| random | 0.0038 | 0.0003 | 0.0005 | 150.33 | 0.0000 | 0.0000 |
+| heuristic | 0.3585 | 0.4430 | 0.3963 | 361.50 | 0.0000 | 0.0000 |
+| random | 0.0057 | 0.0004 | 0.0008 | 125.50 | 0.0000 | 0.0000 |
 
 See `BENCHMARK_REPORT.md` for per-dataset tables, error bars, and citation-only SOTA rows.
 
-Dataset bytes are pinned to BigDaMa/raha revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c` for hospital, flights, beers; dirty/clean SHA-256s are recorded in the JSON metadata.
+Dataset bytes are pinned to BigDaMa/raha revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c` for hospital, flights; dirty/clean SHA-256s are recorded in the JSON metadata.
 <!-- BENCH:END -->
 
 ## Core flow

@@ -7,6 +7,11 @@ auditable data-quality repair system. The core package is
 kept separate from playground, training, and model-demo surfaces so the CLI can
 remain installable without web or model dependencies.
 
+The purpose, philosophy, first principles, honesty doctrine, vision, and mission
+this architecture serves are stated canonically in [PRODUCT.md](PRODUCT.md). This
+document describes *how* the system upholds that constitution; PRODUCT.md is the
+authority on *why*.
+
 ```mermaid
 flowchart LR
     A["CSV/table store + optional schema"] --> B["Detectors"]
@@ -42,7 +47,15 @@ flowchart LR
   classes are detection-only and surfaced for review rather than guessed.
 - **Calibration**: `dataforge.calibration` maps a proposal's confidence to an
   auto-apply/review decision via thresholds fit to a target precision, so breadth
-  never lowers auto-apply precision below the bar.
+  never lowers auto-apply precision below the bar. `dataforge.calibration_map`
+  adds a post-hoc, monotone probability map (isotonic via pool-adjacent-violators,
+  or Platt) fit per issue type on a calibration split, so a reported confidence
+  reads as an honest probability (measured ECE 0.8533 -> 0.0 on real corrector
+  samples). Because it is monotone it fixes calibration without changing the
+  conformal-certifiable ranking. `dataforge.conformal` certifies each class's
+  auto-apply threshold distribution-free and a Population Stability Index monitor
+  downgrades auto-apply to review under drift; the calibrated score, the drift
+  guard, and the certified threshold are combined in the engine's auto-apply gate.
 - **Repairers**: deterministic proposal generators for shipped detector
   families. Optional LLM fallback remains explicit and is not part of the
   default write path.

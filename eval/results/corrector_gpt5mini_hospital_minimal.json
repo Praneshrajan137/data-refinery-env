@@ -11,9 +11,9 @@
     "seed_list": [
       0
     ],
-    "git_commit": "a5f3877e2c1f1f38ac05704153c75f2cf4d5acf1",
+    "git_commit": "db0ae83227dc2ed6fed22039ff6c5c553c97db08",
     "git_dirty": true,
-    "generated_at_utc": "2026-07-08T08:07:32+00:00",
+    "generated_at_utc": "2026-07-18T08:24:16+00:00",
     "python_version": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
     "dependency_versions": {
@@ -24,8 +24,8 @@
       "python-dotenv": "1.2.2",
       "typer": "0.24.1"
     },
-    "generator_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
-    "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+    "generator_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1 --seed-list 0",
+    "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1 --seed-list 0",
     "dataset_evidence": [
       {
         "name": "hospital",
@@ -52,25 +52,25 @@
       "seed": 0,
       "status": "ok",
       "skip_reason": null,
-      "precision": 0.037,
+      "precision": 0.0588,
       "recall": 0.0059,
-      "f1": 0.0102,
+      "f1": 0.0107,
       "tp": 3,
-      "fp": 78,
+      "fp": 48,
       "fn": 506,
-      "avg_steps": 360.0,
-      "llm_calls": 360,
-      "prompt_tokens": 125445,
-      "completion_tokens": 5181,
-      "quota_units": 1.3063,
+      "avg_steps": 240.0,
+      "llm_calls": 240,
+      "prompt_tokens": 82905,
+      "completion_tokens": 3421,
+      "quota_units": 0.8633,
       "gpu_hours": 0.0,
-      "runtime_s": 643.4721,
+      "runtime_s": 555.9654,
       "provider": "azure",
       "model": "gpt-5-mini",
       "warnings": [
-        "corrector_sampled_120_of_10372"
+        "corrector_sampled_80_of_10372"
       ],
-      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1",
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1 --seed-list 0",
       "by_class": {
         "value_format": {
           "error_class": "value_format",
@@ -106,9 +106,9 @@
           "precision_on_class": 0.0
         }
       },
-      "ece": 0.8436,
-      "precision_at_auto_apply": 0.0508,
-      "auto_apply_count": 59,
+      "ece": 0.7974,
+      "precision_at_auto_apply": 0.0811,
+      "auto_apply_count": 37,
       "calibration_samples_by_class": {
         "other": [
           [
@@ -120,11 +120,7 @@
             false
           ],
           [
-            1.0,
-            false
-          ],
-          [
-            1.0,
+            0.6666666666666666,
             false
           ],
           [
@@ -144,31 +140,7 @@
             false
           ],
           [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
             0.6666666666666666,
-            false
-          ],
-          [
-            0.6666666666666666,
-            false
-          ],
-          [
-            0.6666666666666666,
-            false
-          ],
-          [
-            0.6666666666666666,
-            false
-          ],
-          [
-            1.0,
             false
           ],
           [
@@ -188,11 +160,11 @@
             false
           ],
           [
-            0.6666666666666666,
+            1.0,
             false
           ],
           [
-            0.6666666666666666,
+            1.0,
             false
           ],
           [
@@ -224,46 +196,10 @@
             false
           ],
           [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
             0.3333333333333333,
             false
           ],
           [
-            0.6666666666666666,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
             1.0,
             false
           ],
@@ -288,27 +224,7 @@
             false
           ],
           [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
             0.6666666666666666,
-            false
-          ],
-          [
-            0.6666666666666666,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
             false
           ],
           [
@@ -352,39 +268,15 @@
             false
           ],
           [
-            1.0,
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.3333333333333333,
             false
           ],
           [
             1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            0.6666666666666666,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            0.6666666666666666,
-            false
-          ],
-          [
-            0.6666666666666666,
             false
           ],
           [
@@ -409,18 +301,6 @@
           ],
           [
             0.6666666666666666,
-            false
-          ],
-          [
-            0.3333333333333333,
-            false
-          ],
-          [
-            1.0,
-            false
-          ],
-          [
-            1.0,
             false
           ]
         ],
@@ -438,6 +318,216 @@
             true
           ]
         ]
+      },
+      "calibration_samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ]
+        ],
+        "format_violation": [
+          [
+            1.0,
+            false
+          ]
+        ]
       }
     }
   ],
@@ -449,23 +539,23 @@
       "skip_reason": null,
       "seeds_requested": 1,
       "seeds_completed": 1,
-      "precision_mean": 0.037,
+      "precision_mean": 0.0588,
       "precision_std": 0.0,
       "recall_mean": 0.0059,
       "recall_std": 0.0,
-      "f1_mean": 0.0102,
+      "f1_mean": 0.0107,
       "f1_std": 0.0,
-      "avg_steps_mean": 360.0,
+      "avg_steps_mean": 240.0,
       "avg_steps_std": 0.0,
-      "quota_units_mean": 1.3063,
+      "quota_units_mean": 0.8633,
       "quota_units_std": 0.0,
       "gpu_hours_mean": 0.0,
       "gpu_hours_std": 0.0,
-      "runtime_s_mean": 643.4721,
+      "runtime_s_mean": 555.9654,
       "runtime_s_std": 0.0,
       "provider": "azure",
       "model": "gpt-5-mini",
-      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1"
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 1 --seed-list 0"
     }
   ]
 }

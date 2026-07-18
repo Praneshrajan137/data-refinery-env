@@ -6,8 +6,8 @@ and writes a committed artifact JSON plus a human-readable methods note.
 
 Example:
     python scripts/bench/certified_coverage_report.py \
-        --run minimal=eval/results/corrector_gpt5mini_hospital_min.json \
-        --run medium=eval/results/corrector_gpt5mini_hospital_med.json \
+        --run minimal=eval/results/corrector_gpt5mini_hospital_minimal.json \
+        --run medium=eval/results/corrector_gpt5mini_hospital_medium.json \
         --out-json eval/results/selective_repair_calibration.json \
         --out-md docs/selective-repair-calibration.md
 

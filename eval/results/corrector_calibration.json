@@ -1,0 +1,164 @@
+{
+  "provenance": {
+    "source_json": "eval\\results\\corrector_gpt5mini_hospital_minimal.json",
+    "model": "gpt-5-mini",
+    "generated_at_utc": "2026-07-18T08:25:43+00:00",
+    "n_samples_by_class": {
+      "other": 48,
+      "text_normalization": 3
+    },
+    "n_samples_by_type": {
+      "fd_violation": 50,
+      "format_violation": 1
+    }
+  },
+  "ece_report": {
+    "method": "isotonic",
+    "seed": 0,
+    "calib_fraction": 0.5,
+    "alpha": 0.05,
+    "delta": 0.05,
+    "min_support": 30,
+    "overall_ece_before": 0.8533,
+    "overall_ece_after": 0.0,
+    "certified_coverage_before": 0.0,
+    "certified_coverage_after": 0.0,
+    "per_class": {
+      "other": {
+        "test_n": 24,
+        "ece_before": 0.8889,
+        "ece_after": 0.0,
+        "calibration_method": "isotonic"
+      },
+      "text_normalization": {
+        "test_n": 1,
+        "ece_before": 0.0,
+        "ece_after": 0.0,
+        "calibration_method": "isotonic"
+      }
+    },
+    "maps": {
+      "other": {
+        "method": "isotonic",
+        "x_knots": [
+          0.3333333333333333,
+          0.6666666666666666,
+          1.0
+        ],
+        "y_knots": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "a": 0.0,
+        "b": 0.0
+      },
+      "text_normalization": {
+        "method": "isotonic",
+        "x_knots": [
+          1.0
+        ],
+        "y_knots": [
+          1.0
+        ],
+        "a": 0.0,
+        "b": 0.0
+      }
+    },
+    "note": "Post-hoc calibration lowers ECE (honest probabilities) but is monotone, so it does not change conformal-certifiable auto-apply coverage; both are shown."
+  },
+  "policy": {
+    "target_precision": 0.95,
+    "auto_apply_thresholds": {
+      "fd_violation": 1.01,
+      "format_violation": 1.01
+    },
+    "default_threshold": 1.01,
+    "uncertified_classes": {
+      "fd_violation": "precision_below_target: n=50 but Clopper-Pearson upper error 0.983 > alpha 0.05 (corrector too imprecise; need >= 59 all-correct at threshold)",
+      "format_violation": "insufficient_support: n=1 < min_support=30 (need >= 59 all-correct accepted samples to certify 95%)"
+    }
+  },
+  "maps": {
+    "fd_violation": {
+      "method": "isotonic",
+      "x_knots": [
+        0.3333333333333333,
+        0.6666666666666666,
+        1.0
+      ],
+      "y_knots": [
+        0.0,
+        0.0,
+        0.08333333333333333
+      ],
+      "a": 0.0,
+      "b": 0.0
+    },
+    "format_violation": {
+      "method": "identity",
+      "x_knots": [],
+      "y_knots": [],
+      "a": 0.0,
+      "b": 0.0
+    }
+  },
+  "reference_confidences": {
+    "fd_violation": [
+      1.0,
+      0.6666666666666666,
+      0.3333333333333333,
+      1.0,
+      0.3333333333333333,
+      1.0,
+      1.0,
+      0.6666666666666666,
+      0.6666666666666666,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.3333333333333333,
+      1.0,
+      0.3333333333333333,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.6666666666666666,
+      0.6666666666666666,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.3333333333333333,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.3333333333333333,
+      0.3333333333333333,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      0.3333333333333333,
+      1.0,
+      0.6666666666666666
+    ],
+    "format_violation": [
+      1.0
+    ]
+  },
+  "note": "policy + maps are keyed by issue_type for the engine auto-apply gate; reference_confidences are the raw calibration-split confidences the policy was fit on, used by the engine PSI drift guard to downgrade auto-apply when the live distribution drifts; ece_report demonstrates the ECE-wall break on the ground-truth-class split."
+}

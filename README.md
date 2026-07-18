@@ -194,14 +194,46 @@ with a methods note at
 [`docs/selective-repair-calibration.md`](docs/selective-repair-calibration.md).
 
 Measured on Azure `gpt-5-mini` (hospital), the dominant error class reaches
-adequate support (n=78, above the 30-sample floor), so the result is not a
+adequate support (n=48, above the 30-sample floor), so the result is not a
 small-sample artifact: certified auto-apply coverage is 0.0 at every tested
-error budget from 1% to 20%, AURC is ~0.95 (no safe operating point), and across
+error budget from 1% to 20%, AURC is ~0.92 (no safe operating point), and across
 200 random splits the gate never once auto-applied a wrong fix. Raising the
-model's reasoning effort from minimal to medium does not help (ECE 0.84 vs 0.89),
+model's reasoning effort from minimal to medium does not help (ECE 0.80 vs 0.87),
 confirming that calibration - not capability or effort - is the binding
 constraint. Propose-not-apply is therefore the provably correct policy, by
 measurement rather than by assertion.
+
+#### Post-hoc calibration and safe calibrated auto-apply
+
+Calibration is treated as its own problem, separately from capability.
+[`dataforge/calibration_map.py`](dataforge/calibration_map.py) fits a post-hoc,
+monotone probability map per issue type (isotonic via pool-adjacent-violators, or
+Platt), so a reported confidence reads as an honest probability. On the real
+Azure `gpt-5-mini` samples the Expected Calibration Error drops from **0.8533 to
+0.0** on a disjoint test split of **n=25**
+([`eval/results/corrector_calibration.json`](eval/results/corrector_calibration.json)).
+Read that number honestly: the corrector is only ~6% precise here, so isotonic
+collapses its confidence toward 0 - which is *trivially* well-calibrated (a
+proposer that is almost always wrong, now saying so). It proves the confidence is
+honest, not that the corrector improved. The map is monotone, so it preserves
+proposal ranking and therefore does **not** change conformal-certifiable
+auto-apply coverage (it stays 0.0). Calibration fixes honesty, not accuracy.
+
+The calibrated score is wired into the auto-apply gate end to end. Under an
+authoritative schema, an LLM correction auto-applies only when it clears every
+gate in order: differential SMT acceptance, a Population Stability Index drift
+check against the calibration reference (a shifted live distribution downgrades
+the policy to propose-not-apply, so the certificate is never claimed outside its
+scope), and a certified per-issue-type threshold on the calibrated confidence.
+Pass a certified artifact with `dataforge repair --allow-llm --schema ...
+--corrector-calibration <artifact.json>`; without it every LLM correction stays
+propose-not-apply. With only 50 labelled fd_violation outcomes at ~6% precision, the
+conformal procedure **cannot certify any threshold** at 95%/delta=0.05, so every issue type
+falls back to a disabled `1.01` sentinel - recorded with its reason in the
+artifact's `uncertified_classes`, not left as a magic number. Certifying even a
+perfect corrector would need >= 59 all-correct accepted samples. Nothing
+auto-applies today; the wiring lets a genuinely precise, sufficiently-sampled
+future model apply safely, and never manufactures coverage from a weak one.
 
 ### Bring your own model
 
@@ -473,12 +505,12 @@ backend provider key is explicitly configured.
 ## Benchmark Results
 
 <!-- BENCH:START -->
-Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `38ce0ca509ca`, dirty `true`).
+Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `236df758dbdd`, dirty `true`).
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3185 | 0.3025 | 0.2772 | 371.33 | 0.0000 | 0.0000 |
-| random | 0.0038 | 0.0003 | 0.0005 | 150.33 | 0.0000 | 0.0000 |
+| heuristic | 0.3585 | 0.4430 | 0.3963 | 361.50 | 0.0000 | 0.0000 |
+| random | 0.0057 | 0.0004 | 0.0008 | 125.50 | 0.0000 | 0.0000 |
 
 See `BENCHMARK_REPORT.md` for per-dataset tables, error bars, and citation-only SOTA rows.
 
@@ -578,6 +610,7 @@ runs, and training/evaluation research.
 
 ## Repository Docs
 
+- [PRODUCT.md](PRODUCT.md) - the product constitution (purpose, philosophy, principles, vision, mission); the canonical source other docs defer to
 - [.cursor/rules/dataforge.md](.cursor/rules/dataforge.md) - always-applied contribution rules
 - [ARCHITECTURE.md](ARCHITECTURE.md) - current system architecture and dependencies
 - [DECISIONS.md](DECISIONS.md) - technical decision log

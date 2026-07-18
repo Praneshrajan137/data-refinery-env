@@ -1,0 +1,1 @@
+{"confidences": [null, null, null], "issue_type": "fd_violation", "model": "gpt-5-mini", "raw_samples": ["acute care hospitaxs", "acute care hospitals", "acute care hospital"], "values": ["acute care hospitaxs", "acute care hospitals", "acute care hospital"]}
