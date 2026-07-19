@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from dataforge.engine.repair import (
         CandidateFix,
         CandidateRepair,
+        ExternalFix,
         ProofObligation,
         RepairFailure,
         RepairPipelineRequest,
@@ -23,7 +24,9 @@ if TYPE_CHECKING:
         RepairReceipt,
         RootCause,
         VerifiedFix,
+        VerifyAndApplyRequest,
         run_repair_pipeline,
+        verify_and_apply,
     )
     from dataforge.integrations.dbt import schema_from_dbt_artifacts, schema_from_dbt_manifest
     from dataforge.repair_contract import CONTRACT_VERSION
@@ -71,6 +74,7 @@ __all__ = [
     "CandidateFix",
     "CandidateRepair",
     "CellFix",
+    "ExternalFix",
     "ConstraintCandidate",
     "ConstraintReviewArtifact",
     "ConstraintReviewError",
@@ -104,7 +108,9 @@ __all__ = [
     "VerificationResult",
     "VerificationVerdict",
     "VerifiedFix",
+    "VerifyAndApplyRequest",
     "__version__",
+    "verify_and_apply",
     "load_schema",
     "build_constraint_review_artifact",
     "constraint_ir_from_schema",
@@ -131,6 +137,7 @@ _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "CandidateFix": ("dataforge.engine.repair", "CandidateFix"),
     "CandidateRepair": ("dataforge.engine.repair", "CandidateRepair"),
     "CellFix": ("dataforge.transactions.txn", "CellFix"),
+    "ExternalFix": ("dataforge.engine.repair", "ExternalFix"),
     "ConstraintCandidate": ("dataforge.schema_inference", "ConstraintCandidate"),
     "ConstraintReviewArtifact": ("dataforge.schema_inference", "ConstraintReviewArtifact"),
     "ConstraintReviewError": ("dataforge.schema_inference", "ConstraintReviewError"),
@@ -164,6 +171,8 @@ _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "VerificationResult": ("dataforge.verifier", "VerificationResult"),
     "VerificationVerdict": ("dataforge.verifier", "VerificationVerdict"),
     "VerifiedFix": ("dataforge.engine.repair", "VerifiedFix"),
+    "VerifyAndApplyRequest": ("dataforge.engine.repair", "VerifyAndApplyRequest"),
+    "verify_and_apply": ("dataforge.engine.repair", "verify_and_apply"),
     "load_schema": ("dataforge.cli.common", "load_schema"),
     "build_constraint_review_artifact": (
         "dataforge.schema_inference",

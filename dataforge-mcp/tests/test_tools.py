@@ -13,6 +13,7 @@ from dataforge_mcp.tools import (
     dataforge_detect_errors,
     dataforge_profile,
     dataforge_revert,
+    dataforge_verify_and_apply,
     dataforge_verify_fix,
 )
 
@@ -62,6 +63,7 @@ class TestDataForgeMcpTools:
             "dataforge_detect_errors",
             "dataforge_verify_fix",
             "dataforge_apply_repairs",
+            "dataforge_verify_and_apply",
             "dataforge_agent_repair",
             "dataforge_revert",
         }
@@ -191,6 +193,72 @@ class TestDataForgeMcpTools:
 
         with pytest.raises(ValueError, match="mode must be"):
             dataforge_apply_repairs(str(csv_path), "mutate")  # type: ignore[arg-type]
+
+    def test_verify_and_apply_schema_proven_applies(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        schema_path = tmp_path / "schema.json"
+        schema_path.write_text('{"columns": {"id": "str", "amount": "float"}}', encoding="utf-8")
+
+        receipt = dataforge_verify_and_apply(
+            str(csv_path),
+            [{"row": 3, "column": "amount", "new_value": "102", "expected_old_value": "1020"}],
+            mode="apply",
+            schema_path=str(schema_path),
+            confirm=True,
+            proposer="agent-x",
+        )
+        assert receipt.schema_version == "repair_receipt_v1"
+        assert receipt.applied is True
+        assert receipt.txn_id is not None
+        assert receipt.reversible is True
+        assert receipt.proposer == "agent-x"
+        assert [(f.row, f.column, f.new_value) for f in receipt.applied_fixes] == [
+            (3, "amount", "102")
+        ]
+
+    def test_verify_and_apply_holds_without_schema(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        original = csv_path.read_bytes()
+
+        receipt = dataforge_verify_and_apply(
+            str(csv_path),
+            [{"row": 3, "column": "amount", "new_value": "102"}],
+            mode="apply",
+            confirm=True,
+        )
+        assert receipt.applied is False
+        assert csv_path.read_bytes() == original
+        assert "floor_cannot_verify" in {s.review_reason for s in receipt.suggested_fixes}
+
+    def test_verify_and_apply_compare_and_set_rejects_stale(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        schema_path = tmp_path / "schema.json"
+        schema_path.write_text('{"columns": {"id": "str", "amount": "float"}}', encoding="utf-8")
+
+        receipt = dataforge_verify_and_apply(
+            str(csv_path),
+            [{"row": 3, "column": "amount", "new_value": "102", "expected_old_value": "WRONG"}],
+            mode="apply",
+            schema_path=str(schema_path),
+            confirm=True,
+        )
+        assert receipt.applied is False
+        assert "stale_precondition" in {s.review_reason for s in receipt.suggested_fixes}
+
+    def test_verify_and_apply_requires_explicit_enablement(self, tmp_path: Path) -> None:
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        configure_mcp_security(enable_apply=False, allowed_roots=[tmp_path])
+
+        with pytest.raises(ValueError, match="apply mode is disabled"):
+            dataforge_verify_and_apply(
+                str(csv_path),
+                [{"row": 3, "column": "amount", "new_value": "102"}],
+                mode="apply",
+            )
 
     def test_revert_lookup_is_limited_to_allowed_roots(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "amounts.csv"

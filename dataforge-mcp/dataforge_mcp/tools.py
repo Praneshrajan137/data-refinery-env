@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from dataforge import (
     CONTRACT_VERSION,
     CellFix,
+    ExternalFix,
     Issue,
     ProposedFix,
     RepairPipelineRequest,
@@ -23,11 +24,13 @@ from dataforge import (
     TransactionLogError,
     VerificationVerdict,
     VerifiedFix,
+    VerifyAndApplyRequest,
     load_schema,
     read_csv,
     revert_transaction,
     run_all_detectors,
     run_repair_pipeline,
+    verify_and_apply,
 )
 
 _APPLY_ENABLED = False
@@ -369,6 +372,123 @@ def dataforge_apply_repairs(path: str, mode: Literal["dry_run", "apply"]) -> Txn
         fixes_count=receipt.fixes_count,
         reason=receipt.reason,
         fixes=[_verified_fix_to_result(fix) for fix in result.fixes],
+    )
+
+
+class SuggestedFixResult(BaseModel):
+    """A held-or-rejected external fix with an honest review reason."""
+
+    row: int
+    column: str
+    old_value: str
+    new_value: str
+    review_reason: str
+    verifier_reason: str
+
+
+class VerifyAndApplyReceipt(BaseModel):
+    """Structured receipt returned by the external verify-and-apply tool."""
+
+    path: str
+    schema_version: Literal["repair_receipt_v1"] = "repair_receipt_v1"
+    mode: Literal["dry_run", "apply"]
+    applied: bool
+    txn_id: str | None
+    reversible: bool
+    source_sha256: str
+    post_sha256: str | None = None
+    safety_verdict: str
+    verifier_verdict: str
+    revert_command: str | None = None
+    proposer: str
+    applied_fixes: list[FixResult] = Field(default_factory=list)
+    suggested_fixes: list[SuggestedFixResult] = Field(default_factory=list)
+    fixes_count: int
+    issues_count: int
+    limitations: list[str] = Field(default_factory=list)
+    reason: str
+
+
+def dataforge_verify_and_apply(
+    path: str,
+    fixes: list[dict[str, Any]],
+    mode: Literal["dry_run", "apply"] = "dry_run",
+    schema_path: str | None = None,
+    proposer: str = "external",
+    confirm: bool = False,
+    allow_unproven: bool = False,
+) -> VerifyAndApplyReceipt:
+    """Verify externally-proposed cell fixes and apply only the proven ones.
+
+    Each fix (``{"row", "column", "new_value", "expected_old_value"?}``) runs the
+    same safety constitution and prove gate as an internal repair. A fix is
+    auto-applied only when it clears the unconfirmed-write escalation (``confirm``)
+    and is proven -- verified against an authoritative ``schema_path``. Without a
+    schema, fixes are held for review unless ``allow_unproven`` is set. Every
+    applied change is reversible and certified; held/rejected fixes are returned in
+    ``suggested_fixes`` with an honest review reason. ``expected_old_value`` is an
+    optional compare-and-set precondition that rejects stale writes.
+    """
+    csv_path = _resolve_csv_path(path)
+    if mode not in {"dry_run", "apply"}:
+        raise ValueError("mode must be 'dry_run' or 'apply'.")
+    if mode == "apply" and not _apply_is_enabled():
+        raise ValueError(
+            "MCP apply mode is disabled. Start the server with --enable-apply or set "
+            "DATAFORGE_MCP_ENABLE_APPLY=1."
+        )
+    schema = _load_optional_schema(schema_path)
+    external_fixes = [
+        ExternalFix(
+            row=int(spec["row"]),
+            column=str(spec["column"]),
+            new_value=str(spec["new_value"]),
+            expected_old_value=(
+                None if spec.get("expected_old_value") is None else str(spec["expected_old_value"])
+            ),
+        )
+        for spec in fixes
+    ]
+    result = verify_and_apply(
+        VerifyAndApplyRequest(
+            source_path=csv_path,
+            fixes=external_fixes,
+            mode=mode,
+            schema=schema,
+            proposer=proposer,
+            confirm_escalations=confirm,
+            allow_unproven_autoapply=allow_unproven,
+        )
+    )
+    receipt = result.receipt
+    return VerifyAndApplyReceipt(
+        path=str(csv_path),
+        mode=mode,
+        applied=receipt.applied,
+        txn_id=receipt.txn_id,
+        reversible=receipt.reversible,
+        source_sha256=receipt.source_sha256,
+        post_sha256=receipt.post_sha256,
+        safety_verdict=receipt.safety_verdict,
+        verifier_verdict=receipt.verifier_verdict,
+        revert_command=receipt.revert_command,
+        proposer=proposer,
+        applied_fixes=[_verified_fix_to_result(fix) for fix in result.fixes],
+        suggested_fixes=[
+            SuggestedFixResult(
+                row=candidate.row,
+                column=candidate.column,
+                old_value=candidate.old_value,
+                new_value=candidate.new_value,
+                review_reason=str(candidate.review_reason),
+                verifier_reason=candidate.verifier_reason,
+            )
+            for candidate in receipt.suggested_fixes
+        ],
+        fixes_count=receipt.fixes_count,
+        issues_count=receipt.issues_count,
+        limitations=receipt.limitations,
+        reason=receipt.reason,
     )
 
 
