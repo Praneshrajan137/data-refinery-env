@@ -158,6 +158,103 @@ def test_engine_never_corrupts_data(
         assert source_a.read_bytes() == source_b.read_bytes(), "INV4 violated: non-deterministic"
 
 
+@st.composite
+def _spurious_fd_case(
+    draw: st.DrawFn,
+) -> tuple[list[str], list[dict[str, str]], list[dict[str, str]], set[tuple[int, str]]]:
+    """A table engineered to induce SPURIOUS inferred FDs (constraint circularity).
+
+    Two spurious-FD flavors are present by construction:
+    * ``txt_key`` is a NEAR-key determinant (all distinct but one duplicated pair),
+      so naive FD mining would "find" txt_key -> anything at ~1.0 confidence.
+    * ``txt_cat -> txt_dep`` holds on all rows except one legitimate exception, so
+      it mines as a >=90% FD whose majority-repair would OVERWRITE that correct
+      minority cell.
+
+    A genuine decimal-shift error is injected in ``num_0`` so the deterministic
+    auto-apply path is genuinely exercised. The invariant: the default pipeline
+    corrects only the injected cell and never touches the spurious-FD columns.
+    """
+    n_rows = draw(st.integers(min_value=8, max_value=12))
+    headers = [
+        f"{_NUMERIC_PREFIX}0",
+        f"{_TEXT_PREFIX}key",
+        f"{_TEXT_PREFIX}cat",
+        f"{_TEXT_PREFIX}dep",
+    ]
+    base = draw(st.integers(min_value=20, max_value=90))
+    clean_rows: list[dict[str, str]] = []
+    for r in range(n_rows):
+        cat = "a" if r % 2 == 0 else "b"
+        clean_rows.append(
+            {
+                f"{_NUMERIC_PREFIX}0": str(base + draw(st.integers(min_value=-4, max_value=4))),
+                f"{_TEXT_PREFIX}key": f"k{r}",
+                f"{_TEXT_PREFIX}cat": cat,
+                f"{_TEXT_PREFIX}dep": "x" if cat == "a" else "y",
+            }
+        )
+    # Near-key: duplicate one key so the determinant is near-unique, not a pure key
+    # (a pure key is skipped by the miner; a near-key is exactly the spurious case).
+    clean_rows[1][f"{_TEXT_PREFIX}key"] = clean_rows[0][f"{_TEXT_PREFIX}key"]
+    # One LEGITIMATE exception to cat->dep: a correct cell a majority-repair would wreck.
+    exception_row = draw(st.integers(min_value=0, max_value=n_rows - 1))
+    current = clean_rows[exception_row][f"{_TEXT_PREFIX}dep"]
+    clean_rows[exception_row][f"{_TEXT_PREFIX}dep"] = "y" if current == "x" else "x"
+
+    dirty_rows = [dict(row) for row in clean_rows]
+    inject_row = draw(st.integers(min_value=0, max_value=n_rows - 1))
+    factor = draw(st.sampled_from([10, 100]))
+    dirty_rows[inject_row][f"{_NUMERIC_PREFIX}0"] = str(
+        int(clean_rows[inject_row][f"{_NUMERIC_PREFIX}0"]) * factor
+    )
+    injected = {(inject_row, f"{_NUMERIC_PREFIX}0")}
+    return headers, clean_rows, dirty_rows, injected
+
+
+@settings(max_examples=60, suppress_health_check=[HealthCheck.too_slow], deadline=None)
+@given(_spurious_fd_case())
+def test_engine_never_corrupts_via_spurious_fd(
+    case: tuple[list[str], list[dict[str, str]], list[dict[str, str]], set[tuple[int, str]]],
+) -> None:
+    """Constraint-circularity guard: spurious inferred FDs never corrupt.
+
+    The default pipeline does not treat inferred FDs as authoritative (they are
+    pending until reviewed), so a near-key determinant or a >=90% categorical
+    coincidence must NEVER trigger an overwrite of a correct cell. Only the
+    injected decimal-shift error may change, and only to ground truth.
+    """
+    headers, clean_rows, dirty_rows, injected = case
+    dirty_bytes = _to_csv_bytes(headers, dirty_rows)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        source = temp_path / "data.csv"
+        source.write_bytes(dirty_bytes)
+
+        result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="apply"))
+        applied_rows = _read_rows(source)
+
+        for r, row in enumerate(applied_rows):
+            for header in headers:
+                applied = row[header]
+                clean = clean_rows[r][header]
+                dirty = dirty_rows[r][header]
+                if (r, header) not in injected:
+                    assert _values_equal(header, applied, dirty), (
+                        f"INV1 (spurious-FD) violated: correct cell ({r},{header}) "
+                        f"{dirty!r} -> {applied!r} (a spurious inferred FD corrupted it)"
+                    )
+                else:
+                    assert _values_equal(header, applied, clean) or _values_equal(
+                        header, applied, dirty
+                    ), f"INV2 violated: dirty cell ({r},{header}) became {applied!r}"
+
+        if result.receipt.txn_id is not None:
+            revert_transaction(result.receipt.txn_id, search_root=temp_path)
+            assert source.read_bytes() == dirty_bytes, "INV3 violated: revert not byte-identical"
+
+
 def _fake_complete(value: str) -> Callable[..., Awaitable[str]]:
     async def _complete(messages: object, *, model: str, temperature: float) -> str:
         return value
