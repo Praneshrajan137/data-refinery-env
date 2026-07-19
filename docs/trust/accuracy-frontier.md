@@ -69,27 +69,36 @@ Every cell error falls into one of four honest classes:
   is reported as sampled). Artifact:
   [`eval/results/heuristic_tax_sampled.json`](../../eval/results/heuristic_tax_sampled.json),
   reproduce with `python scripts/bench/measure_sampled.py --dataset tax --max-rows 3000`.
-  Result: **correction F1 = 0.0000** (tp=0, fp=708, fn=1812); detection recall
-  `numeric` 0.14, `value_format` 0.09, `text_normalization` 0.46.
-- **Read the 708 false positives correctly (this is a measurement-mode artifact,
+  Result: **correction F1 = 0.0000** (tp=0, fp=696, fn=1812); detection recall
+  `numeric` 0.14, `value_format` 0.00, `text_normalization` 0.46.
+- **Read the false positives correctly (this is a measurement-mode artifact,
   NOT product behavior).** The bench measures capability with
   `include_inferred_constraints=True`, which treats every mined FD as authoritative.
   The **product apply path never does this**: inferred FDs are `pending` until
   explicitly reviewed, and the `fd_violation` detector fires only on schema-declared
   FDs, so on tax with no schema the product proposes **zero** FD corrections and
-  auto-applies **none** of the 708. The `include_inferred_constraints` setting
+  auto-applies **none** of them. The `include_inferred_constraints` setting
   exists only in `dataforge/bench/methods.py`. The corruption oracle now proves
   this default-path safety on spurious-FD tables
   (`tests/property/test_no_corruption_invariant.py::test_engine_never_corrupts_via_spurious_fd`).
-  The 708 are driven by spurious inferred FDs (near-key determinants like `zip`
-  vacuously "determining" `salary`; low-cardinality coincidences like
-  `f_name -> gender` whose majority-repair overwrites legitimate variation) — see
-  [constraint-circularity.md](constraint-circularity.md).
+- **The measured limit of mining (an important, honest negative result).** The
+  near-key + minimum-support guards (see [constraint-circularity.md](constraint-circularity.md))
+  removed the vacuous near-key FDs (`zip` "determining" `salary`), but the FP count
+  fell only from **708 to 696**: the bulk of tax's false positives come from
+  *low-cardinality coincidental* approximate FDs (e.g. `f_name -> gender` holding
+  >=90%), whose majority-repair overwrites legitimate variation. These are
+  **in-table indistinguishable** from genuine approximate FDs: hospital's real
+  `zip -> city` and tax's coincidental `f_name -> gender` both hold at ~0.9-1.0 with
+  some violations; hospital's violations are *errors to fix*, tax's are *legitimate
+  variation to keep*, and no in-table signal separates them. You cannot mine your
+  way out of this. The defense is therefore architectural, not a better threshold:
+  inferred FDs stay pending-by-default, and an accepted-*inferred* FD does not
+  confer auto-apply under `require_declared_fds_for_autoapply` (see DECISIONS).
 - **Consequence:** tax remains a **NON-VIABLE auto-apply target** when inferred
   FDs are used as authoritative, so **no floor is seeded** (a floor would be
   fabrication) and tax must never be auto-applied on inferred constraints. The one
-  real residual surface is a user *accepting* a spurious mined FD; the root-cause
-  mining fix (near-key + minimum-support guards) plus informed review close it. A
+  real residual surface is a user *accepting* a coincidental mined FD; the mining
+  guards + informed evidence + the declared-FD-only opt-in close it. A
   real tax correction win would require (a) exact-FD / denial-constraint mining,
   (b) precision-controlled detection, and (c) a sampled measurement clearing a
   precision bar — in that order.
