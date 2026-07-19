@@ -31,7 +31,14 @@ from pathlib import Path
 from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.certificate import reverify_certificate, verify_certificate
 from dataforge.cli.common import load_schema
-from dataforge.engine.repair import RepairPipelineRequest, RepairReceipt, run_repair_pipeline
+from dataforge.engine.repair import (
+    ExternalFix,
+    RepairPipelineRequest,
+    RepairReceipt,
+    VerifyAndApplyRequest,
+    run_repair_pipeline,
+    verify_and_apply,
+)
 from dataforge.transactions.revert import revert_transaction
 
 DATAFORGE_PKG = Path(__file__).resolve().parents[2] / "dataforge"
@@ -181,3 +188,30 @@ def test_agent_and_pipeline_certificates_share_one_schema(tmp_path: Path) -> Non
     ).to_receipt()
     assert pipeline.schema_version == agent.schema_version == "repair_receipt_v1"
     assert set(pipeline.model_dump().keys()) == set(agent.model_dump().keys())
+
+
+def test_verify_and_apply_shares_one_certificate(tmp_path: Path) -> None:
+    """The external-fix entry emits the SAME repair_receipt_v1, and it verifies.
+
+    verify_and_apply routes writes through the allowlisted engine apply path (so
+    the no-parallel-write-path guard already covers it) and must produce the same
+    certificate any other surface does.
+    """
+    csv, schema = _decimal_shift_case(tmp_path)
+    pipeline = run_repair_pipeline(
+        RepairPipelineRequest(source_path=csv, mode="dry_run", schema=schema)
+    ).receipt
+    external = verify_and_apply(
+        VerifyAndApplyRequest(
+            source_path=csv,
+            fixes=[ExternalFix(row=3, column="amount", new_value="102", expected_old_value="1020")],
+            mode="apply",
+            schema=schema,
+            confirm_escalations=True,
+        )
+    ).receipt
+    assert external.schema_version == pipeline.schema_version == "repair_receipt_v1"
+    assert set(external.model_dump().keys()) == set(pipeline.model_dump().keys())
+    assert external.applied is True
+    verification = verify_certificate(external.model_dump(mode="json"), data_bytes=csv.read_bytes())
+    assert verification.ok, [c for c in verification.checks if not c.ok]
