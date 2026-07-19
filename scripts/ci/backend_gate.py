@@ -238,6 +238,19 @@ def _pip_audit_exception_check() -> bool:
     return True
 
 
+def _corrector_promotion_gate() -> bool:
+    """Enforce that no LLM corrector class auto-applies without committed evidence."""
+    print("\n==> corrector auto-apply promotion gate")
+    from dataforge.release.corrector_gate import check_corrector_release_gate
+
+    result = check_corrector_release_gate()
+    if result.passed:
+        print(f"PASS corrector promotion gate: {result.reason}")
+        return True
+    print(f"FAIL corrector promotion gate: {result.reason}")
+    return False
+
+
 def _clean_package_artifacts() -> None:
     """Remove generated package metadata before release builds."""
 
@@ -380,6 +393,7 @@ def main() -> int:
     checks: list[bool] = [
         _coverage_policy_check(),
         _pip_audit_exception_check(),
+        _corrector_promotion_gate(),
         _run("ruff check", [PYTHON, "-m", "ruff", "check", *PYTHON_PATHS]),
         _run("ruff format --check", [PYTHON, "-m", "ruff", "format", "--check", *PYTHON_PATHS]),
         _run("strict mypy", [PYTHON, "-m", "mypy", "--strict", *MYPY_PATHS]),
