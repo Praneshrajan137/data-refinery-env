@@ -2,8 +2,26 @@
 
 Enforces the product invariant that every surface (CLI, MCP, verified agent,
 playground) shares ONE write primitive and produces ONE self-verifying trust
-certificate. A new surface that introduces a parallel write path, or an agent
-result that cannot be verified as a ``repair_receipt_v1``, fails here.
+certificate.
+
+Scope, stated honestly (this is a defense-in-depth pair, not one silver bullet):
+
+* ``test_single_write_primitive_is_defined_once`` + ``test_no_new_apply_transaction_caller``
+  are STATIC guards: they prove the journaled-write primitive is defined once and
+  is only *called* from a reviewed allowlist. They do NOT, by themselves, prove a
+  surface cannot mutate data by some OTHER mechanism (e.g. a raw ``to_csv``); a
+  determined new write path via a different call would slip past a string scan.
+* The RUNTIME no-corruption / reversibility guarantee is enforced elsewhere and
+  is the real safety net: ``tests/property/test_no_corruption_invariant.py`` (a
+  correct cell is never changed; nothing unverified is auto-applied) and
+  ``tests/property/test_revert_is_bytes_identical.py`` (every applied change is
+  byte-for-byte reversible). ``test_pipeline_writes_are_journaled_and_reversible``
+  below ties that to this file: an applied repair is journaled and reverts exactly.
+
+Together the static allowlist (catches the easy regression: a new
+``apply_transaction`` caller) and the runtime invariants (catch the hard one:
+corruption/irreversibility regardless of mechanism) give the guarantee; neither
+alone is claimed to be complete.
 """
 
 from __future__ import annotations
@@ -14,6 +32,7 @@ from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.certificate import reverify_certificate, verify_certificate
 from dataforge.cli.common import load_schema
 from dataforge.engine.repair import RepairPipelineRequest, RepairReceipt, run_repair_pipeline
+from dataforge.transactions.revert import revert_transaction
 
 DATAFORGE_PKG = Path(__file__).resolve().parents[2] / "dataforge"
 
@@ -57,8 +76,14 @@ def test_single_write_primitive_is_defined_once() -> None:
     )
 
 
-def test_no_surface_introduces_a_parallel_write_path() -> None:
-    """Every caller of the write primitive is on the reviewed allowlist."""
+def test_no_new_apply_transaction_caller() -> None:
+    """STATIC guard: every caller of the journaled-write primitive is allowlisted.
+
+    This catches the common regression -- a new surface calling ``apply_transaction``
+    directly. It is a string scan, so it does NOT prove a surface cannot write by
+    another mechanism; the runtime no-corruption/reversibility invariants (see the
+    module docstring) are what guarantee safety regardless of mechanism.
+    """
     callers: set[str] = set()
     for path in DATAFORGE_PKG.rglob("*.py"):
         rel = path.relative_to(DATAFORGE_PKG).as_posix()
@@ -75,6 +100,25 @@ def test_no_surface_introduces_a_parallel_write_path() -> None:
         f"(possible parallel write path): {sorted(unexpected)}. If intentional, add "
         "to _WRITE_CALLER_ALLOWLIST and confirm it routes through apply_transaction."
     )
+
+
+def test_pipeline_writes_are_journaled_and_reversible(tmp_path: Path) -> None:
+    """RUNTIME guard: an applied repair is journaled and reverts byte-for-byte.
+
+    Proves the sanctioned write path actually goes through the transaction journal
+    (a txn id is issued) and is exactly reversible -- the real safety property, not
+    just that a specific function name was called.
+    """
+    csv, schema = _decimal_shift_case(tmp_path)
+    before = csv.read_bytes()
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=csv, mode="apply", schema=schema)
+    )
+    assert result.receipt.applied is True
+    assert result.receipt.txn_id, "an applied write must carry a journal transaction id"
+    assert csv.read_bytes() != before, "the apply must actually mutate the file"
+    revert_transaction(result.receipt.txn_id, search_root=tmp_path)
+    assert csv.read_bytes() == before, "the journaled write must revert byte-for-byte"
 
 
 def test_pipeline_receipt_is_a_verifiable_certificate(tmp_path: Path) -> None:
