@@ -548,8 +548,27 @@ def _unique_candidate(column: str, values: list[str]) -> ConstraintCandidate | N
     )
 
 
+# FD-mining anti-spurious guards (see docs/trust/constraint-circularity.md).
+# A determinant at/above this distinct-value fraction is a near-(super)key that
+# vacuously determines any attribute, so it is rejected.
+_MAX_DETERMINANT_UNIQUE_FRACTION = 0.9
+# A genuine FD needs repeated determinant values as evidence; require at least
+# this many determinant groups with >= 2 rows before emitting a candidate.
+_MIN_FD_SUPPORT_GROUPS = 2
+
+
 def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandidate]:
-    """Infer single-column functional dependencies with violation tolerance."""
+    """Infer single-column functional dependencies with violation tolerance.
+
+    Guards against spurious FDs (constraint circularity): a near-(super)key
+    determinant trivially "determines" any attribute because almost every group
+    has one row, and a coincidence on singleton groups is not evidence of a real
+    dependency. We therefore reject determinants whose distinct-value fraction is
+    at/above ``_MAX_DETERMINANT_UNIQUE_FRACTION`` (near-key) and require at least
+    ``_MIN_FD_SUPPORT_GROUPS`` determinant groups with repeated values (genuine
+    repeated evidence). The emitted evidence reports support and informativeness so
+    any acceptance decision is informed, not blind. See docs/trust/constraint-circularity.md.
+    """
     total_rows = row_count(table)
     if total_rows < 5:
         return []
@@ -561,7 +580,12 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
         if len(determinant_values) != total_rows:
             continue
         determinant_unique = len(set(determinant_values))
-        if determinant_unique < 2 or determinant_unique == total_rows:
+        # Reject constant determinants and near-(super)keys: a determinant that is
+        # (almost) unique per row vacuously determines everything.
+        if (
+            determinant_unique < 2
+            or determinant_unique >= total_rows * _MAX_DETERMINANT_UNIQUE_FRACTION
+        ):
             continue
 
         for dependent in columns:
@@ -573,6 +597,13 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
             groups: dict[str, list[str]] = defaultdict(list)
             for det_value, dep_value in zip(determinant_values, dependent_values, strict=True):
                 groups[det_value].append(dep_value)
+
+            # Minimum support: an FD needs repeated determinant values to be
+            # evidence. Without enough multi-row groups it is a singleton
+            # coincidence (the near-key spurious-FD case), so do not emit it.
+            multi_row_groups = sum(1 for group_values in groups.values() if len(group_values) >= 2)
+            if multi_row_groups < _MIN_FD_SUPPORT_GROUPS:
+                continue
 
             violations = 0
             for group_values in groups.values():
@@ -589,7 +620,11 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
                     confidence=confidence,
                     evidence=(
                         f"{determinant} determined {dependent} in "
-                        f"{total_rows - violations}/{total_rows} rows."
+                        f"{total_rows - violations}/{total_rows} rows "
+                        f"(support: {multi_row_groups} repeated-determinant group(s); "
+                        f"determinant distinct {determinant_unique}/{total_rows}). "
+                        f"Approximate FDs (<1.0) may overwrite legitimate variation on "
+                        f"acceptance; review support before accepting."
                     ),
                 )
             )
