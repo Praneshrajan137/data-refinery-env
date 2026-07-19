@@ -181,6 +181,7 @@ training/evaluation work. Choosing the honest scope is part of the doctrine.
 - System design and the safety invariant in depth:
   [ARCHITECTURE.md](ARCHITECTURE.md).
 - Decision history and rationale: [DECISIONS.md](DECISIONS.md).
+- Product center of gravity (verification-layer-first, staged): [docs/STRATEGY.md](docs/STRATEGY.md).
 - Agent-session gotchas and conventions: [CLAUDE.md](CLAUDE.md).
 - The external "full original vision" gate: `dataforge release full-vision`
   and [docs/docs/full-vision.md](docs/docs/full-vision.md); the honest,
