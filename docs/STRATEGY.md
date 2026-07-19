@@ -33,6 +33,11 @@ on "nothing incorrect is ever silently written, and you can prove it" competes o
 its strongest — and that guarantee is exactly what the emerging market of
 autonomous data agents lacks.
 
+The guarantee must hold against untrustworthy *structure*, not only untrustworthy
+*fix sources*. DataForge does not blindly trust the constraints it infers about
+the data itself: see [trust/constraint-circularity.md](trust/constraint-circularity.md)
+for the named risk, the measured evidence, and the standing corruption-oracle proof.
+
 ## Who consumes the certificate (all four; staged by leverage)
 
 ```mermaid

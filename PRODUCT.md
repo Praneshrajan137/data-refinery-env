@@ -180,6 +180,9 @@ training/evaluation work. Choosing the honest scope is part of the doctrine.
   [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md), `docs/evidence/`.
 - System design and the safety invariant in depth:
   [ARCHITECTURE.md](ARCHITECTURE.md).
+- Trust properties: the accuracy frontier ([docs/trust/accuracy-frontier.md](docs/trust/accuracy-frontier.md)),
+  the inferred-guard gap registry ([docs/trust/inferred-guard-gaps.md](docs/trust/inferred-guard-gaps.md)),
+  and constraint circularity ([docs/trust/constraint-circularity.md](docs/trust/constraint-circularity.md)).
 - Decision history and rationale: [DECISIONS.md](DECISIONS.md).
 - Product center of gravity (verification-layer-first, staged): [docs/STRATEGY.md](docs/STRATEGY.md).
 - Agent-session gotchas and conventions: [CLAUDE.md](CLAUDE.md).
