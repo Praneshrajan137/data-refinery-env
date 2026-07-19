@@ -179,6 +179,7 @@ training/evaluation work. Choosing the honest scope is part of the doctrine.
 - Decision history and rationale: [DECISIONS.md](DECISIONS.md).
 - Agent-session gotchas and conventions: [CLAUDE.md](CLAUDE.md).
 - The external "full original vision" gate: `dataforge release full-vision`
-  and [docs/docs/full-vision.md](docs/docs/full-vision.md).
+  and [docs/docs/full-vision.md](docs/docs/full-vision.md); the honest,
+  dependency-ordered plan to reach it is [docs/ROADMAP_FULL_VISION.md](docs/ROADMAP_FULL_VISION.md).
 
 License: Apache-2.0.
