@@ -95,11 +95,15 @@ def _llm_live_candidate(
     schema: Schema | None,
     context: SafetyContext,
 ) -> bool:
-    """Return whether a candidate is LLM-origin and needs write confirmation.
+    """Return whether a candidate is an untrusted write needing confirmation.
 
     Both freshly generated (``llm_live``) and replayed-from-cache (``llm_cache``)
     values are LLM-origin: a cached value was still produced by a model, so it
     must clear the same unconfirmed-write escalation as a live generation.
+    ``external`` values (proposed by an outside actor via ``verify_and_apply`` --
+    an autonomous agent, another tool, or a human) are equally untrusted at the
+    point of write and clear the same escalation. The rule id remains
+    ``NO_UNCONFIRMED_LLM_WRITE`` for stability; it covers all untrusted origins.
     """
     del schema, context
     return proposed_fix.provenance.strip().lower() in {
@@ -107,6 +111,7 @@ def _llm_live_candidate(
         "llm_live",
         "live_llm",
         "llm_cache",
+        "external",
     }
 
 

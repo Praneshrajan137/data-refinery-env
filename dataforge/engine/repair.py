@@ -688,6 +688,16 @@ def propose_repairs(
 
 _LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
 
+# Untrusted provenance = an LLM-origin value OR an externally-proposed value
+# (verify_and_apply). Untrusted fixes are ``plausibility_only`` unless verified
+# against an authoritative schema, and escalate the unconfirmed-write safety rule.
+# NOTE: this is a SUPERSET of _LLM_PROVENANCE. The calibration-specific paths
+# (_calibrated_confidence, drift guard, LLM escalation, the partition's
+# "needs a calibrated threshold" branch) keep _LLM_PROVENANCE, because an external
+# fix proven against an authoritative schema auto-applies directly and does not
+# carry an LLM calibration map.
+_UNTRUSTED_PROVENANCE = frozenset({"llm_live", "llm_cache", "external"})
+
 # Detection-only issue types that carry an exact value in ``Issue.expected`` but
 # have NO registered repairer (no write path). They are surfaced as unverified
 # human-review suggestions, never auto-applied. See DateTranspositionDetector.
@@ -862,9 +872,10 @@ def _verification_strength(
 
     A fix is ``proven`` when it is deterministic (correct by construction) or was
     checked against an authoritative declared/reviewed schema. Otherwise it was
-    only checked by the advisory inferred guard -> ``plausibility_only``.
+    only checked by the advisory inferred guard -> ``plausibility_only``. Untrusted
+    origins (LLM or external) are proven only with an authoritative schema.
     """
-    if provenance not in _LLM_PROVENANCE or authoritative_schema_present:
+    if provenance not in _UNTRUSTED_PROVENANCE or authoritative_schema_present:
         return "proven"
     return "plausibility_only"
 

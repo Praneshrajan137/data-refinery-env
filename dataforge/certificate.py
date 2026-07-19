@@ -28,7 +28,7 @@ __all__ = [
     "verify_certificate",
 ]
 
-_LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
+_LLM_PROVENANCE = frozenset({"llm_live", "llm_cache", "external"})
 
 
 class CertificateCheck(BaseModel):
@@ -144,7 +144,7 @@ def verify_certificate(
                 (
                     "auto-applied set is deterministic (proven)"
                     if not llm_applied
-                    else f"auto-applied set includes policy-permitted LLM writes: {provenances}"
+                    else f"auto-applied set includes policy-permitted LLM/external writes: {provenances}"
                 ),
             )
         )
