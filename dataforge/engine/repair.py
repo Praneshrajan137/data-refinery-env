@@ -479,6 +479,42 @@ def _build_retry_context(issue: Issue, attempts: list[RepairAttempt]) -> RetryCo
     )
 
 
+def _verify_fix(
+    working_df: TableLike,
+    fix: ProposedFix,
+    schema: Schema | None,
+    *,
+    verifier: SMTVerifier,
+    verification_schema: Schema | None,
+    require_independent_agreement: bool,
+) -> VerificationResult:
+    """The single shared prove-gate for one candidate fix.
+
+    This is the SAME verification that internal repairs and external
+    (verify_and_apply) fixes run through -- there is exactly one prove gate:
+
+    * Authoritative-schema path (with ``require_independent_agreement``): the
+      primary z3 ``SMTVerifier`` is cross-checked against the independently-written
+      ``DirectVerifier``, combined fail-closed. Only a fix both accept can pass, so
+      a bug in either implementation can withhold a fix, never wave a corrupting one.
+    * Schema-less path: ``SMTVerifier`` with the advisory inferred guard, which is
+      engaged only for untrusted (non-deterministic) values; deterministic values
+      are never second-guessed by it, keeping schema-less deterministic runs
+      byte-identical.
+    """
+    guard_schema = (
+        verification_schema if (schema is None and fix.provenance != "deterministic") else None
+    )
+    if schema is not None and require_independent_agreement:
+        differential = differential_verify(working_df, [fix], schema)
+        return VerificationResult(
+            verdict=differential.verdict,
+            reason=differential.reason,
+            unsat_core=differential.unsat_core,
+        )
+    return verifier.verify(working_df, [fix], schema, verification_schema=guard_schema)
+
+
 def propose_repairs(
     issues: list[Issue],
     path: Path,
@@ -608,28 +644,14 @@ def propose_repairs(
                 issue_type=issue.issue_type,
                 row=issue.row,
             ):
-                guard_schema = (
-                    verification_schema
-                    if (schema is None and preferred.provenance != "deterministic")
-                    else None
+                verifier_result = _verify_fix(
+                    working_df,
+                    preferred,
+                    schema,
+                    verifier=verifier,
+                    verification_schema=verification_schema,
+                    require_independent_agreement=require_independent_agreement,
                 )
-                if schema is not None and require_independent_agreement:
-                    # Authoritative path: cross-check the primary z3 verifier with
-                    # the independently-written DirectVerifier, fail-closed. Only a
-                    # fix both implementations accept can auto-apply.
-                    differential = differential_verify(working_df, [preferred], schema)
-                    verifier_result = VerificationResult(
-                        verdict=differential.verdict,
-                        reason=differential.reason,
-                        unsat_core=differential.unsat_core,
-                    )
-                else:
-                    verifier_result = verifier.verify(
-                        working_df,
-                        [preferred],
-                        schema,
-                        verification_schema=guard_schema,
-                    )
             if verifier_result.verdict == VerificationVerdict.ACCEPT:
                 accepted_fixes.append(preferred)
                 set_cell_value(
