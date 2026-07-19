@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from dataforge.agent import AgentRepairRequest, run_agent_repair
-from dataforge.certificate import verify_certificate
+from dataforge.certificate import reverify_certificate, verify_certificate
 from dataforge.cli.common import load_schema
 from dataforge.engine.repair import RepairPipelineRequest, RepairReceipt, run_repair_pipeline
 
@@ -91,7 +91,7 @@ def test_pipeline_receipt_is_a_verifiable_certificate(tmp_path: Path) -> None:
 
 
 def test_agent_receipt_is_a_verifiable_certificate(tmp_path: Path) -> None:
-    """The agent surface emits the SAME certificate, and it verifies."""
+    """The agent surface emits the SAME certificate, and it verifies (shallow + deep)."""
     csv, schema = _decimal_shift_case(tmp_path)
     result = run_agent_repair(
         AgentRepairRequest(source_path=csv, mode="apply", schema=schema, policy="deterministic")
@@ -99,8 +99,31 @@ def test_agent_receipt_is_a_verifiable_certificate(tmp_path: Path) -> None:
     assert result.applied is True
     receipt = result.to_receipt()
     assert isinstance(receipt, RepairReceipt)
-    verification = verify_certificate(receipt.model_dump(mode="json"), data_bytes=csv.read_bytes())
-    assert verification.ok, [c for c in verification.checks if not c.ok]
+    post_bytes = csv.read_bytes()
+
+    shallow = verify_certificate(receipt.model_dump(mode="json"), data_bytes=post_bytes)
+    assert shallow.ok, [c for c in shallow.checks if not c.ok]
+
+    # Deep re-verification: re-runs the real verifier per applied cell against the
+    # certified bytes AND checks the recorded verification_strength labels are
+    # truthful. This is the claim the prior session left unproven.
+    deep = reverify_certificate(
+        receipt.model_dump(mode="json"), data_bytes=post_bytes, schema=schema
+    )
+    assert deep.ok, [c for c in deep.checks if not c.ok]
+    assert all(f.verification_strength == "proven" for f in receipt.applied_fixes)
+
+
+def test_agent_receipt_reverify_catches_tampering(tmp_path: Path) -> None:
+    """Deep re-verification of the agent certificate detects tampered bytes."""
+    csv, schema = _decimal_shift_case(tmp_path)
+    result = run_agent_repair(
+        AgentRepairRequest(source_path=csv, mode="apply", schema=schema, policy="deterministic")
+    )
+    receipt = result.to_receipt().model_dump(mode="json")
+    tampered = b"id,amount\n1,999999\n"  # not the certified post-state
+    deep = reverify_certificate(receipt, data_bytes=tampered, schema=schema)
+    assert not deep.ok, "reverify must reject bytes that do not match the certificate"
 
 
 def test_agent_and_pipeline_certificates_share_one_schema(tmp_path: Path) -> None:

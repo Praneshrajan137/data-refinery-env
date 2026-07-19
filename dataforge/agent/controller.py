@@ -36,6 +36,7 @@ from dataforge.engine.repair import (
     RepairMode,
     RepairReceipt,
     VerifiedFix,
+    _verification_strength,
     apply_transaction,
     propose_repairs,
 )
@@ -113,22 +114,41 @@ class AgentRepairResult(BaseModel):
     fixes: list[VerifiedFix] = Field(default_factory=list)
     trace: list[AgentActionRecord] = Field(default_factory=list)
     reason: str
+    authoritative_schema_present: bool = False
 
     model_config = ConfigDict(frozen=True)
 
     def to_receipt(self) -> RepairReceipt:
         """Project this agent result into the canonical ``repair_receipt_v1``.
 
-        This lets the agent surface emit the SAME trust certificate that
-        ``dataforge.certificate.verify_certificate`` checks for the deterministic
-        pipeline. A deterministic-only applied run verifies as proven; an applied
-        run that includes an LLM write still verifies structurally but honestly
-        reports ``auto_apply_is_proven_deterministic`` as False (a
-        policy-permitted plausible write), exactly like the pipeline's own receipt.
-        The agent already writes through the shared ``apply_transaction`` path, so
-        the receipt describes the same journaled, reversible transaction.
+        This lets the agent surface emit the SAME trust certificate that BOTH
+        ``dataforge.certificate.verify_certificate`` and the deep
+        ``reverify_certificate`` check for the deterministic pipeline. Each applied
+        fix carries a truthful ``verification_strength`` (``proven`` when
+        deterministic or backed by an authoritative schema, else
+        ``plausibility_only``), derived by the same engine helper the pipeline
+        uses, so the deep re-verification's truthfulness check is meaningful. A
+        deterministic-only applied run verifies as proven; an applied run that
+        includes an LLM write still verifies structurally but honestly reports
+        ``auto_apply_is_proven_deterministic`` as False. The agent already writes
+        through the shared ``apply_transaction`` path, so the receipt describes the
+        same journaled, reversible transaction.
         """
-        applied_fixes = list(self.fixes) if self.applied else []
+        applied_fixes = (
+            [
+                fix.model_copy(
+                    update={
+                        "verification_strength": _verification_strength(
+                            fix.provenance,
+                            authoritative_schema_present=self.authoritative_schema_present,
+                        )
+                    }
+                )
+                for fix in self.fixes
+            ]
+            if self.applied
+            else []
+        )
         provenance = sorted({fix.provenance for fix in self.fixes})
         verifier_verdict = "accept" if (self.applied and self.fixes) else "not_run"
         return RepairReceipt(
@@ -395,4 +415,5 @@ def run_agent_repair(
         fixes=fix_payloads,
         trace=trace,
         reason=reason,
+        authoritative_schema_present=schema is not None,
     )
