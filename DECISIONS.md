@@ -12,7 +12,45 @@ Format for every entry:
 
 ---
 
+## 2026-07-19 - Accepted-inferred FD contract: informed review by default, declared-FD-only opt-in
+**Context**: Measuring sampled tax exposed that FD mining surfaces spurious FDs.
+The near-key + minimum-support guards fixed the vacuous cases, but tax FPs only
+fell 708 -> 696: the residual are low-cardinality coincidental approximate FDs
+(e.g. f_name -> gender) that are IN-TABLE INDISTINGUISHABLE from genuine approximate
+FDs (hospital zip -> city) - both hold ~0.9-1.0 with violations; one set is errors,
+the other legitimate variation. The product default is already safe (inferred FDs
+are pending-until-reviewed; the corruption oracle now proves it). The residual
+surface is a user ACCEPTING a coincidental inferred FD, after which its majority
+repair auto-applies and overwrites legitimate variation.
+**Alternatives**:
+- (A) Informed review only: rely on the mining guards + enriched candidate evidence
+  (support, informativeness, approximate-FD warning). Acceptance = the user's
+  authoritative declaration. Simplest; no fix-path change.
+- (B) Provenance-weighted: a correction backed only by an accepted-INFERRED FD is
+  never auto-applied. Strongest; adds a fix-path distinction and review friction.
+- (C) Tune the confidence threshold to separate hospital from tax - REJECTED: the
+  two are in-table indistinguishable, so any separating threshold is overfitting to
+  two datasets and violates the honesty doctrine.
+**Decision**: A as the default, plus B behind an explicit opt-in
+`RepairPipelineRequest.require_declared_fds_for_autoapply` (default False). Under
+the flag, an fd_violation correction auto-applies only when its dependent column is
+covered by a HAND-DECLARED FD (from the schema), not merely an accepted-inferred
+one; otherwise it is held with review_reason `inferred_fd_not_declared`. Declared
+FDs and all non-FD corrections are unaffected; default behavior is byte-identical.
+**Reasoning**: You cannot mine your way out of coincidental approximate FDs, so the
+defense must be architectural. A keeps the low-friction path for everyday use with
+honest, informed review; B gives strict/regulated deployments a switch to demand
+hand-declared FDs for any auto-applied FD repair. C was rejected as dishonest
+overfitting.
+**Reviewed with**: user (chose "A now + B as a flag").
+**Reversal criteria**: if evidence shows users still accept coincidental FDs under
+A, make B (or a confidence-gated variant) the default; if the flag proves unused,
+retire it.
+
+---
+
 ## 2026-07-18 - Canonize the product constitution (PRODUCT.md) as single source of truth
+
 **Context**: Purpose, philosophy, vision, and mission were scattered and partially
 restated across README.md, ARCHITECTURE.md, CLAUDE.md, META_CONTEXT.md,
 CURSOR_MASTER.md, and docs/. Drift between them made it unclear which statement of

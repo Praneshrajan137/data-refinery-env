@@ -139,6 +139,7 @@ ReviewReason = Literal[
     "ambiguous_fd",
     "out_of_inferred_domain",
     "unverified_transposition",
+    "inferred_fd_not_declared",
 ]
 
 # How strongly a fix was verified, which decides whether it may auto-apply.
@@ -278,6 +279,7 @@ class RepairPipelineRequest(BaseModel):
     confirm_pii: bool = False
     confirm_escalations: bool = False
     allow_unproven_autoapply: bool = False
+    require_declared_fds_for_autoapply: bool = False
     require_independent_agreement: bool = True
     interactive: bool = False
     create_dry_run_transaction: bool = False
@@ -1116,6 +1118,28 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     corrector_policy = _guard_corrector_policy_for_drift(
         corrector_policy, accepted_fixes, request.corrector_reference_confidences
     )
+    # Declared-FD-only opt-in (constraint circularity, option B): in strict mode a
+    # fd_violation correction auto-applies only when its dependent column is covered
+    # by a HAND-DECLARED FD. A correction justified only by an inferred (reviewed or
+    # not) FD is held -- because an approximate inferred FD can be coincidental and
+    # its majority-repair would overwrite legitimate variation. Off by default.
+    inferred_fd_held: list[ProposedFix] = []
+    if request.require_declared_fds_for_autoapply:
+        declared_fd_dependents = (
+            frozenset(fd.dependent for fd in request.repair_schema.functional_dependencies)
+            if request.repair_schema is not None
+            else frozenset()
+        )
+        retained: list[ProposedFix] = []
+        for fix in accepted_fixes:
+            if (
+                fix.fix.detector_id == "fd_violation"
+                and fix.fix.column not in declared_fd_dependents
+            ):
+                inferred_fd_held.append(fix)
+            else:
+                retained.append(fix)
+        accepted_fixes = retained
     accepted_fixes, calibration_suggestions, plausibility_suggestions = _partition_auto_apply(
         accepted_fixes,
         corrector_policy,
@@ -1193,6 +1217,16 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
             verifier_reason=(
                 "Held for human review: an LLM-origin write requires explicit "
                 "confirmation (unconfirmed-LLM-write safety rule)."
+            ),
+        )
+        + _suggestion_candidates(
+            inferred_fd_held,
+            review_reason="inferred_fd_not_declared",
+            verifier_reason=(
+                "Held for human review: this FD correction is justified only by an "
+                "inferred functional dependency, and require_declared_fds_for_autoapply "
+                "is set. Inferred FDs can be coincidental (constraint circularity), so "
+                "strict mode never auto-applies a correction without a declared FD."
             ),
         )
         + _detection_only_suggestions(issues)
