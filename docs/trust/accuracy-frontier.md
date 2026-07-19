@@ -24,15 +24,23 @@ Every cell error falls into one of four honest classes:
 ## Per-dataset frontier (measured)
 
 ### hospital — the flagship / regression anchor
-- Deterministic correction **F1 0.7926**, which **beats the Raha+Baran baseline
-  (0.73** from BClean Table 4, arXiv:2311.06517). This is the one measured
-  correction win and a hard floor: it must never regress.
+- Deterministic correction **F1 0.7926** under DataForge's own scoring harness.
+  For reference, the Raha+Baran error-correction baseline is **0.73** (transcribed
+  from BClean Table 4, arXiv:2311.06517). **Comparability caveat:** these two
+  numbers are **not measured under an identical protocol** — DataForge's is
+  computed by its own harness on its dirty/clean cut and scoring rules; the 0.73 is
+  BClean's reported figure under BClean's protocol (possibly different dirty/clean
+  versions, cell set, and denominator). So 0.7926 is best read as *competitive
+  with / in the range of the Raha+Baran baseline under our scoring*, not a
+  protocol-controlled head-to-head win. It is the one measured deterministic
+  correction result and a hard floor: it must never regress.
 - Dominated by FD/typo errors that ARE derivable (FD majority/lookup,
   decimal-shift inverse) -> **AUTO-CORRECTABLE**. `value_format` and
   `text_normalization` are well **DETECTED** (recall ~1.0 / ~0.87).
 
 ### flights — the not-inferable-in-table frontier
-- Deterministic correction **F1 0.00** vs Raha+Baran 0.729. This is honest, not a
+- Deterministic correction **F1 0.00** (DataForge harness); Raha+Baran reports 0.729
+  under its own protocol (same comparability caveat as above). This is honest, not a
   bug: the residual errors are `missing_value` fills and `act_dep_time` /
   `act_arr_time` **value** errors (e.g. `9:22 a.m.` -> `9:32 a.m.`) tagged
   `text_normalization` only by string edit-distance. The correct time is not

@@ -81,10 +81,14 @@ model cards, and release evidence:
 - **Report detection and correction separately, per error class.** Never publish
   only an aggregate that hides where the tool is weak.
 - **Qualify every claim precisely.** State exactly what a number measures and
-  against what baseline. DataForge's hospital correction result beats the
-  *Raha+Baran error-correction baseline*; it is not claimed as absolute
-  state-of-the-art, because other systems report higher elsewhere. Precision in
-  claims is itself part of the product.
+  against what baseline, **and whether two numbers are protocol-comparable.**
+  DataForge's hospital correction result (0.7926) is measured by its own harness;
+  the Raha+Baran baseline (0.73, transcribed from BClean Table 4) is measured under
+  BClean's protocol. They are **not a protocol-controlled head-to-head**, so the
+  honest phrasing is "competitive with / in the range of the Raha+Baran baseline
+  under our scoring," never an unqualified "beats," and never "absolute
+  state-of-the-art" (other systems report higher elsewhere). Precision in claims is
+  itself part of the product.
 - **When you cannot certify, say so with a reason, not a magic number.** A
   disabled auto-apply threshold is recorded with its cause (e.g.
   `uncertified_classes`), never presented as a model judgment.
