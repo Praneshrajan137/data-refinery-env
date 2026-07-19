@@ -1,19 +1,19 @@
 """Release gate for the optional LLM corrector's auto-apply promotion.
 
 The product guarantee is that no LLM-proposed correction auto-applies until
-measured evidence earns it (distribution-free certification, calibrated
-confidence). This gate makes that guarantee an enforced, committed-artifact
-invariant: it inspects the committed corrector calibration artifact and fails
-the release if any issue type is enabled for auto-apply (its threshold is
-reachable, i.e. <= 1.0) without a recorded promotion justification that clears
-the bar. Today every class carries the disabled ``1.01`` sentinel, so nothing
-auto-applies and the gate passes -- but the moment someone commits an artifact
-that enables a class, they must also commit the evidence.
+MEASURED evidence earns it. This gate makes that an enforced, committed-artifact
+invariant, wired to the *real* verdict source: it inspects the committed corrector
+calibration policy artifact, and if any issue type is enabled for auto-apply (its
+threshold is reachable, i.e. <= 1.0), it requires that a committed measured
+corrector benchmark record clears the promotion bar under the canonical
+:func:`dataforge.bench.corrector_promotion_verdict` (precision_at_auto_apply
+>= 0.95, ECE <= 0.10, auto_apply_count >= 1).
 
-The promotion bar itself (precision_at_auto_apply >= 0.95, ECE <= 0.10, enough
-certified samples) is defined by :func:`dataforge.bench.corrector_promotion_verdict`
-and :func:`dataforge.conformal.min_samples_for_certification`; this gate enforces
-that a shipped auto-apply is backed by that evidence.
+Today every class carries the disabled ``1.01`` sentinel and every committed
+measured record REJECTS (gemini precision 0.16 / ECE 0.79; gpt-5-mini 0.077 /
+0.82), so nothing auto-applies and the gate passes. The moment someone enables a
+class, the gate demands a committed measurement that actually clears the bar --
+not a hand-authored field. It fails closed on a malformed policy artifact.
 """
 
 from __future__ import annotations
@@ -28,17 +28,13 @@ __all__ = [
 ]
 
 # A confidence threshold is in [0, 1]; a threshold strictly above 1.0 can never
-# be cleared, so it disables auto-apply. The canonical disabled sentinel emitted
-# by the conformal procedure when it cannot certify is 1.01.
+# be cleared, so it disables auto-apply. The conformal procedure emits 1.01 as the
+# canonical "cannot certify" disabled sentinel.
 _MAX_REACHABLE_CONFIDENCE = 1.0
 
-_DEFAULT_ARTIFACT = (
-    Path(__file__).resolve().parents[2] / "eval" / "results" / "corrector_calibration.json"
-)
-
-# Promotion bar (mirrors dataforge.bench.corrector_promotion_verdict defaults).
-_MIN_PRECISION_AT_AUTO_APPLY = 0.95
-_MAX_ECE = 0.10
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_DEFAULT_ARTIFACT = _PROJECT_ROOT / "eval" / "results" / "corrector_calibration.json"
+_DEFAULT_RESULTS_DIR = _PROJECT_ROOT / "eval" / "results"
 
 
 @dataclass(frozen=True)
@@ -49,35 +45,65 @@ class CorrectorReleaseGateResult:
     reason: str
     artifact_path: str
     enabled_classes: list[str] = field(default_factory=list)
+    passing_measurements: list[str] = field(default_factory=list)
 
 
-def _promotion_evidence_ok(evidence: object) -> bool:
-    """Return whether a per-class promotion evidence block clears the bar."""
-    if not isinstance(evidence, dict):
-        return False
-    precision = evidence.get("precision_at_auto_apply")
-    ece = evidence.get("ece")
-    if not isinstance(precision, int | float) or precision < _MIN_PRECISION_AT_AUTO_APPLY:
-        return False
-    return isinstance(ece, int | float) and ece <= _MAX_ECE
+def _passing_measured_records(results_dir: Path) -> list[str]:
+    """Return committed corrector benchmark records that CLEAR the promotion bar.
+
+    Reconstructs each committed ``corrector_*.json`` benchmark record and runs the
+    canonical ``corrector_promotion_verdict`` -- the same function the bench uses
+    -- so the gate can never drift from the real promotion definition.
+    """
+    # Lazy imports keep the release package import-light.
+    from dataforge.bench.core import SeedBenchmarkResult
+    from dataforge.bench.methods import corrector_promotion_verdict
+
+    passing: list[str] = []
+    if not results_dir.is_dir():
+        return passing
+    for path in sorted(results_dir.glob("corrector_*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        records = payload.get("records") if isinstance(payload, dict) else None
+        if not isinstance(records, list):
+            continue
+        for entry in records:
+            if not isinstance(entry, dict) or entry.get("method") != "llm_corrector":
+                continue
+            try:
+                record = SeedBenchmarkResult.model_validate(entry)
+            except Exception:  # noqa: BLE001 - a malformed record simply cannot promote
+                continue
+            passed, _reasons = corrector_promotion_verdict(record)
+            if passed:
+                passing.append(f"{path.name}:{entry.get('dataset', '?')}")
+    return passing
 
 
 def check_corrector_release_gate(
     artifact_path: Path | None = None,
+    *,
+    results_dir: Path | None = None,
 ) -> CorrectorReleaseGateResult:
-    """Enforce that no corrector class auto-applies without committed evidence.
+    """Enforce that no corrector class auto-applies without a passing measurement.
 
     Args:
-        artifact_path: Optional path to the corrector calibration artifact.
-            Defaults to the committed ``eval/results/corrector_calibration.json``.
+        artifact_path: Corrector calibration policy artifact. Defaults to the
+            committed ``eval/results/corrector_calibration.json``.
+        results_dir: Directory of committed corrector benchmark records. Defaults
+            to ``eval/results``.
 
     Returns:
-        A :class:`CorrectorReleaseGateResult`. ``passed`` is ``True`` when no LLM
-        class is promoted to auto-apply, or every promoted class carries evidence
-        clearing the promotion bar. A missing artifact passes (nothing to
-        promote); a malformed artifact fails closed.
+        A :class:`CorrectorReleaseGateResult`. ``passed`` is ``True`` when no class
+        is enabled for auto-apply, or a committed measured record clears the
+        promotion bar. A missing artifact passes (nothing to promote); a malformed
+        artifact fails closed.
     """
     path = artifact_path or _DEFAULT_ARTIFACT
+    results = results_dir or _DEFAULT_RESULTS_DIR
     if not path.exists():
         return CorrectorReleaseGateResult(
             passed=True,
@@ -108,14 +134,11 @@ def check_corrector_release_gate(
             artifact_path=str(path),
         )
 
-    evidence_by_class = payload.get("promotion_evidence")
-    evidence_map = evidence_by_class if isinstance(evidence_by_class, dict) else {}
-
-    enabled = [
+    enabled = sorted(
         str(issue_type)
         for issue_type, threshold in thresholds.items()
         if isinstance(threshold, int | float) and threshold <= _MAX_REACHABLE_CONFIDENCE
-    ]
+    )
     if not enabled:
         return CorrectorReleaseGateResult(
             passed=True,
@@ -126,24 +149,25 @@ def check_corrector_release_gate(
             artifact_path=str(path),
         )
 
-    unjustified = [cls for cls in enabled if not _promotion_evidence_ok(evidence_map.get(cls))]
-    if unjustified:
+    passing = _passing_measured_records(results)
+    if passing:
         return CorrectorReleaseGateResult(
-            passed=False,
+            passed=True,
             reason=(
-                f"Corrector classes {sorted(unjustified)} are enabled for auto-apply without "
-                f"committed promotion evidence meeting precision>={_MIN_PRECISION_AT_AUTO_APPLY} "
-                f"and ECE<={_MAX_ECE}. Commit the evidence or restore the disabled sentinel."
+                f"Corrector classes {enabled} are enabled and a committed measurement clears "
+                f"the promotion bar: {passing}."
             ),
             artifact_path=str(path),
-            enabled_classes=sorted(enabled),
+            enabled_classes=enabled,
+            passing_measurements=passing,
         )
     return CorrectorReleaseGateResult(
-        passed=True,
+        passed=False,
         reason=(
-            f"Corrector classes {sorted(enabled)} are promoted to auto-apply with committed "
-            "promotion evidence clearing the bar."
+            f"Corrector classes {enabled} are enabled for auto-apply but NO committed measured "
+            "record clears corrector_promotion_verdict (precision>=0.95, ECE<=0.10, "
+            "auto_apply_count>=1). Commit a passing measurement or restore the disabled sentinel."
         ),
         artifact_path=str(path),
-        enabled_classes=sorted(enabled),
+        enabled_classes=enabled,
     )
