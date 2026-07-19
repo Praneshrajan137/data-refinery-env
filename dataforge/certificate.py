@@ -131,23 +131,48 @@ def verify_certificate(
             )
         )
 
-    # Provenance honesty: was the auto-applied set proven-deterministic, or did a
-    # policy permit a plausible (not proven) LLM write? Both are reported truthfully.
-    provenance = receipt.get("candidate_provenance")
-    if isinstance(provenance, Sequence) and not isinstance(provenance, str | bytes):
-        provenances = [str(p) for p in provenance]
-        llm_applied = applied and any(p in _LLM_PROVENANCE for p in provenances)
+    # Proof honesty: is the auto-applied set PROVEN (deterministic OR verified
+    # against an authoritative schema), or did a policy permit a plausibility-only
+    # (not proven) write? Prefer the per-fix ``verification_strength`` when present
+    # (authoritative: a schema-verified external/LLM value is genuinely proven),
+    # falling back to raw provenance for legacy/hand-built receipts without it.
+    applied_fixes_raw = receipt.get("applied_fixes")
+    applied_fixes = (
+        [f for f in applied_fixes_raw if isinstance(f, Mapping)]
+        if isinstance(applied_fixes_raw, Sequence) and not isinstance(applied_fixes_raw, str | bytes)
+        else []
+    )
+    if applied_fixes:
+        unproven_applied = applied and any(
+            fix.get("verification_strength") == "plausibility_only" for fix in applied_fixes
+        )
         checks.append(
             _check(
                 "auto_apply_is_proven_deterministic",
-                not llm_applied,
+                not unproven_applied,
                 (
-                    "auto-applied set is deterministic (proven)"
-                    if not llm_applied
-                    else f"auto-applied set includes policy-permitted LLM/external writes: {provenances}"
+                    "auto-applied set is proven (deterministic or authoritative-schema-verified)"
+                    if not unproven_applied
+                    else "auto-applied set includes a policy-permitted plausibility-only (unproven) write"
                 ),
             )
         )
+    else:
+        provenance = receipt.get("candidate_provenance")
+        if isinstance(provenance, Sequence) and not isinstance(provenance, str | bytes):
+            provenances = [str(p) for p in provenance]
+            untrusted_applied = applied and any(p in _LLM_PROVENANCE for p in provenances)
+            checks.append(
+                _check(
+                    "auto_apply_is_proven_deterministic",
+                    not untrusted_applied,
+                    (
+                        "auto-applied set is deterministic (proven)"
+                        if not untrusted_applied
+                        else f"auto-applied set includes policy-permitted LLM/external writes: {provenances}"
+                    ),
+                )
+            )
 
     return CertificateVerification(ok=all(c.ok for c in checks), checks=checks)
 

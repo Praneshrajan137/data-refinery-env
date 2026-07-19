@@ -140,6 +140,10 @@ ReviewReason = Literal[
     "out_of_inferred_domain",
     "unverified_transposition",
     "inferred_fd_not_declared",
+    "stale_precondition",
+    "invalid_target",
+    "safety_denied",
+    "verifier_rejected",
 ]
 
 # How strongly a fix was verified, which decides whether it may auto-apply.
@@ -1314,4 +1318,274 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
         fixes=verified_fixes,
         failures=failures,
         transaction=transaction,
+    )
+
+
+class ExternalFix(BaseModel):
+    """A single cell edit proposed by an external actor (agent, tool, or human).
+
+    ``expected_old_value`` is an optional compare-and-set precondition: when set,
+    the fix is rejected as stale if the current cell value differs (preventing a
+    lost update when the data changed since the actor read it).
+    """
+
+    row: int = Field(ge=0)
+    column: str = Field(min_length=1)
+    new_value: str
+    expected_old_value: str | None = None
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+
+class VerifyAndApplyRequest(BaseModel):
+    """Input contract for verifying and applying externally-proposed fixes.
+
+    External values are UNTRUSTED: each proposed fix runs the same safety
+    constitution and prove-gate as an internal repair, is applied only inside a
+    reversible, hash-chained transaction, and yields the same self-verifying
+    certificate. A fix auto-applies only when it (a) clears the unconfirmed-write
+    escalation (``confirm_escalations``) and (b) is proven -- verified against an
+    authoritative schema. Without a schema it is held for review unless the
+    explicit ``allow_unproven_autoapply`` opt-in is set.
+    """
+
+    source_path: Path
+    fixes: list[ExternalFix]
+    mode: RepairMode = "dry_run"
+    repair_schema: Schema | None = Field(default=None, alias="schema")
+    constraints: ConstraintReviewArtifact | None = None
+    proposer: str = Field(default="external", min_length=1)
+    confirm_escalations: bool = False
+    allow_unproven_autoapply: bool = False
+    require_independent_agreement: bool = True
+
+    model_config = ConfigDict(
+        strict=True,
+        arbitrary_types_allowed=True,
+        extra="forbid",
+        frozen=True,
+        populate_by_name=True,
+    )
+
+
+def _external_proposed(external: ExternalFix, *, old_value: str, proposer: str) -> ProposedFix:
+    """Wrap an external cell edit as an untrusted ProposedFix."""
+    return ProposedFix(
+        fix=CellFix(
+            row=external.row,
+            column=external.column,
+            old_value=old_value,
+            new_value=external.new_value,
+            detector_id="external",
+        ),
+        reason=f"External proposal by {proposer!r}.",
+        confidence=1.0,
+        provenance="external",
+    )
+
+
+def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
+    """Verify externally-proposed fixes through the shared gate and apply the proven ones.
+
+    This is the verification-layer entry: any external actor proposes cell edits
+    and DataForge proves each safe (same safety constitution + ``_verify_fix``
+    prove gate as internal repairs), applies only the proven ones inside a
+    reversible transaction, and returns the same ``repair_receipt_v1`` certificate.
+    Held and rejected fixes are surfaced with honest review reasons; nothing
+    untrusted is silently written.
+    """
+    source_path = request.source_path.resolve()
+    source_bytes = source_path.read_bytes()
+    source_sha256 = sha256_bytes(source_bytes)
+    effective_schema, accepted_constraint_ids = merge_schema_with_reviewed_constraints(
+        request.repair_schema,
+        request.constraints,
+        source_sha256=source_sha256,
+    )
+    df = read_csv(source_path)
+    working_df = copy_table(df)
+    columns = set(column_names(df))
+    total_rows = row_count(df)
+    authoritative_schema_present = effective_schema is not None
+    verification_schema = infer_verification_schema(df) if effective_schema is None else None
+
+    safety_filter = SafetyFilter()
+    verifier = SMTVerifier()
+    safety_context = SafetyContext(confirm_escalations=request.confirm_escalations)
+
+    verified: list[ProposedFix] = []
+    invalid_target: list[ProposedFix] = []
+    stale: list[ProposedFix] = []
+    safety_denied: list[ProposedFix] = []
+    safety_escalated: list[ProposedFix] = []
+    verifier_rejected: list[ProposedFix] = []
+    seen_cells: set[tuple[int, str]] = set()
+    noop_count = 0
+
+    for external in request.fixes:
+        cell = (external.row, external.column)
+        # Invalid or conflicting target: unknown column, out-of-range row, or a
+        # duplicate edit to a cell already targeted this batch.
+        if external.column not in columns or external.row >= total_rows or cell in seen_cells:
+            invalid_target.append(
+                _external_proposed(
+                    external, old_value=external.expected_old_value or "", proposer=request.proposer
+                )
+            )
+            continue
+        seen_cells.add(cell)
+        current = cell_value(working_df, external.row, external.column)
+        # Compare-and-set precondition (optional): reject stale writes.
+        if external.expected_old_value is not None and current != external.expected_old_value:
+            stale.append(_external_proposed(external, old_value=current, proposer=request.proposer))
+            continue
+        # No-op: proposed value already present.
+        if external.new_value == current:
+            noop_count += 1
+            continue
+
+        candidate = _external_proposed(external, old_value=current, proposer=request.proposer)
+        preferred = safety_filter.choose_preferred([candidate], effective_schema, safety_context)
+        safety_result = safety_filter.evaluate(preferred, effective_schema, safety_context)
+        if safety_result.verdict == SafetyVerdict.DENY:
+            safety_denied.append(preferred)
+            continue
+        if safety_result.verdict == SafetyVerdict.ESCALATE:
+            safety_escalated.append(preferred)
+            continue
+        verifier_result = _verify_fix(
+            working_df,
+            preferred,
+            effective_schema,
+            verifier=verifier,
+            verification_schema=verification_schema,
+            require_independent_agreement=request.require_independent_agreement,
+        )
+        if verifier_result.verdict != VerificationVerdict.ACCEPT:
+            verifier_rejected.append(preferred)
+            continue
+        verified.append(preferred)
+        set_cell_value(working_df, preferred.fix.row, preferred.fix.column, preferred.fix.new_value)
+
+    # Untrusted-partition: external fixes are proven (auto-apply) only under an
+    # authoritative schema; otherwise held unless the explicit opt-in is set.
+    auto, calibration_held, plausibility_held = _partition_auto_apply(
+        verified,
+        corrector_default_policy(),
+        authoritative_schema_present=authoritative_schema_present,
+        allow_unproven_autoapply=request.allow_unproven_autoapply,
+    )
+
+    batch_safety = safety_filter.evaluate_batch(auto, safety_context)
+    txn_id: str | None = None
+    post_sha256: str | None = None
+    applied = False
+    if batch_safety.verdict != SafetyVerdict.ALLOW:
+        auto = []
+        reason = batch_safety.reason
+    elif request.mode == "apply" and auto:
+        txn_id = apply_transaction(source_path, auto, source_bytes)
+        post_sha256 = sha256_file(source_path)
+        applied = True
+        reason = f"Applied {len(auto)} proven external fix(es) proposed by {request.proposer!r}."
+    elif auto:
+        reason = f"Dry run: {len(auto)} external fix(es) are proven; no source data was mutated."
+    else:
+        reason = "No external fix was auto-applied (see suggested_fixes for held/rejected)."
+
+    verified_fixes = [
+        VerifiedFix(
+            **CandidateFix.from_proposed(fix).model_dump(),
+            verifier_reason="Accepted by the safety constitution and the shared prove gate.",
+            verification_strength=_verification_strength(
+                fix.provenance, authoritative_schema_present=authoritative_schema_present
+            ),
+        )
+        for fix in auto
+    ]
+
+    suggestion_candidates = (
+        _suggestion_candidates(
+            plausibility_held,
+            review_reason="floor_cannot_verify",
+            verifier_reason=(
+                "Held for human review: an external value with no authoritative schema is not "
+                "proven; it is never auto-applied unless allow_unproven_autoapply is set."
+            ),
+        )
+        + _suggestion_candidates(
+            calibration_held,
+            review_reason="failed_conformal_threshold",
+            verifier_reason="Held for human review: verified-plausible but not proven for auto-apply.",
+        )
+        + _suggestion_candidates(
+            safety_escalated,
+            review_reason="safety_escalation",
+            verifier_reason=(
+                "Held for human review: an external write requires explicit confirmation "
+                "(unconfirmed-write safety rule). Re-run with confirm_escalations to proceed."
+            ),
+        )
+        + _suggestion_candidates(
+            safety_denied,
+            review_reason="safety_denied",
+            verifier_reason="Rejected: the safety constitution denied this external write.",
+        )
+        + _suggestion_candidates(
+            verifier_rejected,
+            review_reason="verifier_rejected",
+            verifier_reason="Rejected: the prove gate could not verify this external value as safe.",
+        )
+        + _suggestion_candidates(
+            stale,
+            review_reason="stale_precondition",
+            verifier_reason=(
+                "Rejected: expected_old_value did not match the current cell (stale write "
+                "avoided). Re-read the current value and resubmit."
+            ),
+        )
+        + _suggestion_candidates(
+            invalid_target,
+            review_reason="invalid_target",
+            verifier_reason="Rejected: unknown column, out-of-range row, or duplicate cell edit.",
+        )
+    )
+
+    receipt = RepairReceipt(
+        mode=request.mode,
+        applied=applied,
+        reversible=True,
+        source_path=str(source_path),
+        source_sha256=source_sha256,
+        post_sha256=post_sha256,
+        txn_id=txn_id,
+        allowed_columns=column_names(df),
+        valid_rows=list(range(total_rows)),
+        safety_verdict=batch_safety.verdict.value,
+        verifier_verdict="accept" if auto else "not_run",
+        independent_verification=(
+            "agreed"
+            if (authoritative_schema_present and request.require_independent_agreement and auto)
+            else "not_run"
+        ),
+        candidate_provenance=sorted({fix.provenance for fix in auto}),
+        suggested_fixes=suggestion_candidates,
+        applied_fixes=verified_fixes if applied else [],
+        accepted_constraint_ids=accepted_constraint_ids,
+        revert_command=f"dataforge revert {txn_id}" if txn_id is not None else None,
+        limitations=(
+            [f"{noop_count} external fix(es) were no-ops (value already present)."]
+            if noop_count
+            else []
+        ),
+        issues_count=len(request.fixes),
+        fixes_count=len(auto),
+        reason=reason,
+    )
+    return RepairPipelineResult(
+        receipt=receipt,
+        issues=[],
+        fixes=verified_fixes,
+        failures=[],
+        transaction=None,
     )
