@@ -61,19 +61,32 @@ Every cell error falls into one of four honest classes:
   frontier: schema-directed reviewed repair, not a guess.
 - `value_format` (n=107 free-text title/author punctuation) -> **ABSTENTION**.
 
-### tax — provable FD/rule-violation repair at scale (NOT YET MEASURED)
+### tax — provable FD/rule-violation repair at scale (MEASURED, sampled)
 - 200k rows x 15 cols. Error profile is ~97.9% `numeric` (rate/zip), not
   cross-column FD; the genuine FD-repairable slice is tiny (~800 cells).
-- **No floor is seeded** — the full deterministic bench does not finish (schema
-  inference is super-linear and does not complete on 200k rows in >8 min), and a
-  measured offline probe found spurious inferred FDs (zip->salary etc.) and
-  detection precision ~0.03. Seeding a floor here would be fabrication.
-- **Measure-first tooling now exists**: `dataforge.datasets.real_world.sample_dataset_rows`
-  gives a deterministic, ground-truth-aligned row sample so tax can be benchmarked
-  at a tractable size (e.g. 3k rows) and reported honestly as *sampled*. A tax
-  correction claim requires (a) exact-FD / denial-constraint mining, (b)
-  precision-controlled detection, and (c) a sampled measurement recorded as such —
-  in that order. Until then, tax is **UNMEASURED**, not a win.
+- **Measured** on a deterministic head sample of 3,000 rows (schema inference is
+  super-linear, so the full 200k does not finish; sampling makes it tractable and
+  is reported as sampled). Artifact:
+  [`eval/results/heuristic_tax_sampled.json`](../../eval/results/heuristic_tax_sampled.json),
+  reproduce with `python scripts/bench/measure_sampled.py --dataset tax --max-rows 3000`.
+  Result: **correction F1 = 0.0000** (tp=0, fp=708, fn=1812); detection recall
+  `numeric` 0.14, `value_format` 0.09, `text_normalization` 0.46. The stack makes
+  **zero correct corrections and proposes 708 false positives** — driven by
+  spurious inferred FDs (e.g. `zip -> salary`). This is *measured-harmful* at the
+  propose+score layer, not merely unhelpful.
+- **Consequence:** tax is not just unmeasured — it is a **NON-VIABLE auto-apply
+  target** by measurement, so **no floor is seeded** (a floor would be fabrication)
+  and tax must never be added to the auto-apply path on inferred constraints. A
+  real tax correction win would require (a) exact-FD / denial-constraint mining,
+  (b) precision-controlled detection, and (c) a sampled measurement clearing a
+  precision bar — in that order.
+- **Open verification item (flagged honestly):** these 708 false positives are
+  measured at the deterministic *propose+score* layer (bench). Whether any reach
+  disk in the product depends on the SafetyFilter + differential SMT/Direct gate,
+  since they derive from *inferred* (not authoritative) FDs. Confirming the
+  provable-only gate rejects inferred-FD-derived false positives on tax-like data
+  is a concrete follow-up (the corruption oracle covers clustered-numeric
+  decimal-shift, not spurious-FD tables).
 
 ## The meta-conclusion (why this map matters)
 

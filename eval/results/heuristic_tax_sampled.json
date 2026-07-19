@@ -1,0 +1,77 @@
+{
+  "provenance": {
+    "dataset": "tax",
+    "full_rows": 200000,
+    "ground_truth_cells_in_sample": 1812,
+    "max_rows": 3000,
+    "note": "SAMPLED deterministic-stack measurement (head sample). NOT a full-dataset result and NOT tied to the pinned source hashes. For measure-first honesty only; never cite as the full-dataset number.",
+    "sampled": true,
+    "sampled_rows": 3000,
+    "seed": 0
+  },
+  "record": {
+    "auto_apply_count": null,
+    "avg_steps": 709.0,
+    "by_class": {
+      "numeric": {
+        "detected": 257,
+        "detection_recall": 0.1436,
+        "error_class": "numeric",
+        "fn": 1790,
+        "precision_on_class": 0.0,
+        "predicted_on_class": 244,
+        "recall": 0.0,
+        "support": 1790,
+        "tp": 0
+      },
+      "text_normalization": {
+        "detected": 5,
+        "detection_recall": 0.4545,
+        "error_class": "text_normalization",
+        "fn": 11,
+        "precision_on_class": 0.0,
+        "predicted_on_class": 0,
+        "recall": 0.0,
+        "support": 11,
+        "tp": 0
+      },
+      "value_format": {
+        "detected": 1,
+        "detection_recall": 0.0909,
+        "error_class": "value_format",
+        "fn": 11,
+        "precision_on_class": 0.0,
+        "predicted_on_class": 0,
+        "recall": 0.0,
+        "support": 11,
+        "tp": 0
+      }
+    },
+    "calibration_samples_by_class": null,
+    "calibration_samples_by_type": null,
+    "completion_tokens": 0,
+    "dataset": "tax",
+    "ece": null,
+    "f1": 0.0,
+    "fn": 1812,
+    "fp": 708,
+    "gpu_hours": 0.0,
+    "llm_calls": 0,
+    "method": "heuristic",
+    "model": "deterministic",
+    "precision": 0.0,
+    "precision_at_auto_apply": null,
+    "prompt_tokens": 0,
+    "provider": "local",
+    "quota_units": 0.0,
+    "recall": 0.0,
+    "reproduction_command": "dataforge bench --methods heuristic --datasets tax --seeds 1",
+    "runtime_s": 99.3906,
+    "seed": 0,
+    "skip_reason": null,
+    "status": "ok",
+    "tp": 0,
+    "warnings": []
+  },
+  "schema_version": "dataforge_sampled_bench_v1"
+}
