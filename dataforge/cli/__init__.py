@@ -15,6 +15,7 @@ from dataforge.cli.quickstart import quickstart
 from dataforge.cli.release import release_app
 from dataforge.cli.repair import repair
 from dataforge.cli.revert import revert
+from dataforge.cli.verify_apply import verify_apply
 from dataforge.cli.watch import watch
 
 app: typer.Typer = typer.Typer(
@@ -44,6 +45,7 @@ def _main(
 app.command(name="profile")(profile)
 app.command(name="quickstart")(quickstart)
 app.command(name="repair")(repair)
+app.command(name="verify-apply")(verify_apply)
 app.command(name="revert")(revert)
 app.command(name="audit")(audit)
 app.command(name="bench")(bench)
