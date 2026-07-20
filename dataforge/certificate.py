@@ -139,7 +139,8 @@ def verify_certificate(
     applied_fixes_raw = receipt.get("applied_fixes")
     applied_fixes = (
         [f for f in applied_fixes_raw if isinstance(f, Mapping)]
-        if isinstance(applied_fixes_raw, Sequence) and not isinstance(applied_fixes_raw, str | bytes)
+        if isinstance(applied_fixes_raw, Sequence)
+        and not isinstance(applied_fixes_raw, str | bytes)
         else []
     )
     if applied_fixes:
