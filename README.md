@@ -28,13 +28,69 @@ define the security, supply-chain, and evidence gates that separate the current
 public package/playground surface from the remaining full original DataForge
 vision.
 
+## Verification layer: gate any fix source
+
+DataForge's guarantee is not tied to its own detectors. `verify_and_apply` lets
+**any** external actor — an autonomous agent, another tool, or a human — propose
+cell fixes and have DataForge prove-or-hold each one through the *same* gate an
+internal repair runs: the safety constitution, the differential SMT verifier, a
+reversible hash-chained transaction, and a self-verifying `repair_receipt_v1`
+certificate. External values are treated as **untrusted**: a fix is auto-applied
+only when it (a) clears the unconfirmed-write confirmation and (b) is *proven* —
+verified against an authoritative schema. Without a schema it is held for review;
+nothing untrusted is ever silently written, and every applied change reverts
+byte-for-byte.
+
+An optional `expected_old_value` per fix is a compare-and-set precondition that
+rejects stale writes (lost-update protection). Held and rejected proposals come
+back with honest, specific reasons (`verifier_rejected`, `stale_precondition`,
+`invalid_target`, `safety_escalation`, `floor_cannot_verify`).
+
+Three surfaces, one write path, one certificate:
+
+```bash
+# CLI — an agent writes its proposals to fixes.json
+dataforge verify-apply data.csv --fixes fixes.json --schema schema.json \
+  --apply --confirm-escalations --proposer my-agent
+# fixes.json: [{"row": 0, "column": "score", "new_value": "15",
+#               "expected_old_value": "10"}]
+```
+
+The `dataforge.verify_and_apply` Python API takes a `VerifyAndApplyRequest`
+(`verify_and_apply`, `VerifyAndApplyRequest`, and `ExternalFix` are exported from
+the top-level package):
+
+```python
+# Python
+result = verify_and_apply(
+    VerifyAndApplyRequest(
+        source_path="data.csv",
+        fixes=[ExternalFix(row=0, column="score", new_value="15")],
+        mode="apply",
+        schema=my_schema,            # proven only under an authoritative schema
+        confirm_escalations=True,
+        proposer="my-agent",
+    )
+)
+result.receipt.applied_fixes   # proven and applied
+result.receipt.suggested_fixes # held/rejected, each with a review reason
+```
+
+The MCP `dataforge_verify_and_apply` tool exposes the same entry to agent
+frameworks (apply gated by `--enable-apply` / `DATAFORGE_MCP_ENABLE_APPLY` and the
+allowed-root sandbox). The guardrail value is proven end-to-end in
+`tests/integration/test_external_agent_guardrail.py`: an untrusted agent's mixed
+batch of correct, corrupting, stale, and invalid proposals yields **zero
+corruptions** — only the schema-proven fixes apply, the rest are held, and the
+applied set re-verifies and reverts.
+
 ## Current Status
 
 Shipped in the current worktree:
 
-- `dataforge profile`, `dataforge repair`, `dataforge revert`,
-  `dataforge watch`, `dataforge audit`, `dataforge bench`, and
-  `dataforge quickstart`
+- `dataforge profile`, `dataforge repair`, `dataforge verify-apply`,
+  `dataforge revert`, `dataforge watch`, `dataforge audit`, `dataforge bench`,
+  and `dataforge quickstart`
 - Eight detector families across an additive ensemble: `type_mismatch`,
   `decimal_shift`, `fd_violation` (auto-correcting, tier 0), plus
   `missing_value`, `format_violation`, `categorical_normalization`, `outlier`,

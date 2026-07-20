@@ -63,6 +63,14 @@ flowchart LR
 
 ## The first validating experiment (concrete, buildable now)
 
+> **Status: SHIPPED.** The first-class `verify_and_apply(external_fix)` entry
+> exists on all three surfaces (Python `dataforge.verify_and_apply`, MCP
+> `dataforge_verify_and_apply`, CLI `dataforge verify-apply`). The guardrail
+> value is proven in `tests/integration/test_external_agent_guardrail.py`: an
+> untrusted agent's mixed batch of correct/corrupting/stale/invalid proposals
+> yields **zero corruptions** — only schema-proven fixes apply, the rest are held
+> with honest reasons, and the applied set re-verifies and reverts byte-for-byte.
+
 The primitives exist (`certificate.*` public; MCP `dataforge_verify_fix`; the
 verified agent loop). The missing first-class piece is **"apply-and-certify an
 externally-proposed fix"** — today the gate is coupled to DataForge's own
@@ -76,9 +84,9 @@ detectors/repairers. The experiment:
   auto-applies ~0 wrong cells (holds the rest), and every applied cell carries a
   certificate that passes `reverify_certificate`. That demonstrates the guardrail
   value independent of repair accuracy.
-- If validated, add a first-class public `verify_and_apply(external_fix) ->
-  certificate` entry so any fix source can be gated, and lead the README/product
-  page with it.
+- **Validated and shipped:** a first-class public `verify_and_apply(external_fix)
+  -> certificate` entry now gates any fix source, on the Python API, MCP, and CLI.
+  The README leads with the verification-layer framing.
 
 ## Adversarial review of this decision
 
