@@ -94,6 +94,15 @@ const requiredTokens = [
   "--df-proof-bg",
   "--df-proof-text",
   "--df-proof-line",
+  "--df-proven-bg",
+  "--df-proven-text",
+  "--df-proven-line",
+  "--df-plausibility-bg",
+  "--df-plausibility-text",
+  "--df-plausibility-line",
+  "--df-held-bg",
+  "--df-held-text",
+  "--df-held-line",
   "--df-diff-old-bg",
   "--df-diff-old-text",
   "--df-diff-new-bg",
@@ -209,6 +218,9 @@ function auditContrast(system) {
     assertContrast(system, theme, "--df-confidence-medium-text", "--df-confidence-medium-bg", 4.5);
     assertContrast(system, theme, "--df-confidence-low-text", "--df-confidence-low-bg", 4.5);
     assertContrast(system, theme, "--df-proof-text", "--df-proof-bg", 4.5);
+    assertContrast(system, theme, "--df-proven-text", "--df-proven-bg", 4.5);
+    assertContrast(system, theme, "--df-plausibility-text", "--df-plausibility-bg", 4.5);
+    assertContrast(system, theme, "--df-held-text", "--df-held-bg", 4.5);
     assertContrast(system, theme, "--df-diff-old-text", "--df-diff-old-bg", 4.5);
     assertContrast(system, theme, "--df-diff-new-text", "--df-diff-new-bg", 4.5);
     assertContrast(system, theme, "--df-focus-ring", "--df-bg", 3);
@@ -324,6 +336,9 @@ function auditApexBackgroundDiscipline(system) {
     "--df-confidence-medium-bg",
     "--df-confidence-low-bg",
     "--df-proof-bg",
+    "--df-proven-bg",
+    "--df-plausibility-bg",
+    "--df-held-bg",
     "--df-status-safe-bg",
     "--df-status-review-bg",
     "--df-status-danger-bg",

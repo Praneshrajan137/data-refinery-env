@@ -4,6 +4,13 @@ export type RepairReadiness = "no_action" | "verified" | "partial" | "blocked";
 export type ConstraintDecision = "pending" | "accepted" | "rejected";
 export type RepairMode = "deterministic" | "agent";
 
+// A fix is `proven` when it is deterministic or verified against an
+// authoritative schema; `plausibility_only` when it was only checked by the
+// advisory inferred guard (an LLM value with no authoritative schema). The
+// distinction is the product's core guarantee and must never be blurred.
+export type VerificationStrength = "proven" | "plausibility_only";
+export type IndependentVerification = "agreed" | "not_run";
+
 export interface BackendCapability {
   status: "ok";
   advanced_available: boolean;
@@ -128,6 +135,8 @@ export interface VerifiedFix {
   confidence: number;
   provenance: string;
   verifier_reason?: string;
+  verification_strength?: VerificationStrength | null;
+  review_reason?: string | null;
 }
 
 export interface RepairFailure {
@@ -160,6 +169,8 @@ export interface CandidateRepair {
   confidence: number;
   provenance: string;
   verifier_reason: string;
+  verification_strength?: VerificationStrength | null;
+  review_reason?: string | null;
 }
 
 export interface ProofObligation {
@@ -193,11 +204,14 @@ export interface RepairReceipt {
   txn_id?: string | null;
   safety_verdict: string;
   verifier_verdict: string;
+  independent_verification?: IndependentVerification;
   issues_count: number;
   fixes_count: number;
   candidate_provenance: string[];
   root_causes: RootCause[];
   candidate_repairs: CandidateRepair[];
+  applied_fixes?: VerifiedFix[];
+  suggested_fixes?: CandidateRepair[];
   proof_obligations: ProofObligation[];
   accepted_constraint_ids: string[];
   constraints_artifact_sha256?: string | null;
@@ -214,6 +228,17 @@ export interface VerificationSummary {
   failures: RepairFailure[];
   abstentions: string[];
   failure_reasons: string[];
+}
+
+export interface CertificateCheck {
+  name: string;
+  ok: boolean;
+  detail: string;
+}
+
+export interface Certificate {
+  ok: boolean;
+  checks: CertificateCheck[];
 }
 
 export interface ApplyHandoff {
@@ -243,6 +268,7 @@ export interface AnalyzeResponse {
   issues: Issue[];
   repairs: VerifiedFix[];
   verification: VerificationSummary;
+  certificate: Certificate;
   txn_journal: RepairJournal;
   receipt: RepairReceipt;
   apply_handoff: ApplyHandoff;

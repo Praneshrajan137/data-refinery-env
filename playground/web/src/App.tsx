@@ -1,12 +1,14 @@
 import {
   Activity,
   AlertTriangle,
+  BadgeCheck,
   BrainCircuit,
   CheckCircle2,
   CircleDot,
   ClipboardCopy,
   Database,
   Download,
+  FileCheck2,
   FileText,
   PauseCircle,
   Play,
@@ -39,12 +41,16 @@ import {
 } from "./csv";
 import {
   buildObservatoryView,
+  buildTrustVerdict,
   formatLabel,
   formatPercent,
+  humanizeReviewReason,
   shortHash,
+  strengthOf,
   type InstrumentTone,
   type ReviewItem,
   type SelectedEvidence,
+  type TrustVerdict,
 } from "./observatory";
 import {
   motionDurations,
@@ -73,6 +79,7 @@ import type {
   AnalyzeResponse,
   BackendCapability,
   CandidateRepair,
+  Certificate,
   ConstraintCandidate,
   CsvPreview,
   DatasetInput,
@@ -83,6 +90,7 @@ import type {
   RepairReadiness,
   RiskLevel,
   Severity,
+  VerificationStrength,
   VerifiedFix,
   WorkflowEvent,
 } from "./types";
@@ -663,6 +671,7 @@ function RunPage({
       <ProductLoopRail dataset={dataset} analysis={latestAnalysis} primaryMoment={primaryMoment} />
       {copyState === "failed" && evidenceText ? <CopyFallback evidenceText={evidenceText} /> : null}
       {problem ? <ProblemBanner problem={problem} /> : null}
+      {latestAnalysis ? <TrustVerdictPanel verdict={buildTrustVerdict(latestAnalysis)} /> : null}
       {latestAnalysis?.agent ? <AgentSummaryPanel agent={latestAnalysis.agent} /> : null}
       <ProductLoopWorkbench
         dataset={dataset}
@@ -1987,20 +1996,21 @@ function RepairsLens({
   return (
     <div className="repairs-lens">
       <div className="metric-grid metric-grid--four" aria-label="Verification summary">
-        <Metric label="Safety" value={analysis.verification.safety_verdict} />
+        <Metric label="Proven, would apply" value={analysis.repairs.filter((fix) => strengthOf(fix) === "proven").length} />
+        <Metric label="Held for review" value={analysis.receipt.suggested_fixes?.length ?? 0} />
         <Metric label="Verifier" value={analysis.verification.verifier_verdict} />
-        <Metric label="Verified fixes" value={analysis.repairs.length} />
         <Metric label="Attempted not fixed" value={analysis.verification.failures.length} />
       </div>
       <EvidenceNote
         title={analysis.repairs.length > 0 ? "Verified dry-run evidence" : "No verified repairs were proposed"}
         body={
           analysis.repairs.length > 0
-            ? "Every listed fix passed the hosted safety and verifier gates."
+            ? "Every listed fix passed the hosted safety and verifier gates. Its proof strength is shown per fix."
             : "The dry-run pipeline did not find a candidate that passed safety and verifier gates."
         }
       />
       <RepairComparison repairs={analysis.repairs} analysis={analysis} onSelect={onSelect} />
+      <HeldForReviewList items={analysis.receipt.suggested_fixes ?? []} />
       <CandidateRepairList candidates={analysis.receipt.candidate_repairs} />
       <FailureList failures={analysis.verification.failures} onSelect={onSelect} titleId="repair-failures-title" />
     </div>
@@ -2026,6 +2036,12 @@ function ReceiptLens({
   return (
     <div className="receipt-lens">
       <ReceiptSummary analysis={analysis} />
+      <CertificatePanel
+        certificate={analysis.certificate}
+        independentVerification={analysis.receipt.independent_verification ?? "not_run"}
+        auditCommand={analysis.apply_handoff.audit_command}
+        onDownload={() => downloadCertificate(analysis)}
+      />
       <ReceiptHandoff analysis={analysis} />
       <div className="hash-grid">
         <motion.button
@@ -2526,6 +2542,9 @@ function RepairComparison({
               </span>
               <small>{fix.detector_id} - confidence {formatPercent(fix.confidence)} - source {shortHash(analysis.source.sha256)}</small>
             </button>
+            <div className="repair-row__strength">
+              <VerificationStrengthBadge strength={strengthOf(fix)} />
+            </div>
             <div className="diff-grid">
               <motion.div
                 className="diff-cell diff-cell--old"
@@ -2574,6 +2593,9 @@ function CandidateRepairList({ candidates }: { candidates: CandidateRepair[] }) 
             Row {candidate.row}, <code>{candidate.column}</code>
           </strong>
           <span>{candidate.detector_id} - {candidate.operation} - {candidate.provenance}</span>
+          <div className="candidate-row__strength">
+            <VerificationStrengthBadge strength={strengthOf(candidate)} />
+          </div>
           <p>{candidate.verifier_reason}</p>
         </article>
       ))}
@@ -2631,7 +2653,10 @@ function ReceiptSummary({ analysis }: { analysis: AnalyzeResponse }) {
       <div className="metric-grid metric-grid--four">
         <Metric label="Safety" value={analysis.receipt.safety_verdict} />
         <Metric label="Verifier" value={analysis.receipt.verifier_verdict} />
-        <Metric label="Accepted constraints" value={analysis.receipt.accepted_constraint_ids.length} />
+        <Metric
+          label="Independent verify"
+          value={analysis.receipt.independent_verification ?? "not_run"}
+        />
         <Metric label="Reversible" value={analysis.receipt.reversible ? "yes" : "no"} />
       </div>
       <p>{analysis.receipt.reason}</p>
@@ -2719,6 +2744,176 @@ function ConfidenceBadge({ value }: { value: number }) {
   return <span className={`confidence confidence--${bucket}`}>{formatPercent(value)}</span>;
 }
 
+function VerificationStrengthBadge({ strength }: { strength: VerificationStrength }) {
+  const proven = strength === "proven";
+  return (
+    <span
+      className={`strength-badge strength-badge--${proven ? "proven" : "plausibility"}`}
+      title={
+        proven
+          ? "Proven: deterministic or verified against an authoritative schema. Safe to auto-apply."
+          : "Plausibility-only: a model-proposed value with no authoritative schema. Never silently written."
+      }
+    >
+      {proven ? <BadgeCheck aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
+      {proven ? "proven" : "plausible-only"}
+    </span>
+  );
+}
+
+function TrustVerdictPanel({ verdict }: { verdict: TrustVerdict }) {
+  if (verdict.level === "pending") {
+    return null;
+  }
+  const independentAgreed = verdict.independentVerification === "agreed";
+  return (
+    <motion.section
+      className={`trust-verdict trust-verdict--${verdict.level}`}
+      aria-labelledby="trust-verdict-title"
+      role="status"
+      aria-live="polite"
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={motionSprings.snap}
+    >
+      <header className="trust-verdict__head">
+        <div className="trust-verdict__title">
+          <ShieldCheck aria-hidden="true" />
+          <div>
+            <p className="eyebrow">Trust verdict</p>
+            <h2 id="trust-verdict-title">{verdict.headline}</h2>
+          </div>
+        </div>
+        <p className="trust-verdict__guarantee">{verdict.guaranteeLine}</p>
+      </header>
+      <dl className="trust-verdict__metrics">
+        {verdict.metrics.map((metric) => (
+          <div className={`trust-metric trust-metric--${metric.tone}`} key={metric.label}>
+            <dt>{metric.label}</dt>
+            <dd>{metric.value}</dd>
+            <p>{metric.hint}</p>
+          </div>
+        ))}
+      </dl>
+      <p className="trust-verdict__foot">
+        Independent verifier:{" "}
+        <strong>{independentAgreed ? "agreed" : "not run"}</strong>
+        {independentAgreed
+          ? " — a second, independently written verifier confirmed the applied set."
+          : " — the deterministic gate proved every applied change; a second cross-check was not required for this run."}
+      </p>
+    </motion.section>
+  );
+}
+
+function CertificatePanel({
+  certificate,
+  independentVerification,
+  auditCommand,
+  onDownload,
+}: {
+  certificate: Certificate;
+  independentVerification: string;
+  auditCommand: string;
+  onDownload: () => void;
+}) {
+  const passed = certificate.checks.filter((check) => check.ok).length;
+  return (
+    <motion.section
+      className={`certificate-panel certificate-panel--${certificate.ok ? "ok" : "attention"}`}
+      aria-labelledby="certificate-title"
+      variants={panelVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+    >
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Portable trust certificate</p>
+          <h2 id="certificate-title">
+            {certificate.ok
+              ? `Re-verified ${passed}/${certificate.checks.length} checks`
+              : `Certificate reports ${certificate.checks.length - passed} unmet check(s)`}
+          </h2>
+        </div>
+        <span className={`quiet-chip quiet-chip--${certificate.ok ? "ok" : "attention"}`}>
+          {certificate.ok ? "self-verifies" : "review"}
+        </span>
+      </div>
+      <p className="certificate-panel__lede">
+        The receipt is self-contained: anyone holding your data and this certificate can re-check
+        its trust invariants without re-running or trusting DataForge. This was re-verified
+        server-side against your exact uploaded bytes.
+      </p>
+      <ul className="certificate-checks" aria-label="Certificate checks">
+        {certificate.checks.map((check) => (
+          <li
+            className={`certificate-check certificate-check--${check.ok ? "ok" : "fail"}`}
+            key={check.name}
+          >
+            {check.ok ? (
+              <CheckCircle2 aria-hidden="true" />
+            ) : (
+              <AlertTriangle aria-hidden="true" />
+            )}
+            <div>
+              <strong>{formatLabel(check.name)}</strong>
+              <p>{check.detail}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="certificate-panel__actions">
+        <button type="button" className="certificate-download" onClick={onDownload}>
+          <Download aria-hidden="true" /> Download portable certificate
+        </button>
+        <p className="certificate-panel__reverify">
+          Independent verifier: <strong>{independentVerification === "agreed" ? "agreed" : "not run"}</strong>.
+          Re-verify off this machine with <code>{auditCommand}</code>.
+        </p>
+      </div>
+    </motion.section>
+  );
+}
+
+function HeldForReviewList({ items }: { items: CandidateRepair[] }) {
+  if (items.length === 0) {
+    return null;
+  }
+  return (
+    <section className="held-list" aria-labelledby="held-title">
+      <div className="panel-heading">
+        <div>
+          <p className="eyebrow">Held for review</p>
+          <h2 id="held-title">Proposals not proven safe to auto-apply</h2>
+        </div>
+        <span className="quiet-chip">{items.length} held</span>
+      </div>
+      <p className="held-list__lede">
+        These were not written. Refusing to guess when a value cannot be proven from the data is a
+        first-class, honest outcome — not a failure.
+      </p>
+      {items.map((item) => (
+        <article
+          className="held-row"
+          key={`${item.row}:${item.column}:${item.new_value}:${item.review_reason ?? "held"}`}
+        >
+          <div className="held-row__head">
+            <strong>
+              Row {item.row}, <code>{item.column}</code>
+            </strong>
+            <VerificationStrengthBadge strength={strengthOf(item)} />
+          </div>
+          <span className="held-row__change">
+            {item.old_value || "(empty)"} → {item.new_value || "(empty)"}
+          </span>
+          <p>{humanizeReviewReason(item.review_reason)}</p>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function agentTraceMotion(step: { action_type: string; accepted?: boolean | null }): string {
   const action = step.action_type.toUpperCase();
   if (action === "FIX") {
@@ -2791,7 +2986,7 @@ function AgentSummaryPanel({ agent }: { agent: AgentSummary }) {
                 <span className="agent-fix__change">
                   {fix.old_value || "∅"} → {fix.new_value}
                 </span>
-                <span className="agent-fix__provenance">{fix.provenance}</span>
+                <VerificationStrengthBadge strength={strengthOf(fix)} />
               </li>
             ))}
           </ul>
@@ -2902,6 +3097,32 @@ function formatConstraintColumns(candidate: ConstraintCandidate): string {
 
 function repairKey(fix: VerifiedFix): string {
   return `${fix.row}:${fix.column}:${fix.old_value}:${fix.new_value}`;
+}
+
+function downloadCertificate(analysis: AnalyzeResponse): void {
+  // The portable certificate is the self-contained receipt plus its independent
+  // re-verification. It travels with the data and can be re-checked off-machine.
+  const payload = {
+    kind: "dataforge_trust_certificate",
+    source: {
+      name: analysis.source.name,
+      sha256: analysis.source.sha256,
+      rows: analysis.source.rows,
+      columns: analysis.source.columns,
+    },
+    certificate: analysis.certificate,
+    receipt: analysis.receipt,
+    audit_command: analysis.apply_handoff.audit_command,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `dataforge-certificate-${shortHash(analysis.source.sha256)}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 function failureKey(failure: RepairFailure): string {

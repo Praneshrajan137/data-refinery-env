@@ -2373,3 +2373,296 @@ textarea {
   border-radius: 999px;
   padding: 1px 6px;
 }
+
+/* --- Trust surface: verdict, proof-strength badges, certificate, held --- */
+
+.strength-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  border: 1px solid var(--df-line);
+  border-radius: 999px;
+  background: var(--df-surface-2);
+  padding: 2px 9px;
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.strength-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.strength-badge--proven {
+  color: var(--df-proven-text);
+  border-color: var(--df-proven-line);
+  background: var(--df-proven-bg);
+}
+
+.strength-badge--plausibility {
+  color: var(--df-plausibility-text);
+  border-color: var(--df-plausibility-line);
+  background: var(--df-plausibility-bg);
+}
+
+.repair-row__strength,
+.candidate-row__strength {
+  display: flex;
+}
+
+.trust-verdict {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--df-line);
+  border-left: 3px solid var(--df-line-strong);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-1);
+  box-shadow: var(--df-depth-1);
+  padding: 18px 20px;
+}
+
+.trust-verdict--proven,
+.trust-verdict--clear {
+  border-left-color: var(--df-proven-line);
+}
+
+.trust-verdict--held,
+.trust-verdict--mixed {
+  border-left-color: var(--df-held-line);
+}
+
+.trust-verdict__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.trust-verdict__title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.trust-verdict__title svg {
+  width: 22px;
+  height: 22px;
+  color: var(--df-proven-text);
+  flex: none;
+}
+
+.trust-verdict__title h2 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+}
+
+.trust-verdict__guarantee {
+  margin: 0;
+  max-width: 40ch;
+  color: var(--df-text-2);
+  font-size: 0.8rem;
+}
+
+.trust-verdict__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.trust-metric {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-2);
+  padding: 10px 12px;
+}
+
+.trust-metric dt {
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--df-text-2);
+}
+
+.trust-metric dd {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--df-text-1);
+}
+
+.trust-metric p {
+  margin: 0;
+  font-size: 0.7rem;
+  color: var(--df-text-2);
+}
+
+.trust-metric--verified dd {
+  color: var(--df-proven-text);
+}
+
+.trust-metric--review dd {
+  color: var(--df-held-text);
+}
+
+.trust-verdict__foot {
+  margin: 0;
+  color: var(--df-text-2);
+  font-size: 0.78rem;
+}
+
+.certificate-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-1);
+  padding: 16px 18px;
+}
+
+.certificate-panel--attention {
+  border-color: var(--df-held-line);
+}
+
+.certificate-panel__lede,
+.held-list__lede {
+  margin: 0;
+  color: var(--df-text-2);
+  font-size: 0.8rem;
+}
+
+.certificate-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.certificate-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-2);
+  padding: 9px 11px;
+}
+
+.certificate-check svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 1px;
+}
+
+.certificate-check--ok svg {
+  color: var(--df-proven-text);
+}
+
+.certificate-check--fail svg {
+  color: var(--df-status-danger-text);
+}
+
+.certificate-check strong {
+  display: block;
+  font-size: 0.82rem;
+  text-transform: capitalize;
+}
+
+.certificate-check p {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  color: var(--df-text-2);
+  word-break: break-word;
+}
+
+.certificate-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.certificate-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--df-action-border);
+  border-radius: var(--df-radius);
+  background: var(--df-action-bg);
+  color: var(--df-action-text);
+  padding: 8px 14px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.certificate-download svg {
+  width: 15px;
+  height: 15px;
+}
+
+.certificate-download:hover {
+  background: var(--df-action-bg-hover);
+}
+
+.certificate-panel__reverify {
+  margin: 0;
+  color: var(--df-text-2);
+  font-size: 0.74rem;
+}
+
+.certificate-panel__reverify code {
+  color: var(--df-text-1);
+}
+
+.quiet-chip--ok {
+  color: var(--df-proven-text);
+  border-color: var(--df-proven-line);
+}
+
+.quiet-chip--attention {
+  color: var(--df-held-text);
+  border-color: var(--df-held-line);
+}
+
+.held-list {
+  display: grid;
+  gap: 10px;
+}
+
+.held-row {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--df-held-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-held-bg);
+  padding: 10px 12px;
+}
+
+.held-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.held-row__change {
+  font-size: 0.78rem;
+  color: var(--df-text-2);
+}
+
+.held-row p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--df-text-1);
+}
+

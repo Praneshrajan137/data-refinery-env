@@ -121,6 +121,9 @@
           "apply_handoff": {
             "$ref": "#/components/schemas/ApplyHandoff"
           },
+          "certificate": {
+            "$ref": "#/components/schemas/CertificateView"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/IssueView"
@@ -171,6 +174,7 @@
           "issues",
           "repairs",
           "verification",
+          "certificate",
           "txn_journal",
           "receipt",
           "apply_handoff",
@@ -342,9 +346,31 @@
             "title": "Reason",
             "type": "string"
           },
+          "review_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Reason"
+          },
           "row": {
             "title": "Row",
             "type": "integer"
+          },
+          "verification_strength": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Strength"
           },
           "verifier_reason": {
             "title": "Verifier Reason",
@@ -364,6 +390,51 @@
           "verifier_reason"
         ],
         "title": "CandidateRepairView",
+        "type": "object"
+      },
+      "CertificateCheckView": {
+        "description": "One independently re-checked claim from the trust certificate.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok",
+          "detail"
+        ],
+        "title": "CertificateCheckView",
+        "type": "object"
+      },
+      "CertificateView": {
+        "description": "Independent re-verification of the run's portable trust certificate.\n\nThe receipt is a self-contained certificate: anyone holding the source data\nand this receipt can re-check its trust invariants (cryptographic identity,\nverifier acceptance, and proof-honesty of the auto-applied set) without\nre-running DataForge. This block reports that check, computed server-side\nagainst the exact uploaded bytes. For a stateless dry run it confirms the\nreceipt describes this data and that no unproven write was auto-applied.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CertificateCheckView"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "CertificateView",
         "type": "object"
       },
       "ConstraintCandidateView": {
@@ -951,6 +1022,13 @@
             "title": "Applied",
             "type": "boolean"
           },
+          "applied_fixes": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFixView"
+            },
+            "title": "Applied Fixes",
+            "type": "array"
+          },
           "candidate_provenance": {
             "items": {
               "type": "string"
@@ -983,6 +1061,11 @@
           "fixes_count": {
             "title": "Fixes Count",
             "type": "integer"
+          },
+          "independent_verification": {
+            "default": "not_run",
+            "title": "Independent Verification",
+            "type": "string"
           },
           "issues_count": {
             "title": "Issues Count",
@@ -1070,6 +1153,13 @@
             "pattern": "^[0-9a-f]{64}$",
             "title": "Source Sha256",
             "type": "string"
+          },
+          "suggested_fixes": {
+            "items": {
+              "$ref": "#/components/schemas/CandidateRepairView"
+            },
+            "title": "Suggested Fixes",
+            "type": "array"
           },
           "txn_id": {
             "anyOf": [
@@ -1498,9 +1588,31 @@
             "title": "Reason",
             "type": "string"
           },
+          "review_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Reason"
+          },
           "row": {
             "title": "Row",
             "type": "integer"
+          },
+          "verification_strength": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verification Strength"
           },
           "verifier_reason": {
             "anyOf": [

@@ -376,6 +376,47 @@ def test_analyze_hospital_returns_proof_loop_payload(client: TestClient) -> None
 
 
 @pytest.mark.integration
+def test_analyze_surfaces_trust_certificate_and_verification_strength(
+    client: TestClient,
+) -> None:
+    """The analysis exposes the engine trust signals the browser needs.
+
+    Regression guard for the trust-legible surface: per-fix verification
+    strength, the receipt's independent-verification status and applied-vs-
+    suggested split, and an independently re-verifiable certificate block.
+    """
+    csv_bytes = _hospital_csv_bytes()
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    # Certificate: present, itemized, and (for this deterministic dry run) re-verifies.
+    certificate = body["certificate"]
+    assert certificate["ok"] is True
+    check_names = {check["name"] for check in certificate["checks"]}
+    assert {"schema_recognized", "data_identity", "auto_apply_is_proven_deterministic"} <= (
+        check_names
+    )
+    assert all(check["ok"] for check in certificate["checks"])
+
+    # Per-fix proof strength is honest: deterministic hospital fixes are proven.
+    assert body["repairs"], "hospital sample should produce verified deterministic fixes"
+    for fix in body["repairs"]:
+        assert "verification_strength" in fix
+        assert "review_reason" in fix
+        assert fix["verification_strength"] == "proven"
+
+    # Receipt trust fields: honest independent-verification + applied/suggested split.
+    receipt = body["receipt"]
+    assert receipt["independent_verification"] in {"agreed", "not_run"}
+    assert "applied_fixes" in receipt
+    assert "suggested_fixes" in receipt
+
+
+@pytest.mark.integration
 def test_analyze_stream_returns_ordered_workflow_events_and_final_payload(
     client: TestClient,
 ) -> None:

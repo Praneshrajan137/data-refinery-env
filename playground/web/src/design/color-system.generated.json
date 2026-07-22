@@ -802,6 +802,42 @@
         "palette": "data-60",
         "hex": "#628985"
       },
+      "--df-proven-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-proven-text": {
+        "palette": "success-30",
+        "hex": "#1f3324"
+      },
+      "--df-proven-line": {
+        "palette": "success-60",
+        "hex": "#708775"
+      },
+      "--df-plausibility-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-plausibility-text": {
+        "palette": "agent-30",
+        "hex": "#312747"
+      },
+      "--df-plausibility-line": {
+        "palette": "agent-60",
+        "hex": "#84799f"
+      },
+      "--df-held-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-held-text": {
+        "palette": "warning-20",
+        "hex": "#201300"
+      },
+      "--df-held-line": {
+        "palette": "warning-60",
+        "hex": "#967c52"
+      },
       "--df-status-safe-bg": {
         "palette": "neutral-100",
         "hex": "#ffffff"
@@ -1275,6 +1311,42 @@
       "--df-proof-line": {
         "palette": "data-60",
         "hex": "#628985"
+      },
+      "--df-proven-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-proven-text": {
+        "palette": "success-90",
+        "hex": "#cce6d2"
+      },
+      "--df-proven-line": {
+        "palette": "success-60",
+        "hex": "#708775"
+      },
+      "--df-plausibility-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-plausibility-text": {
+        "palette": "agent-90",
+        "hex": "#e2d7ff"
+      },
+      "--df-plausibility-line": {
+        "palette": "agent-60",
+        "hex": "#84799f"
+      },
+      "--df-held-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-held-text": {
+        "palette": "warning-95",
+        "hex": "#ffeccf"
+      },
+      "--df-held-line": {
+        "palette": "warning-60",
+        "hex": "#967c52"
       },
       "--df-status-safe-bg": {
         "palette": "neutral-20",

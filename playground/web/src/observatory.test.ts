@@ -5,7 +5,10 @@ import {
   buildEvidenceGroups,
   buildObservatoryView,
   buildReviewQueue,
+  buildTrustVerdict,
+  humanizeReviewReason,
   stageToProofNode,
+  strengthOf,
 } from "./observatory";
 
 function analysisFixture(): AnalyzeResponse {
@@ -86,6 +89,22 @@ function analysisFixture(): AnalyzeResponse {
       ],
       abstentions: ["No repair proposal was available."],
       failure_reasons: ["No repair proposal was available."],
+    },
+    certificate: {
+      ok: true,
+      checks: [
+        {
+          name: "schema_recognized",
+          ok: true,
+          detail: "schema_version='repair_receipt_v1'",
+        },
+        { name: "data_identity", ok: true, detail: "sha256(data) matches source_sha256." },
+        {
+          name: "auto_apply_is_proven_deterministic",
+          ok: true,
+          detail: "auto-applied set is proven (deterministic).",
+        },
+      ],
     },
     txn_journal: {
       txn_id: "txn-demo",
@@ -191,5 +210,103 @@ describe("observatory view model", () => {
     ]);
     expect(view.runPosture.title).toBe("high risk");
     expect(view.proofNodes).toHaveLength(9);
+  });
+});
+
+describe("trust verdict", () => {
+  it("returns a pending verdict with no analysis", () => {
+    const verdict = buildTrustVerdict(null);
+    expect(verdict.level).toBe("pending");
+    expect(verdict.certificate.total).toBe(0);
+    expect(verdict.independentVerification).toBe("not_run");
+  });
+
+  it("classifies a proven deterministic run and reports certificate coverage", () => {
+    const analysis = analysisFixture();
+    analysis.repairs = analysis.repairs.map((fix) => ({
+      ...fix,
+      verification_strength: "proven",
+    }));
+    const verdict = buildTrustVerdict(analysis);
+
+    expect(verdict.provenCount).toBe(1);
+    expect(verdict.plausibilityCount).toBe(0);
+    expect(verdict.certificate).toEqual({ ok: true, passed: 3, total: 3 });
+    // Honest: fixtures leave independent verification not run.
+    expect(verdict.independentVerification).toBe("not_run");
+    expect(verdict.guaranteeLine).toContain("No unproven change");
+  });
+
+  it("classifies a held run when proposals are only suggested, not applied", () => {
+    const analysis = analysisFixture();
+    analysis.repairs = [];
+    analysis.receipt.suggested_fixes = [
+      {
+        row: 1,
+        column: "state",
+        old_value: "NY",
+        new_value: "New York",
+        detector_id: "categorical_normalization",
+        operation: "normalize",
+        reason: "candidate",
+        confidence: 0.6,
+        provenance: "llm_live",
+        verifier_reason: "held",
+        verification_strength: "plausibility_only",
+        review_reason: "failed_conformal_threshold",
+      },
+    ];
+    const verdict = buildTrustVerdict(analysis);
+
+    expect(verdict.level).toBe("held");
+    expect(verdict.heldCount).toBe(1);
+    expect(verdict.provenCount).toBe(0);
+  });
+
+  it("classifies a mixed run and warns when a plausibility-only value would apply", () => {
+    const analysis = analysisFixture();
+    analysis.repairs = analysis.repairs.map((fix) => ({
+      ...fix,
+      provenance: "llm_live",
+      verification_strength: "plausibility_only",
+    }));
+    const verdict = buildTrustVerdict(analysis);
+
+    expect(verdict.level).toBe("mixed");
+    expect(verdict.plausibilityCount).toBe(1);
+    expect(verdict.guaranteeLine).toContain("not auto-applied");
+  });
+
+  it("falls back to provenance when verification_strength is absent", () => {
+    expect(
+      strengthOf({
+        row: 0,
+        column: "c",
+        old_value: "",
+        new_value: "x",
+        detector_id: "d",
+        reason: "r",
+        confidence: 1,
+        provenance: "deterministic",
+      }),
+    ).toBe("proven");
+    expect(
+      strengthOf({
+        row: 0,
+        column: "c",
+        old_value: "",
+        new_value: "x",
+        detector_id: "d",
+        reason: "r",
+        confidence: 1,
+        provenance: "llm_live",
+      }),
+    ).toBe("plausibility_only");
+  });
+
+  it("humanizes known review reasons and falls back gracefully", () => {
+    expect(humanizeReviewReason("not_inferable_from_data")).toContain("not derivable");
+    expect(humanizeReviewReason(null)).toContain("Held for review");
+    expect(humanizeReviewReason("some_new_reason")).toBe("some new reason");
   });
 });

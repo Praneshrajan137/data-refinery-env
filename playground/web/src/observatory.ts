@@ -1,8 +1,12 @@
 import type {
   AnalyzeResponse,
+  CandidateRepair,
   ConstraintCandidate,
   DatasetInput,
+  IndependentVerification,
   RepairFailure,
+  VerificationStrength,
+  VerifiedFix,
   WorkflowStatus,
 } from "./types";
 import type { WorkflowRunState, WorkflowStageView } from "./workflow";
@@ -311,5 +315,170 @@ function failureToReviewItem(failure: RepairFailure): ReviewItem {
     detail: failure.reason,
     tone: "danger",
     meta: `row ${failure.row}, ${failure.column}`,
+  };
+}
+
+// --- Trust verdict -----------------------------------------------------------
+// The product's core promise is not "we fixed N cells"; it is "every change we
+// would write is proven, everything we cannot prove is held with a reason, and
+// nothing incorrect is silently written — and you can re-verify that yourself."
+// This view model makes that promise the primary, honest object in the UI.
+
+const LLM_PROVENANCE = new Set(["llm_live", "llm_cache", "external"]);
+
+export type TrustLevel = "pending" | "clear" | "proven" | "held" | "mixed";
+
+export interface TrustVerdict {
+  level: TrustLevel;
+  headline: string;
+  detail: string;
+  guaranteeLine: string;
+  provenCount: number;
+  plausibilityCount: number;
+  heldCount: number;
+  abstentionCount: number;
+  independentVerification: IndependentVerification;
+  certificate: { ok: boolean; passed: number; total: number };
+  metrics: Array<{ label: string; value: string | number; tone: InstrumentTone; hint: string }>;
+}
+
+/**
+ * Classify a fix's verification strength honestly.
+ *
+ * Prefers the engine's per-fix `verification_strength`. When it is absent
+ * (legacy payloads), it falls back to provenance: an LLM/external value is
+ * plausibility-only, everything else is deterministic and therefore proven.
+ * This mirrors the server-side certificate logic so the UI never overstates
+ * proof.
+ */
+export function strengthOf(fix: VerifiedFix | CandidateRepair): VerificationStrength {
+  if (fix.verification_strength === "plausibility_only") {
+    return "plausibility_only";
+  }
+  if (fix.verification_strength === "proven") {
+    return "proven";
+  }
+  return LLM_PROVENANCE.has(fix.provenance) ? "plausibility_only" : "proven";
+}
+
+const REVIEW_REASON_COPY: Record<string, string> = {
+  failed_conformal_threshold:
+    "Confidence did not clear the distribution-free auto-apply threshold.",
+  safety_escalation: "The safety constitution escalated this for human confirmation.",
+  safety_denied: "The safety constitution denied this change.",
+  not_inferable_from_data: "The correct value is not derivable from the data in the table.",
+  verifier_rejected: "The independent verifier rejected this proposal.",
+  floor_cannot_verify: "The deterministic verifier could not prove this change safe.",
+  inferred_fd_not_declared:
+    "The supporting dependency was inferred, not declared, so it is not auto-applied.",
+  unverified_transposition: "A transposition was proposed but could not be proven.",
+  stale_precondition: "The row changed after the proposal, so it was not applied.",
+  invalid_target: "The proposed value failed the target's constraints.",
+};
+
+export function humanizeReviewReason(reason: string | null | undefined): string {
+  if (!reason) {
+    return "Held for review — not proven safe to auto-apply.";
+  }
+  return REVIEW_REASON_COPY[reason] ?? formatLabel(reason);
+}
+
+export function buildTrustVerdict(analysis: AnalyzeResponse | null): TrustVerdict {
+  if (!analysis) {
+    return {
+      level: "pending",
+      headline: "No verdict yet",
+      detail: "Run Analyze to produce a proof loop and its re-verifiable certificate.",
+      guaranteeLine: "Nothing is applied. Every result is a dry run you can re-verify.",
+      provenCount: 0,
+      plausibilityCount: 0,
+      heldCount: 0,
+      abstentionCount: 0,
+      independentVerification: "not_run",
+      certificate: { ok: false, passed: 0, total: 0 },
+      metrics: [],
+    };
+  }
+
+  const wouldApply = analysis.repairs;
+  const provenCount = wouldApply.filter((fix) => strengthOf(fix) === "proven").length;
+  const plausibilityCount = wouldApply.length - provenCount;
+  const heldCount = analysis.receipt.suggested_fixes?.length ?? 0;
+  const abstentionCount = analysis.verification.abstentions.length;
+  const independentVerification = analysis.receipt.independent_verification ?? "not_run";
+  const checks = analysis.certificate?.checks ?? [];
+  const passed = checks.filter((check) => check.ok).length;
+  const certificate = {
+    ok: analysis.certificate?.ok ?? false,
+    passed,
+    total: checks.length,
+  };
+
+  let level: TrustLevel;
+  let headline: string;
+  if (wouldApply.length === 0 && heldCount === 0 && abstentionCount === 0) {
+    level = "clear";
+    headline = "Nothing to repair";
+  } else if (plausibilityCount > 0) {
+    level = "mixed";
+    headline = `${provenCount} proven, ${plausibilityCount} plausible-only`;
+  } else if (provenCount > 0 && heldCount === 0) {
+    level = "proven";
+    headline = `${provenCount} proven fix${provenCount === 1 ? "" : "es"} ready to apply`;
+  } else if (provenCount === 0 && (heldCount > 0 || abstentionCount > 0)) {
+    level = "held";
+    headline = `${heldCount + abstentionCount} held for review`;
+  } else {
+    level = "mixed";
+    headline = `${provenCount} proven, ${heldCount} held`;
+  }
+
+  const guaranteeLine =
+    plausibilityCount > 0
+      ? "A plausibility-only value is not auto-applied unless you opt in — it is recorded as unproven."
+      : "No unproven change would be written. Everything not proven is held with a reason.";
+
+  const detail =
+    level === "clear"
+      ? "The dry run found nothing to change; the certificate confirms the data is unmodified."
+      : `${provenCount} proven, ${heldCount} held for review, ${abstentionCount} honest abstention(s).`;
+
+  return {
+    level,
+    headline,
+    detail,
+    guaranteeLine,
+    provenCount,
+    plausibilityCount,
+    heldCount,
+    abstentionCount,
+    independentVerification,
+    certificate,
+    metrics: [
+      {
+        label: "Proven, would apply",
+        value: provenCount,
+        tone: provenCount > 0 ? "verified" : "neutral",
+        hint: "Deterministic or authoritative-schema-verified. Safe to auto-apply.",
+      },
+      {
+        label: "Held for review",
+        value: heldCount + abstentionCount,
+        tone: heldCount + abstentionCount > 0 ? "review" : "neutral",
+        hint: "Not proven from the data. Abstention is a first-class, honest outcome.",
+      },
+      {
+        label: "Plausibility-only",
+        value: plausibilityCount,
+        tone: plausibilityCount > 0 ? "review" : "verified",
+        hint: "Model-proposed values with no authoritative schema. Never silently written.",
+      },
+      {
+        label: "Certificate",
+        value: certificate.total > 0 ? `${passed}/${certificate.total}` : "n/a",
+        tone: certificate.ok ? "verified" : "review",
+        hint: "Independent re-verification of the receipt against your exact bytes.",
+      },
+    ],
   };
 }

@@ -96,6 +96,18 @@ describe("result shaping", () => {
         abstentions: [],
         failure_reasons: [],
       },
+      certificate: {
+        ok: true,
+        checks: [
+          { name: "schema_recognized", ok: true, detail: "schema_version='repair_receipt_v1'" },
+          { name: "data_identity", ok: true, detail: "sha256(data) matches source_sha256." },
+          {
+            name: "auto_apply_is_proven_deterministic",
+            ok: true,
+            detail: "auto-applied set is proven (deterministic).",
+          },
+        ],
+      },
       txn_journal: {
         txn_id: "txn-demo",
         created_at: "2026-05-20T12:00:00Z",

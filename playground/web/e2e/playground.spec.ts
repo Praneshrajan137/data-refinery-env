@@ -128,6 +128,7 @@ function analyzePayload(accepted = false) {
         confidence: 0.94,
         provenance: "heuristic",
         verifier_reason: "All proposed fixes passed the SMT verifier.",
+        verification_strength: "proven",
       },
     ],
     verification: {
@@ -147,6 +148,26 @@ function analyzePayload(accepted = false) {
       ],
       abstentions: ["No repair proposal was available for this issue."],
       failure_reasons: ["No repair proposal was available for this issue."],
+    },
+    certificate: {
+      ok: true,
+      checks: [
+        {
+          name: "schema_recognized",
+          ok: true,
+          detail: "schema_version='repair_receipt_v1'",
+        },
+        {
+          name: "data_identity",
+          ok: true,
+          detail: "sha256(data) matches source_sha256.",
+        },
+        {
+          name: "auto_apply_is_proven_deterministic",
+          ok: true,
+          detail: "auto-applied set is proven (deterministic).",
+        },
+      ],
     },
     txn_journal: {
       txn_id: "txn-demo",
@@ -170,8 +191,11 @@ function analyzePayload(accepted = false) {
       txn_id: "txn-demo",
       safety_verdict: "allow",
       verifier_verdict: "accept",
+      independent_verification: "not_run",
       issues_count: 1,
       fixes_count: 1,
+      applied_fixes: [],
+      suggested_fixes: [],
       candidate_provenance: ["heuristic"],
       root_causes: [
         {
@@ -203,6 +227,7 @@ function analyzePayload(accepted = false) {
           confidence: 0.94,
           provenance: "heuristic",
           verifier_reason: "accepted",
+          verification_strength: "proven",
         },
       ],
       proof_obligations: [
@@ -359,6 +384,8 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   await expect(page.getByText("decimal shift")).toBeVisible();
   await expect(primaryRepairMoment(page)).toBeVisible();
   await expect(page.getByText("All proposed fixes passed the SMT verifier.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "1 proven fix ready to apply" })).toBeVisible();
+  await expect(page.getByText("No unproven change would be written.", { exact: false })).toBeVisible();
   await expect(page.getByText("Export dry-run receipt")).toBeVisible();
   await expect(page.getByText("Hosted analysis is dry-run only and never mutates uploaded CSV files.")).toBeVisible();
   await expect(page.getByText("Local revert refuses if the file has drifted from the recorded post-state hash.")).toBeVisible();
@@ -378,11 +405,14 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   await expect(repairsPanel.getByText("Value 45 in column rating appears to be ~10x the typical value.")).toBeVisible();
   await expect(repairsPanel.getByText("All proposed fixes passed the SMT verifier.")).toBeVisible();
   await expect(repairsPanel.getByText("Attempted but not fixed")).toBeVisible();
+  await expect(repairsPanel.getByText("proven", { exact: true }).first()).toBeVisible();
 
   await page.locator('.product-nav a[href="/playground/receipt"]').click();
   const receiptPanel = page.locator(".receipt-lens");
   await expect(receiptPanel.getByText("txn-demo", { exact: true })).toBeVisible();
-  await expect(receiptPanel.getByLabel("Repair receipt summary").getByText("Accepted constraints")).toBeVisible();
+  await expect(receiptPanel.getByLabel("Repair receipt summary").getByText("Independent verify")).toBeVisible();
+  await expect(receiptPanel.getByRole("heading", { name: "Re-verified 3/3 checks" })).toBeVisible();
+  await expect(receiptPanel.getByRole("button", { name: "Download portable certificate" })).toBeVisible();
   await expect(receiptPanel).toContainText("constraints.json");
 
   const receiptToolbar = page.locator(".receipt-toolbar");

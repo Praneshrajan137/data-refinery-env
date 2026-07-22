@@ -49,6 +49,7 @@ from dataforge import (
 )
 from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.agent.policy import PolicyUnavailableError
+from dataforge.certificate import verify_certificate
 from dataforge.http.problem import problem_exception_handler, problem_response
 from dataforge.observability import configure_fastapi_observability
 from dataforge.schema_inference import (
@@ -336,6 +337,8 @@ class VerifiedFixView(BaseModel):
     confidence: float
     provenance: str
     verifier_reason: str | None = None
+    verification_strength: str | None = None
+    review_reason: str | None = None
 
 
 class RepairFailureView(BaseModel):
@@ -374,6 +377,8 @@ class CandidateRepairView(BaseModel):
     confidence: float
     provenance: str
     verifier_reason: str
+    verification_strength: str | None = None
+    review_reason: str | None = None
 
 
 class ProofObligationView(BaseModel):
@@ -413,11 +418,14 @@ class RepairReceiptView(BaseModel):
     txn_id: str | None = None
     safety_verdict: str
     verifier_verdict: str
+    independent_verification: str = "not_run"
     issues_count: int
     fixes_count: int
     candidate_provenance: list[str]
     root_causes: list[RootCauseView] = Field(default_factory=list)
     candidate_repairs: list[CandidateRepairView] = Field(default_factory=list)
+    applied_fixes: list[VerifiedFixView] = Field(default_factory=list)
+    suggested_fixes: list[CandidateRepairView] = Field(default_factory=list)
     proof_obligations: list[ProofObligationView] = Field(default_factory=list)
     accepted_constraint_ids: list[str]
     constraints_artifact_sha256: str | None = None
@@ -436,6 +444,29 @@ class VerificationSummary(BaseModel):
     failures: list[RepairFailureView]
     abstentions: list[str]
     failure_reasons: list[str]
+
+
+class CertificateCheckView(BaseModel):
+    """One independently re-checked claim from the trust certificate."""
+
+    name: str
+    ok: bool
+    detail: str
+
+
+class CertificateView(BaseModel):
+    """Independent re-verification of the run's portable trust certificate.
+
+    The receipt is a self-contained certificate: anyone holding the source data
+    and this receipt can re-check its trust invariants (cryptographic identity,
+    verifier acceptance, and proof-honesty of the auto-applied set) without
+    re-running DataForge. This block reports that check, computed server-side
+    against the exact uploaded bytes. For a stateless dry run it confirms the
+    receipt describes this data and that no unproven write was auto-applied.
+    """
+
+    ok: bool
+    checks: list[CertificateCheckView] = Field(default_factory=list)
 
 
 class ApplyHandoff(BaseModel):
@@ -522,6 +553,7 @@ class AnalyzeResponse(BaseModel):
     issues: list[IssueView]
     repairs: list[VerifiedFixView]
     verification: VerificationSummary
+    certificate: CertificateView
     txn_journal: RepairJournalView
     receipt: RepairReceiptView
     apply_handoff: ApplyHandoff
@@ -1066,6 +1098,8 @@ def _fix_views(fixes: list[VerifiedFix]) -> list[VerifiedFixView]:
             confidence=fix.confidence,
             provenance=fix.provenance,
             verifier_reason=fix.verifier_reason,
+            verification_strength=fix.verification_strength,
+            review_reason=fix.review_reason,
         )
         for fix in fixes
     ]
@@ -1118,6 +1152,7 @@ def _receipt_view(receipt: Any) -> RepairReceiptView:
         txn_id=receipt.txn_id,
         safety_verdict=receipt.safety_verdict,
         verifier_verdict=receipt.verifier_verdict,
+        independent_verification=receipt.independent_verification,
         issues_count=receipt.issues_count,
         fixes_count=receipt.fixes_count,
         candidate_provenance=list(receipt.candidate_provenance),
@@ -1126,6 +1161,10 @@ def _receipt_view(receipt: Any) -> RepairReceiptView:
         ],
         candidate_repairs=[
             CandidateRepairView(**candidate.model_dump()) for candidate in receipt.candidate_repairs
+        ],
+        applied_fixes=_fix_views(list(receipt.applied_fixes)),
+        suggested_fixes=[
+            CandidateRepairView(**candidate.model_dump()) for candidate in receipt.suggested_fixes
         ],
         proof_obligations=[
             ProofObligationView(
@@ -1142,6 +1181,27 @@ def _receipt_view(receipt: Any) -> RepairReceiptView:
         revert_command=receipt.revert_command,
         limitations=list(receipt.limitations),
         reason=receipt.reason,
+    )
+
+
+def _certificate_view(receipt: Any, *, source_bytes: bytes) -> CertificateView:
+    """Independently re-verify the receipt as a portable trust certificate.
+
+    Uses the pure, dependency-free :func:`verify_certificate` against the exact
+    uploaded bytes, so the browser can show that the receipt re-verifies without
+    trusting the server. Fail-open on the check itself is not possible here: any
+    failed invariant is reported truthfully via ``ok=False``.
+    """
+    verification = verify_certificate(
+        receipt.model_dump(mode="json"),
+        data_bytes=source_bytes,
+    )
+    return CertificateView(
+        ok=verification.ok,
+        checks=[
+            CertificateCheckView(name=check.name, ok=check.ok, detail=check.detail)
+            for check in verification.checks
+        ],
     )
 
 
@@ -1390,6 +1450,7 @@ def _analyze_upload(
             abstentions=list(result.receipt.abstentions),
             failure_reasons=list(result.receipt.failure_reasons),
         ),
+        certificate=_certificate_view(result.receipt, source_bytes=source_bytes),
         txn_journal=_journal_view(result.transaction, source_name=upload_name),
         receipt=receipt,
         apply_handoff=_apply_handoff(upload_name, receipt),
