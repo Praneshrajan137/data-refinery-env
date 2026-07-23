@@ -326,12 +326,162 @@ function workflowStreamBody(accepted = false) {
   return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
 }
 
+function verifyScenarioPayload() {
+  return {
+    name: "hospital_10rows",
+    proposer: "triage-agent",
+    fixes: [
+      { row: 0, column: "er_wait_time", new_value: "30" },
+      { row: 1, column: "rating", new_value: "abc" },
+      { row: 2, column: "rating", new_value: "4.0", expected_old_value: "WRONG" },
+      { row: 0, column: "ghost_column", new_value: "x" },
+    ],
+    accepted_constraint_ids: ["cnd-er-type", "cnd-rating-type"],
+    note: "A triage agent proposed four edits. Only the correctly-typed edit is proven.",
+  };
+}
+
+function verifyFixesPayload() {
+  const sourceHash = "d".repeat(64);
+  return {
+    source: {
+      name: "hospital_10rows.csv",
+      size_bytes: 512,
+      sha256: sourceHash,
+      rows: 10,
+      columns: 10,
+      column_names: ["provider_number", "rating", "er_wait_time"],
+    },
+    proposer: "triage-agent",
+    proposed_count: 4,
+    authoritative_schema: true,
+    would_apply: [
+      {
+        row: 0,
+        column: "er_wait_time",
+        old_value: "28",
+        new_value: "30",
+        detector_id: "external",
+        reason: "External proposal by 'triage-agent'.",
+        confidence: 1,
+        provenance: "external",
+        verifier_reason: "Accepted by the safety constitution and the shared prove gate.",
+        verification_strength: "proven",
+      },
+    ],
+    receipt: {
+      schema_version: "repair_receipt_v1",
+      receipt_version: "repair_receipt_v1",
+      contract_version: "repair_contract_v2",
+      mode: "dry_run",
+      applied: false,
+      reversible: true,
+      source_sha256: sourceHash,
+      post_sha256: null,
+      txn_id: null,
+      safety_verdict: "allow",
+      verifier_verdict: "accept",
+      independent_verification: "agreed",
+      issues_count: 4,
+      fixes_count: 1,
+      candidate_provenance: ["external"],
+      root_causes: [],
+      candidate_repairs: [],
+      applied_fixes: [],
+      suggested_fixes: [
+        {
+          row: 1,
+          column: "rating",
+          old_value: "3.8",
+          new_value: "abc",
+          detector_id: "external",
+          operation: "update",
+          reason: "External proposal.",
+          confidence: 1,
+          provenance: "external",
+          verifier_reason: "Rejected: the prove gate could not verify this external value.",
+          verification_strength: "plausibility_only",
+          review_reason: "verifier_rejected",
+        },
+        {
+          row: 2,
+          column: "rating",
+          old_value: "4.1",
+          new_value: "4.0",
+          detector_id: "external",
+          operation: "update",
+          reason: "External proposal.",
+          confidence: 1,
+          provenance: "external",
+          verifier_reason: "Rejected: expected_old_value did not match the current cell.",
+          verification_strength: "plausibility_only",
+          review_reason: "stale_precondition",
+        },
+        {
+          row: 0,
+          column: "ghost_column",
+          old_value: "",
+          new_value: "x",
+          detector_id: "external",
+          operation: "update",
+          reason: "External proposal.",
+          confidence: 1,
+          provenance: "external",
+          verifier_reason: "Rejected: unknown column, out-of-range row, or duplicate cell edit.",
+          verification_strength: "plausibility_only",
+          review_reason: "invalid_target",
+        },
+      ],
+      proof_obligations: [],
+      accepted_constraint_ids: ["cnd-er-type", "cnd-rating-type"],
+      constraints_artifact_sha256: null,
+      patch_plan_sha256: null,
+      revert_command: null,
+      limitations: [],
+      reason: "Dry run: 1 external fix is proven; no source data was mutated.",
+    },
+    verification: {
+      safety_verdict: "allow",
+      verifier_verdict: "accept",
+      accepted_constraint_ids: ["cnd-er-type", "cnd-rating-type"],
+      failures: [],
+      abstentions: [],
+      failure_reasons: [],
+    },
+    certificate: {
+      ok: true,
+      checks: [
+        { name: "schema_recognized", ok: true, detail: "schema_version='repair_receipt_v1'" },
+        { name: "data_identity", ok: true, detail: "sha256(data) matches source_sha256." },
+        {
+          name: "auto_apply_is_proven_deterministic",
+          ok: true,
+          detail: "auto-applied set is proven (deterministic).",
+        },
+      ],
+    },
+    apply_handoff: {
+      source_name: "hospital_10rows.csv",
+      dry_run_command:
+        "dataforge verify-apply path/to/hospital_10rows.csv --fixes fixes.json --dry-run",
+      apply_command:
+        "dataforge verify-apply path/to/hospital_10rows.csv --fixes fixes.json --apply",
+      audit_command: "dataforge audit <txn-id>",
+      revert_command: "dataforge revert <txn-id>",
+      note: "The hosted playground never mutates uploads.",
+    },
+    limitations: ["Hosted verification is stateless and dry-run only; no upload is ever mutated."],
+    meta: { api_version: "0.1.0", contract_version: "repair_contract_v2" },
+  };
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/health", async (route) => {
     await route.fulfill({
       json: {
         status: "ok",
         advanced_available: false,
+        verify_available: true,
         streaming_available: true,
         workflow_contract_version: "workflow_event_v1",
         max_upload_bytes: 1_048_576,
@@ -363,6 +513,12 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/api/analyze", async (route) => {
     const posted = route.request().postData() ?? "";
     await route.fulfill({ json: analyzePayload(posted.includes("cnd-state-fd")) });
+  });
+  await page.route("**/api/verify-scenarios/**", async (route) => {
+    await route.fulfill({ json: verifyScenarioPayload() });
+  });
+  await page.route("**/api/verify-fixes", async (route) => {
+    await route.fulfill({ json: verifyFixesPayload() });
   });
 });
 
@@ -422,6 +578,43 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   const download = page.waitForEvent("download");
   await receiptToolbar.getByRole("button", { name: "Export" }).click();
   await expect((await download).suggestedFilename()).toContain("dataforge-dry-run");
+
+  const scan = await new AxeBuilder({ page }).analyze();
+  expect(scan.violations).toEqual([]);
+});
+
+test("guardrail verifies an untrusted agent batch and passes accessibility", async ({ page }) => {
+  await page.goto("/playground/guardrail");
+
+  await expect(
+    page.getByRole("heading", { name: /Verify an untrusted actor/ }),
+  ).toBeVisible();
+
+  // 1. Choose a dataset, then load the scripted untrusted-agent batch.
+  await page.locator(".guardrail-intake").getByRole("button", { name: /Hospital/ }).click();
+  await page.getByRole("button", { name: "Load scripted agent batch" }).click();
+  await expect(page.getByText(/Authoritative schema: 2 accepted constraints/)).toBeVisible();
+
+  // 2. Verify the proposals (keyboard-activate to stay robust across viewports).
+  const verifyButton = page.getByRole("button", { name: "Verify proposed fixes" });
+  await verifyButton.scrollIntoViewIfNeeded();
+  await verifyButton.focus();
+  await page.keyboard.press("Enter");
+
+  // 3. The guardrail verdict shows the proven/blocked split and a re-verifying certificate.
+  await expect(page.getByRole("heading", { name: "1 proven, 3 blocked" })).toBeVisible();
+  await expect(page.getByText("zero corruptions", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Verified external fixes" })).toBeVisible();
+  await expect(
+    page.locator(".would-apply-row").getByText("proven", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Proposals not proven safe to auto-apply" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Re-verified 3/3 checks" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Download portable certificate" }),
+  ).toBeVisible();
 
   const scan = await new AxeBuilder({ page }).analyze();
   expect(scan.violations).toEqual([]);

@@ -32,6 +32,14 @@ export const PRODUCT_ROUTES = [
     description: "Compare verified fixes, candidate repairs, failures, and verifier notes.",
   },
   {
+    id: "guardrail",
+    path: "/guardrail",
+    href: "/playground/guardrail",
+    label: "Guardrail",
+    title: "Agent guardrail",
+    description: "Propose external fixes as an untrusted agent and watch DataForge prove the correct ones, hold or reject the rest, and emit a re-verifiable certificate.",
+  },
+  {
     id: "receipt",
     path: "/receipt",
     href: "/playground/receipt",

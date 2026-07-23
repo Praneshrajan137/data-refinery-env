@@ -7,6 +7,7 @@ describe("product routes", () => {
     expect(routeFromPathname("/playground/run").id).toBe("run");
     expect(routeFromPathname("/playground/atlas/").id).toBe("atlas");
     expect(routeFromPathname("/playground/evidence?x=1").id).toBe("evidence");
+    expect(routeFromPathname("/playground/guardrail").id).toBe("guardrail");
   });
 
   it("falls back to the product loop for unknown paths", () => {

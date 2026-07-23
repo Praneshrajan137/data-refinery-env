@@ -7,6 +7,7 @@ import type {
   RepairFailure,
   VerificationStrength,
   VerifiedFix,
+  VerifyFixesResponse,
   WorkflowStatus,
 } from "./types";
 import type { WorkflowRunState, WorkflowStageView } from "./workflow";
@@ -478,6 +479,130 @@ export function buildTrustVerdict(analysis: AnalyzeResponse | null): TrustVerdic
         value: certificate.total > 0 ? `${passed}/${certificate.total}` : "n/a",
         tone: certificate.ok ? "verified" : "review",
         hint: "Independent re-verification of the receipt against your exact bytes.",
+      },
+    ],
+  };
+}
+
+// --- Guardrail verdict (verify_and_apply external fixes) ---------------------
+// The agent-guardrail wedge: an untrusted actor proposes edits, DataForge proves
+// the correct ones and blocks the rest. This view model makes "zero corruptions"
+// the primary, honest object.
+
+const REJECTED_REVIEW_REASONS = new Set([
+  "verifier_rejected",
+  "stale_precondition",
+  "invalid_target",
+  "safety_denied",
+]);
+
+export type GuardrailLevel = "pending" | "clear" | "proven" | "held" | "mixed";
+
+export interface GuardrailVerdict {
+  level: GuardrailLevel;
+  headline: string;
+  detail: string;
+  guaranteeLine: string;
+  proposed: number;
+  proven: number;
+  held: number;
+  rejected: number;
+  authoritative: boolean;
+  independentVerification: IndependentVerification;
+  certificate: { ok: boolean; passed: number; total: number };
+  metrics: Array<{ label: string; value: string | number; tone: InstrumentTone; hint: string }>;
+}
+
+export function buildGuardrailVerdict(response: VerifyFixesResponse | null): GuardrailVerdict {
+  if (!response) {
+    return {
+      level: "pending",
+      headline: "No verdict yet",
+      detail: "Propose external fixes to see which are proven and which are blocked.",
+      guaranteeLine: "Nothing is applied. External values are verified in a stateless dry run.",
+      proposed: 0,
+      proven: 0,
+      held: 0,
+      rejected: 0,
+      authoritative: false,
+      independentVerification: "not_run",
+      certificate: { ok: false, passed: 0, total: 0 },
+      metrics: [],
+    };
+  }
+
+  const proposed = response.proposed_count;
+  const proven = response.would_apply.filter((fix) => strengthOf(fix) === "proven").length;
+  const suggested = response.receipt.suggested_fixes ?? [];
+  const rejected = suggested.filter((fix) =>
+    REJECTED_REVIEW_REASONS.has(fix.review_reason ?? ""),
+  ).length;
+  const held = suggested.length - rejected;
+  const independentVerification = response.receipt.independent_verification ?? "not_run";
+  const checks = response.certificate?.checks ?? [];
+  const passed = checks.filter((check) => check.ok).length;
+  const certificate = {
+    ok: response.certificate?.ok ?? false,
+    passed,
+    total: checks.length,
+  };
+
+  let level: GuardrailLevel;
+  if (proposed === 0) {
+    level = "clear";
+  } else if (proven > 0 && held + rejected === 0) {
+    level = "proven";
+  } else if (proven === 0 && held + rejected > 0) {
+    level = "held";
+  } else {
+    level = "mixed";
+  }
+
+  const headline =
+    proven > 0
+      ? `${proven} proven, ${held + rejected} blocked`
+      : `${held + rejected} of ${proposed} blocked, 0 written`;
+
+  const guaranteeLine = response.authoritative_schema
+    ? "Only schema-proven edits would apply. Everything unproven is held or rejected — zero corruptions."
+    : "No authoritative schema was provided, so no external value is proven — all proposals are held (correctly).";
+
+  return {
+    level,
+    headline,
+    detail: `${proposed} proposed by '${response.proposer}' -> ${proven} proven, ${held} held, ${rejected} rejected.`,
+    guaranteeLine,
+    proposed,
+    proven,
+    held,
+    rejected,
+    authoritative: response.authoritative_schema,
+    independentVerification,
+    certificate,
+    metrics: [
+      {
+        label: "Proposed",
+        value: proposed,
+        tone: "neutral",
+        hint: "Cell edits proposed by the untrusted actor.",
+      },
+      {
+        label: "Proven, would apply",
+        value: proven,
+        tone: proven > 0 ? "verified" : "neutral",
+        hint: "Verified against an authoritative schema. Safe to auto-apply.",
+      },
+      {
+        label: "Held for review",
+        value: held,
+        tone: held > 0 ? "review" : "neutral",
+        hint: "Not proven from the data or awaiting confirmation. Never silently written.",
+      },
+      {
+        label: "Rejected",
+        value: rejected,
+        tone: rejected > 0 ? "danger" : "neutral",
+        hint: "Type-corrupting, stale, invalid, or safety-denied proposals.",
       },
     ],
   };

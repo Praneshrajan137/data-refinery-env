@@ -311,6 +311,51 @@
         "title": "Body_repair_api_repair_post",
         "type": "object"
       },
+      "Body_verify_fixes_api_verify_fixes_post": {
+        "properties": {
+          "accepted_constraint_ids": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted Constraint Ids"
+          },
+          "allow_unproven": {
+            "default": false,
+            "title": "Allow Unproven",
+            "type": "boolean"
+          },
+          "confirm_escalations": {
+            "default": true,
+            "title": "Confirm Escalations",
+            "type": "boolean"
+          },
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          },
+          "fixes": {
+            "title": "Fixes",
+            "type": "string"
+          },
+          "proposer": {
+            "default": "external-agent",
+            "title": "Proposer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "fixes"
+        ],
+        "title": "Body_verify_fixes_api_verify_fixes_post",
+        "type": "object"
+      },
       "CandidateRepairView": {
         "description": "Candidate repair carried in the public repair receipt.",
         "properties": {
@@ -544,6 +589,43 @@
         "title": "ConstraintCandidateView",
         "type": "object"
       },
+      "ExternalFixInput": {
+        "description": "One externally-proposed cell edit submitted to the guardrail.\n\nMirrors ``dataforge.ExternalFix``. ``expected_old_value`` is an optional\ncompare-and-set precondition: when present, a proposal is rejected as stale\nif the current cell differs (preventing a lost update).",
+        "properties": {
+          "column": {
+            "minLength": 1,
+            "title": "Column",
+            "type": "string"
+          },
+          "expected_old_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Old Value"
+          },
+          "new_value": {
+            "title": "New Value",
+            "type": "string"
+          },
+          "row": {
+            "minimum": 0.0,
+            "title": "Row",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "new_value"
+        ],
+        "title": "ExternalFixInput",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -627,6 +709,10 @@
             "title": "Streaming Available",
             "type": "boolean"
           },
+          "verify_available": {
+            "title": "Verify Available",
+            "type": "boolean"
+          },
           "workflow_contract_version": {
             "const": "workflow_event_v1",
             "title": "Workflow Contract Version",
@@ -638,6 +724,7 @@
           "status",
           "advanced_available",
           "agent_available",
+          "verify_available",
           "agent_max_steps",
           "max_upload_bytes",
           "streaming_available",
@@ -1638,6 +1725,110 @@
         ],
         "title": "VerifiedFixView",
         "type": "object"
+      },
+      "VerifyFixesResponse": {
+        "description": "Guardrail verdict for externally-proposed fixes (dry-run only).\n\n``would_apply`` are the proposals that were *proven* (verified against an\nauthoritative schema) and would auto-apply on ``dataforge verify-apply\n--apply``; ``receipt.suggested_fixes`` are held or rejected, each with an\nhonest ``review_reason``; ``certificate`` independently re-verifies the\nreceipt against the exact uploaded bytes. The hosted playground never mutates\nuploads, so nothing is written here.",
+        "properties": {
+          "apply_handoff": {
+            "$ref": "#/components/schemas/ApplyHandoff"
+          },
+          "authoritative_schema": {
+            "title": "Authoritative Schema",
+            "type": "boolean"
+          },
+          "certificate": {
+            "$ref": "#/components/schemas/CertificateView"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/ResponseMeta"
+          },
+          "proposed_count": {
+            "title": "Proposed Count",
+            "type": "integer"
+          },
+          "proposer": {
+            "title": "Proposer",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/RepairReceiptView"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceView"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/VerificationSummary"
+          },
+          "would_apply": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFixView"
+            },
+            "title": "Would Apply",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source",
+          "proposer",
+          "proposed_count",
+          "authoritative_schema",
+          "would_apply",
+          "receipt",
+          "verification",
+          "certificate",
+          "apply_handoff",
+          "limitations",
+          "meta"
+        ],
+        "title": "VerifyFixesResponse",
+        "type": "object"
+      },
+      "VerifyScenarioView": {
+        "description": "A curated 'untrusted agent' batch for one bundled sample.\n\nPairs a mixed batch of proposals with the accepted constraint id(s) that make\nthe schema-consistent ones provable, so one click shows the full\nproven / held / rejected split against an authoritative schema.",
+        "properties": {
+          "accepted_constraint_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Accepted Constraint Ids",
+            "type": "array"
+          },
+          "fixes": {
+            "items": {
+              "$ref": "#/components/schemas/ExternalFixInput"
+            },
+            "title": "Fixes",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "proposer": {
+            "title": "Proposer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "proposer",
+          "fixes",
+          "accepted_constraint_ids",
+          "note"
+        ],
+        "title": "VerifyScenarioView",
+        "type": "object"
       }
     }
   },
@@ -1876,6 +2067,85 @@
           }
         },
         "summary": "Get Sample"
+      }
+    },
+    "/api/verify-fixes": {
+      "post": {
+        "description": "Verify externally-proposed cell fixes through the shared prove gate (dry run).\n\nThe guardrail-for-agents surface: an untrusted actor proposes edits and only\nthe schema-proven ones are reported as would-apply; the rest are held or\nrejected with honest reasons, and the receipt re-verifies as a certificate.",
+        "operationId": "verify_fixes_api_verify_fixes_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_verify_fixes_api_verify_fixes_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyFixesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verify Fixes"
+      }
+    },
+    "/api/verify-scenarios/{name}": {
+      "get": {
+        "description": "Return a curated 'untrusted agent' batch for a bundled sample.\n\nThe batch pairs a realistic mix of correct / corrupting / stale / invalid\nproposals with the accepted constraint id(s) that authorize the correct ones,\nso a single click demonstrates the full proven / held / rejected split\nagainst an authoritative schema.",
+        "operationId": "get_verify_scenario_api_verify_scenarios__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyScenarioView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Verify Scenario"
       }
     }
   }

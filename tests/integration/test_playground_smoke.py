@@ -175,6 +175,7 @@ def test_health(client: TestClient) -> None:
     }
     assert body["api_version"] == "0.1.0"
     assert body["contract_version"] == "repair_contract_v2"
+    assert body["verify_available"] is True
     assert "server_time_utc" in body
     assert "metrics" in body
     assert "requests_total" in body["metrics"]
@@ -730,6 +731,114 @@ def test_samples_hospital(client: TestClient) -> None:
     # Body should contain CSV content with a header row
     text = response.text
     assert len(text.strip().splitlines()) > 1
+
+
+# ---------------------------------------------------------------------------
+# Guardrail: verify externally-proposed fixes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_verify_scenario_returns_curated_batch(client: TestClient) -> None:
+    """GET /api/verify-scenarios/{name} returns a curated batch + authoritative ids."""
+    response = client.get("/api/verify-scenarios/hospital_10rows")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "hospital_10rows"
+    assert body["proposer"]
+    assert len(body["fixes"]) == 4
+    assert body["accepted_constraint_ids"], "scenario must resolve authoritative constraint ids"
+    assert body["note"]
+
+
+@pytest.mark.integration
+def test_verify_scenario_unknown_is_404(client: TestClient) -> None:
+    """An unknown scenario name is a stable 404."""
+    response = client.get("/api/verify-scenarios/not_a_sample")
+    assert response.status_code == 404
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("name", ["hospital_10rows", "flights_10rows", "beers_10rows"])
+def test_verify_fixes_curated_batch_yields_guardrail_split(client: TestClient, name: str) -> None:
+    """The scripted untrusted-agent batch proves the correct edit and blocks the rest.
+
+    Fetches the sample bytes via the API so the content-derived constraint ids in
+    the scenario match the posted file, then asserts the full guardrail story:
+    exactly one proven would-apply fix, the corrupting/stale/invalid proposals
+    held or rejected with honest reasons, and a certificate that re-verifies.
+    """
+    scenario = client.get(f"/api/verify-scenarios/{name}").json()
+    csv_bytes = client.get(f"/api/samples/{name}").content
+
+    response = client.post(
+        "/api/verify-fixes",
+        files={"file": (f"{name}.csv", io.BytesIO(csv_bytes), "text/csv")},
+        data={
+            "fixes": json.dumps(scenario["fixes"]),
+            "accepted_constraint_ids": json.dumps(scenario["accepted_constraint_ids"]),
+            "proposer": scenario["proposer"],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["proposed_count"] == 4
+    assert body["authoritative_schema"] is True
+    assert body["proposer"] == scenario["proposer"]
+
+    # Exactly the one correctly-typed edit is proven and would apply.
+    assert len(body["would_apply"]) == 1
+    assert body["would_apply"][0]["verification_strength"] == "proven"
+
+    # The corrupting / stale / invalid proposals are each blocked with an honest reason.
+    reasons = {held["review_reason"] for held in body["receipt"]["suggested_fixes"]}
+    assert {"verifier_rejected", "stale_precondition", "invalid_target"} <= reasons
+
+    # Nothing was written; the receipt re-verifies as a certificate.
+    assert body["receipt"]["applied"] is False
+    assert body["certificate"]["ok"] is True
+    assert body["receipt"]["independent_verification"] == "agreed"
+
+
+@pytest.mark.integration
+def test_verify_fixes_without_schema_holds_everything(client: TestClient) -> None:
+    """With no accepted constraints, no external value is proven (held, correctly)."""
+    csv_bytes = client.get("/api/samples/hospital_10rows").content
+    response = client.post(
+        "/api/verify-fixes",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+        data={"fixes": json.dumps([{"row": 0, "column": "er_wait_time", "new_value": "30"}])},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["authoritative_schema"] is False
+    assert body["would_apply"] == []
+    assert body["receipt"]["suggested_fixes"], "unproven external fix must be held, not applied"
+
+
+@pytest.mark.integration
+def test_verify_fixes_rejects_empty_batch(client: TestClient) -> None:
+    """An empty fix batch is a stable 400 problem."""
+    csv_bytes = client.get("/api/samples/hospital_10rows").content
+    response = client.post(
+        "/api/verify-fixes",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+        data={"fixes": "[]"},
+    )
+    _assert_problem_response(response, status=400, error="empty_fixes")
+
+
+@pytest.mark.integration
+def test_verify_fixes_rejects_invalid_json(client: TestClient) -> None:
+    """Malformed fixes JSON is a stable 400 problem."""
+    csv_bytes = client.get("/api/samples/hospital_10rows").content
+    response = client.post(
+        "/api/verify-fixes",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(csv_bytes), "text/csv")},
+        data={"fixes": "{not json"},
+    )
+    _assert_problem_response(response, status=400, error="invalid_fixes")
 
 
 # ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ export interface BackendCapability {
   status: "ok";
   advanced_available: boolean;
   agent_available?: boolean;
+  verify_available?: boolean;
   agent_max_steps?: number;
   max_upload_bytes: number;
   streaming_available?: boolean;
@@ -349,4 +350,43 @@ export interface WorkflowEvent {
 export interface AnalyzeStreamOptions {
   signal?: AbortSignal;
   onEvent: (event: WorkflowEvent) => void;
+}
+
+export interface ExternalFix {
+  row: number;
+  column: string;
+  new_value: string;
+  expected_old_value?: string | null;
+}
+
+export interface VerifyScenario {
+  name: string;
+  proposer: string;
+  fixes: ExternalFix[];
+  accepted_constraint_ids: string[];
+  note: string;
+}
+
+export interface VerifyFixesResponse {
+  source: SourceView;
+  proposer: string;
+  proposed_count: number;
+  authoritative_schema: boolean;
+  would_apply: VerifiedFix[];
+  receipt: RepairReceipt;
+  verification: VerificationSummary;
+  certificate: Certificate;
+  apply_handoff: ApplyHandoff;
+  limitations: string[];
+  meta: {
+    api_version: string;
+    contract_version: string;
+  };
+}
+
+export interface VerifyFixesOptions {
+  acceptedConstraintIds?: string[];
+  proposer?: string;
+  confirmEscalations?: boolean;
+  allowUnproven?: boolean;
 }

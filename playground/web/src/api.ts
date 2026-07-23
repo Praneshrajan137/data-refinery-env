@@ -7,6 +7,9 @@ import type {
   ProfileResponse,
   RepairMode,
   RepairResponse,
+  VerifyFixesOptions,
+  VerifyFixesResponse,
+  VerifyScenario,
   WorkflowEvent,
 } from "./types";
 
@@ -163,6 +166,39 @@ export class DataForgeClient {
       });
     }
     return finalAnalysis;
+  }
+
+  async verifyScenario(name: string): Promise<VerifyScenario> {
+    return this.requestJson<VerifyScenario>(
+      `/api/verify-scenarios/${encodeURIComponent(name)}`,
+      { method: "GET" },
+    );
+  }
+
+  async verifyFixes(
+    file: File,
+    fixes: unknown[],
+    options: VerifyFixesOptions = {},
+  ): Promise<VerifyFixesResponse> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("fixes", JSON.stringify(fixes));
+    if (options.acceptedConstraintIds && options.acceptedConstraintIds.length > 0) {
+      formData.append("accepted_constraint_ids", JSON.stringify(options.acceptedConstraintIds));
+    }
+    if (options.proposer) {
+      formData.append("proposer", options.proposer);
+    }
+    if (options.confirmEscalations !== undefined) {
+      formData.append("confirm_escalations", String(options.confirmEscalations));
+    }
+    if (options.allowUnproven !== undefined) {
+      formData.append("allow_unproven", String(options.allowUnproven));
+    }
+    return this.requestJson<VerifyFixesResponse>("/api/verify-fixes", {
+      method: "POST",
+      body: formData,
+    });
   }
 
   async repair(file: File, advanced: boolean): Promise<RepairResponse> {

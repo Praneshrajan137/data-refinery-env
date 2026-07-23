@@ -39,13 +39,16 @@ from starlette.types import ASGIApp
 
 from dataforge import (
     CONTRACT_VERSION,
+    ExternalFix,
     Issue,
     RepairPipelineRequest,
     RepairTransaction,
     Severity,
     VerifiedFix,
+    VerifyAndApplyRequest,
     run_all_detectors,
     run_repair_pipeline,
+    verify_and_apply,
 )
 from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.agent.policy import PolicyUnavailableError
@@ -167,6 +170,7 @@ REQUEST_TIMEOUT_SECONDS = _positive_int_env("DATAFORGE_PLAYGROUND_TIMEOUT_SECOND
 AGENT_REQUEST_TIMEOUT_SECONDS = _positive_int_env("DATAFORGE_PLAYGROUND_AGENT_TIMEOUT_SECONDS", 120)
 PLAYGROUND_AGENT_MAX_STEPS = _positive_int_env("DATAFORGE_PLAYGROUND_AGENT_MAX_STEPS", 8)
 ISSUE_ROW_DISPLAY_LIMIT = _positive_int_env("DATAFORGE_PLAYGROUND_ISSUE_ROW_DISPLAY_LIMIT", 50)
+MAX_EXTERNAL_FIXES = _positive_int_env("DATAFORGE_PLAYGROUND_MAX_EXTERNAL_FIXES", 200)
 SAMPLES_DIR = Path(__file__).resolve().parent / "samples"
 SLOWAPI_CONFIG = Path(__file__).resolve().parent / "slowapi.env"
 ALLOWED_SAMPLES = {"hospital_10rows", "flights_10rows", "beers_10rows"}
@@ -251,6 +255,7 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     advanced_available: bool
     agent_available: bool
+    verify_available: bool
     agent_max_steps: int
     max_upload_bytes: int
     streaming_available: bool
@@ -559,6 +564,59 @@ class AnalyzeResponse(BaseModel):
     apply_handoff: ApplyHandoff
     limitations: list[str]
     agent: AgentSummaryView | None = None
+    meta: ResponseMeta
+
+
+class ExternalFixInput(BaseModel):
+    """One externally-proposed cell edit submitted to the guardrail.
+
+    Mirrors ``dataforge.ExternalFix``. ``expected_old_value`` is an optional
+    compare-and-set precondition: when present, a proposal is rejected as stale
+    if the current cell differs (preventing a lost update).
+    """
+
+    row: int = Field(ge=0)
+    column: str = Field(min_length=1)
+    new_value: str
+    expected_old_value: str | None = None
+
+
+class VerifyScenarioView(BaseModel):
+    """A curated 'untrusted agent' batch for one bundled sample.
+
+    Pairs a mixed batch of proposals with the accepted constraint id(s) that make
+    the schema-consistent ones provable, so one click shows the full
+    proven / held / rejected split against an authoritative schema.
+    """
+
+    name: str
+    proposer: str
+    fixes: list[ExternalFixInput]
+    accepted_constraint_ids: list[str]
+    note: str
+
+
+class VerifyFixesResponse(BaseModel):
+    """Guardrail verdict for externally-proposed fixes (dry-run only).
+
+    ``would_apply`` are the proposals that were *proven* (verified against an
+    authoritative schema) and would auto-apply on ``dataforge verify-apply
+    --apply``; ``receipt.suggested_fixes`` are held or rejected, each with an
+    honest ``review_reason``; ``certificate`` independently re-verifies the
+    receipt against the exact uploaded bytes. The hosted playground never mutates
+    uploads, so nothing is written here.
+    """
+
+    source: SourceView
+    proposer: str
+    proposed_count: int
+    authoritative_schema: bool
+    would_apply: list[VerifiedFixView]
+    receipt: RepairReceiptView
+    verification: VerificationSummary
+    certificate: CertificateView
+    apply_handoff: ApplyHandoff
+    limitations: list[str]
     meta: ResponseMeta
 
 
@@ -1229,6 +1287,73 @@ def _candidate_views(artifact: Any) -> list[ConstraintCandidateView]:
     return candidates
 
 
+def _parse_external_fixes(raw: str | None) -> list[ExternalFix]:
+    """Parse the JSON form field describing externally-proposed cell fixes.
+
+    Accepts either a JSON array or an object with a ``fixes`` array of
+    ``{row, column, new_value, expected_old_value?}`` objects, matching the CLI
+    and MCP contract.
+    """
+    if raw is None or not raw.strip():
+        raise _upload_problem(
+            status_code=400,
+            error="empty_fixes",
+            message="Provide at least one proposed fix as a JSON array of "
+            "{row, column, new_value, expected_old_value?} objects.",
+        )
+    try:
+        payload: Any = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise _upload_problem(
+            status_code=400,
+            error="invalid_fixes",
+            message="fixes must be valid JSON.",
+        ) from exc
+    if isinstance(payload, dict) and "fixes" in payload:
+        payload = payload["fixes"]
+    if not isinstance(payload, list) or not payload:
+        raise _upload_problem(
+            status_code=400,
+            error="empty_fixes",
+            message="fixes must be a non-empty JSON array of proposed cell edits.",
+        )
+    if len(payload) > MAX_EXTERNAL_FIXES:
+        raise _upload_problem(
+            status_code=400,
+            error="too_many_fixes",
+            message=f"A batch may propose at most {MAX_EXTERNAL_FIXES} fixes.",
+            max_fixes=MAX_EXTERNAL_FIXES,
+        )
+    fixes: list[ExternalFix] = []
+    for index, spec in enumerate(payload):
+        if not isinstance(spec, dict):
+            raise _upload_problem(
+                status_code=400,
+                error="invalid_fixes",
+                message=f"Fix #{index} is not a JSON object.",
+            )
+        try:
+            fixes.append(
+                ExternalFix(
+                    row=int(spec["row"]),
+                    column=str(spec["column"]),
+                    new_value=str(spec["new_value"]),
+                    expected_old_value=(
+                        None
+                        if spec.get("expected_old_value") is None
+                        else str(spec["expected_old_value"])
+                    ),
+                )
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise _upload_problem(
+                status_code=400,
+                error="invalid_fixes",
+                message=f"Fix #{index} must have integer row, string column, and a new_value.",
+            ) from exc
+    return fixes
+
+
 def _parse_accepted_constraint_ids(raw: str | None) -> list[str]:
     """Parse the JSON form field for accepted inferred constraints."""
     if raw is None or not raw.strip():
@@ -1363,6 +1488,32 @@ def _apply_handoff(source_name: str, receipt: RepairReceiptView) -> ApplyHandoff
         note=(
             "The hosted playground never mutates uploads. Apply and byte-for-byte revert "
             "are local CLI transaction workflows."
+        ),
+    )
+
+
+def _verify_apply_handoff(source_name: str, receipt: RepairReceiptView) -> ApplyHandoff:
+    """Build the local ``verify-apply`` CLI handoff for externally-proposed fixes."""
+    source_ref = f"path/to/{source_name}"
+    constraints = " --constraints constraints.json" if receipt.accepted_constraint_ids else ""
+    dry_run_command = (
+        f"dataforge verify-apply {source_ref} --fixes fixes.json{constraints} --dry-run"
+    )
+    apply_command = (
+        f"dataforge verify-apply {source_ref} --fixes fixes.json{constraints} "
+        "--apply --confirm-escalations"
+    )
+    txn_ref = receipt.txn_id or "<txn-id>"
+    return ApplyHandoff(
+        source_name=source_name,
+        dry_run_command=dry_run_command,
+        apply_command=apply_command,
+        audit_command=f"dataforge audit {txn_ref}",
+        revert_command=f"dataforge revert {txn_ref}",
+        note=(
+            "The hosted playground verifies external fixes in a stateless dry run and never "
+            "mutates uploads. Applying proven fixes and byte-for-byte revert are local CLI "
+            "transaction workflows."
         ),
     )
 
@@ -1534,6 +1685,182 @@ def _agent_analyze_upload(
         "nothing is applied.",
     ]
     return base
+
+
+def _verify_fixes_upload(
+    *,
+    upload_name: str,
+    source_bytes: bytes,
+    fixes: list[ExternalFix],
+    accepted_constraint_ids: list[str],
+    proposer: str,
+    confirm_escalations: bool,
+    allow_unproven: bool,
+) -> VerifyFixesResponse:
+    """Verify externally-proposed fixes through the shared gate (stateless dry run).
+
+    Mirrors ``_analyze_upload``'s temp-workspace pattern but routes through
+    ``verify_and_apply``: an untrusted actor proposes edits, and only the
+    schema-proven ones are reported as would-apply while the rest are held or
+    rejected with honest reasons. Nothing is written; ``mode`` is always dry_run.
+    """
+    df = _csv_to_df(source_bytes)
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        upload_path = Path(tmpdir) / upload_name
+        upload_path.write_bytes(source_bytes)
+
+        inference = infer_schema(df)
+        pending_artifact = build_constraint_review_artifact(
+            inference,
+            source_path=upload_path,
+            source_sha256=source_sha256,
+        )
+        constraints_artifact = _artifact_with_accepted_ids(
+            pending_artifact, accepted_constraint_ids
+        )
+
+        result = verify_and_apply(
+            VerifyAndApplyRequest(
+                source_path=upload_path,
+                fixes=fixes,
+                mode="dry_run",
+                constraints=constraints_artifact,
+                proposer=proposer,
+                confirm_escalations=confirm_escalations,
+                allow_unproven_autoapply=allow_unproven,
+            )
+        )
+
+    receipt = _receipt_view(result.receipt)
+    failures = _failure_views(result.failures)
+    return VerifyFixesResponse(
+        source=SourceView(
+            name=upload_name,
+            size_bytes=len(source_bytes),
+            sha256=source_sha256,
+            rows=len(df),
+            columns=len(df.columns),
+            column_names=list(df.columns),
+        ),
+        proposer=proposer,
+        proposed_count=len(fixes),
+        authoritative_schema=bool(accepted_constraint_ids),
+        would_apply=_fix_views(result.fixes),
+        receipt=receipt,
+        verification=VerificationSummary(
+            safety_verdict=receipt.safety_verdict,
+            verifier_verdict=receipt.verifier_verdict,
+            accepted_constraint_ids=receipt.accepted_constraint_ids,
+            failures=failures,
+            abstentions=list(result.receipt.abstentions),
+            failure_reasons=list(result.receipt.failure_reasons),
+        ),
+        certificate=_certificate_view(result.receipt, source_bytes=source_bytes),
+        apply_handoff=_verify_apply_handoff(upload_name, receipt),
+        limitations=[
+            "Hosted verification is stateless and dry-run only; no upload is ever mutated.",
+            "External values are untrusted: a fix is proven (would auto-apply) only against an "
+            "authoritative schema (accepted constraints); otherwise it is held for review.",
+            "Every external write escalates the unconfirmed-write safety rule; applying proven "
+            "fixes and byte-for-byte revert are local CLI workflows.",
+        ],
+        meta=ResponseMeta(api_version=app.version, contract_version=CONTRACT_VERSION),
+    )
+
+
+_VERIFY_SCENARIOS: dict[str, dict[str, Any]] = {
+    "hospital_10rows": {
+        "proposer": "triage-agent",
+        "accept": [("column_type", "er_wait_time"), ("column_type", "rating")],
+        "fixes": [
+            {"row": 0, "column": "er_wait_time", "new_value": "30"},
+            {"row": 1, "column": "rating", "new_value": "abc"},
+            {"row": 2, "column": "rating", "new_value": "4.0", "expected_old_value": "WRONG"},
+            {"row": 0, "column": "ghost_column", "new_value": "x"},
+        ],
+        "note": (
+            "A triage agent proposed four edits. Only the correctly-typed edit is proven and "
+            "would apply; a type-corrupting value, a stale edit, and an edit to a non-existent "
+            "column are each blocked with an honest reason."
+        ),
+    },
+    "beers_10rows": {
+        "proposer": "catalog-agent",
+        "accept": [("column_type", "brewery_id"), ("column_type", "id")],
+        "fixes": [
+            {"row": 0, "column": "brewery_id", "new_value": "172"},
+            {"row": 1, "column": "id", "new_value": "abc"},
+            {"row": 2, "column": "brewery_id", "new_value": "300", "expected_old_value": "WRONG"},
+            {"row": 0, "column": "ghost_column", "new_value": "x"},
+        ],
+        "note": (
+            "A catalog agent proposed four edits. Only the correctly-typed edit is proven and "
+            "would apply; a type-corrupting value, a stale edit, and an edit to a non-existent "
+            "column are each blocked with an honest reason."
+        ),
+    },
+    "flights_10rows": {
+        "proposer": "ingest-agent",
+        "accept": [("column_type", "tuple_id")],
+        "fixes": [
+            {"row": 0, "column": "tuple_id", "new_value": "104"},
+            {"row": 1, "column": "tuple_id", "new_value": "abc"},
+            {"row": 2, "column": "tuple_id", "new_value": "999", "expected_old_value": "WRONG"},
+            {"row": 0, "column": "ghost_column", "new_value": "x"},
+        ],
+        "note": (
+            "An ingest agent proposed four edits. Only the correctly-typed edit is proven and "
+            "would apply; a type-corrupting value, a stale edit, and an edit to a non-existent "
+            "column are each blocked with an honest reason."
+        ),
+    },
+}
+
+
+def _build_verify_scenario(name: str) -> VerifyScenarioView:
+    """Build a curated untrusted-agent batch for one bundled sample.
+
+    Resolves the accepted constraint id(s) that authorize the correct edit
+    server-side (candidate ids are content-derived), so the scripted batch
+    reliably yields a proven / held / rejected split against an authoritative
+    schema.
+    """
+    if name not in ALLOWED_SAMPLES:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "sample_not_found", "available": sorted(ALLOWED_SAMPLES)},
+        )
+    spec = _VERIFY_SCENARIOS.get(name)
+    if spec is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "scenario_not_found", "available": sorted(_VERIFY_SCENARIOS)},
+        )
+    csv_path = SAMPLES_DIR / f"{name}.csv"
+    if not csv_path.exists():
+        logger.error("Scenario sample file missing on disk: %s", csv_path)
+        raise HTTPException(status_code=500, detail={"error": "sample_file_missing"})
+
+    source_bytes = csv_path.read_bytes()
+    df = _csv_to_df(source_bytes)
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    artifact = build_constraint_review_artifact(
+        infer_schema(df), source_path=csv_path, source_sha256=source_sha256
+    )
+    want: set[tuple[str, str]] = set(spec["accept"])
+    accepted_ids = [
+        reviewed.candidate_id
+        for reviewed in artifact.candidates
+        if (reviewed.candidate.kind, reviewed.candidate.columns[0]) in want
+    ]
+    return VerifyScenarioView(
+        name=name,
+        proposer=str(spec["proposer"]),
+        fixes=[ExternalFixInput(**fix) for fix in spec["fixes"]],
+        accepted_constraint_ids=accepted_ids,
+        note=str(spec["note"]),
+    )
 
 
 def _normalize_repair_mode(raw: str | None) -> str:
@@ -1911,6 +2238,7 @@ async def health() -> HealthResponse:
         status="ok",
         advanced_available=_advanced_available(),
         agent_available=_agent_available(),
+        verify_available=True,
         agent_max_steps=PLAYGROUND_AGENT_MAX_STEPS,
         max_upload_bytes=MAX_UPLOAD_BYTES,
         streaming_available=True,
@@ -2118,6 +2446,75 @@ async def analyze_stream(
             "X-DataForge-Workflow-Run-Id": run_id,
         },
     )
+
+
+@app.post("/api/verify-fixes", response_model=VerifyFixesResponse)
+@limiter.limit("10/minute")
+async def verify_fixes(
+    request: Request,
+    file: UploadFile,
+    fixes: str = Form(...),
+    accepted_constraint_ids: str | None = Form(default=None),
+    proposer: str = Form(default="external-agent"),
+    confirm_escalations: bool = Form(default=True),
+    allow_unproven: bool = Form(default=False),
+) -> VerifyFixesResponse:
+    """Verify externally-proposed cell fixes through the shared prove gate (dry run).
+
+    The guardrail-for-agents surface: an untrusted actor proposes edits and only
+    the schema-proven ones are reported as would-apply; the rest are held or
+    rejected with honest reasons, and the receipt re-verifies as a certificate.
+    """
+    source_bytes = await _read_upload(file)
+    upload_name = Path(file.filename or "upload.csv").name
+    external_fixes = _parse_external_fixes(fixes)
+    accepted_ids = _parse_accepted_constraint_ids(accepted_constraint_ids)
+    clean_proposer = (proposer or "external-agent").strip()[:120] or "external-agent"
+    logger.info(
+        "Verify-fixes request: filename=%s bytes=%d proposed=%d proposer=%s confirm=%s",
+        upload_name,
+        len(source_bytes),
+        len(external_fixes),
+        clean_proposer,
+        confirm_escalations,
+    )
+
+    try:
+        return await _run_with_timeout(
+            "verify-fixes",
+            lambda: _verify_fixes_upload(
+                upload_name=upload_name,
+                source_bytes=source_bytes,
+                fixes=external_fixes,
+                accepted_constraint_ids=accepted_ids,
+                proposer=clean_proposer,
+                confirm_escalations=confirm_escalations,
+                allow_unproven=allow_unproven,
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Verify-fixes endpoint failed")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "verify_fixes_failed",
+                "message": "The verification pipeline could not complete safely.",
+            },
+        ) from exc
+
+
+@app.get("/api/verify-scenarios/{name}", response_model=VerifyScenarioView)
+async def get_verify_scenario(name: str) -> VerifyScenarioView:
+    """Return a curated 'untrusted agent' batch for a bundled sample.
+
+    The batch pairs a realistic mix of correct / corrupting / stale / invalid
+    proposals with the accepted constraint id(s) that authorize the correct ones,
+    so a single click demonstrates the full proven / held / rejected split
+    against an authoritative schema.
+    """
+    return _build_verify_scenario(name)
 
 
 @app.post("/api/profile", response_model=ProfileResponse)

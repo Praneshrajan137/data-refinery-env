@@ -2494,23 +2494,31 @@ textarea {
 
 .trust-metric dd {
   margin: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.trust-metric__value {
   font-size: 1.4rem;
   font-weight: 800;
   color: var(--df-text-1);
 }
 
-.trust-metric p {
-  margin: 0;
+.trust-metric__hint {
   font-size: 0.7rem;
   color: var(--df-text-2);
 }
 
-.trust-metric--verified dd {
+.trust-metric--verified .trust-metric__value {
   color: var(--df-proven-text);
 }
 
-.trust-metric--review dd {
+.trust-metric--review .trust-metric__value {
   color: var(--df-held-text);
+}
+
+.trust-metric--danger .trust-metric__value {
+  color: var(--df-status-danger-text);
 }
 
 .trust-verdict__foot {
@@ -2665,4 +2673,273 @@ textarea {
   font-size: 0.78rem;
   color: var(--df-text-1);
 }
+
+/* --- Agent guardrail page --- */
+
+.guardrail-page {
+  display: grid;
+  gap: 18px;
+}
+
+.guardrail-hero h1 {
+  margin: 4px 0 6px;
+  font-size: 1.4rem;
+}
+
+.guardrail-hero p {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--df-text-2);
+}
+
+.guardrail-setup {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 1.6fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .guardrail-setup {
+    grid-template-columns: 1fr;
+  }
+}
+
+.guardrail-intake,
+.guardrail-proposals {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-1);
+  padding: 16px 18px;
+}
+
+.sample-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sample-chip--active {
+  border-color: var(--df-action-border);
+  color: var(--df-action-soft-text);
+}
+
+.guardrail-upload {
+  display: grid;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--df-text-2);
+}
+
+.guardrail-dataset-note,
+.guardrail-scenario-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--df-text-2);
+}
+
+.guardrail-schema-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--df-proven-line);
+  border-radius: 999px;
+  background: var(--df-proven-bg);
+  color: var(--df-proven-text);
+  font-size: 0.72rem;
+  font-weight: 750;
+  width: fit-content;
+}
+
+.guardrail-schema-chip svg {
+  width: 14px;
+  height: 14px;
+}
+
+.guardrail-schema-chip--none {
+  border-color: var(--df-held-line);
+  background: var(--df-held-bg);
+  color: var(--df-held-text);
+}
+
+.fix-editor {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.fix-editor__row {
+  display: grid;
+  grid-template-columns: 70px 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: end;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-2);
+  padding: 8px 10px;
+}
+
+@media (max-width: 720px) {
+  .fix-editor__row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.fix-editor__row label {
+  display: grid;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--df-text-2);
+}
+
+.fix-editor__row input {
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-1);
+  color: var(--df-text-1);
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.fix-editor__remove {
+  align-self: end;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-1);
+  color: var(--df-text-2);
+  padding: 6px 10px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.guardrail-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.guardrail-field {
+  display: grid;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--df-text-2);
+}
+
+.guardrail-field input {
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-1);
+  color: var(--df-text-1);
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+}
+
+.guardrail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  color: var(--df-text-1);
+}
+
+.primary-button,
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius);
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-weight: 850;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ghost-button {
+  background: var(--df-surface-2);
+  color: var(--df-text-1);
+}
+
+.ghost-button:hover {
+  background: var(--df-hover-bg);
+}
+
+.primary-button {
+  border-color: var(--df-action-border);
+  background: var(--df-action-bg);
+  color: var(--df-action-text);
+}
+
+.primary-button:hover {
+  background: var(--df-action-bg-hover);
+}
+
+.primary-button:disabled,
+.ghost-button:disabled {
+  background: var(--df-disabled-bg);
+  color: var(--df-disabled-text);
+  border-color: var(--df-disabled-line);
+  cursor: not-allowed;
+}
+
+.primary-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.guardrail-verify {
+  width: fit-content;
+  margin-top: 2px;
+}
+
+@media (max-width: 720px) {
+  .guardrail-verify {
+    width: 100%;
+  }
+}
+
+.would-apply-list {
+  display: grid;
+  gap: 10px;
+}
+
+.would-apply-row {
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--df-proven-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-proven-bg);
+  padding: 10px 12px;
+}
+
+.would-apply-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.would-apply-row__change {
+  font-size: 0.82rem;
+  color: var(--df-text-1);
+}
+
 
