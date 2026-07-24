@@ -759,36 +759,36 @@
         "hex": "#ffffff"
       },
       "--df-confidence-high-text": {
-        "palette": "success-30",
-        "hex": "#1f3324"
+        "palette": "neutral-30",
+        "hex": "#2f2e2a"
       },
       "--df-confidence-high-line": {
-        "palette": "success-60",
-        "hex": "#708775"
+        "palette": "neutral-60",
+        "hex": "#81807c"
       },
       "--df-confidence-medium-bg": {
         "palette": "neutral-100",
         "hex": "#ffffff"
       },
       "--df-confidence-medium-text": {
-        "palette": "warning-20",
-        "hex": "#201300"
+        "palette": "neutral-40",
+        "hex": "#494844"
       },
       "--df-confidence-medium-line": {
-        "palette": "warning-60",
-        "hex": "#967c52"
+        "palette": "neutral-60",
+        "hex": "#81807c"
       },
       "--df-confidence-low-bg": {
         "palette": "neutral-100",
         "hex": "#ffffff"
       },
       "--df-confidence-low-text": {
-        "palette": "danger-30",
-        "hex": "#50171d"
+        "palette": "neutral-50",
+        "hex": "#64635f"
       },
       "--df-confidence-low-line": {
-        "palette": "danger-60",
-        "hex": "#ae6b6d"
+        "palette": "neutral-60",
+        "hex": "#81807c"
       },
       "--df-proof-bg": {
         "palette": "neutral-100",
@@ -835,6 +835,30 @@
         "hex": "#201300"
       },
       "--df-held-line": {
+        "palette": "warning-60",
+        "hex": "#967c52"
+      },
+      "--df-corroborated-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-corroborated-text": {
+        "palette": "success-30",
+        "hex": "#1f3324"
+      },
+      "--df-corroborated-line": {
+        "palette": "data-60",
+        "hex": "#628985"
+      },
+      "--df-downgraded-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-downgraded-text": {
+        "palette": "warning-20",
+        "hex": "#201300"
+      },
+      "--df-downgraded-line": {
         "palette": "warning-60",
         "hex": "#967c52"
       },
@@ -898,41 +922,65 @@
         "palette": "neutral-95",
         "hex": "#f0eeea"
       },
-      "--df-agent-thinking-bg": {
+      "--df-agent-verifying-bg": {
         "palette": "neutral-100",
         "hex": "#ffffff"
       },
-      "--df-agent-thinking-text": {
-        "palette": "agent-30",
-        "hex": "#312747"
-      },
-      "--df-agent-thinking-line": {
-        "palette": "agent-60",
-        "hex": "#84799f"
-      },
-      "--df-agent-acting-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-acting-text": {
-        "palette": "brand-30",
-        "hex": "#541507"
-      },
-      "--df-agent-acting-line": {
-        "palette": "brand-60",
-        "hex": "#b26a59"
-      },
-      "--df-agent-waiting-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-waiting-text": {
+      "--df-agent-verifying-text": {
         "palette": "data-30",
         "hex": "#0d3532"
       },
-      "--df-agent-waiting-line": {
+      "--df-agent-verifying-line": {
         "palette": "data-60",
         "hex": "#628985"
+      },
+      "--df-agent-proposing-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-agent-proposing-text": {
+        "palette": "agent-30",
+        "hex": "#312747"
+      },
+      "--df-agent-proposing-line": {
+        "palette": "agent-60",
+        "hex": "#84799f"
+      },
+      "--df-agent-proven-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-agent-proven-text": {
+        "palette": "success-30",
+        "hex": "#1f3324"
+      },
+      "--df-agent-proven-line": {
+        "palette": "success-60",
+        "hex": "#708775"
+      },
+      "--df-agent-held-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-agent-held-text": {
+        "palette": "warning-20",
+        "hex": "#201300"
+      },
+      "--df-agent-held-line": {
+        "palette": "warning-60",
+        "hex": "#967c52"
+      },
+      "--df-agent-rejected-bg": {
+        "palette": "neutral-100",
+        "hex": "#ffffff"
+      },
+      "--df-agent-rejected-text": {
+        "palette": "danger-30",
+        "hex": "#50171d"
+      },
+      "--df-agent-rejected-line": {
+        "palette": "danger-60",
+        "hex": "#ae6b6d"
       },
       "--df-agent-asking-bg": {
         "palette": "neutral-100",
@@ -946,101 +994,29 @@
         "palette": "warning-60",
         "hex": "#967c52"
       },
-      "--df-agent-uncertain-bg": {
+      "--df-agent-done-bg": {
         "palette": "neutral-100",
         "hex": "#ffffff"
       },
-      "--df-agent-uncertain-text": {
-        "palette": "warning-20",
-        "hex": "#201300"
-      },
-      "--df-agent-uncertain-line": {
-        "palette": "warning-60",
-        "hex": "#967c52"
-      },
-      "--df-agent-confident-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-confident-text": {
+      "--df-agent-done-text": {
         "palette": "success-30",
         "hex": "#1f3324"
       },
-      "--df-agent-confident-line": {
+      "--df-agent-done-line": {
         "palette": "success-60",
         "hex": "#708775"
       },
-      "--df-agent-completed-bg": {
+      "--df-agent-idle-bg": {
         "palette": "neutral-100",
         "hex": "#ffffff"
       },
-      "--df-agent-completed-text": {
-        "palette": "success-30",
-        "hex": "#1f3324"
+      "--df-agent-idle-text": {
+        "palette": "neutral-30",
+        "hex": "#2f2e2a"
       },
-      "--df-agent-completed-line": {
-        "palette": "success-60",
-        "hex": "#708775"
-      },
-      "--df-agent-failed-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-failed-text": {
-        "palette": "danger-30",
-        "hex": "#50171d"
-      },
-      "--df-agent-failed-line": {
-        "palette": "danger-60",
-        "hex": "#ae6b6d"
-      },
-      "--df-agent-interrupted-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-interrupted-text": {
-        "palette": "warning-20",
-        "hex": "#201300"
-      },
-      "--df-agent-interrupted-line": {
-        "palette": "warning-60",
-        "hex": "#967c52"
-      },
-      "--df-agent-delegated-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-delegated-text": {
-        "palette": "data-30",
-        "hex": "#0d3532"
-      },
-      "--df-agent-delegated-line": {
-        "palette": "data-60",
-        "hex": "#628985"
-      },
-      "--df-agent-escalated-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-escalated-text": {
-        "palette": "danger-30",
-        "hex": "#50171d"
-      },
-      "--df-agent-escalated-line": {
-        "palette": "danger-60",
-        "hex": "#ae6b6d"
-      },
-      "--df-agent-recovered-bg": {
-        "palette": "neutral-100",
-        "hex": "#ffffff"
-      },
-      "--df-agent-recovered-text": {
-        "palette": "success-30",
-        "hex": "#1f3324"
-      },
-      "--df-agent-recovered-line": {
-        "palette": "success-60",
-        "hex": "#708775"
+      "--df-agent-idle-line": {
+        "palette": "neutral-80",
+        "hex": "#bfbeb9"
       }
     },
     "dark": {
@@ -1269,36 +1245,36 @@
         "hex": "#171613"
       },
       "--df-confidence-high-text": {
-        "palette": "success-90",
-        "hex": "#cce6d2"
+        "palette": "neutral-90",
+        "hex": "#dfdeda"
       },
       "--df-confidence-high-line": {
-        "palette": "success-60",
-        "hex": "#708775"
+        "palette": "neutral-60",
+        "hex": "#81807c"
       },
       "--df-confidence-medium-bg": {
         "palette": "neutral-20",
         "hex": "#171613"
       },
       "--df-confidence-medium-text": {
-        "palette": "warning-95",
-        "hex": "#ffeccf"
+        "palette": "neutral-80",
+        "hex": "#bfbeb9"
       },
       "--df-confidence-medium-line": {
-        "palette": "warning-60",
-        "hex": "#967c52"
+        "palette": "neutral-60",
+        "hex": "#81807c"
       },
       "--df-confidence-low-bg": {
         "palette": "neutral-20",
         "hex": "#171613"
       },
       "--df-confidence-low-text": {
-        "palette": "danger-90",
-        "hex": "#ffd1d1"
+        "palette": "neutral-70",
+        "hex": "#a09e9a"
       },
       "--df-confidence-low-line": {
-        "palette": "danger-60",
-        "hex": "#ae6b6d"
+        "palette": "neutral-60",
+        "hex": "#81807c"
       },
       "--df-proof-bg": {
         "palette": "neutral-20",
@@ -1345,6 +1321,30 @@
         "hex": "#ffeccf"
       },
       "--df-held-line": {
+        "palette": "warning-60",
+        "hex": "#967c52"
+      },
+      "--df-corroborated-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-corroborated-text": {
+        "palette": "success-90",
+        "hex": "#cce6d2"
+      },
+      "--df-corroborated-line": {
+        "palette": "data-60",
+        "hex": "#628985"
+      },
+      "--df-downgraded-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-downgraded-text": {
+        "palette": "warning-95",
+        "hex": "#ffeccf"
+      },
+      "--df-downgraded-line": {
         "palette": "warning-60",
         "hex": "#967c52"
       },
@@ -1408,41 +1408,65 @@
         "palette": "neutral-95",
         "hex": "#f0eeea"
       },
-      "--df-agent-thinking-bg": {
+      "--df-agent-verifying-bg": {
         "palette": "neutral-20",
         "hex": "#171613"
       },
-      "--df-agent-thinking-text": {
-        "palette": "agent-90",
-        "hex": "#e2d7ff"
-      },
-      "--df-agent-thinking-line": {
-        "palette": "agent-60",
-        "hex": "#84799f"
-      },
-      "--df-agent-acting-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-acting-text": {
-        "palette": "brand-90",
-        "hex": "#ffd2c7"
-      },
-      "--df-agent-acting-line": {
-        "palette": "brand-60",
-        "hex": "#b26a59"
-      },
-      "--df-agent-waiting-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-waiting-text": {
+      "--df-agent-verifying-text": {
         "palette": "data-90",
         "hex": "#bee8e3"
       },
-      "--df-agent-waiting-line": {
+      "--df-agent-verifying-line": {
         "palette": "data-60",
         "hex": "#628985"
+      },
+      "--df-agent-proposing-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-agent-proposing-text": {
+        "palette": "agent-90",
+        "hex": "#e2d7ff"
+      },
+      "--df-agent-proposing-line": {
+        "palette": "agent-60",
+        "hex": "#84799f"
+      },
+      "--df-agent-proven-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-agent-proven-text": {
+        "palette": "success-90",
+        "hex": "#cce6d2"
+      },
+      "--df-agent-proven-line": {
+        "palette": "success-60",
+        "hex": "#708775"
+      },
+      "--df-agent-held-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-agent-held-text": {
+        "palette": "warning-95",
+        "hex": "#ffeccf"
+      },
+      "--df-agent-held-line": {
+        "palette": "warning-60",
+        "hex": "#967c52"
+      },
+      "--df-agent-rejected-bg": {
+        "palette": "neutral-20",
+        "hex": "#171613"
+      },
+      "--df-agent-rejected-text": {
+        "palette": "danger-90",
+        "hex": "#ffd1d1"
+      },
+      "--df-agent-rejected-line": {
+        "palette": "danger-60",
+        "hex": "#ae6b6d"
       },
       "--df-agent-asking-bg": {
         "palette": "neutral-20",
@@ -1456,101 +1480,29 @@
         "palette": "warning-60",
         "hex": "#967c52"
       },
-      "--df-agent-uncertain-bg": {
+      "--df-agent-done-bg": {
         "palette": "neutral-20",
         "hex": "#171613"
       },
-      "--df-agent-uncertain-text": {
-        "palette": "warning-95",
-        "hex": "#ffeccf"
-      },
-      "--df-agent-uncertain-line": {
-        "palette": "warning-60",
-        "hex": "#967c52"
-      },
-      "--df-agent-confident-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-confident-text": {
+      "--df-agent-done-text": {
         "palette": "success-90",
         "hex": "#cce6d2"
       },
-      "--df-agent-confident-line": {
+      "--df-agent-done-line": {
         "palette": "success-60",
         "hex": "#708775"
       },
-      "--df-agent-completed-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
+      "--df-agent-idle-bg": {
+        "palette": "neutral-30",
+        "hex": "#2f2e2a"
       },
-      "--df-agent-completed-text": {
-        "palette": "success-90",
-        "hex": "#cce6d2"
+      "--df-agent-idle-text": {
+        "palette": "neutral-90",
+        "hex": "#dfdeda"
       },
-      "--df-agent-completed-line": {
-        "palette": "success-60",
-        "hex": "#708775"
-      },
-      "--df-agent-failed-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-failed-text": {
-        "palette": "danger-90",
-        "hex": "#ffd1d1"
-      },
-      "--df-agent-failed-line": {
-        "palette": "danger-60",
-        "hex": "#ae6b6d"
-      },
-      "--df-agent-interrupted-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-interrupted-text": {
-        "palette": "warning-95",
-        "hex": "#ffeccf"
-      },
-      "--df-agent-interrupted-line": {
-        "palette": "warning-60",
-        "hex": "#967c52"
-      },
-      "--df-agent-delegated-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-delegated-text": {
-        "palette": "data-90",
-        "hex": "#bee8e3"
-      },
-      "--df-agent-delegated-line": {
-        "palette": "data-60",
-        "hex": "#628985"
-      },
-      "--df-agent-escalated-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-escalated-text": {
-        "palette": "danger-90",
-        "hex": "#ffd1d1"
-      },
-      "--df-agent-escalated-line": {
-        "palette": "danger-60",
-        "hex": "#ae6b6d"
-      },
-      "--df-agent-recovered-bg": {
-        "palette": "neutral-20",
-        "hex": "#171613"
-      },
-      "--df-agent-recovered-text": {
-        "palette": "success-90",
-        "hex": "#cce6d2"
-      },
-      "--df-agent-recovered-line": {
-        "palette": "success-60",
-        "hex": "#708775"
+      "--df-agent-idle-line": {
+        "palette": "neutral-50",
+        "hex": "#64635f"
       }
     }
   },

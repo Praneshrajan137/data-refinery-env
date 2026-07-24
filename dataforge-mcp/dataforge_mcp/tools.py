@@ -32,6 +32,7 @@ from dataforge import (
     run_repair_pipeline,
     verify_and_apply,
 )
+from dataforge.ui.trust_vocab import humanize_review_reason
 
 _APPLY_ENABLED = False
 _ALLOWED_ROOTS: tuple[Path, ...] | None = None
@@ -383,6 +384,7 @@ class SuggestedFixResult(BaseModel):
     old_value: str
     new_value: str
     review_reason: str
+    review_reason_human: str = ""
     verifier_reason: str
 
 
@@ -481,6 +483,7 @@ def dataforge_verify_and_apply(
                 old_value=candidate.old_value,
                 new_value=candidate.new_value,
                 review_reason=str(candidate.review_reason),
+                review_reason_human=humanize_review_reason(candidate.review_reason),
                 verifier_reason=candidate.verifier_reason,
             )
             for candidate in receipt.suggested_fixes

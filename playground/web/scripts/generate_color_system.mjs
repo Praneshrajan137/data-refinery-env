@@ -21,18 +21,14 @@ const seeds = {
 };
 
 const agentStateRefs = {
-  thinking: { light: ["neutral-100", "agent-30", "agent-60"], dark: ["neutral-20", "agent-90", "agent-60"] },
-  acting: { light: ["neutral-100", "brand-30", "brand-60"], dark: ["neutral-20", "brand-90", "brand-60"] },
-  waiting: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
+  verifying: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
+  proposing: { light: ["neutral-100", "agent-30", "agent-60"], dark: ["neutral-20", "agent-90", "agent-60"] },
+  proven: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  held: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
+  rejected: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
   asking: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
-  uncertain: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
-  confident: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
-  completed: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
-  failed: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
-  interrupted: { light: ["neutral-100", "warning-20", "warning-60"], dark: ["neutral-20", "warning-95", "warning-60"] },
-  delegated: { light: ["neutral-100", "data-30", "data-60"], dark: ["neutral-20", "data-90", "data-60"] },
-  escalated: { light: ["neutral-100", "danger-30", "danger-60"], dark: ["neutral-20", "danger-90", "danger-60"] },
-  recovered: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  done: { light: ["neutral-100", "success-30", "success-60"], dark: ["neutral-20", "success-90", "success-60"] },
+  idle: { light: ["neutral-100", "neutral-30", "neutral-80"], dark: ["neutral-30", "neutral-90", "neutral-50"] },
 };
 
 const semanticRefs = {
@@ -93,14 +89,14 @@ const semanticRefs = {
     "--df-stage-failed-text": "danger-30",
     "--df-stage-failed-line": "danger-60",
     "--df-confidence-high-bg": "neutral-100",
-    "--df-confidence-high-text": "success-30",
-    "--df-confidence-high-line": "success-60",
+    "--df-confidence-high-text": "neutral-30",
+    "--df-confidence-high-line": "neutral-60",
     "--df-confidence-medium-bg": "neutral-100",
-    "--df-confidence-medium-text": "warning-20",
-    "--df-confidence-medium-line": "warning-60",
+    "--df-confidence-medium-text": "neutral-40",
+    "--df-confidence-medium-line": "neutral-60",
     "--df-confidence-low-bg": "neutral-100",
-    "--df-confidence-low-text": "danger-30",
-    "--df-confidence-low-line": "danger-60",
+    "--df-confidence-low-text": "neutral-50",
+    "--df-confidence-low-line": "neutral-60",
     "--df-proof-bg": "neutral-100",
     "--df-proof-text": "data-30",
     "--df-proof-line": "data-60",
@@ -113,6 +109,12 @@ const semanticRefs = {
     "--df-held-bg": "neutral-100",
     "--df-held-text": "warning-20",
     "--df-held-line": "warning-60",
+    "--df-corroborated-bg": "neutral-100",
+    "--df-corroborated-text": "success-30",
+    "--df-corroborated-line": "data-60",
+    "--df-downgraded-bg": "neutral-100",
+    "--df-downgraded-text": "warning-20",
+    "--df-downgraded-line": "warning-60",
     "--df-status-safe-bg": "neutral-100",
     "--df-status-safe-text": "success-30",
     "--df-status-safe-line": "success-60",
@@ -186,14 +188,14 @@ const semanticRefs = {
     "--df-stage-failed-text": "danger-90",
     "--df-stage-failed-line": "danger-60",
     "--df-confidence-high-bg": "neutral-20",
-    "--df-confidence-high-text": "success-90",
-    "--df-confidence-high-line": "success-60",
+    "--df-confidence-high-text": "neutral-90",
+    "--df-confidence-high-line": "neutral-60",
     "--df-confidence-medium-bg": "neutral-20",
-    "--df-confidence-medium-text": "warning-95",
-    "--df-confidence-medium-line": "warning-60",
+    "--df-confidence-medium-text": "neutral-80",
+    "--df-confidence-medium-line": "neutral-60",
     "--df-confidence-low-bg": "neutral-20",
-    "--df-confidence-low-text": "danger-90",
-    "--df-confidence-low-line": "danger-60",
+    "--df-confidence-low-text": "neutral-70",
+    "--df-confidence-low-line": "neutral-60",
     "--df-proof-bg": "neutral-20",
     "--df-proof-text": "data-90",
     "--df-proof-line": "data-60",
@@ -206,6 +208,12 @@ const semanticRefs = {
     "--df-held-bg": "neutral-20",
     "--df-held-text": "warning-95",
     "--df-held-line": "warning-60",
+    "--df-corroborated-bg": "neutral-20",
+    "--df-corroborated-text": "success-90",
+    "--df-corroborated-line": "data-60",
+    "--df-downgraded-bg": "neutral-20",
+    "--df-downgraded-text": "warning-95",
+    "--df-downgraded-line": "warning-60",
     "--df-status-safe-bg": "neutral-20",
     "--df-status-safe-text": "success-90",
     "--df-status-safe-line": "success-60",
@@ -249,12 +257,14 @@ const highContrastRefs = {
   },
 };
 
+// Earned salience: glow is the strongest salience and is reserved for PROVEN
+// outcomes (proof), the evidence that backs them (data), and legitimate human
+// command (action). Plausibility (agent) and failure (danger) must never glow --
+// glow on an unproven or failed claim would manufacture unearned confidence.
 const glowRefs = {
   "--df-data-glow": "data-60",
   "--df-action-glow": "brand-60",
-  "--df-agent-glow": "agent-60",
   "--df-proof-glow": "success-60",
-  "--df-danger-glow": "danger-60",
 };
 
 const toRgb = converter("rgb");

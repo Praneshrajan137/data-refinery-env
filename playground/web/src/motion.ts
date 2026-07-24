@@ -1,21 +1,22 @@
 import type { Transition, Variants } from "motion/react";
 import type { WorkflowEvent, WorkflowStatus } from "./types";
+import motionTokens from "./design/motion-tokens.json";
 
 export type MotionIntensity = "standard" | "reduced";
 
+// Legible, event-backed agent states. Each maps to a REAL pipeline/trace event
+// and renders live (see agentStatePrimitive). The prior 12-state palette had 10
+// states that were only ever drawn in a legend -- words nobody spoke -- and is
+// retired here. See docs/design/perceptual-language.md section 4.1.
 export type AgentMotionState =
-  | "thinking"
-  | "acting"
-  | "waiting"
+  | "verifying"
+  | "proposing"
+  | "proven"
+  | "held"
+  | "rejected"
   | "asking"
-  | "uncertain"
-  | "confident"
-  | "completed"
-  | "failed"
-  | "interrupted"
-  | "delegated"
-  | "escalated"
-  | "recovered";
+  | "done"
+  | "idle";
 
 export type MotionPreset =
   | "route"
@@ -34,42 +35,163 @@ export interface WorkflowMotionEvent {
   attention: "none" | "low" | "medium" | "high";
 }
 
+// --- Single source of truth -------------------------------------------------
+// Durations, easings and springs are DERIVED from src/design/motion-tokens.json
+// (milliseconds) so the TS (seconds) and CSS (ms) systems can never drift.
+// generate_motion_system.mjs emits the matching CSS custom properties.
+const ms = motionTokens.durationsMs;
+
 export const motionDurations = {
-  instant: 0.08,
-  micro: 0.12,
-  fast: 0.18,
-  standard: 0.24,
-  measured: 0.32,
-  page: 0.36,
-  max: 0.48,
+  instant: ms.instant / 1000,
+  micro: ms.micro / 1000,
+  fast: ms.fast / 1000,
+  standard: ms.standard / 1000,
+  measured: ms.measured / 1000,
+  page: ms.page / 1000,
+  max: ms.max / 1000,
 } as const;
 
+const easingTuple = (name: keyof typeof motionTokens.easings): [number, number, number, number] => {
+  const value = motionTokens.easings[name];
+  return [value[0], value[1], value[2], value[3]];
+};
+
 export const motionEasings = {
-  standard: [0.2, 0, 0, 1],
-  emphasized: [0.16, 1, 0.3, 1],
-  exit: [0.4, 0, 1, 1],
+  standard: easingTuple("standard"),
+  emphasized: easingTuple("emphasized"),
+  exit: easingTuple("exit"),
   linear: "linear",
 } as const;
 
 export const motionSprings = {
-  soft: { type: "spring", stiffness: 420, damping: 36, mass: 0.85 },
-  snap: { type: "spring", stiffness: 620, damping: 42, mass: 0.7 },
-  layout: { type: "spring", stiffness: 500, damping: 45, mass: 1 },
+  soft: { type: "spring", ...motionTokens.springs.soft },
+  snap: { type: "spring", ...motionTokens.springs.snap },
+  layout: { type: "spring", ...motionTokens.springs.layout },
 } as const satisfies Record<string, Transition>;
 
+// --- Motion primitive grammar (earned salience) -----------------------------
+// Each primitive answers one real causal question. See docs/design/perceptual-language.md.
+export type MotionPrimitive =
+  | "settle"
+  | "hover"
+  | "resolve"
+  | "pause"
+  | "recoil"
+  | "still"
+  | "downgrade";
+
+export interface MotionPrimitiveSpec {
+  rung: string;
+  duration: string;
+  easing: string;
+  loop: boolean;
+  answers: string;
+}
+
+export const motionPrimitives: Record<MotionPrimitive, MotionPrimitiveSpec> =
+  motionTokens.primitives as Record<MotionPrimitive, MotionPrimitiveSpec>;
+
+export const primitiveVariants: Record<MotionPrimitive, Variants> = {
+  // proven and committed: converges decisively to rest
+  settle: {
+    initial: { opacity: 0.55, scale: 0.994 },
+    animate: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: motionDurations.measured, ease: motionEasings.emphasized },
+    },
+  },
+  // uncommitted proposal: low amplitude, never resolves to rest
+  hover: {
+    initial: { opacity: 0.9, y: 0 },
+    animate: {
+      opacity: [0.9, 1, 0.9],
+      y: [0, -1.5, 0],
+      transition: { duration: motionDurations.max, ease: motionEasings.standard, repeat: Infinity },
+    },
+  },
+  // verification in progress: determinate, honest, only while working
+  resolve: {
+    initial: { opacity: 0.5 },
+    animate: {
+      opacity: [0.5, 1, 0.5],
+      transition: { duration: motionDurations.measured, ease: motionEasings.standard, repeat: Infinity },
+    },
+  },
+  // held / abstained: motion arrested and held
+  pause: {
+    initial: { opacity: 1, y: -1 },
+    animate: {
+      opacity: 0.92,
+      y: 0,
+      transition: { duration: motionDurations.fast, ease: motionEasings.standard },
+    },
+  },
+  // rejected / failed: one decisive counter-motion, no loop
+  recoil: {
+    initial: { x: 0 },
+    animate: {
+      x: [0, -3, 1, 0],
+      transition: { duration: motionDurations.fast, ease: motionEasings.exit },
+    },
+  },
+  // idle: no motion at all
+  still: {
+    initial: { opacity: 1 },
+    animate: { opacity: 1 },
+  },
+  // drift relaxed a proof back to review
+  downgrade: {
+    initial: { opacity: 1 },
+    animate: {
+      opacity: [1, 0.68, 1],
+      transition: { duration: motionDurations.page, ease: motionEasings.standard },
+    },
+  },
+};
+
+// Reduced-motion twins preserve MEANING, never merely delete movement, and never
+// upgrade a rung: they collapse to an opacity-only static state.
+export const reducedPrimitiveVariants: Record<MotionPrimitive, Variants> = {
+  settle: { initial: { opacity: 0 }, animate: { opacity: 1, transition: { duration: motionDurations.instant } } },
+  hover: { initial: { opacity: 0.92 }, animate: { opacity: 0.92 } },
+  resolve: { initial: { opacity: 0.85 }, animate: { opacity: 0.85 } },
+  pause: { initial: { opacity: 0.92 }, animate: { opacity: 0.92 } },
+  recoil: { initial: { opacity: 1 }, animate: { opacity: 1 } },
+  still: { initial: { opacity: 1 }, animate: { opacity: 1 } },
+  downgrade: { initial: { opacity: 1 }, animate: { opacity: 1 } },
+};
+
+export function primitiveVariantsForIntensity(
+  primitive: MotionPrimitive,
+  intensity: MotionIntensity,
+): Variants {
+  return intensity === "reduced" ? reducedPrimitiveVariants[primitive] : primitiveVariants[primitive];
+}
+
 export const agentMotionStates: Record<AgentMotionState, WorkflowMotionEvent> = {
-  thinking: { agentState: "thinking", preset: "stage", isLooping: true, attention: "low" },
-  acting: { agentState: "acting", preset: "stage", isLooping: true, attention: "medium" },
-  waiting: { agentState: "waiting", preset: "static", isLooping: false, attention: "none" },
+  verifying: { agentState: "verifying", preset: "stage", isLooping: true, attention: "low" },
+  proposing: { agentState: "proposing", preset: "stage", isLooping: true, attention: "medium" },
+  proven: { agentState: "proven", preset: "stage", isLooping: false, attention: "low" },
+  held: { agentState: "held", preset: "review", isLooping: false, attention: "medium" },
+  rejected: { agentState: "rejected", preset: "stage", isLooping: false, attention: "high" },
   asking: { agentState: "asking", preset: "review", isLooping: false, attention: "medium" },
-  uncertain: { agentState: "uncertain", preset: "review", isLooping: false, attention: "medium" },
-  confident: { agentState: "confident", preset: "stage", isLooping: false, attention: "low" },
-  completed: { agentState: "completed", preset: "stage", isLooping: false, attention: "low" },
-  failed: { agentState: "failed", preset: "stage", isLooping: false, attention: "high" },
-  interrupted: { agentState: "interrupted", preset: "review", isLooping: false, attention: "medium" },
-  delegated: { agentState: "delegated", preset: "receipt", isLooping: false, attention: "low" },
-  escalated: { agentState: "escalated", preset: "stage", isLooping: false, attention: "high" },
-  recovered: { agentState: "recovered", preset: "stage", isLooping: false, attention: "low" },
+  done: { agentState: "done", preset: "receipt", isLooping: false, attention: "low" },
+  idle: { agentState: "idle", preset: "static", isLooping: false, attention: "none" },
+};
+
+// Each agent state's motion primitive -- its honest sentence's verb. Active work
+// (verifying/proposing) loops; everything else is one-shot or still. Rendered off
+// this so no state is legend-only.
+export const agentStatePrimitive: Record<AgentMotionState, MotionPrimitive> = {
+  verifying: "resolve",
+  proposing: "hover",
+  proven: "settle",
+  held: "pause",
+  rejected: "recoil",
+  asking: "pause",
+  done: "settle",
+  idle: "still",
 };
 
 export const routeVariants: Variants = {
@@ -149,39 +271,39 @@ export function variantsForIntensity(
 
 export function workflowStatusToAgentState(status: WorkflowStatus): AgentMotionState {
   if (status === "running") {
-    return "acting";
+    return "verifying";
   }
   if (status === "completed") {
-    return "completed";
+    return "done";
   }
   if (status === "blocked") {
     return "asking";
   }
   if (status === "failed") {
-    return "failed";
+    return "rejected";
   }
   if (status === "cancelled") {
-    return "interrupted";
+    return "held";
   }
-  return "waiting";
+  return "idle";
 }
 
 export function workflowEventToMotion(event: WorkflowEvent): WorkflowMotionEvent {
   const agentState = workflowStatusToAgentState(event.status);
   if (event.stage_id === "schema_inference" && event.status === "running") {
-    return agentMotionStates.thinking;
+    return agentMotionStates.verifying;
   }
   if (event.stage_id === "smt_verifier" && event.status === "completed") {
-    return agentMotionStates.confident;
+    return agentMotionStates.proven;
   }
   if (event.stage_id === "dry_run_transaction" && event.status === "completed") {
-    return agentMotionStates.delegated;
+    return agentMotionStates.proven;
   }
   if (event.stage_id === "receipt" && event.status === "completed") {
-    return agentMotionStates.recovered;
+    return agentMotionStates.done;
   }
   if (event.requires_human && event.status === "completed") {
-    return agentMotionStates.uncertain;
+    return agentMotionStates.asking;
   }
   return agentMotionStates[agentState];
 }

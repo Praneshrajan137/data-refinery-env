@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "generatedBy": "playground/web/scripts/generate_motion_system.mjs",
+  "note": "Single source of truth for DataForge motion. motion.ts derives its second-based durations, easings and springs from this file; generate_motion_system.mjs emits the CSS custom properties and primitive keyframes. Never hand-edit durations in two places again.",
+  "durationsMs": {
+    "instant": 80,
+    "micro": 120,
+    "fast": 180,
+    "standard": 240,
+    "measured": 320,
+    "page": 360,
+    "max": 480
+  },
+  "easings": {
+    "standard": [0.2, 0, 0, 1],
+    "emphasized": [0.16, 1, 0.3, 1],
+    "exit": [0.4, 0, 1, 1]
+  },
+  "springs": {
+    "soft": { "stiffness": 420, "damping": 36, "mass": 0.85 },
+    "snap": { "stiffness": 620, "damping": 42, "mass": 0.7 },
+    "layout": { "stiffness": 500, "damping": 45, "mass": 1 }
+  },
+  "primitives": {
+    "settle": { "rung": "proven", "duration": "measured", "easing": "emphasized", "loop": false, "answers": "proven and committed; converges to rest" },
+    "hover": { "rung": "plausibility", "duration": "max", "easing": "standard", "loop": true, "answers": "uncommitted proposal; low-amplitude, never settles" },
+    "resolve": { "rung": "verifying", "duration": "measured", "easing": "standard", "loop": true, "answers": "verification in progress; determinate, honest" },
+    "pause": { "rung": "held", "duration": "fast", "easing": "standard", "loop": false, "answers": "held or abstained; motion arrested" },
+    "recoil": { "rung": "rejected", "duration": "fast", "easing": "exit", "loop": false, "answers": "rejected or failed; one decisive counter-motion, no loop" },
+    "still": { "rung": "idle", "duration": "instant", "easing": "standard", "loop": false, "answers": "idle, no claim; no motion" },
+    "downgrade": { "rung": "downgraded", "duration": "page", "easing": "standard", "loop": false, "answers": "drift relaxed a proof back to review" }
+  }
+}

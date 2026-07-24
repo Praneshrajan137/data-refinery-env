@@ -12,18 +12,14 @@ import {
 import type { WorkflowEvent } from "./types";
 
 const agentStates = [
-  "thinking",
-  "acting",
-  "waiting",
+  "verifying",
+  "proposing",
+  "proven",
+  "held",
+  "rejected",
   "asking",
-  "uncertain",
-  "confident",
-  "completed",
-  "failed",
-  "interrupted",
-  "delegated",
-  "escalated",
-  "recovered",
+  "done",
+  "idle",
 ] as const;
 
 function event(stage_id: WorkflowEvent["stage_id"], status: WorkflowEvent["status"], requires_human = false): WorkflowEvent {
@@ -63,21 +59,21 @@ describe("motion system", () => {
   });
 
   it("maps workflow status to visible agent states", () => {
-    expect(workflowStatusToAgentState("queued")).toBe("waiting");
-    expect(workflowStatusToAgentState("running")).toBe("acting");
-    expect(workflowStatusToAgentState("completed")).toBe("completed");
+    expect(workflowStatusToAgentState("queued")).toBe("idle");
+    expect(workflowStatusToAgentState("running")).toBe("verifying");
+    expect(workflowStatusToAgentState("completed")).toBe("done");
     expect(workflowStatusToAgentState("blocked")).toBe("asking");
-    expect(workflowStatusToAgentState("failed")).toBe("failed");
-    expect(workflowStatusToAgentState("cancelled")).toBe("interrupted");
+    expect(workflowStatusToAgentState("failed")).toBe("rejected");
+    expect(workflowStatusToAgentState("cancelled")).toBe("held");
   });
 
   it("derives specific motion states from workflow events", () => {
-    expect(workflowEventToMotion(event("schema_inference", "running")).agentState).toBe("thinking");
-    expect(workflowEventToMotion(event("constraint_review", "completed", true)).agentState).toBe("uncertain");
-    expect(workflowEventToMotion(event("smt_verifier", "completed")).agentState).toBe("confident");
-    expect(workflowEventToMotion(event("dry_run_transaction", "completed")).agentState).toBe("delegated");
-    expect(workflowEventToMotion(event("receipt", "completed")).agentState).toBe("recovered");
-    expect(workflowEventToMotion(event("receipt", "failed")).agentState).toBe("failed");
+    expect(workflowEventToMotion(event("schema_inference", "running")).agentState).toBe("verifying");
+    expect(workflowEventToMotion(event("constraint_review", "completed", true)).agentState).toBe("asking");
+    expect(workflowEventToMotion(event("smt_verifier", "completed")).agentState).toBe("proven");
+    expect(workflowEventToMotion(event("dry_run_transaction", "completed")).agentState).toBe("proven");
+    expect(workflowEventToMotion(event("receipt", "completed")).agentState).toBe("done");
+    expect(workflowEventToMotion(event("receipt", "failed")).agentState).toBe("rejected");
   });
 
   it("removes spatial transforms from reduced-motion variants", () => {

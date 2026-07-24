@@ -1360,18 +1360,14 @@ function SystemPage({
           <span className="legend-item legend-item--selection">Selected evidence</span>
           <span className="legend-item legend-item--loading">Loading progress</span>
           <span className="legend-item legend-item--disabled">Disabled boundary</span>
-          <span className="legend-item legend-item--thinking">Agent thinking</span>
-          <span className="legend-item legend-item--acting">Agent acting</span>
-          <span className="legend-item legend-item--waiting">Agent waiting</span>
-          <span className="legend-item legend-item--asking">Agent asking</span>
-          <span className="legend-item legend-item--uncertain">Agent uncertain</span>
-          <span className="legend-item legend-item--confident">Agent confident</span>
-          <span className="legend-item legend-item--completed">Agent completed</span>
-          <span className="legend-item legend-item--failed">Agent failed</span>
-          <span className="legend-item legend-item--interrupted">Agent interrupted</span>
-          <span className="legend-item legend-item--delegated">Agent delegated</span>
-          <span className="legend-item legend-item--escalated">Agent escalated</span>
-          <span className="legend-item legend-item--recovered">Agent recovered</span>
+          <span className="legend-item legend-item--verifying">Verifying in progress</span>
+          <span className="legend-item legend-item--proposing">Proposing (plausibility)</span>
+          <span className="legend-item legend-item--proven">Proven, applied</span>
+          <span className="legend-item legend-item--held">Held for review</span>
+          <span className="legend-item legend-item--rejected">Rejected</span>
+          <span className="legend-item legend-item--asking">Needs a human</span>
+          <span className="legend-item legend-item--done">Done</span>
+          <span className="legend-item legend-item--idle">Idle</span>
         </div>
       </section>
       <section className="handoff-panel">
@@ -3188,7 +3184,7 @@ function VerificationStrengthBadge({ strength }: { strength: VerificationStrengt
   const proven = strength === "proven";
   return (
     <span
-      className={`strength-badge strength-badge--${proven ? "proven" : "plausibility"}`}
+      className={`strength-badge strength-badge--${proven ? "proven" : "plausibility"}${proven ? " df-motion-settle" : ""}`}
       title={
         proven
           ? "Proven: deterministic or verified against an authoritative schema. Safe to auto-apply."
@@ -3196,7 +3192,7 @@ function VerificationStrengthBadge({ strength }: { strength: VerificationStrengt
       }
     >
       {proven ? <BadgeCheck aria-hidden="true" /> : <AlertTriangle aria-hidden="true" />}
-      {proven ? "proven" : "plausible-only"}
+      {proven ? "proven" : "plausible \u00b7 not written"}
     </span>
   );
 }
@@ -3238,11 +3234,16 @@ function TrustVerdictPanel({ verdict }: { verdict: TrustVerdict }) {
         ))}
       </dl>
       <p className="trust-verdict__foot">
-        Independent verifier:{" "}
-        <strong>{independentAgreed ? "agreed" : "not run"}</strong>
+        {independentAgreed ? (
+          <span className="corroborated-chip">
+            <BadgeCheck aria-hidden="true" /> Independently verified
+          </span>
+        ) : (
+          <span className="single-verifier-note">Single verifier</span>
+        )}{" "}
         {independentAgreed
-          ? " — a second, independently written verifier confirmed the applied set."
-          : " — the deterministic gate proved every applied change; a second cross-check was not required for this run."}
+          ? "— two independently written verifiers agreed on the applied set."
+          : "— the deterministic gate proved every applied change; a second cross-check was not required for this run."}
       </p>
     </motion.section>
   );
@@ -3310,7 +3311,13 @@ function CertificatePanel({
           <Download aria-hidden="true" /> Download portable certificate
         </button>
         <p className="certificate-panel__reverify">
-          Independent verifier: <strong>{independentVerification === "agreed" ? "agreed" : "not run"}</strong>.
+          {independentVerification === "agreed" ? (
+            <span className="corroborated-chip">
+              <BadgeCheck aria-hidden="true" /> Independently verified
+            </span>
+          ) : (
+            <span className="single-verifier-note">Single verifier</span>
+          )}{" "}
           Re-verify off this machine with <code>{auditCommand}</code>.
         </p>
       </div>
@@ -3359,15 +3366,15 @@ function HeldForReviewList({ items }: { items: CandidateRepair[] }) {
 function agentTraceMotion(step: { action_type: string; accepted?: boolean | null }): string {
   const action = step.action_type.toUpperCase();
   if (action === "FIX") {
-    return step.accepted === false ? "uncertain" : "confident";
+    return step.accepted === false ? "rejected" : "proven";
   }
   if (["FINALIZE", "DONE", "STOP", "FINISH", "COMPLETE"].includes(action)) {
-    return "completed";
+    return "done";
   }
   if (["INSPECT_ROWS", "PATTERN_MATCH", "STAT_TEST", "HYPOTHESIS"].includes(action)) {
-    return "thinking";
+    return "verifying";
   }
-  return "acting";
+  return "proposing";
 }
 
 function AgentSummaryPanel({ agent }: { agent: AgentSummary }) {
@@ -3375,7 +3382,7 @@ function AgentSummaryPanel({ agent }: { agent: AgentSummary }) {
     <motion.section
       className="agent-summary"
       aria-label="Verified agent run"
-      data-agent-motion="delegated"
+      data-agent-motion="done"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={motionSprings.snap}
@@ -3462,13 +3469,16 @@ function LoadingState({ label }: { label: string }) {
       className="loading-state"
       role="status"
       aria-live="polite"
-      data-agent-motion="acting"
+      data-agent-motion="verifying"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: motionDurations.fast }}
     >
       <RefreshCw aria-hidden="true" />
       <span>{label}</span>
+      <span className="loading-state__track" aria-hidden="true">
+        <span className="loading-state__sweep df-motion-resolve" />
+      </span>
     </motion.div>
   );
 }

@@ -11,18 +11,14 @@ const cssPath = resolve(srcRoot, "design", "color-system.generated.css");
 const jsonPath = resolve(srcRoot, "design", "color-system.generated.json");
 
 const agentStates = [
-  "thinking",
-  "acting",
-  "waiting",
+  "verifying",
+  "proposing",
+  "proven",
+  "held",
+  "rejected",
   "asking",
-  "uncertain",
-  "confident",
-  "completed",
-  "failed",
-  "interrupted",
-  "delegated",
-  "escalated",
-  "recovered",
+  "done",
+  "idle",
 ];
 
 const requiredTokens = [
@@ -103,6 +99,12 @@ const requiredTokens = [
   "--df-held-bg",
   "--df-held-text",
   "--df-held-line",
+  "--df-corroborated-bg",
+  "--df-corroborated-text",
+  "--df-corroborated-line",
+  "--df-downgraded-bg",
+  "--df-downgraded-text",
+  "--df-downgraded-line",
   "--df-diff-old-bg",
   "--df-diff-old-text",
   "--df-diff-new-bg",
@@ -188,8 +190,8 @@ function auditGeneratedFiles(system, css) {
     fail("Generated JSON must include highContrast light and dark references.");
   }
   for (const line of css.split("\n")) {
-    if (line.includes("color(display-p3") && !/--df-(data|action|agent|proof|danger)-glow:/.test(line)) {
-      fail(`P3 output is only allowed for non-text glow tokens: ${line.trim()}`);
+    if (line.includes("color(display-p3") && !/--df-(data|action|proof)-glow:/.test(line)) {
+      fail(`P3 output is only allowed for proven/evidence/command glow tokens: ${line.trim()}`);
     }
   }
 }
@@ -221,6 +223,8 @@ function auditContrast(system) {
     assertContrast(system, theme, "--df-proven-text", "--df-proven-bg", 4.5);
     assertContrast(system, theme, "--df-plausibility-text", "--df-plausibility-bg", 4.5);
     assertContrast(system, theme, "--df-held-text", "--df-held-bg", 4.5);
+    assertContrast(system, theme, "--df-corroborated-text", "--df-corroborated-bg", 4.5);
+    assertContrast(system, theme, "--df-downgraded-text", "--df-downgraded-bg", 4.5);
     assertContrast(system, theme, "--df-diff-old-text", "--df-diff-old-bg", 4.5);
     assertContrast(system, theme, "--df-diff-new-text", "--df-diff-new-bg", 4.5);
     assertContrast(system, theme, "--df-focus-ring", "--df-bg", 3);
@@ -339,6 +343,8 @@ function auditApexBackgroundDiscipline(system) {
     "--df-proven-bg",
     "--df-plausibility-bg",
     "--df-held-bg",
+    "--df-corroborated-bg",
+    "--df-downgraded-bg",
     "--df-status-safe-bg",
     "--df-status-review-bg",
     "--df-status-danger-bg",
@@ -394,6 +400,48 @@ function auditRawHexUsage() {
   }
 }
 
+function auditEarnedSalience(system, css) {
+  // The core correctness property: perceptual intensity must track epistemic
+  // strength, so overtrust is unrenderable. These are BUILD GATES, not advice.
+  for (const theme of ["light", "dark"]) {
+    const provenText = system.semantic[theme]["--df-proven-text"]?.palette ?? "";
+    if (!provenText.startsWith("success-")) {
+      fail(`${theme} --df-proven-text must be viridian proof (success-*), not ${provenText}.`);
+    }
+    const plausibilityText = system.semantic[theme]["--df-plausibility-text"]?.palette ?? "";
+    if (!plausibilityText.startsWith("agent-")) {
+      fail(`${theme} --df-plausibility-text must be ultraviolet (agent-*), not ${plausibilityText}.`);
+    }
+    // Confidence is a magnitude, never a verdict: it may never borrow proof-green,
+    // review-brass, or danger-carmine. A confident-green chip on an unproven value
+    // is precisely the overtrust lie this language forbids.
+    for (const level of ["high", "medium", "low"]) {
+      const palette = system.semantic[theme][`--df-confidence-${level}-text`]?.palette ?? "";
+      if (!palette.startsWith("neutral-")) {
+        fail(
+          `${theme} --df-confidence-${level}-text must be a neutral magnitude, not the verdict color ${palette}.`,
+        );
+      }
+    }
+    // Corroboration intensifies proof; downgrade is a relaxed proof (held/brass).
+    const corroborated = system.semantic[theme]["--df-corroborated-text"]?.palette ?? "";
+    if (!corroborated.startsWith("success-")) {
+      fail(`${theme} --df-corroborated-text must build on proof (success-*), not ${corroborated}.`);
+    }
+    const downgraded = system.semantic[theme]["--df-downgraded-text"]?.palette ?? "";
+    if (!downgraded.startsWith("warning-")) {
+      fail(`${theme} --df-downgraded-text must read as held/review (warning-*), not ${downgraded}.`);
+    }
+  }
+  // Glow is the strongest salience and is reserved for proof/evidence/command.
+  // Plausibility and failure must never glow.
+  for (const forbidden of ["--df-agent-glow", "--df-danger-glow"]) {
+    if (css.includes(`${forbidden}:`)) {
+      fail(`Glow on ${forbidden} would give unearned salience to unproven/failed claims.`);
+    }
+  }
+}
+
 const system = readJson(jsonPath);
 const css = readFileSync(cssPath, "utf8");
 
@@ -402,6 +450,7 @@ auditContrast(system);
 auditAurelianProofPalette(system);
 auditHighContrast(system);
 auditApexBackgroundDiscipline(system);
+auditEarnedSalience(system, css);
 auditPackage();
 auditRawHexUsage();
 

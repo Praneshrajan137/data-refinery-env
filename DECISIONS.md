@@ -12,6 +12,41 @@ Format for every entry:
 
 ---
 
+## 2026-07-24 - Earned-Salience perceptual language (color + motion + agent-state + text twin)
+**Context**: The playground/CLI/MCP grew a capable but incoherent perceptual layer:
+10 of 12 agent states were legend-only (never rendered live), `independent_verification`
+was footer text with no perceptual weight, proven vs plausibility differed only by hue,
+glow tokens were latent, motion timing was duplicated across TS and CSS, `confidence-high`
+reused proof-green, and the CLI/MCP leaked raw machine tokens (`floor_cannot_verify: 3`)
+with no humanizer and no `NO_COLOR` handling. For a product whose core property is trust
+calibration and whose stated deadly failure is overtrust, an interface that can make an
+unproven value look proven is a correctness bug, not a cosmetic one.
+**Alternatives**:
+- (A) "Refined palette": retune hues/motion for polish. REJECTED — cosmetic; leaves every
+  honesty seam intact; still lets confidence-green sit on unproven values.
+- (B) "Activity theater": richer thinking/streaming animation to feel alive. REJECTED —
+  directly manufactures the overtrust the doctrine names as the deadly failure.
+- (C) "Earned Salience": perceptual intensity (chroma, motion amplitude, glow, weight,
+  form-completeness) is a strictly monotonic function of epistemic strength, so an unproven
+  value physically cannot wear the treatment reserved for proof.
+**Decision**: C. Codified in [docs/design/perceptual-language.md](docs/design/perceptual-language.md):
+an epistemic-strength ladder (proven / corroborated / plausibility-only / held / downgraded /
+rejected / idle), color=semantics, motion=causality (settle/hover/resolve/pause/recoil/still/
+downgrade), stillness=punctuation, a redundancy law (no meaning by color alone), and a
+non-visual CLI/MCP/API text twin. Opinionated semantic breaks (user-approved): confidence
+recolored to a neutral magnitude (never a verdict color); the 10 dead agent states retired;
+glow reserved for proven/command.
+**Reasoning**: It makes the product's central correctness property the literal grammar of
+perception and converts every seam into a derivation. Overtrust becomes unrenderable rather
+than merely discouraged.
+**Reviewed with**: Pranesh K R (approved full phased implementation, playground + CLI/MCP
+twin, and freedom to retire dead/dishonest signals).
+**Reversal criteria**: user comprehension testing shows the language is not predictable, or
+`hover`/dashed plausibility reads as "broken/loading" rather than "uncommitted". Tracked as
+prioritized validation work in the spec (§10).
+
+---
+
 ## 2026-07-19 - Accepted-inferred FD contract: informed review by default, declared-FD-only opt-in
 **Context**: Measuring sampled tax exposed that FD mining surfaces spurious FDs.
 The near-key + minimum-support guards fixed the vacuous cases, but tax FPs only

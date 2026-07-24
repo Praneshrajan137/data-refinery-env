@@ -21,6 +21,7 @@ from dataforge.cli.common import load_schema, resolve_cli_path
 from dataforge.detectors.base import Schema
 from dataforge.schema_inference import ConstraintReviewArtifact, load_constraint_review_artifact
 from dataforge.ui.repair_diff import render_repair_diff
+from dataforge.ui.trust_vocab import humanize_review_reason
 
 if TYPE_CHECKING:
     from dataforge.engine.repair import ExternalFix
@@ -215,10 +216,15 @@ def verify_apply(
             reason_counts[str(candidate.review_reason)] = (
                 reason_counts.get(str(candidate.review_reason), 0) + 1
             )
-        summary = "  ".join(f"{reason}: {count}" for reason, count in sorted(reason_counts.items()))
+        summary = "\n".join(
+            f"  {count}x {humanize_review_reason(reason)}"
+            for reason, count in sorted(reason_counts.items())
+        )
         output_console.print(
             Panel(
-                f"[yellow]{len(held)} fix(es) held or rejected[/yellow]\n{summary}",
+                f"[yellow]{len(held)} fix(es) held or rejected -- not written.[/yellow]\n"
+                f"Refusing to write what cannot be proven is a first-class, honest outcome.\n"
+                f"{summary}",
                 title="Held / Rejected",
                 style="yellow",
             )

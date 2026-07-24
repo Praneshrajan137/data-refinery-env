@@ -1,4 +1,5 @@
 @import "./design/color-system.generated.css";
+@import "./design/motion-system.generated.css";
 
 :root {
   font-family:
@@ -17,12 +18,6 @@
     0 1px 0 color-mix(in srgb, var(--df-text-inverse) 52%, transparent),
     0 22px 46px color-mix(in srgb, var(--df-palette-neutral-10) 10%, transparent);
   --df-inner-line: inset 0 1px 0 color-mix(in srgb, var(--df-text-inverse) 52%, transparent);
-  --df-motion-fast: 180ms;
-  --df-motion-standard: 240ms;
-  --df-motion-measured: 320ms;
-  --df-motion-page: 360ms;
-  --df-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --df-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -1429,6 +1424,27 @@ textarea {
   border-color: var(--df-loading-line);
 }
 
+/* Determinate "verifying in progress" sweep (motion primitive: resolve). Honest:
+   it only renders while work is happening, and under reduced motion it holds a
+   static partial bar rather than disappearing. */
+.loading-state__track {
+  position: relative;
+  overflow: hidden;
+  width: 168px;
+  height: 3px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--df-loading-line) 28%, transparent);
+}
+
+.loading-state__sweep {
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  border-radius: 999px;
+  background: var(--df-loading-line);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -2087,22 +2103,34 @@ textarea {
   background: var(--df-loading-bg);
 }
 
-.legend-item--thinking {
-  color: var(--df-agent-thinking-text);
-  border-color: var(--df-agent-thinking-line);
-  background: var(--df-agent-thinking-bg);
+.legend-item--verifying {
+  color: var(--df-agent-verifying-text);
+  border-color: var(--df-agent-verifying-line);
+  background: var(--df-agent-verifying-bg);
 }
 
-.legend-item--acting {
-  color: var(--df-agent-acting-text);
-  border-color: var(--df-agent-acting-line);
-  background: var(--df-agent-acting-bg);
+.legend-item--proposing {
+  color: var(--df-agent-proposing-text);
+  border-color: var(--df-agent-proposing-line);
+  background: var(--df-agent-proposing-bg);
 }
 
-.legend-item--waiting {
-  color: var(--df-agent-waiting-text);
-  border-color: var(--df-agent-waiting-line);
-  background: var(--df-agent-waiting-bg);
+.legend-item--proven {
+  color: var(--df-agent-proven-text);
+  border-color: var(--df-agent-proven-line);
+  background: var(--df-agent-proven-bg);
+}
+
+.legend-item--held {
+  color: var(--df-agent-held-text);
+  border-color: var(--df-agent-held-line);
+  background: var(--df-agent-held-bg);
+}
+
+.legend-item--rejected {
+  color: var(--df-agent-rejected-text);
+  border-color: var(--df-agent-rejected-line);
+  background: var(--df-agent-rejected-bg);
 }
 
 .legend-item--asking {
@@ -2111,52 +2139,16 @@ textarea {
   background: var(--df-agent-asking-bg);
 }
 
-.legend-item--uncertain {
-  color: var(--df-agent-uncertain-text);
-  border-color: var(--df-agent-uncertain-line);
-  background: var(--df-agent-uncertain-bg);
+.legend-item--done {
+  color: var(--df-agent-done-text);
+  border-color: var(--df-agent-done-line);
+  background: var(--df-agent-done-bg);
 }
 
-.legend-item--confident {
-  color: var(--df-agent-confident-text);
-  border-color: var(--df-agent-confident-line);
-  background: var(--df-agent-confident-bg);
-}
-
-.legend-item--completed {
-  color: var(--df-agent-completed-text);
-  border-color: var(--df-agent-completed-line);
-  background: var(--df-agent-completed-bg);
-}
-
-.legend-item--failed {
-  color: var(--df-agent-failed-text);
-  border-color: var(--df-agent-failed-line);
-  background: var(--df-agent-failed-bg);
-}
-
-.legend-item--interrupted {
-  color: var(--df-agent-interrupted-text);
-  border-color: var(--df-agent-interrupted-line);
-  background: var(--df-agent-interrupted-bg);
-}
-
-.legend-item--delegated {
-  color: var(--df-agent-delegated-text);
-  border-color: var(--df-agent-delegated-line);
-  background: var(--df-agent-delegated-bg);
-}
-
-.legend-item--escalated {
-  color: var(--df-agent-escalated-text);
-  border-color: var(--df-agent-escalated-line);
-  background: var(--df-agent-escalated-bg);
-}
-
-.legend-item--recovered {
-  color: var(--df-agent-recovered-text);
-  border-color: var(--df-agent-recovered-line);
-  background: var(--df-agent-recovered-bg);
+.legend-item--idle {
+  color: var(--df-agent-idle-text);
+  border-color: var(--df-agent-idle-line);
+  background: var(--df-agent-idle-bg);
 }
 
 .empty-route {
@@ -2291,12 +2283,26 @@ textarea {
   font-size: 0.8rem;
 }
 
-.agent-trace__step[data-agent-motion="confident"] {
-  border-left-color: var(--df-status-safe-line);
+.agent-trace__step[data-agent-motion="proven"],
+.agent-trace__step[data-agent-motion="done"] {
+  border-left-color: var(--df-agent-proven-line);
 }
 
-.agent-trace__step[data-agent-motion="uncertain"] {
-  border-left-color: var(--df-status-danger-line);
+.agent-trace__step[data-agent-motion="rejected"] {
+  border-left-color: var(--df-agent-rejected-line);
+}
+
+.agent-trace__step[data-agent-motion="verifying"] {
+  border-left-color: var(--df-agent-verifying-line);
+}
+
+.agent-trace__step[data-agent-motion="proposing"] {
+  border-left-color: var(--df-agent-proposing-line);
+}
+
+.agent-trace__step[data-agent-motion="held"],
+.agent-trace__step[data-agent-motion="asking"] {
+  border-left-color: var(--df-agent-held-line);
 }
 
 .agent-trace__index {
@@ -2397,16 +2403,56 @@ textarea {
   height: 13px;
 }
 
+/* Earned salience: proven is SOLID and FILLED (a committed claim); plausibility
+   is a DASHED, UNFILLED outline (an uncommitted proposal). The distinction is
+   categorical in FORM, so it survives grayscale and colorblindness, not merely a
+   hue swap. Plausibility never glows. */
 .strength-badge--proven {
   color: var(--df-proven-text);
   border-color: var(--df-proven-line);
   background: var(--df-proven-bg);
+  border-style: solid;
 }
 
 .strength-badge--plausibility {
   color: var(--df-plausibility-text);
   border-color: var(--df-plausibility-line);
-  background: var(--df-plausibility-bg);
+  background: transparent;
+  border-style: dashed;
+}
+
+.corroborated-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--df-corroborated-line);
+  border-left-width: 3px;
+  border-radius: 999px;
+  background: var(--df-corroborated-bg);
+  color: var(--df-corroborated-text);
+  padding: 1px 9px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.corroborated-chip svg {
+  width: 13px;
+  height: 13px;
+}
+
+.single-verifier-note {
+  font-weight: 800;
+  color: var(--df-text-2);
+}
+
+/* Drift downgrade: a proof relaxed back to review because the live distribution
+   moved. Reserved for drift wiring (see docs/design/perceptual-language.md 10). */
+.trust-downgraded {
+  border-left: 3px solid var(--df-downgraded-line);
+  background: var(--df-downgraded-bg);
+  color: var(--df-downgraded-text);
+  padding: 6px 10px;
+  border-radius: var(--df-radius-tight);
 }
 
 .repair-row__strength,

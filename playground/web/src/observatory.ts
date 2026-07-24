@@ -372,6 +372,10 @@ const REVIEW_REASON_COPY: Record<string, string> = {
   floor_cannot_verify: "The deterministic verifier could not prove this change safe.",
   inferred_fd_not_declared:
     "The supporting dependency was inferred, not declared, so it is not auto-applied.",
+  ambiguous_fd:
+    "The functional dependency was ambiguous, so no single correct value could be derived.",
+  out_of_inferred_domain:
+    "The proposed value falls outside the values inferred from the column.",
   unverified_transposition: "A transposition was proposed but could not be proven.",
   stale_precondition: "The row changed after the proposal, so it was not applied.",
   invalid_target: "The proposed value failed the target's constraints.",
