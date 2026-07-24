@@ -1,0 +1,803 @@
+{
+  "metadata": {
+    "schema_version": "dataforge_benchmark_run_v2",
+    "methods": [
+      "llm_corrector"
+    ],
+    "datasets": [
+      "hospital"
+    ],
+    "seeds": 3,
+    "seed_list": [
+      0,
+      1,
+      2
+    ],
+    "git_commit": "e9667aef4c6914f667a275786a39ee9d2c0f3478",
+    "git_dirty": true,
+    "generated_at_utc": "2026-07-24T09:42:36+00:00",
+    "python_version": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "dependency_versions": {
+      "dataforge": "0.1.0",
+      "httpx": "0.28.1",
+      "pandas": "2.3.3",
+      "pydantic": "2.13.4",
+      "python-dotenv": "1.2.2",
+      "typer": "0.24.1"
+    },
+    "generator_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 3 --seed-list 0,1,2",
+    "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 3 --seed-list 0,1,2",
+    "dataset_evidence": [
+      {
+        "name": "hospital",
+        "source_urls": [
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/hospital/dirty.csv",
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/hospital/clean.csv"
+        ],
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+        "n_rows": 1000,
+        "n_columns": 20
+      }
+    ],
+    "artifact_sha256s": {
+      "dataset:hospital:dirty.csv": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+      "dataset:hospital:clean.csv": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b"
+    }
+  },
+  "records": [
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "seed": 0,
+      "status": "ok",
+      "skip_reason": null,
+      "precision": 0.05,
+      "recall": 0.002,
+      "f1": 0.0038,
+      "tp": 1,
+      "fp": 19,
+      "fn": 508,
+      "avg_steps": 90.0,
+      "llm_calls": 90,
+      "prompt_tokens": 31263,
+      "completion_tokens": 8944,
+      "quota_units": 0.4021,
+      "gpu_hours": 0.0,
+      "runtime_s": 381.9935,
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "warnings": [
+        "corrector_sampled_30_of_10372"
+      ],
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 77,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 1,
+          "detection_recall": 0.0024,
+          "tp": 1,
+          "fn": 422,
+          "recall": 0.0024,
+          "predicted_on_class": 1,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": 0.8833,
+      "precision_at_auto_apply": 0.0588,
+      "auto_apply_count": 17,
+      "calibration_samples_by_class": {
+        "other": [
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ]
+        ],
+        "text_normalization": [
+          [
+            1.0,
+            true
+          ]
+        ]
+      },
+      "calibration_samples_by_type": {
+        "fd_violation": [
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "seed": 1,
+      "status": "ok",
+      "skip_reason": null,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "tp": 0,
+      "fp": 21,
+      "fn": 509,
+      "avg_steps": 90.0,
+      "llm_calls": 90,
+      "prompt_tokens": 32721,
+      "completion_tokens": 10043,
+      "quota_units": 0.4276,
+      "gpu_hours": 0.0,
+      "runtime_s": 462.6335,
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "warnings": [
+        "corrector_sampled_30_of_10372"
+      ],
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 77,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 423,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": 0.9206,
+      "precision_at_auto_apply": 0.0,
+      "auto_apply_count": 17,
+      "calibration_samples_by_class": {
+        "other": [
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ]
+        ]
+      },
+      "calibration_samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ]
+        ]
+      }
+    },
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "seed": 2,
+      "status": "ok",
+      "skip_reason": null,
+      "precision": 0.0909,
+      "recall": 0.0039,
+      "f1": 0.0075,
+      "tp": 2,
+      "fp": 20,
+      "fn": 507,
+      "avg_steps": 90.0,
+      "llm_calls": 90,
+      "prompt_tokens": 35574,
+      "completion_tokens": 14021,
+      "quota_units": 0.496,
+      "gpu_hours": 0.0,
+      "runtime_s": 576.0087,
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "warnings": [
+        "corrector_sampled_30_of_10372"
+      ],
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 3 --seed-list 0,1,2",
+      "by_class": {
+        "value_format": {
+          "error_class": "value_format",
+          "support": 77,
+          "detected": 2,
+          "detection_recall": 0.026,
+          "tp": 2,
+          "fn": 75,
+          "recall": 0.026,
+          "predicted_on_class": 2,
+          "precision_on_class": 1.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 423,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 423,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 9,
+          "detected": 0,
+          "detection_recall": 0.0,
+          "tp": 0,
+          "fn": 9,
+          "recall": 0.0,
+          "predicted_on_class": 0,
+          "precision_on_class": 0.0
+        }
+      },
+      "ece": 0.7576,
+      "precision_at_auto_apply": 0.1429,
+      "auto_apply_count": 14,
+      "calibration_samples_by_class": {
+        "other": [
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ]
+        ],
+        "value_format": [
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            true
+          ]
+        ]
+      },
+      "calibration_samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ]
+        ]
+      }
+    }
+  ],
+  "aggregates": [
+    {
+      "method": "llm_corrector",
+      "dataset": "hospital",
+      "status": "ok",
+      "skip_reason": null,
+      "seeds_requested": 3,
+      "seeds_completed": 3,
+      "precision_mean": 0.047,
+      "precision_std": 0.0455,
+      "recall_mean": 0.002,
+      "recall_std": 0.002,
+      "f1_mean": 0.0038,
+      "f1_std": 0.0038,
+      "avg_steps_mean": 90.0,
+      "avg_steps_std": 0.0,
+      "quota_units_mean": 0.4419,
+      "quota_units_std": 0.0486,
+      "gpu_hours_mean": 0.0,
+      "gpu_hours_std": 0.0,
+      "runtime_s_mean": 473.5452,
+      "runtime_s_std": 97.4668,
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "reproduction_command": "dataforge bench --methods llm_corrector --datasets hospital --seeds 3 --seed-list 0,1,2"
+    }
+  ]
+}

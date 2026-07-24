@@ -1,0 +1,68 @@
+{
+  "artifact": "dataforge_certified_coverage_v1",
+  "purpose": "Distribution-free certified auto-apply coverage for gpt-5.6-sol as an LLM corrector. Certifies per-class thresholds on a calibration split (conformal risk control) and MEASURES on a disjoint test split - never an in-sample number.",
+  "record_correction": "SUPERSEDES the F1-based reading of corrector_gpt56sol_hospital.json. That run's F1 (0.0038) is a DENOMINATOR ARTIFACT: sampled corrections were scored against full-class support (text_normalization=423, value_format=77), capping recall near 0.06 even for a perfect corrector. F1 is not a valid corrector capability metric. The honest signal is below: the corrector is CONFIDENTLY WRONG on the hard 'other' residual, and conformal certifies zero auto-apply coverage - the gate is correct.",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "model_provenance": "first-party Azure OpenAI (format OpenAI, GlobalStandard, ver 2026-07-09)",
+  "dataset": "hospital",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "sampled_issues_per_seed": 30,
+  "proposals_scored_pooled": 63,
+  "proposals_correct_pooled": 3,
+  "aggregate": {
+    "f1_mean": 0.0038,
+    "ece_mean": 0.8538,
+    "proposal_accuracy": 0.0476,
+    "mean_confidence_when_wrong": 0.8944,
+    "mean_confidence_when_right": 1.0
+  },
+  "certified_coverage": {
+    "alpha": 0.05,
+    "delta": 0.05,
+    "min_support": 30,
+    "seed": 0,
+    "calib_fraction": 0.5,
+    "overall_test_error": 0.0,
+    "overall_test_coverage": 0.0,
+    "auto_applied_total": 0,
+    "test_total": 32,
+    "per_class": {
+      "other": {
+        "threshold": 1.01,
+        "test_support": 30,
+        "auto_applied": 0,
+        "test_error": 0.0,
+        "test_coverage": 0.0
+      },
+      "text_normalization": {
+        "threshold": 1.01,
+        "test_support": 1,
+        "auto_applied": 0,
+        "test_error": 0.0,
+        "test_coverage": 0.0
+      },
+      "value_format": {
+        "threshold": 1.01,
+        "test_support": 1,
+        "auto_applied": 0,
+        "test_error": 0.0,
+        "test_coverage": 0.0
+      }
+    }
+  },
+  "promotion_verdict": {
+    "promoted": false,
+    "reasons": [
+      "certified auto-apply coverage is 0.0 at alpha=0.05, delta=0.05",
+      "'other' class had test_support=30 (>= min_support) yet no threshold met the risk bound - this is a calibration failure, not insufficient data",
+      "confidently wrong: mean confidence 0.89 on incorrect proposals vs 1.0 on the few correct ones (ece_mean 0.854)"
+    ]
+  },
+  "conclusion": "Conformal certifies ZERO auto-apply coverage. gpt-5.6-sol proposes confident exact-value corrections on the hard residual that are ~5% accurate and poorly calibrated, so the verified+calibrated gate correctly refuses to auto-apply any of them. Propose-not-apply is the provably correct policy - now shown via distribution-free certification, not the in-sample precision_at_auto_apply metric. A newer/bigger model does not move this: calibration on hard residual, not raw capability, is the bottleneck. gpt-5.6-sol's leverage lies elsewhere (verified agent policy, SFT/GRPO teacher), not corrector auto-apply.",
+  "reproduction": "DATAFORGE_LLM_PROVIDER=azure DATAFORGE_AZURE_MODEL=gpt-5.6-sol AZURE_OPENAI_ENDPOINT=https://praneshrajank15-8087-resource.openai.azure.com AZURE_OPENAI_API_VERSION=2025-04-01-preview DATAFORGE_CORRECTOR_MAX_ISSUES=30 DATAFORGE_AZURE_MAX_USD=15 dataforge bench --methods llm_corrector --datasets hospital --seed-list 0,1,2 --output-json eval/results/corrector_gpt56sol_hospital.json"
+}

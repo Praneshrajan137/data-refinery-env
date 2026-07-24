@@ -12,6 +12,40 @@ Format for every entry:
 
 ---
 
+## 2026-07-24 - gpt-5.6-sol: correct the corrector verdict; leverage is teacher/agent, not auto-apply
+**Context**: An earlier pass onboarded gpt-5.6-sol (first-party Azure OpenAI) and reported its
+LLM-corrector result as "F1 0.0038 -> REJECT, moat confirmed." Re-examination showed that verdict
+cited INVALID evidence: F1 is a denominator artifact (30 sampled corrections scored against
+full-class support 423/77 caps recall ~0.06 even for a perfect corrector). The real signal, read
+from calibration_samples_by_class: the corrector makes ~63 proposals at ~5% accuracy and is
+CONFIDENTLY WRONG (mean confidence 0.89 on wrong answers), so conformal certifies ZERO auto-apply
+coverage - and a 5-issue raw-sample probe confirmed the prompt is clean and grounded; the residual
+fd_violation cells are genuinely underivable. Benchmarking any LLM at the auto-apply gate answers a
+predetermined question (the gate rejects all LLMs by design).
+**Alternatives**:
+- (A) Keep the F1-based corrector verdict. REJECTED - invalid metric, misattributes the cause.
+- (B) Re-run the corrector at larger N to "get a real F1". REJECTED - spends credit to reconfirm the
+  moat; still the wrong surface.
+- (C) Correct the record with the project's own distribution-free certified-coverage metric, and
+  apply gpt-5.6-sol where a frontier model actually helps: as an agent policy the gate vets, and as
+  an SFT/GRPO teacher (verified against ground truth, gate-exempt).
+**Decision**: C. Corrected artifact eval/results/corrector_gpt56sol_certified_coverage.json
+(supersedes the F1 read). Measured leverage: (1) agent-through-gate on hospital -> floor 6 proven,
+agent_fix_count 0, 2/2 FIX rejected by SMT (eval/results/agent_gpt56sol_hospital.json) - the
+guardrail holds a frontier proposer, exactly the STRATEGY thesis; (2) teacher -> 32 F1=1.000 verified
+trajectories in ~97s (data/sft_traj/expert_v1_gpt56sol.jsonl) - the honest frontier-model win.
+**Reasoning**: Consistent across corrector + agent: a stronger model does not clear the
+verified+calibrated gate (calibration on hard residual, not capability, is the bottleneck). The
+model's value is upstream (teacher data) and as a vetted proposer, not silent auto-apply.
+**Reviewed with**: Pranesh K R (chose: keep azure default with cost guards; generate teacher data
+now, train later).
+**Reversal criteria**: a model whose residual proposals are calibrated enough that conformal
+certifies non-zero auto-apply coverage at alpha<=0.05 on a held-out split - then revisit auto-apply.
+Known blocker for training on fresh teacher data: the v1->v4 curriculum transforms are out-of-repo
+(Kaggle); build_repair_curriculum requires expert_v4 + CONTRACT_VERSION_V2.
+
+---
+
 ## 2026-07-24 - Earned-Salience perceptual language (color + motion + agent-state + text twin)
 **Context**: The playground/CLI/MCP grew a capable but incoherent perceptual layer:
 10 of 12 agent states were legend-only (never rendered live), `independent_verification`

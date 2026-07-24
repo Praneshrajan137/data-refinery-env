@@ -131,3 +131,56 @@ The verified output then feeds the curriculum chain
 (v5 repair -> v6 contract-minimal -> v8 schema-distill -> v9 action-envelope)
 to produce the `prompt_completion` training file.
 
+## gpt-5.6-sol (this account) — reproducible recipe & guard coverage
+
+The active first-party deployment is **`gpt-5.6-sol`** (Azure OpenAI, format
+`OpenAI`, GlobalStandard, ver `2026-07-09`) on the Foundry resource
+`praneshrajank15-8087-resource` (`rg-praneshrajank15-0536`, eastus2). It returns
+content directly with no reasoning-token overhead, so no `DATAFORGE_AZURE_REASONING_EFFORT`
+tuning is needed (unlike gpt-5-mini).
+
+Self-reproducing env recipe (the bench artifact's own `reproduction_command` omits
+these — record them here so any run is reproducible):
+
+```dotenv
+DATAFORGE_LLM_PROVIDER=azure
+DATAFORGE_AZURE_MODEL=gpt-5.6-sol
+AZURE_OPENAI_ENDPOINT=https://praneshrajank15-8087-resource.openai.azure.com
+AZURE_OPENAI_API_VERSION=2025-04-01-preview
+DATAFORGE_AZURE_MAX_USD=15
+DATAFORGE_AZURE_MAX_TOKENS=2048
+# leave DATAFORGE_AZURE_SEND_TEMPERATURE UNSET (GPT-5 family rejects temp != 1)
+```
+
+### Cost-guard coverage (know what is and isn't protected)
+
+| Entry point | USD guard | Bound |
+| --- | --- | --- |
+| `dataforge bench --methods llm_corrector` | Yes — `DATAFORGE_AZURE_MAX_USD` via `AzureBenchClient._enforce_cost_guard` | hard stop |
+| `collect_sft_trajectories.py --teacher-provider azure` | Yes — same guard on the collection client | hard stop |
+| `dataforge repair --agent --provider azure` | **No per-call USD guard** — the product `providers.complete` path is unguarded | bounded only by `--max-steps` and sample size |
+
+Consequence: for the agent path, bound spend with a small `--max-steps` and a small
+input sample. Adding a USD guard to the product provider is tracked as future work.
+
+### Trial-credit runway
+
+`az consumption`/budget APIs are preview and are **not queryable** on this
+subscription — check remaining credit in the Azure Portal *Cost Management* instead,
+and keep the portal budget alert (step 4 above) as the backstop. For reference, the
+3-seed hospital corrector benchmark cost ~$1.33 of guarded spend.
+
+### Teacher `--min-episode-f1`: use 0.75, not 1.0
+
+`--min-episode-f1` gates the **whole** multi-chunk episode, not per chunk, so `1.0`
+is effectively unachievable and collects **zero** trajectories. The proven
+expert_v1 tier used `0.6`; use `0.75` for a high-quality-but-achievable gate:
+
+```powershell
+.venv\Scripts\python.exe scripts/data/collect_sft_trajectories.py `
+  --preset full --teacher-provider azure --teacher-model gpt-5.6-sol `
+  --min-episode-f1 0.75 --min-interval-s 0.5 --teacher-max-tokens 2000 `
+  --max-runtime-min 40 --output data/sft_traj/expert_v1_azure_verified.jsonl
+```
+
+

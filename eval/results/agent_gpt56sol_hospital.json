@@ -1,0 +1,33 @@
+{
+  "artifact": "dataforge_agent_through_gate_v1",
+  "purpose": "Measure gpt-5.6-sol as the verified-agent POLICY (STRATEGY primary wedge): how many residual fixes it drives through the SMT+safety gate as PROVEN vs held, and how the guardrail treats a frontier proposer.",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "model_provenance": "first-party Azure OpenAI (format OpenAI, GlobalStandard, ver 2026-07-09)",
+  "dataset": "hospital",
+  "sample": "first 150 rows of RAHA hospital dirty.csv (bounded; agent path is not USD-guarded, only --max-steps)",
+  "policy": "hosted / azure / gpt-5.6-sol",
+  "run": {
+    "max_steps": 6,
+    "steps_used": 6,
+    "mode": "dry_run",
+    "authoritative_schema_present": false,
+    "safety_verdict": "allow",
+    "floor_fix_count": 6,
+    "agent_fix_count": 0,
+    "residual_count": 59,
+    "applied_fix_provenance": { "deterministic": 6 },
+    "trace_verdicts": {
+      "INSPECT_ROWS": 2,
+      "HYPOTHESIS": 2,
+      "FIX_accepted_false": 2
+    }
+  },
+  "proven_vs_held": {
+    "agent_proven": 0,
+    "agent_held": 0,
+    "note": "Both agent FIX attempts were REJECTED by the SMT+safety verifier (accepted=false), so nothing reached the proven-vs-held partition. The proven flip (llm_live -> proven under an authoritative schema, engine/repair.py:_verification_strength) only applies to fixes that PASS the gate; gpt-5.6-sol's hospital-residual proposals do not. The authoritative-schema flip mechanic is separately proven in the shipped guardrail-browser work (accept column_type -> external fix proven)."
+  },
+  "conclusion": "The verification layer works as designed with a frontier proposer: gpt-5.6-sol made 2 FIX attempts on the hard residual and the guardrail refused both; every applied fix is the deterministic floor (proven by construction). This is the STRATEGY thesis - DataForge as the guardrail that proves or refuses any proposer's writes - demonstrated with a 2026 frontier model. Consistent with the corrector finding: the frontier model's residual proposals are confidently wrong / unprovable and are correctly not written.",
+  "reproduction": "DATAFORGE_LLM_PROVIDER=azure DATAFORGE_AZURE_MODEL=gpt-5.6-sol AZURE_OPENAI_ENDPOINT=https://praneshrajank15-8087-resource.openai.azure.com AZURE_OPENAI_API_VERSION=2025-04-01-preview dataforge repair <hospital_first150.csv> --agent --policy hosted --provider azure --llm-model gpt-5.6-sol --max-steps 6 --dry-run --json"
+}
