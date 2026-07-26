@@ -467,6 +467,7 @@ async def _complete_bedrock(
 
 _AZURE_DEFAULT_API_VERSION = "2025-04-01-preview"
 _AZURE_MAX_TOKENS = 512
+_AZURE_DEFAULT_TIMEOUT_S = 60.0
 
 
 def _azure_max_tokens() -> int:
@@ -484,6 +485,24 @@ def _azure_max_tokens() -> int:
     except ValueError:
         return _AZURE_MAX_TOKENS
     return value if value > 0 else _AZURE_MAX_TOKENS
+
+
+def _azure_timeout_s() -> float:
+    """Return the Azure request timeout (seconds) from env, else the default.
+
+    Long teacher/corrector runs against reasoning deployments can exceed the
+    60s default on a slow chunk; ``DATAFORGE_AZURE_TIMEOUT_S`` lets callers raise
+    it so a single slow request does not abort the run. The bench client already
+    honours this env var; the agent path now matches it.
+    """
+    raw = os.environ.get("DATAFORGE_AZURE_TIMEOUT_S", "").strip()
+    if not raw:
+        return _AZURE_DEFAULT_TIMEOUT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        return _AZURE_DEFAULT_TIMEOUT_S
+    return value if value > 0 else _AZURE_DEFAULT_TIMEOUT_S
 
 
 # Anthropic Claude on Microsoft Foundry is a third-party Marketplace SaaS offer:
@@ -580,7 +599,7 @@ async def _complete_azure(
     if _env_truthy("DATAFORGE_AZURE_SEND_TEMPERATURE"):
         payload["temperature"] = temperature
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=_azure_timeout_s()) as client:
         response = await client.post(
             url,
             json=payload,

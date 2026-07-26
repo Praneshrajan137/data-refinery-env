@@ -40,6 +40,9 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Create a fresh TestClient for each test."""
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
+    monkeypatch.delenv("DATAFORGE_REMOTE_MODEL_URL", raising=False)
+    monkeypatch.delenv("DATAFORGE_PLAYGROUND_AGENT_POLICY", raising=False)
     limiter._storage.reset()
     return TestClient(app)
 
@@ -200,6 +203,7 @@ def test_health_reports_agent_capability(
 ) -> None:
     """GET /api/health reports agent availability gated on the remote model URL."""
     monkeypatch.delenv("DATAFORGE_REMOTE_MODEL_URL", raising=False)
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
     body = client.get("/api/health").json()
     assert body["agent_available"] is False
     assert isinstance(body["agent_max_steps"], int)
@@ -210,12 +214,78 @@ def test_health_reports_agent_capability(
 
 
 @pytest.mark.integration
+def test_health_reports_azure_agent_policy(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A first-party Azure deployment (gpt-5.6-sol) is surfaced as the proposer."""
+    monkeypatch.setenv("AZURE_API_KEY", "test-key")
+    body = client.get("/api/health").json()
+    assert body["agent_available"] is True
+    assert body["agent_policy"] == "hosted:azure"
+    assert body["agent_provider"] == "azure"
+
+
+@pytest.mark.integration
+def test_health_explicit_agent_policy_override_wins(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An explicit policy override beats autodetection even when Azure is set."""
+    monkeypatch.setenv("AZURE_API_KEY", "test-key")
+    monkeypatch.setenv("DATAFORGE_PLAYGROUND_AGENT_POLICY", "remote")
+    body = client.get("/api/health").json()
+    assert body["agent_policy"] == "remote"
+    assert body["agent_provider"] is None
+
+
+@pytest.mark.integration
+def test_health_remote_wins_when_both_configured(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Least surprise: an existing remote deployment is not silently switched to
+    Azure when AZURE_API_KEY is also present (e.g. added for the corrector)."""
+    monkeypatch.setenv("AZURE_API_KEY", "test-key")
+    monkeypatch.setenv("DATAFORGE_REMOTE_MODEL_URL", "https://example.hf.space")
+    body = client.get("/api/health").json()
+    assert body["agent_policy"] == "remote"
+    assert body["agent_provider"] is None
+
+
+@pytest.mark.integration
+def test_agent_mode_uses_resolved_azure_policy(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Agent analyze drives the resolved hosted:azure proposer through the gate."""
+    monkeypatch.setenv("AZURE_API_KEY", "test-key")
+    captured: dict[str, object] = {}
+
+    def _capture(request: object) -> object:
+        captured["policy"] = getattr(request, "policy", None)
+        captured["provider"] = getattr(request, "provider", None)
+        return _fake_agent_result()
+
+    monkeypatch.setattr(playground_api, "run_agent_repair", _capture)
+    response = client.post(
+        "/api/analyze",
+        files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
+        data={"repair_mode": "agent"},
+    )
+    assert response.status_code == 200
+    assert captured["policy"] == "hosted"
+    assert captured["provider"] == "azure"
+
+
+@pytest.mark.integration
 def test_analyze_agent_mode_unavailable_is_problem(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Agent mode without a configured remote model returns a stable problem."""
     monkeypatch.delenv("DATAFORGE_REMOTE_MODEL_URL", raising=False)
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
     response = client.post(
         "/api/analyze",
         files={"file": ("hospital_10rows.csv", io.BytesIO(_hospital_csv_bytes()), "text/csv")},
@@ -261,7 +331,7 @@ def test_analyze_agent_mode_attaches_verified_agent_summary(
     assert len(agent["agent_fixes"]) == 1
     assert agent["agent_fixes"][0]["provenance"] == "llm_live"
     # The default deterministic response has no agent block.
-    assert "Agent proposals come from a remote" in " ".join(body["limitations"])
+    assert "Agent proposals come from the 'remote' policy" in " ".join(body["limitations"])
 
 
 @pytest.mark.integration

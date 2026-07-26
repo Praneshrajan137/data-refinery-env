@@ -198,6 +198,39 @@ class TestAzureProvider:
         call_url = mock_client.post.call_args[0][0]
         assert "//openai" not in call_url.replace("https://", "")
 
+    def test_azure_uses_default_timeout(self) -> None:
+        """Without DATAFORGE_AZURE_TIMEOUT_S the client uses the 60s default."""
+        response = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+        mock_client = _mock_async_client(response)
+        with (
+            patch.dict(os.environ, self._env(), clear=True),
+            patch(
+                "dataforge.agent.providers.httpx.AsyncClient",
+                return_value=mock_client,
+            ) as async_client,
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}]))
+        assert async_client.call_args.kwargs["timeout"] == 60.0
+
+    def test_azure_honors_timeout_env(self) -> None:
+        """DATAFORGE_AZURE_TIMEOUT_S raises the agent-path request timeout so a
+        single slow reasoning chunk does not abort a long run."""
+        response = _make_mock_response({"choices": [{"message": {"content": "ok"}}]})
+        mock_client = _mock_async_client(response)
+        with (
+            patch.dict(
+                os.environ,
+                self._env(DATAFORGE_AZURE_TIMEOUT_S="180"),
+                clear=True,
+            ),
+            patch(
+                "dataforge.agent.providers.httpx.AsyncClient",
+                return_value=mock_client,
+            ) as async_client,
+        ):
+            asyncio.run(complete([{"role": "user", "content": "hi"}]))
+        assert async_client.call_args.kwargs["timeout"] == 180.0
+
 
 class TestAzureMarketplaceHonestyGuard:
     """BDD honesty scenario: Claude/Anthropic are Marketplace SaaS on Foundry

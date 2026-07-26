@@ -139,6 +139,31 @@ class SeedBenchmarkResult(BaseModel):
             "None if not computed."
         ),
     )
+    # Review-queue ranking metrics (method="llm_review_ranker"). None for other methods.
+    roc_auc: float | None = Field(
+        default=None,
+        description="LLM review-ranker ordering quality (Mann-Whitney AUC); None if not computed.",
+    )
+    baseline_roc_auc: float | None = Field(
+        default=None,
+        description="Free detector-confidence baseline ordering quality (AUC) over the same cells.",
+    )
+    ranking_precision_at_k: float | None = Field(
+        default=None,
+        description="LLM review-ranker R-precision (precision@k, k = number of true errors).",
+    )
+    baseline_precision_at_k: float | None = Field(
+        default=None,
+        description="Free baseline R-precision over the same candidate cells.",
+    )
+    ranking_queue_precision_lift: float | None = Field(
+        default=None,
+        description="Multiplicative lift of LLM top-k precision over the raw base rate.",
+    )
+    ranking_k: int | None = Field(
+        default=None,
+        description="The k used for R-precision (number of true errors in the candidate set).",
+    )
 
 
 class AggregateBenchmarkResult(BaseModel):
@@ -418,6 +443,11 @@ def estimate_llm_calls(
                 # A configured issue cap bounds this directly.
                 issue_bound = n_rows if corrector_max_issues is None else corrector_max_issues
                 estimated += issue_bound * _CORRECTOR_ESTIMATE_SAMPLES * seeds
+            elif method == "llm_review_ranker":
+                # One triage call per top-M candidate cell (default k=1 vote); the
+                # candidate set is the detector order, bounded by the issue cap.
+                issue_bound = n_rows if corrector_max_issues is None else corrector_max_issues
+                estimated += issue_bound * seeds
     return estimated
 
 

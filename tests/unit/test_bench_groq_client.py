@@ -18,6 +18,7 @@ from dataforge.bench.groq_client import (
     ProviderRateLimitError,
     ProviderRequestError,
     _is_rate_limit_error,
+    _is_retryable_provider_error,
 )
 
 
@@ -30,6 +31,19 @@ def _mock_response(payload: dict[str, object]) -> MagicMock:
 
 class TestGroqBenchClient:
     """Groq benchmark client behavior with mocked HTTP responses."""
+
+    def test_retryable_error_set_includes_transient_server_errors(self) -> None:
+        request = httpx.Request("POST", "https://api.example/v1/chat/completions")
+
+        def err(status: int) -> httpx.HTTPStatusError:
+            return httpx.HTTPStatusError(
+                "x", request=request, response=httpx.Response(status, request=request)
+            )
+
+        for status in (429, 500, 502, 503, 504):
+            assert _is_retryable_provider_error(err(status)) is True
+        for status in (400, 401, 404, 422):
+            assert _is_retryable_provider_error(err(status)) is False
 
     def test_complete_parses_content_and_usage(self) -> None:
         mock_client = MagicMock()
@@ -270,11 +284,88 @@ class TestGroqBenchClient:
 
         with (
             patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            patch("dataforge.bench.groq_client.time.sleep"),
             pytest.raises(TimeoutError, match="timed out after 3.0 seconds"),
         ):
-            GroqBenchClient(api_key="test", timeout_s=3).complete(
+            GroqBenchClient(api_key="test", timeout_s=3, max_retries=1).complete(
                 [{"role": "user", "content": "hi"}]
             )
+
+    def test_complete_retries_timeout_then_succeeds(self) -> None:
+        # A transient timeout on a slow chunk must not abort the run: the client
+        # backs off and retries, then returns the successful completion.
+        good = _mock_response(
+            {
+                "choices": [{"message": {"content": '{"repairs": []}'}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 4},
+            }
+        )
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        mock_client.post.side_effect = [httpx.TimeoutException("slow"), good]
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            patch("dataforge.bench.groq_client.time.sleep") as sleep,
+        ):
+            completion = GroqBenchClient(api_key="test", max_retries=5).complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        assert completion.text == '{"repairs": []}'
+        assert mock_client.post.call_count == 2
+        sleep.assert_called_once_with(2.0)
+
+    def test_complete_retries_timeout_then_exhausts(self) -> None:
+        # Timeouts on every attempt exhaust the retry budget and raise, after
+        # backing off between attempts (capped at max_retry_after_s).
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        mock_client.post.side_effect = httpx.TimeoutException("slow")
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            patch("dataforge.bench.groq_client.time.sleep") as sleep,
+            pytest.raises(TimeoutError, match="timed out after"),
+        ):
+            GroqBenchClient(api_key="test", timeout_s=3, max_retries=3).complete(
+                [{"role": "user", "content": "hi"}]
+            )
+
+        assert mock_client.post.call_count == 3
+        assert sleep.call_count == 2
+        assert [call.args[0] for call in sleep.call_args_list] == [2.0, 4.0]
+
+    def test_azure_retries_timeout_then_succeeds(self) -> None:
+        # Same transient-timeout resilience on the first-party Azure client, the
+        # path that previously aborted paid teacher/corrector runs mid-flight.
+        good = _mock_response(
+            {
+                "choices": [{"message": {"content": "ok"}}],
+                "usage": {"prompt_tokens": 8, "completion_tokens": 2},
+            }
+        )
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        mock_client.post.side_effect = [httpx.TimeoutException("slow"), good]
+
+        with (
+            patch("dataforge.bench.groq_client.httpx.Client", return_value=mock_client),
+            patch("dataforge.bench.groq_client.time.sleep") as sleep,
+        ):
+            completion = AzureBenchClient(
+                api_key="test",
+                model="gpt-5.6-sol",
+                endpoint="https://example.openai.azure.com",
+                max_retries=5,
+            ).complete([{"role": "user", "content": "hi"}])
+
+        assert completion.text == "ok"
+        assert mock_client.post.call_count == 2
+        sleep.assert_called_once_with(2.0)
 
     def test_complete_raises_provider_request_error_with_response_body(self) -> None:
         request = httpx.Request("POST", "https://api.cerebras.ai/v1/chat/completions")

@@ -654,6 +654,21 @@
             "title": "Agent Max Steps",
             "type": "integer"
           },
+          "agent_policy": {
+            "title": "Agent Policy",
+            "type": "string"
+          },
+          "agent_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Provider"
+          },
           "api_version": {
             "title": "Api Version",
             "type": "string"
@@ -724,6 +739,8 @@
           "status",
           "advanced_available",
           "agent_available",
+          "agent_policy",
+          "agent_provider",
           "verify_available",
           "agent_max_steps",
           "max_upload_bytes",

@@ -255,6 +255,8 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     advanced_available: bool
     agent_available: bool
+    agent_policy: str
+    agent_provider: str | None
     verify_available: bool
     agent_max_steps: int
     max_upload_bytes: int
@@ -896,17 +898,55 @@ else:
 
 def _advanced_available() -> bool:
     """Return whether at least one backend LLM provider is configured."""
-    return bool(os.environ.get("GROQ_API_KEY") or os.environ.get("GEMINI_API_KEY"))
+    return bool(
+        os.environ.get("GROQ_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+        or os.environ.get("AZURE_API_KEY")
+    )
+
+
+def _resolve_agent_policy() -> tuple[str, str | None]:
+    """Resolve the agent policy backend and optional provider (least surprise).
+
+    Precedence: an explicit ``DATAFORGE_PLAYGROUND_AGENT_POLICY`` always wins
+    (e.g. ``hosted:azure`` or ``remote``). Otherwise, to avoid silently switching
+    an existing deployment, a configured remote Space (``DATAFORGE_REMOTE_MODEL_URL``)
+    keeps using ``remote``; a first-party Azure deployment (``AZURE_API_KEY``,
+    e.g. gpt-5.6-sol) is used only when no remote Space is configured. To showcase
+    the frontier proposer on a box that also has a remote Space, set the explicit
+    override. When nothing is configured this returns ``("remote", None)`` so
+    ``run_agent_repair`` fails fast into a 400.
+    """
+    override = os.environ.get("DATAFORGE_PLAYGROUND_AGENT_POLICY", "").strip()
+    if override:
+        kind, _, provider = override.partition(":")
+        return (kind.strip() or "remote"), (provider.strip() or None)
+    if os.environ.get("DATAFORGE_REMOTE_MODEL_URL", "").strip():
+        return "remote", None
+    if os.environ.get("AZURE_API_KEY", "").strip():
+        return "hosted", "azure"
+    return "remote", None
+
+
+def _agent_policy_label(kind: str, provider: str | None) -> str:
+    """Render a stable, UI-facing label for a resolved agent policy."""
+    return f"{kind}:{provider}" if provider else kind
 
 
 def _agent_available() -> bool:
-    """Return whether the remote trained-model agent backend is configured.
+    """Return whether a verified agent proposer backend is configured.
 
-    Agent mode drives a hosted model Space over HTTP; when its URL is unset the
-    playground degrades gracefully by not offering the mode (it never errors on
-    the default path).
+    Agent mode drives a proposer whose every fix is safety- and SMT-verified
+    before display. It is available when either a first-party Azure deployment
+    (``AZURE_API_KEY``, e.g. gpt-5.6-sol) or the remote trained-model Space
+    (``DATAFORGE_REMOTE_MODEL_URL``) is configured; otherwise the playground
+    degrades gracefully by not offering the mode (it never errors on the default
+    path).
     """
-    return bool(os.environ.get("DATAFORGE_REMOTE_MODEL_URL", "").strip())
+    return bool(
+        os.environ.get("DATAFORGE_REMOTE_MODEL_URL", "").strip()
+        or os.environ.get("AZURE_API_KEY", "").strip()
+    )
 
 
 def _build_cors_origins() -> list[str]:
@@ -1638,12 +1678,14 @@ def _agent_analyze_upload(
     with tempfile.TemporaryDirectory() as tmpdir:
         upload_path = Path(tmpdir) / upload_name
         upload_path.write_bytes(source_bytes)
+        policy_kind, policy_provider = _resolve_agent_policy()
         try:
             result = run_agent_repair(
                 AgentRepairRequest(
                     source_path=upload_path,
                     mode="dry_run",
-                    policy="remote",
+                    policy=policy_kind,
+                    provider=policy_provider,
                     max_steps=PLAYGROUND_AGENT_MAX_STEPS,
                 )
             )
@@ -1652,8 +1694,9 @@ def _agent_analyze_upload(
                 status_code=400,
                 error="agent_mode_unavailable",
                 message=(
-                    "Agent mode requires a configured remote model "
-                    "(set DATAFORGE_REMOTE_MODEL_URL)."
+                    "Agent mode requires a configured verified proposer "
+                    "(set AZURE_API_KEY for a first-party Azure deployment, "
+                    "or DATAFORGE_REMOTE_MODEL_URL for the remote model)."
                 ),
             ) from exc
 
@@ -1680,9 +1723,9 @@ def _agent_analyze_upload(
     )
     base.limitations = [
         *base.limitations,
-        "Agent proposals come from a remote fine-tuned 0.5B model (GRPO F1 is low); "
-        "each proposed fix is still safety- and SMT-verified before display, and "
-        "nothing is applied.",
+        f"Agent proposals come from the '{result.policy_name}' policy; each proposed "
+        "fix is still safety- and SMT-verified before display, and nothing is applied "
+        "(a stronger proposer does not bypass the gate).",
     ]
     return base
 
@@ -2238,6 +2281,8 @@ async def health() -> HealthResponse:
         status="ok",
         advanced_available=_advanced_available(),
         agent_available=_agent_available(),
+        agent_policy=_agent_policy_label(*_resolve_agent_policy()),
+        agent_provider=_resolve_agent_policy()[1],
         verify_available=True,
         agent_max_steps=PLAYGROUND_AGENT_MAX_STEPS,
         max_upload_bytes=MAX_UPLOAD_BYTES,

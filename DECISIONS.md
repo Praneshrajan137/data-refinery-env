@@ -12,6 +12,143 @@ Format for every entry:
 
 ---
 
+## 2026-07-25 - LLM review-queue ranker: GO, but conditional on a flooded queue
+**Context**: The detector triage finding (gpt-5.6-sol lifts hospital review-queue precision
+5%->41% @ 96% recall) was productized as a review-queue RANKER (sort likely-true-first, never drop,
+never auto-apply). Built measurement-first: `dataforge/bench/ranking_metrics.py` (pure precision@k /
+recall@k / ROC-AUC / queue_precision_lift, 12 tests), `dataforge/review/ranker.py` (ReviewRanker - a
+pure scorer that never mutates; cache + self-consistency + injected completion_fn, 4 tests), and a
+`llm_review_ranker` bench method that scores the LLM ordering AGAINST the FREE detector-confidence
+baseline over the SAME top-M candidates. The honest question: does the LLM beat the free baseline
+(detector severity/confidence order), or is the lift already free?
+**Live result (top-200/dataset, single seed, $15-guarded; artifacts eval/results/llm_review_ranker_*.json)**:
+- hospital: LLM ROC-AUC **0.946** vs free-baseline **0.488** (near-random); R-precision 0.333 vs 0.0.
+- rayyan:   LLM ROC-AUC **0.955** vs baseline **0.540**; R-precision 0.5 vs 0.0 (thin: 2 true in top-200).
+- flights:  LLM ROC-AUC **0.514** vs baseline **0.020**; queue already 71.5% true in top-200 -> nothing
+  to triage; LLM adds no lift at the operating point.
+**Decision**: GO (2/3 clear the gate), with a CONDITIONAL product rule: **fire the LLM triager only
+when the review-queue base precision is low** (hospital ~3%, rayyan ~1% -> big lift; flights ~72% ->
+skip). The free detector order is NOT a good ranker where the queue floods (AUC ~0.5), so the LLM's
+lift is real and not already free; but where detectors are already high-precision there is nothing to
+rank. The gating signal (queue base precision) is measurable for free per run.
+**Reasoning**: This is "build what matters": a real, measured capability with a cheaply-measurable
+activation condition, that never touches the auto-apply gate (the ranker is a pure scorer; a human
+disposes). It also correctly refuses to spend LLM credit where it adds nothing (flights).
+**Reviewed with**: Pranesh K R (asked to build the ranker end to end, accepted ongoing credit).
+**Built (Phase 2 core, opt-in)**: `RepairReceipt.review_ranking: list[ReviewRankedCell]` (default
+empty) + a `review_ranker` opt-in kwarg on `run_repair_pipeline` (bounded by `review_ranker_max_cells`,
+default 200). When no ranker is supplied the receipt field is empty and behavior is byte-identical; when
+supplied it attaches a presentation-only human-review ordering that NEVER enters the verified apply path.
+Reliability: `_is_retryable_provider_error` now retries transient server errors (500/502/503/504), not
+just 429/503 - a stray 500 had aborted a long paid run. Playground UI surface deferred by choice.
+**Reversal criteria**: if a larger-positive re-measure (hospital/rayyan with more true errors in the
+candidate set) drops the ROC-AUC lift below ~+0.15, or if the free detector-confidence order can be
+made competitive by better severity calibration, prefer the free ranker and drop the LLM cost.
+Honest caveat: rayyan positives are thin (n=2); hospital (n=6 here, n=25 in the prior natural-sample
+confirmation) is the robust anchor.
+
+---
+
+## 2026-07-25 - gpt-5.6-sol as a review-queue triager (found role): A NO-GO, B confirmed GO
+**Context**: Every prior LLM attempt (corrector, agent, teacher, grounded-rationale) targeted
+CORRECTION / auto-apply, where the verified gate rejects LLMs by design. A first-principles
+re-derivation asked the question none of them did: the project's own thesis is "detection is the easy
+half; maximize detection, refuse to guess corrections" (DECISIONS 2026-06-30), it scores detection
+independently (`ClassScore.detection_recall`), and it has a human-review path (`suggested_fixes`) and a
+defined DETECTABLE-ONLY class (`docs/trust/accuracy-frontier.md`). Yet no LLM had ever been evaluated
+as a DETECTOR / review-ranker (Verified). Step 1 (offline) profiled the deterministic ensemble's two
+failure modes: flights = high precision, low recall (misses 2424 errors, 49%); hospital = high recall
+(89%) but ~4% detection precision (flags 10372 cells to surface 455 real errors).
+**Alternatives measured (bounded, USD-guarded live probes; `scripts/bench/probe_llm_detector.py`)**:
+- (A) flights recall-booster - does the LLM flag the errors detectors MISS? NO-GO: on the residual,
+  LLM recall 4.7% at 82% precision (50 of 55 true flags were already-detected cells). It re-flags known
+  errors; it does not find the missed ones. Artifact `eval/results/llm_detector_probe.json`.
+- (B) hospital precision-filter - can the LLM triage a flagged cell as truly-wrong? Probe (balanced
+  150): precision 89%, recall 97%. CONFIRMED on the natural distribution (uniform 500 flagged cells,
+  no reweighting): baseline queue precision 5.0% -> post-filter 40.7% (95% CI [29.1, 53.4]); recall
+  retained 96% (95% CI [80.5, 99.3]). Artifact `eval/results/llm_detector_confirm.json`.
+**Decision**: A is a NO-GO. B is a confirmed GO as a REVIEW-QUEUE TRIAGER (not an error-finder, not a
+corrector): gpt-5.6-sol lifts hospital review-queue precision ~8x (5% -> 41%) while keeping ~96% of real
+errors. Documented; product build deferred to a dedicated follow-up (recommended integration: a top-N
+review-queue RANKER that sorts likely-true-first and never drops, feeding `suggested_fixes` only, never
+auto-apply - preserves 100% recall and bounds runtime credit).
+**Reasoning**: This is the one frontier-model role that fits the project's own thesis and was never
+tested. It stays inside the guardrail model (LLM proposes suspicion; human/verifier disposes) and never
+touches the auto-apply gate or the 0.7926 correction floor. It corrects the over-scoped prior claim
+"a stronger LLM adds ~0": true for correction/auto-apply, FALSE for review-queue triage.
+**Reviewed with**: Pranesh K R (chose: probe both A and B; confirm-first on B; document and defer build).
+**Reversal criteria**: if the triager's precision lift does not generalize beyond hospital (e.g. on
+rayyan/flights review queues) or its runtime credit/latency at top-N is uneconomic, keep it a
+measured capability and do not ship. Follow-up reliability note: Azure HTTP 500 is not retried (only
+429/503 + timeouts are) - a transient 500 aborted one probe run; consider extending the retry set.
+
+---
+
+## 2026-07-25 - gpt-5.6-sol teacher: reasoning-preserving SFT is a NO-GO (spurious grounding)
+**Context**: The "unlock teacher -> training" phase first tried a grounded-rationale SFT track and,
+on adversarial re-review, was retracted. The honest chain: (1) the v9 action envelope distils every
+completion to a reason-free `(row, column, new_value)` action (`completion_reason_text` is a validator
+blocker), and teacher repairs are kept only when GT-verified, so they are a strict SUBSET of what
+`build_oracle_sft_trajectories.py` already mints for free from clean/dirty diffs -> feeding them into
+that objective adds no new signal. (2) The one distinctive teacher contribution is its rationale, so
+the track proposed to supervise the rationale ONLY when the repair is FD-grounded. (3) DECISIVE: the
+grounding gate I wrote (`fd_grounding_determinant`) was a hand-rolled single-column window-unanimity
+check with NONE of the project's anti-spurious guards. Re-measured against the single source of truth
+(`dataforge.verifier.inferred.fd_consensus_violation` over `infer_verification_schema`, which enforces
+near-key rejection at 0.9, `_MIN_FD_SUPPORT_GROUPS=2`, confidence >=0.9, full-table scope): only
+**3/43 (7%)** and **29/216 (13%)** of teacher repairs are robustly grounded, versus **84% / 79%** by
+the naive check - a 6-11x over-count. Of the cells that DO have a robust unanimous group, most
+(15/18 smoke, 77/106 full) DISAGREE with the teacher's value: the teacher followed local-window
+coincidence, not a robust FD. Reproducible: `scripts/data/measure_teacher_grounding.py`.
+**Alternatives**:
+- (A) Ship grounded-rationale SFT gated on the naive window check. REJECTED - it distils exactly the
+  coincidental low-cardinality FDs (`f_name->gender`) that DECISIONS 2026-07-19 ruled
+  in-table-indistinguishable from genuine ones (`zip->city`) and refused to mine; a parallel unguarded
+  FD notion also violates the `inferred.py` single-source-of-truth invariant. Also moot in production:
+  the strict v3 decoder rejects a `rationale` key, so a rationale-trained model cannot even emit it.
+- (B) Salvage by gating on the guarded FD check. REJECTED - the robust set (7-13%) overlaps the cells
+  the deterministic FD repairer already handles, leaving ~0 marginal repairs to supervise.
+- (C) Retract. Keep only the honest negative result plus the verified-abstention adapter.
+**Decision**: C. Removed `fd_grounding_determinant` + `render_grounded_rationale_completion` +
+`parse_repair_rationales` from `dataforge/repair_contract.py`, deleted
+`scripts/data/build_grounded_rationale_curriculum.py` and its two test files. Kept
+`scripts/data/promote_expert_v1_to_v4.py`, reframed as a producer of *verified-abstention
+hard-negative* v4 records (uses the real `inferability_for_record`; on this data everything abstains).
+Committed `scripts/data/measure_teacher_grounding.py` as the reproducible evidence.
+**Reasoning**: FD semantics must live only in `inferred.py`; a second, unguarded notion is precisely
+the spurious-FD trap the project already closed. This is the fourth NO-GO with the same root cause
+(DECISIONS 1282-1293): the RAHA residual is semantic, and in-table local signal for it is
+indistinguishable from coincidence. gpt-5.6-sol adds no safely-verifiable repair signal; its durable
+role is the legible-guardrail demo (see the Phase C playground proposer), not teacher distillation.
+**Reviewed with**: Pranesh K R (asked to transcend the prior draft; the adversarial re-review surfaced
+that the earlier "84% grounded" was spurious).
+**Reversal criteria**: a grounding notion that PROVABLY separates genuine from coincidental local FDs
+on held-out data (not a threshold overfit to two datasets) would reopen reasoning distillation. Until
+then, the deterministic floor + declared/external knowledge are the only paths to more certified
+coverage.
+
+---
+
+## 2026-07-25 - Azure API reliability: retry transient timeouts, honour the timeout env
+**Context**: Long paid teacher/corrector runs died mid-flight on a single slow chunk.
+`AzureBenchClient._post` (and the sibling clients) re-raised `httpx.TimeoutException` with no retry
+(only 429/503 retried), and the agent-path `_complete_azure` hardcoded a 60s timeout, ignoring
+`DATAFORGE_AZURE_TIMEOUT_S` (which the bench client already honoured).
+**Alternatives**:
+- (A) Leave it; run smaller batches. REJECTED - fragile; a transient timeout still aborts the run.
+- (B) Retry timeouts with bounded backoff (mirroring the 429/503 path) and honour the timeout env on
+  both paths.
+**Decision**: B. All four paid bench clients retry `httpx.TimeoutException` with bounded backoff
+capped at `max_retry_after_s`, raising only after the retry budget is exhausted; `_complete_azure`
+now reads `DATAFORGE_AZURE_TIMEOUT_S` via `_azure_timeout_s()`.
+**Reasoning**: A transient network timeout is retryable exactly like a rate limit; a single slow
+reasoning chunk should not waste a run. Behaviour is unchanged when timeouts do not occur.
+**Reviewed with**: Pranesh K R (chose end-to-end A->B->C).
+**Reversal criteria**: none expected; if a provider makes timeouts non-idempotent, gate the retry per
+provider.
+
+---
+
 ## 2026-07-24 - gpt-5.6-sol: correct the corrector verdict; leverage is teacher/agent, not auto-apply
 **Context**: An earlier pass onboarded gpt-5.6-sol (first-party Azure OpenAI) and reported its
 LLM-corrector result as "F1 0.0038 -> REJECT, moat confirmed." Re-examination showed that verdict

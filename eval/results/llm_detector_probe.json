@@ -1,0 +1,39 @@
+{
+  "A": {
+    "detector_residual_recall_baseline": 0,
+    "failed_calls": 1,
+    "gt_errors_in_sample": 163,
+    "llm_detection_precision": 0.8209,
+    "llm_flags": 67,
+    "llm_flags_that_are_true_errors": 55,
+    "llm_residual_recall": 0.0467,
+    "proposition": "A_flights_recall_booster",
+    "residual_in_sample": 107,
+    "sample_rows": 60
+  },
+  "B": {
+    "baseline_queue_precision": 0.0439,
+    "confusion": {
+      "fn": 2,
+      "fp": 7,
+      "tn": 83,
+      "tp": 58
+    },
+    "failed_calls": 1,
+    "flagged_total": 10372,
+    "flagged_true_errors": 455,
+    "llm_sample_precision": 0.8923,
+    "llm_sample_recall": 0.9667,
+    "projected_false_retained_fraction": 0.0778,
+    "projected_queue_precision_after_filter": 0.3632,
+    "projected_true_retained_fraction": 0.9667,
+    "proposition": "B_hospital_precision_filter",
+    "sample": {
+      "false": 90,
+      "true": 60
+    }
+  },
+  "artifact": "dataforge_llm_detector_probe_v1",
+  "model": "gpt-5.6-sol",
+  "seed": 0
+}

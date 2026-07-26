@@ -225,6 +225,7 @@ def test_run_repair_pipeline_dry_run_returns_ephemeral_receipt(tmp_path: Path) -
 
     assert result.receipt.applied is False
     assert result.receipt.receipt_version == "repair_receipt_v1"
+    assert result.receipt.review_ranking == []
     assert result.transaction is not None
     assert re.fullmatch(r"txn-\d{4}-\d{2}-\d{2}-[0-9a-f]{6}", result.transaction.txn_id)
     assert result.fixes
@@ -237,6 +238,48 @@ def test_run_repair_pipeline_dry_run_returns_ephemeral_receipt(tmp_path: Path) -
     assert result.receipt.limitations
     assert result.receipt.root_causes[0].category == "decimal_shift"
     assert result.receipt.proof_obligations[0].status == "accepted"
+
+
+def test_review_ranker_attaches_ranking_without_touching_fixes(tmp_path: Path) -> None:
+    """An opt-in ranker only annotates the receipt; the verified fixes are unchanged."""
+    from dataforge.review import ReviewRanker
+
+    csv_path = tmp_path / "amounts.csv"
+    _write_repairable_csv(csv_path)
+    original = csv_path.read_bytes()
+
+    def request() -> RepairPipelineRequest:
+        return RepairPipelineRequest(source_path=csv_path, mode="dry_run", schema=None)
+
+    baseline = run_repair_pipeline(request())
+    # Offline ranker: judge every flagged cell "yes" (score 1.0). No network.
+    ranker = ReviewRanker(model="test", completion_fn=lambda _prompt: "yes")
+    ranked = run_repair_pipeline(request(), review_ranker=ranker)
+
+    # The ranking is attached and well-formed.
+    assert baseline.receipt.review_ranking == []
+    assert len(ranked.receipt.review_ranking) == ranked.receipt.issues_count
+    assert all(0.0 <= cell.triage_score <= 1.0 for cell in ranked.receipt.review_ranking)
+    assert all(cell.triage_score == 1.0 for cell in ranked.receipt.review_ranking)
+    # The verified/applied path is untouched: same fixes, no mutation, no apply.
+    assert [f.new_value for f in ranked.fixes] == [f.new_value for f in baseline.fixes]
+    assert ranked.receipt.applied is False
+    assert csv_path.read_bytes() == original
+
+
+def test_review_ranker_bounds_scored_cells(tmp_path: Path) -> None:
+    """review_ranker_max_cells caps how many cells are scored (LLM-cost bound)."""
+    from dataforge.review import ReviewRanker
+
+    csv_path = tmp_path / "amounts.csv"
+    _write_repairable_csv(csv_path)
+    ranker = ReviewRanker(model="test", completion_fn=lambda _prompt: "no")
+    ranked = run_repair_pipeline(
+        RepairPipelineRequest(source_path=csv_path, mode="dry_run", schema=None),
+        review_ranker=ranker,
+        review_ranker_max_cells=1,
+    )
+    assert len(ranked.receipt.review_ranking) <= 1
 
 
 def test_repair_pipeline_uses_only_accepted_constraints(tmp_path: Path) -> None:

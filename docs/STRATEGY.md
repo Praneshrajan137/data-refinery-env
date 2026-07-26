@@ -119,3 +119,60 @@ detectors/repairers. The experiment:
    apply-and-certify path. 3. Run the agent trust-metrics experiment and commit the
    artifact. 4. Target the chosen wedge design partner. None of these are claimed
    as done; they are the ratified direction.
+
+## Where correction accuracy can actually grow (2026-07-25, evidence-based)
+
+Four independent attempts to raise correction accuracy on the RAHA residual have
+now returned NO-GO, and they share one root cause worth stating plainly so it is
+not re-litigated:
+
+| Attempt | Result | Why |
+| --- | --- | --- |
+| Bigger LLM corrector (gpt-5.6-sol) | Certifies 0 auto-apply coverage | ~5% precise, ECE ~0.96; confidently wrong on the residual |
+| Frontier agent proposer through the gate | 0 fixes pass | every FIX rejected by SMT+safety |
+| Local-window FD repairer / grounded-rationale SFT | Retracted | only 7-13% robustly FD-grounded; the rest are coincidental low-cardinality FDs, in-table-indistinguishable from spurious (`f_name->gender`) |
+| Threshold-tuned FD confidence | Rejected earlier (2026-07-19) | dishonest overfitting to two datasets |
+
+**Root cause:** the residual errors are *semantic* (a wrong estimated time, a
+transposed value, a spurious near-FD), and the in-table signal for them is
+indistinguishable from coincidence. No amount of model scale or clever in-table
+mining changes this — a larger teacher is confidently wrong in exactly the region
+the gate must refuse.
+
+**Therefore the only honest levers for MORE certified coverage are:**
+
+1. **Authoritative external reference data (the strong lever)** — e.g. a governed
+   `zip -> city` gazetteer or a canonical code list, sourced *independently of the
+   dirty table*. This turns an in-table-ambiguous repair into a *provable* one, so
+   it passes the existing gate and raises coverage without guessing. Note the
+   nuance (measured): a merely *declared in-table FD* is weaker than it looks - of
+   residual cells with a robust full-table unanimous determinant group, only ~3/18
+   had a consensus equal to the clean value, because the dirty-data majority is
+   often itself wrong. External reference data does not depend on the dirty
+   majority, so it is the robust lever; declared FDs help only where the majority
+   is already clean.
+2. **Calibration research on the proposer's confidence** — the binding constraint
+   is ECE on the hard residual, not capability. A proposer whose confidence is
+   trustworthy enough for conformal to certify a non-empty accepted set would move
+   the coverage number; a bigger model that is *confidently* wrong does not.
+
+**What this closes and what it opens:** "use a stronger LLM to raise *auto-apply*
+accuracy" is answered - its verified-gate ROI is ~0 (corrector, agent, teacher,
+grounded-rationale all NO-GO). But a first-principles re-derivation found a role
+the correction frame hid: **gpt-5.6-sol as a review-queue TRIAGER.** Measured on
+hospital (natural distribution, uniform n=500): it lifts review-queue precision
+5.0% -> 40.7% (95% CI [29, 53]) while retaining ~96% of real errors - an ~8x
+cleaner human-review queue, never touching the auto-apply gate. It does NOT find
+errors the deterministic ensemble misses (flights recall-booster NO-GO: 4.7%
+residual recall). So the frontier model's durable roles are two, both
+"LLM proposes, human/verifier disposes": the legible guardrail demo (Phase C
+playground proposer) and review-queue triage. The triage capability is now built
+and measured as a bench method (`llm_review_ranker`): across datasets it beats the
+free detector-confidence baseline decisively WHERE the queue floods (hospital
+ROC-AUC 0.95 vs 0.49; rayyan 0.95 vs 0.54) and adds nothing where the queue is
+already high-precision (flights 0.51, 72% base) - so the honest product rule is to
+fire the LLM triager only on low-base-precision queues (a free per-run signal).
+Reproducible evidence: `scripts/data/measure_teacher_grounding.py`,
+`scripts/bench/probe_llm_detector.py`, `dataforge/bench/ranking_metrics.py`,
+`eval/results/llm_detector_confirm.json`, `eval/results/llm_review_ranker_*.json`,
+DECISIONS 2026-07-25.

@@ -1496,7 +1496,9 @@ function MissionBar({
             <strong>Agent</strong>
             <small>
               {capability?.agent_available
-                ? "Trained model, verified (dry run)"
+                ? capability.agent_provider === "azure"
+                  ? "Frontier model (Azure), verified (dry run)"
+                  : "Trained model, verified (dry run)"
                 : "Unavailable"}
             </small>
           </span>
@@ -3401,8 +3403,9 @@ function AgentSummaryPanel({ agent }: { agent: AgentSummary }) {
       </header>
       <p className="agent-summary__reason">{agent.reason}</p>
       <p className="agent-summary__note">
-        Agent proposals come from a remote fine-tuned 0.5B model and are each safety- and
-        SMT-verified before display. Nothing is applied; this is a dry run.
+        Agent proposals come from the {agent.policy_name} proposer and are each safety- and
+        SMT-verified before display. Nothing is applied; this is a dry run, and a stronger
+        proposer does not bypass the gate.
       </p>
 
       {agent.trace.length > 0 ? (

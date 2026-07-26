@@ -34,8 +34,19 @@ def _is_rate_limit_error(exc: BaseException) -> bool:
 
 
 def _is_retryable_provider_error(exc: BaseException) -> bool:
-    """Return whether an HTTP error is worth retrying for teacher collection."""
-    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in {429, 503}
+    """Return whether an HTTP error is worth retrying for teacher collection.
+
+    Includes transient server errors (500/502/503/504) alongside rate limits
+    (429). A transient 500 aborted a long paid ranking run before this was added;
+    these are safe to retry for our stateless read-like completions.
+    """
+    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code in {
+        429,
+        500,
+        502,
+        503,
+        504,
+    }
 
 
 def _retry_after_s(exc: httpx.HTTPStatusError, *, fallback_s: float) -> float:
@@ -183,9 +194,19 @@ class OpenAICompatBenchClient:
                 time.sleep(retry_s)
                 continue
             except httpx.TimeoutException as exc:
-                raise TimeoutError(
-                    f"{self._provider} request timed out after {self._timeout_s:.1f} seconds."
-                ) from exc
+                if attempt == self._max_retries - 1:
+                    raise TimeoutError(
+                        f"{self._provider} request timed out after {self._timeout_s:.1f} seconds."
+                    ) from exc
+                retry_s = min(2.0 * (attempt + 1), self._max_retry_after_s)
+                logging.getLogger("dataforge.bench.groq_client").warning(
+                    "%s_timeout attempt=%d retry_after_s=%.2f",
+                    self._provider,
+                    attempt + 1,
+                    retry_s,
+                )
+                time.sleep(retry_s)
+                continue
             return dict(response.json())
         if last_rate_limit_error is not None:
             raise last_rate_limit_error
@@ -445,9 +466,18 @@ class GeminiBenchClient:
                 time.sleep(retry_s)
                 continue
             except httpx.TimeoutException as exc:
-                raise TimeoutError(
-                    f"gemini request timed out after {self._timeout_s:.1f} seconds."
-                ) from exc
+                if attempt == self._max_retries - 1:
+                    raise TimeoutError(
+                        f"gemini request timed out after {self._timeout_s:.1f} seconds."
+                    ) from exc
+                retry_s = min(2.0 * (attempt + 1), self._max_retry_after_s)
+                logging.getLogger("dataforge.bench.groq_client").warning(
+                    "gemini_timeout attempt=%d retry_after_s=%.2f",
+                    attempt + 1,
+                    retry_s,
+                )
+                time.sleep(retry_s)
+                continue
             return dict(response.json())
         if last_rate_limit_error is not None:
             raise last_rate_limit_error
@@ -611,9 +641,18 @@ class AzureBenchClient:
                 time.sleep(retry_s)
                 continue
             except httpx.TimeoutException as exc:
-                raise TimeoutError(
-                    f"azure request timed out after {self._timeout_s:.1f} seconds."
-                ) from exc
+                if attempt == self._max_retries - 1:
+                    raise TimeoutError(
+                        f"azure request timed out after {self._timeout_s:.1f} seconds."
+                    ) from exc
+                retry_s = min(2.0 * (attempt + 1), self._max_retry_after_s)
+                logging.getLogger("dataforge.bench.groq_client").warning(
+                    "azure_timeout attempt=%d retry_after_s=%.2f",
+                    attempt + 1,
+                    retry_s,
+                )
+                time.sleep(retry_s)
+                continue
             return dict(response.json())
         if last_rate_limit_error is not None:
             raise last_rate_limit_error
@@ -786,9 +825,18 @@ class BedrockBenchClient:
                 time.sleep(retry_s)
                 continue
             except httpx.TimeoutException as exc:
-                raise TimeoutError(
-                    f"bedrock request timed out after {self._timeout_s:.1f} seconds."
-                ) from exc
+                if attempt == self._max_retries - 1:
+                    raise TimeoutError(
+                        f"bedrock request timed out after {self._timeout_s:.1f} seconds."
+                    ) from exc
+                retry_s = min(2.0 * (attempt + 1), self._max_retry_after_s)
+                logging.getLogger("dataforge.bench.groq_client").warning(
+                    "bedrock_timeout attempt=%d retry_after_s=%.2f",
+                    attempt + 1,
+                    retry_s,
+                )
+                time.sleep(retry_s)
+                continue
             return dict(response.json())
         if last_rate_limit_error is not None:
             raise last_rate_limit_error

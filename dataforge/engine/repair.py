@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -69,6 +69,9 @@ from dataforge.transactions.log import (
 from dataforge.transactions.txn import CellFix, RepairTransaction, generate_txn_id
 from dataforge.verifier import SMTVerifier, VerificationResult, VerificationVerdict
 from dataforge.verifier.differential import differential_verify
+
+if TYPE_CHECKING:
+    from dataforge.review import ReviewRanker
 
 RepairMode = Literal["dry_run", "apply"]
 EscalationResolver = Callable[
@@ -233,6 +236,22 @@ class RepairFailure(BaseModel):
         )
 
 
+class ReviewRankedCell(BaseModel):
+    """One detected cell scored for human-review ordering (never auto-applied).
+
+    ``triage_score`` in [0, 1] is the LLM review-ranker's likelihood that the
+    cell is a genuine error; higher sorts earlier in the review queue. This is a
+    presentation-only annotation: it never enters the verified apply path.
+    """
+
+    row: int = Field(ge=0)
+    column: str = Field(min_length=1)
+    triage_score: float = Field(ge=0.0, le=1.0)
+    reason: str = Field(default="", description="The detector's finding for this cell.")
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+
 class RepairReceipt(BaseModel):
     """Stable receipt for a dry-run or applied repair pipeline run."""
 
@@ -264,6 +283,14 @@ class RepairReceipt(BaseModel):
     limitations: list[str] = Field(default_factory=list)
     abstentions: list[str] = Field(default_factory=list)
     failure_reasons: list[str] = Field(default_factory=list)
+    review_ranking: list[ReviewRankedCell] = Field(
+        default_factory=list,
+        description=(
+            "Optional LLM review-queue ordering of detected cells (highest triage "
+            "score first). Empty unless a review_ranker was supplied. Presentation "
+            "only - never part of the applied/verified fixes."
+        ),
+    )
     issues_count: int = Field(ge=0)
     fixes_count: int = Field(ge=0)
     reason: str = Field(min_length=1)
@@ -1108,8 +1135,51 @@ def _receipt_verifier_verdict(
     return "not_run"
 
 
-def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
-    """Run the public repair pipeline from detection through optional apply."""
+_REVIEW_RANKER_DEFAULT_MAX_CELLS = 200
+
+
+def _build_review_ranking(
+    ranker: ReviewRanker,
+    df: TableLike,
+    issues: list[Issue],
+    *,
+    max_cells: int,
+) -> list[ReviewRankedCell]:
+    """Rank the top detected cells for human review (never auto-applied).
+
+    Only the first ``max_cells`` issues (already sorted best-first by the
+    detectors) are scored, bounding LLM cost. The returned annotation is
+    presentation-only: it is attached to the receipt, never applied.
+    """
+    candidates = issues[:max_cells]
+    reason_by_cell = {(issue.row, issue.column): issue.reason for issue in candidates}
+    ranked = ranker.rank([(issue.row, issue.column) for issue in candidates], df)
+    return [
+        ReviewRankedCell(
+            row=scored.row,
+            column=scored.column,
+            triage_score=scored.score,
+            reason=reason_by_cell.get((scored.row, scored.column), ""),
+        )
+        for scored in ranked
+    ]
+
+
+def run_repair_pipeline(
+    request: RepairPipelineRequest,
+    *,
+    review_ranker: ReviewRanker | None = None,
+    review_ranker_max_cells: int = _REVIEW_RANKER_DEFAULT_MAX_CELLS,
+) -> RepairPipelineResult:
+    """Run the public repair pipeline from detection through optional apply.
+
+    ``review_ranker`` is an opt-in, presentation-only add-on: when supplied, the
+    top ``review_ranker_max_cells`` detected cells are scored and attached to the
+    receipt as ``review_ranking`` (a human-review ordering). It never proposes,
+    verifies, or applies anything - the verified apply path is untouched. When
+    ``None`` (the default) the receipt's ``review_ranking`` is empty and behavior
+    is byte-identical to before.
+    """
     source_path = request.source_path.resolve()
     source_bytes = source_path.read_bytes()
     source_sha256 = sha256_bytes(source_bytes)
@@ -1121,6 +1191,11 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
     df = read_csv(source_path)
     with repair_stage_span("detect", row_count=row_count(df)):
         issues = run_all_detectors(df, effective_schema)
+    review_ranking = (
+        _build_review_ranking(review_ranker, df, issues, max_cells=review_ranker_max_cells)
+        if review_ranker is not None
+        else []
+    )
     # Inferred, advisory safety net for untrusted corrections when no
     # authoritative schema exists. Never drives repairs or raises issues; only
     # gates LLM-originated values in propose_repairs.
@@ -1308,6 +1383,7 @@ def run_repair_pipeline(request: RepairPipelineRequest) -> RepairPipelineResult:
             limitations=limitations,
             abstentions=[failure.reason for failure in failures],
             failure_reasons=[failure.reason for failure in failures],
+            review_ranking=review_ranking,
             issues_count=len(issues),
             fixes_count=len(accepted_fixes),
             reason=reason,

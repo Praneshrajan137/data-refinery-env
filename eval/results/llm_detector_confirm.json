@@ -1,0 +1,29 @@
+{
+  "B_confirm": {
+    "baseline_precision": 0.05,
+    "confusion": {
+      "fn": 1,
+      "fp": 35,
+      "tn": 440,
+      "tp": 24
+    },
+    "failed_calls": 2,
+    "flagged_total": 10372,
+    "natural_true_in_sample": 25,
+    "post_filter_queue_precision": 0.4068,
+    "post_filter_queue_precision_ci95": [
+      0.2909,
+      0.5341
+    ],
+    "proposition": "B_confirm_natural_distribution",
+    "recall_retained": 0.96,
+    "recall_retained_ci95": [
+      0.8046,
+      0.9929
+    ],
+    "sample_size": 500
+  },
+  "artifact": "dataforge_llm_detector_confirm_v1",
+  "model": "gpt-5.6-sol",
+  "seed": 0
+}

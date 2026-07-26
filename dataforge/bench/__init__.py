@@ -31,6 +31,12 @@ from dataforge.bench.error_classes import (
     precision_at_auto_apply,
     score_repairs_by_class,
 )
+from dataforge.bench.ranking_metrics import (
+    precision_at_k,
+    queue_precision_lift,
+    recall_at_k,
+    roc_auc,
+)
 from dataforge.bench.report import write_benchmark_outputs
 from dataforge.bench.runner import run_agent_comparison
 
@@ -56,7 +62,11 @@ __all__ = [
     "expected_calibration_error",
     "normalize_repairs",
     "precision_at_auto_apply",
+    "precision_at_k",
     "quota_units",
+    "queue_precision_lift",
+    "recall_at_k",
+    "roc_auc",
     "run_agent_comparison",
     "score_repairs",
     "score_repairs_by_class",

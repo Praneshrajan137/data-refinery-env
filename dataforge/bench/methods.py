@@ -17,10 +17,12 @@ from dataforge.bench.error_classes import (
     score_repairs_by_class,
 )
 from dataforge.bench.groq_client import BenchLLMClient, CostCapExceededError, ProviderRequestError
+from dataforge.bench.ranking_metrics import precision_at_k, queue_precision_lift, roc_auc
 from dataforge.datasets.real_world import RealWorldDataset
 from dataforge.detectors import run_all_detectors
 from dataforge.repairers import propose_fixes
 from dataforge.repairers.llm_corrector import LLMCorrectorRepairer
+from dataforge.review import ReviewRanker
 from dataforge.schema_inference import infer_schema
 
 if TYPE_CHECKING:
@@ -246,6 +248,117 @@ def run_llm_corrector_episode(
         calibration_samples_by_class=samples_by_class or None,
         calibration_samples_by_type=samples_by_type or None,
         reproduction_command=_reproduction_command("llm_corrector", dataset.metadata.name, 1),
+    )
+
+
+_REVIEW_RANKER_SAMPLES = 1
+
+
+def run_llm_review_ranker_episode(
+    dataset: RealWorldDataset,
+    *,
+    seed: int,
+    client: BenchLLMClient,
+    samples: int = _REVIEW_RANKER_SAMPLES,
+    max_issues: int | None = None,
+    cache_dir: Path | None = None,
+) -> SeedBenchmarkResult:
+    """Score an LLM as a review-queue RANKER vs the FREE detector-confidence baseline.
+
+    The deterministic detectors flag many cells, few of them true errors; a human
+    review queue is only useful if likely-true errors sort to the top. This runs
+    the LLM triager over the top-``max_issues`` detector-flagged cells and reports
+    ranking quality (ROC-AUC and R-precision) for BOTH the LLM order and the free
+    baseline order (the detector's own severity/confidence sort, which
+    ``run_all_detectors`` already produces). The LLM earns its keep only by its
+    LIFT over that baseline. Nothing is ever applied - this only ranks.
+
+    ``seed`` is unused (the candidate set is the deterministic detector order, not
+    a random sample); it is accepted for a uniform episode-runner signature.
+    """
+    del seed
+    start = time.perf_counter()
+    counters = {"llm_calls": 0, "prompt_tokens": 0, "completion_tokens": 0}
+    warnings: list[str] = []
+    call_failures = {"n": 0}
+
+    def _adapter(messages: list[Message]) -> str:
+        try:
+            completion = client.complete(cast("list[dict[str, str]]", messages))
+        except CostCapExceededError:
+            raise
+        except (ProviderRequestError, TimeoutError):
+            # A transient provider error (e.g. HTTP 500) must not abort the whole
+            # ranking run: count it and score this cell as "no" (empty -> 0 vote).
+            call_failures["n"] += 1
+            return ""
+        counters["llm_calls"] += 1
+        counters["prompt_tokens"] += completion.prompt_tokens
+        counters["completion_tokens"] += completion.completion_tokens
+        warnings.extend(completion.warnings)
+        return completion.text
+
+    inferred_schema = infer_schema(dataset.dirty_df.copy(deep=True)).to_schema(
+        include_inferred_constraints=True
+    )
+    working = dataset.dirty_df.copy(deep=True)
+    issues = run_all_detectors(working, schema=inferred_schema)  # sorted best-first
+    if max_issues is not None and len(issues) > max_issues:
+        warnings.append(f"review_ranker_topM_{max_issues}_of_{len(issues)}")
+        issues = issues[:max_issues]
+
+    gt_cells = {(cell.row, cell.column) for cell in dataset.ground_truth}
+    candidates = [(issue.row, issue.column) for issue in issues]
+    # FREE baseline: the detector's own order (already sorted by severity, -conf,
+    # row, column). Score = descending rank, so ROC-AUC/precision see that order.
+    baseline_samples = [
+        (float(len(candidates) - index), (row, col) in gt_cells)
+        for index, (row, col) in enumerate(candidates)
+    ]
+
+    ranker = ReviewRanker(
+        cache_dir=cache_dir, model=client.model, samples=samples, completion_fn=_adapter
+    )
+    ranked = ranker.rank(candidates, working)
+    llm_score = {(cell.row, cell.column): cell.score for cell in ranked}
+    llm_samples = [(llm_score[(row, col)], (row, col) in gt_cells) for row, col in candidates]
+
+    n_true = sum(1 for _, is_true in baseline_samples if is_true)
+    base_rate = round(n_true / len(candidates), 6) if candidates else 0.0
+    k = n_true  # R-precision operating point (review as many as there are errors)
+    warnings.append(f"review_ranker_candidates_{len(candidates)}_true_{n_true}_base_{base_rate}")
+    if call_failures["n"]:
+        warnings.append(f"review_ranker_call_failures_{call_failures['n']}")
+
+    detected_cells = {(issue.row, issue.column) for issue in issues}
+    by_class = score_repairs_by_class(dataset.ground_truth, [], detected_cells)
+    runtime_s = round(time.perf_counter() - start, 4)
+    return SeedBenchmarkResult(
+        method="llm_review_ranker",
+        by_class=by_class,
+        dataset=dataset.metadata.name,
+        seed=0,
+        status="ok",
+        avg_steps=float(counters["llm_calls"]),
+        llm_calls=counters["llm_calls"],
+        prompt_tokens=counters["prompt_tokens"],
+        completion_tokens=counters["completion_tokens"],
+        quota_units=quota_units(
+            llm_calls=counters["llm_calls"],
+            prompt_tokens=counters["prompt_tokens"],
+            completion_tokens=counters["completion_tokens"],
+        ),
+        runtime_s=runtime_s,
+        provider=client.provider,
+        model=client.model,
+        warnings=warnings,
+        ranking_k=k,
+        roc_auc=roc_auc(llm_samples),
+        baseline_roc_auc=roc_auc(baseline_samples),
+        ranking_precision_at_k=precision_at_k(llm_samples, k),
+        baseline_precision_at_k=precision_at_k(baseline_samples, k),
+        ranking_queue_precision_lift=queue_precision_lift(llm_samples, k, base_rate),
+        reproduction_command=_reproduction_command("llm_review_ranker", dataset.metadata.name, 1),
     )
 
 
