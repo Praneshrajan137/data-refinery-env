@@ -8,6 +8,7 @@ from dataforge.detectors.base import Issue, Schema
 from dataforge.repairers.base import ProposedFix, RepairAttempt, Repairer, RetryContext
 from dataforge.repairers.categorical_normalization import CategoricalNormalizationRepairer
 from dataforge.repairers.decimal_shift import DecimalShiftRepairer
+from dataforge.repairers.entity_consensus import EntityConsensusRepairer
 from dataforge.repairers.fallback import FallbackRepairer
 from dataforge.repairers.fd_violation import FDViolationRepairer
 from dataforge.repairers.format_violation import FormatViolationRepairer
@@ -19,6 +20,7 @@ from dataforge.table import TableLike
 __all__ = [
     "CategoricalNormalizationRepairer",
     "DecimalShiftRepairer",
+    "EntityConsensusRepairer",
     "FDViolationRepairer",
     "FallbackRepairer",
     "FormatViolationRepairer",
@@ -39,6 +41,7 @@ def build_repairers(
     cache_dir: Path | None,
     allow_llm: bool,
     model: str | None = None,
+    allow_entity_consensus: bool = False,
 ) -> dict[str, Repairer]:
     """Construct the default repairer registry.
 
@@ -70,6 +73,15 @@ def build_repairers(
         ),
         "missing_value": MissingValueRepairer(),
     }
+    if allow_entity_consensus:
+        # Cross-row entity consensus: proposes the sibling-row consensus value.
+        # Classified plausibility_only by the engine (evidence-strong, not proof),
+        # so held for review by default and auto-applied only under the
+        # allow_unproven_autoapply opt-in (or when a declared schema proves it).
+        # OFF by default so the deterministic baseline stays byte-identical (a
+        # noisy consensus proposal would otherwise regress the locked hospital
+        # anchor by adding a false positive).
+        registry["entity_consensus"] = EntityConsensusRepairer()
     if allow_llm:
         corrector = LLMCorrectorRepairer(
             cache_dir=cache_dir,
@@ -91,6 +103,7 @@ def propose_fixes(
     cache_dir: Path | None,
     allow_llm: bool = False,
     model: str | None = None,
+    allow_entity_consensus: bool = False,
 ) -> list[ProposedFix]:
     """Run all Week 2 repairers and return proposed fixes.
 
@@ -109,6 +122,7 @@ def propose_fixes(
         cache_dir=cache_dir,
         allow_llm=allow_llm,
         model=model,
+        allow_entity_consensus=allow_entity_consensus,
     )
     proposed: list[ProposedFix] = []
     seen_cells: set[tuple[int, str]] = set()

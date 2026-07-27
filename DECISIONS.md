@@ -12,6 +12,50 @@ Format for every entry:
 
 ---
 
+## 2026-07-26 - Cross-row entity consensus: fixing flights from 0.0, provably-gated
+**Context**: The product must not merely be honest about what it cannot fix - it must actually
+fix the user's data to the highest level, or no one adopts it. Measured reality: hospital
+correction F1 was 0.7926 (beats cited SOTA), but flights correction F1 was 0.0000 - it detected
+all 2370 missing values and filled none. The residual RAHA errors are semantic, and the LLM
+free-text corrector is uncalibratable (precision 8-16%). But SOTA (Raha+Baran, flights F1 0.729)
+uses a lever DataForge never built: cross-row consensus. Flights is multi-source (100 flights x
+~24 source rows each, zero singletons; cols tuple_id,src,flight,4x time), so the correct value for
+a cell already exists in its sibling rows - a candidate-constrained, evidence-grounded fix.
+**Alternatives**:
+- (a) Free-text LLM correction: measured uncalibratable (never certifiable); rejected as the fix path.
+- (b) Entity consensus as PROVEN -> auto-apply by default: rejected - a wrong majority yields a wrong
+  consensus, so it is not proof; auto-applying by default would break the proven-only corruption
+  invariant (the corruption oracle) and could corrupt correct minority values.
+- (c) Entity consensus as plausibility_only, held by default, opt-in auto-apply (CHOSEN).
+- (d) Always-register the repairer: rejected - scoring its proposals in the default heuristic path
+  added +1 false positive on hospital (0.7926 -> 0.7919), unacceptable for the locked anchor.
+**Decision**: New `EntityConsensusDetector` (precision-controlled key discovery) + `EntityConsensusRepairer`,
+gated behind `allow_entity_consensus` (default OFF -> baseline byte-identical). The consensus value is
+classified `plausibility_only`: held as a pre-filled one-click review suggestion by default, auto-applied
+only under the explicit `allow_unproven_autoapply` opt-in (or when a declared schema proves it), honestly
+recorded as not-proven in the certificate, and fully reversible. The precision crux is a consensus-value
+DIVERSITY guard: a support bar alone cannot separate a true key->attribute (flight -> its own time, each
+entity a distinct value, diversity ~1.0) from a categorical CORRELATION (rayyan issue -> "mostly English",
+tiny shared vocabulary) whose differing cells are correct minorities. Without it, rayyan wrongly flagged
+322 correct cells (precision 0.0); with it, rayyan and tax abstain.
+**Measured (flag ON, proposals scored)**: flights correction F1 **0.0000 -> 0.4467** (P 0.841, R 0.304,
+1496 correct fixes) - fully automatic, from fixing nothing; SOTA Raha+Baran is 0.729 but semi-supervised.
+hospital 0.7919 (opt-in only, +1 fp); rayyan/tax abstain. Baseline (flag OFF): hospital F1 0.7926
+tp451/fp178/fn58 EXACT, flights 0.0 - byte-identical.
+**Reasoning**: This raises the real fix rate on the worst dataset by the largest possible margin while
+preserving the never-corrupt-by-default guarantee: the default engine still auto-applies only proven
+fixes (corruption oracle intact), and the huge practical win (1496 pre-filled 89%-correct one-click
+suggestions, or full auto-apply under an informed opt-in) is delivered honestly. It reuses the existing
+inferred-FD / verify_and_apply plausibility machinery rather than inventing a new proof class.
+**Reviewed with**: Pranesh K R (directed "fix to the highest level, user-centric"; chose Phase 3 +
+aggressive opt-in auto-apply, never default).
+**Reversal criteria**: if the diversity/governance guards prove too permissive on a new dataset (spurious
+auto-applies under opt-in) or too strict (misses a genuine multi-source key), retune the guards; if a
+dataset needs higher recall, the sub-0.95-support propose tier already surfaces it for review. The locked
+hospital anchor (0.7926) is the regression tripwire.
+
+---
+
 ## 2026-07-25 - LLM review-queue ranker: GO, but conditional on a flooded queue
 **Context**: The detector triage finding (gpt-5.6-sol lifts hospital review-queue precision
 5%->41% @ 96% recall) was productized as a review-queue RANKER (sort likely-true-first, never drop,

@@ -142,6 +142,7 @@ ReviewReason = Literal[
     "ambiguous_fd",
     "out_of_inferred_domain",
     "unverified_transposition",
+    "unverified_entity_consensus",
     "inferred_fd_not_declared",
     "stale_precondition",
     "invalid_target",
@@ -311,6 +312,7 @@ class RepairPipelineRequest(BaseModel):
     confirm_escalations: bool = False
     allow_unproven_autoapply: bool = False
     require_declared_fds_for_autoapply: bool = False
+    allow_entity_consensus: bool = False
     require_independent_agreement: bool = True
     interactive: bool = False
     create_dry_run_transaction: bool = False
@@ -561,6 +563,7 @@ def propose_repairs(
     escalation_resolver: EscalationResolver | None = None,
     verification_schema: Schema | None = None,
     require_independent_agreement: bool = True,
+    allow_entity_consensus: bool = False,
 ) -> tuple[list[ProposedFix], list[list[RepairAttempt]]]:
     """Run repairers and gates issue-by-issue against a working dataframe.
 
@@ -582,6 +585,7 @@ def propose_repairs(
             cache_dir=cache_dir_for(path),
             allow_llm=allow_llm,
             model=model,
+            allow_entity_consensus=allow_entity_consensus,
         )
     safety_filter = SafetyFilter()
     verifier = SMTVerifier()
@@ -741,15 +745,19 @@ def propose_repairs(
 
 _LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
 
-# Untrusted provenance = an LLM-origin value OR an externally-proposed value
-# (verify_and_apply). Untrusted fixes are ``plausibility_only`` unless verified
-# against an authoritative schema, and escalate the unconfirmed-write safety rule.
+# Untrusted provenance = an LLM-origin value, an externally-proposed value
+# (verify_and_apply), OR a cross-row entity-consensus value. Untrusted fixes are
+# ``plausibility_only`` unless verified against an authoritative schema. Entity
+# consensus is evidence-strong (the value already exists in sibling rows) but NOT
+# proof -- a wrong majority yields a wrong consensus -- so by the proven-only
+# invariant it is held by default and auto-applies only under the explicit
+# ``allow_unproven_autoapply`` opt-in (or when a declared schema proves it).
 # NOTE: this is a SUPERSET of _LLM_PROVENANCE. The calibration-specific paths
 # (_calibrated_confidence, drift guard, LLM escalation, the partition's
 # "needs a calibrated threshold" branch) keep _LLM_PROVENANCE, because an external
 # fix proven against an authoritative schema auto-applies directly and does not
 # carry an LLM calibration map.
-_UNTRUSTED_PROVENANCE = frozenset({"llm_live", "llm_cache", "external"})
+_UNTRUSTED_PROVENANCE = frozenset({"llm_live", "llm_cache", "external", "entity_consensus"})
 
 # Detection-only issue types that carry an exact value in ``Issue.expected`` but
 # have NO registered repairer (no write path). They are surfaced as unverified
@@ -1214,6 +1222,7 @@ def run_repair_pipeline(
             interactive=request.interactive,
             verification_schema=verification_schema,
             require_independent_agreement=request.require_independent_agreement,
+            allow_entity_consensus=request.allow_entity_consensus,
         )
 
     # Route LLM-origin corrections: auto-apply only when a calibrated per-class
@@ -1315,12 +1324,22 @@ def run_repair_pipeline(
             ),
         )
         + _suggestion_candidates(
-            plausibility_suggestions,
+            [f for f in plausibility_suggestions if f.provenance != "entity_consensus"],
             review_reason="floor_cannot_verify",
             verifier_reason=(
                 "Held for human review: only the advisory inferred guard could "
                 "vouch for this value (no authoritative schema); it is not proven, "
                 "so it is never auto-applied unless allow_unproven_autoapply is set."
+            ),
+        )
+        + _suggestion_candidates(
+            [f for f in plausibility_suggestions if f.provenance == "entity_consensus"],
+            review_reason="unverified_entity_consensus",
+            verifier_reason=(
+                "Held for human review: the exact value is the strong cross-row "
+                "consensus for this entity (it already exists in sibling rows), but "
+                "a majority can be wrong, so it is not proven and is never auto-applied "
+                "unless allow_unproven_autoapply is set."
             ),
         )
         + _suggestion_candidates(

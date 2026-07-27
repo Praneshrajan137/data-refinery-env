@@ -17,6 +17,7 @@ from dataforge.detectors.categorical_normalization import CategoricalNormalizati
 from dataforge.detectors.date_transposition import DateTranspositionDetector
 from dataforge.detectors.decimal_shift import DecimalShiftDetector
 from dataforge.detectors.duplicate_row import DuplicateRowDetector
+from dataforge.detectors.entity_consensus import EntityConsensusDetector
 from dataforge.detectors.fd_violation import FDViolationDetector
 from dataforge.detectors.format_violation import FormatViolationDetector
 from dataforge.detectors.missing_value import MissingValueDetector
@@ -30,6 +31,7 @@ __all__ = [
     "DateTranspositionDetector",
     "DecimalShiftDetector",
     "DuplicateRowDetector",
+    "EntityConsensusDetector",
     "FDViolationDetector",
     "FormatViolationDetector",
     "Issue",
@@ -69,6 +71,7 @@ def default_detectors() -> list[Detector]:
         DuplicateRowDetector(),
         TimeFormatCruftDetector(),
         DateTranspositionDetector(),
+        EntityConsensusDetector(),
     ]
 
 

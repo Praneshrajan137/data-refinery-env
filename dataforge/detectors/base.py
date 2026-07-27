@@ -93,6 +93,7 @@ IssueTypeLiteral = Literal[
     "outlier",
     "duplicate_row",
     "date_transposition",
+    "entity_consensus",
 ]
 
 

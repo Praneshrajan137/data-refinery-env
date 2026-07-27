@@ -322,6 +322,24 @@ def repair(
             help="Non-interactively confirm soft safety escalations such as aggregate-sensitive edits.",
         ),
     ] = False,
+    allow_entity_consensus: Annotated[
+        bool,
+        typer.Option(
+            "--allow-entity-consensus",
+            help="Enable cross-row entity-consensus repair (multi-source data, e.g. flights): "
+            "propose the value shared by an entity's sibling rows. Held for review by default; "
+            "combine with --allow-unproven-autoapply to auto-apply it.",
+        ),
+    ] = False,
+    allow_unproven_autoapply: Annotated[
+        bool,
+        typer.Option(
+            "--allow-unproven-autoapply",
+            help="Auto-apply evidence-strong-but-unproven fixes (entity consensus, inferred-guard "
+            "values) without an authoritative schema. Honestly recorded as not-proven in the "
+            "certificate; still reversible. Off by default (proven-only auto-apply).",
+        ),
+    ] = False,
     llm_model: Annotated[
         str | None,
         typer.Option(
@@ -509,6 +527,8 @@ def repair(
                 confirm_pii=confirm_pii,
                 confirm_escalations=confirm_escalations,
                 interactive=apply,
+                allow_entity_consensus=allow_entity_consensus,
+                allow_unproven_autoapply=allow_unproven_autoapply,
                 corrector_policy=corrector_policy,
                 calibration_map_by_class=calibration_maps,
                 corrector_reference_confidences=corrector_reference,
