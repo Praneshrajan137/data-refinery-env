@@ -24,7 +24,7 @@ equally strong:
 | Byte-for-byte reversible, hash-chained journal | **Differentiated** | `transactions/`; `test_revert_is_bytes_identical.py`; runtime journaled-revert test |
 | Portable, re-verifiable trust certificate | **Differentiated** | `certificate.verify_certificate` / `reverify_certificate`; independent in data, execution, and (schema path) implementation |
 | Distribution-free auto-apply gate (conformal + drift) | **Differentiated** | `conformal.py`; enforced by `release/corrector_gate.py` |
-| Deterministic correction accuracy | **Weak / narrow** | hospital F1 0.7926 (one dataset, under our scoring); flights 0.00; tax sampled 0.00 with 708 false positives |
+| Deterministic correction accuracy | **Weak / narrow** | hospital F1 0.7926 (one dataset, under our scoring); flights 0.00 deterministic -> **0.4467 with cross-row entity consensus** (`allow_entity_consensus`); tax sampled 0.00 with 708 false positives |
 | LLM corrector accuracy | **Not usable for auto-apply** | ~6% precision, ECE ~0.8; auto-applies nothing (correctly) |
 
 The moat is the trust machinery; the repairer is, today, commodity and narrow.
@@ -155,6 +155,27 @@ the gate must refuse.
    is ECE on the hard residual, not capability. A proposer whose confidence is
    trustworthy enough for conformal to certify a non-empty accepted set would move
    the coverage number; a bigger model that is *confidently* wrong does not.
+
+**UPDATE 2026-07-26 - a fifth attempt that WORKED (flights 0.0 -> 0.4467).**
+Lever 1 does not require an *external* reference when the table is **multi-source**:
+the same real-world entity appears in many rows, so its sibling rows ARE the
+reference. The flights benchmark records each flight from ~24 sources; the correct
+value for a cell already exists in its siblings. The new `EntityConsensusDetector`
++ `EntityConsensusRepairer` (gated behind `allow_entity_consensus`) raise flights
+correction F1 from **0.0000 to 0.4467** (P 0.841, R 0.304, 1496 correct fixes),
+fully automatic. The precision crux is a consensus-value DIVERSITY guard that
+separates a true key->attribute (flight -> its own time, diverse per entity) from a
+categorical correlation (rayyan issue -> "mostly English", a shared vocabulary,
+whose differing cells are correct minorities) - so rayyan and tax abstain. This did
+NOT re-litigate the NO-GO table: those attempts mined *in-table signal for semantic
+errors*, which remains indistinguishable from coincidence; entity consensus instead
+exploits *cross-row redundancy*, which is real reference information. Trust-honest:
+a majority can be wrong, so the consensus value is `plausibility_only` - held as a
+pre-filled one-click suggestion by default, auto-applied only under
+`allow_unproven_autoapply`, recorded as not-proven in the certificate, reversible.
+The locked hospital anchor stays byte-identical (0.7926) with the flag off.
+Reproducible evidence: `dataforge/detectors/entity_consensus.py`,
+`dataforge/repairers/entity_consensus.py`, DECISIONS 2026-07-26.
 
 **What this closes and what it opens:** "use a stronger LLM to raise *auto-apply*
 accuracy" is answered - its verified-gate ROI is ~0 (corrector, agent, teacher,
