@@ -236,6 +236,11 @@
             ],
             "title": "Accepted Constraint Ids"
           },
+          "allow_entity_consensus": {
+            "default": false,
+            "title": "Allow Entity Consensus",
+            "type": "boolean"
+          },
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
@@ -265,6 +270,11 @@
               }
             ],
             "title": "Accepted Constraint Ids"
+          },
+          "allow_entity_consensus": {
+            "default": false,
+            "title": "Allow Entity Consensus",
+            "type": "boolean"
           },
           "file": {
             "contentMediaType": "application/octet-stream",
@@ -685,6 +695,10 @@
             "title": "Cors Configured",
             "type": "boolean"
           },
+          "entity_consensus_available": {
+            "title": "Entity Consensus Available",
+            "type": "boolean"
+          },
           "environment": {
             "title": "Environment",
             "type": "string"
@@ -739,6 +753,7 @@
           "status",
           "advanced_available",
           "agent_available",
+          "entity_consensus_available",
           "agent_policy",
           "agent_provider",
           "verify_available",

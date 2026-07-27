@@ -131,6 +131,7 @@ function App() {
   const [dataset, setDataset] = useState<DatasetInput | null>(null);
   const [advanced, setAdvanced] = useState(false);
   const [repairMode, setRepairMode] = useState<RepairMode>("deterministic");
+  const [allowEntityConsensus, setAllowEntityConsensus] = useState(false);
   const [route, setRoute] = useState<ProductRoute>(() => routeFromPathname(window.location.pathname));
   const [analysis, setAnalysis] = useState<AnalyzeResponse | null>(null);
   const [analysisState, setAnalysisState] = useState<WorkState>("idle");
@@ -298,8 +299,9 @@ function App() {
               onEvent: (event: WorkflowEvent) => dispatchWorkflow({ type: "event", event }),
             },
             repairMode,
+            allowEntityConsensus,
           )
-        : await client.analyze(dataset.file, advanced, ids, repairMode);
+        : await client.analyze(dataset.file, advanced, ids, repairMode, allowEntityConsensus);
 
       if (!streamingEnabled) {
         dispatchWorkflow({ type: "analysis", analysis: nextAnalysis });
@@ -397,6 +399,7 @@ function App() {
                 capability={capability}
                 advanced={advanced}
                 repairMode={repairMode}
+                allowEntityConsensus={allowEntityConsensus}
                 backendState={backendState}
                 streamingEnabled={streamingEnabled}
                 acceptedConstraintIds={acceptedConstraintIds}
@@ -411,6 +414,7 @@ function App() {
                 observatory={observatory}
                 onAdvancedChange={setAdvanced}
                 onRepairModeChange={setRepairMode}
+                onEntityConsensusChange={setAllowEntityConsensus}
                 onChooseSample={chooseSample}
                 onFileChange={handleFileChange}
                 onAnalyze={() => void runAnalyze([])}
@@ -598,6 +602,7 @@ function RunPage({
   capability,
   advanced,
   repairMode,
+  allowEntityConsensus,
   backendState,
   streamingEnabled,
   acceptedConstraintIds,
@@ -612,6 +617,7 @@ function RunPage({
   observatory,
   onAdvancedChange,
   onRepairModeChange,
+  onEntityConsensusChange,
   onChooseSample,
   onFileChange,
   onAnalyze,
@@ -630,6 +636,7 @@ function RunPage({
   capability: BackendCapability | null;
   advanced: boolean;
   repairMode: RepairMode;
+  allowEntityConsensus: boolean;
   backendState: WorkState;
   streamingEnabled: boolean;
   acceptedConstraintIds: string[];
@@ -644,6 +651,7 @@ function RunPage({
   observatory: ReturnType<typeof buildObservatoryView>;
   onAdvancedChange: (next: boolean) => void;
   onRepairModeChange: (next: RepairMode) => void;
+  onEntityConsensusChange: (next: boolean) => void;
   onChooseSample: (sampleName: string) => void | Promise<void>;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onAnalyze: () => void;
@@ -665,6 +673,7 @@ function RunPage({
         capability={capability}
         advanced={advanced}
         repairMode={repairMode}
+        allowEntityConsensus={allowEntityConsensus}
         backendState={backendState}
         streamingEnabled={streamingEnabled}
         acceptedConstraintIds={acceptedConstraintIds}
@@ -674,6 +683,7 @@ function RunPage({
         fileInputRef={fileInputRef}
         onAdvancedChange={onAdvancedChange}
         onRepairModeChange={onRepairModeChange}
+        onEntityConsensusChange={onEntityConsensusChange}
         onChooseSample={onChooseSample}
         onFileChange={onFileChange}
         onAnalyze={onAnalyze}
@@ -1406,6 +1416,7 @@ function MissionBar({
   capability,
   advanced,
   repairMode,
+  allowEntityConsensus,
   backendState,
   streamingEnabled,
   acceptedConstraintIds,
@@ -1415,6 +1426,7 @@ function MissionBar({
   fileInputRef,
   onAdvancedChange,
   onRepairModeChange,
+  onEntityConsensusChange,
   onChooseSample,
   onFileChange,
   onAnalyze,
@@ -1431,6 +1443,7 @@ function MissionBar({
   capability: BackendCapability | null;
   advanced: boolean;
   repairMode: RepairMode;
+  allowEntityConsensus: boolean;
   backendState: WorkState;
   streamingEnabled: boolean;
   acceptedConstraintIds: string[];
@@ -1440,6 +1453,7 @@ function MissionBar({
   fileInputRef: RefObject<HTMLInputElement | null>;
   onAdvancedChange: (next: boolean) => void;
   onRepairModeChange: (next: RepairMode) => void;
+  onEntityConsensusChange: (next: boolean) => void;
   onChooseSample: (sampleName: string) => void | Promise<void>;
   onFileChange: (event: ChangeEvent<HTMLInputElement>) => void | Promise<void>;
   onAnalyze: () => void;
@@ -1511,6 +1525,25 @@ function MissionBar({
             onChange={(event) =>
               onRepairModeChange(event.target.checked ? "agent" : "deterministic")
             }
+          />
+        </label>
+
+        <label className="switch-row" htmlFor="entity-consensus">
+          <span>
+            <strong>Cross-row consensus</strong>
+            <small>
+              {capability?.entity_consensus_available === false
+                ? "Unavailable"
+                : "Suggest fixes from an entity's sibling rows (review-only)"}
+            </small>
+          </span>
+          <input
+            id="entity-consensus"
+            type="checkbox"
+            role="switch"
+            checked={allowEntityConsensus}
+            disabled={busy || capability?.entity_consensus_available === false}
+            onChange={(event) => onEntityConsensusChange(event.target.checked)}
           />
         </label>
 

@@ -255,6 +255,7 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
     advanced_available: bool
     agent_available: bool
+    entity_consensus_available: bool
     agent_policy: str
     agent_provider: str | None
     verify_available: bool
@@ -1570,6 +1571,7 @@ def _analyze_upload(
     source_bytes: bytes,
     accepted_constraint_ids: list[str],
     allow_llm: bool,
+    allow_entity_consensus: bool = False,
 ) -> AnalyzeResponse:
     """Run the proof-loop analysis pipeline inside a temporary workspace."""
     df = _csv_to_df(source_bytes)
@@ -1598,6 +1600,7 @@ def _analyze_upload(
                 schema=None,
                 create_dry_run_transaction=True,
                 allow_llm=allow_llm,
+                allow_entity_consensus=allow_entity_consensus,
                 constraints=constraints_artifact,
                 constraints_artifact_sha256=constraints_sha256,
             )
@@ -1938,6 +1941,7 @@ def _build_analysis(
     accepted_constraint_ids: list[str],
     advanced_requested: bool,
     repair_mode: str,
+    allow_entity_consensus: bool = False,
 ) -> AnalyzeResponse:
     """Dispatch to the deterministic or verified-agent analysis path."""
     if repair_mode == "agent":
@@ -1951,6 +1955,7 @@ def _build_analysis(
         source_bytes=source_bytes,
         accepted_constraint_ids=accepted_constraint_ids,
         allow_llm=advanced_requested,
+        allow_entity_consensus=allow_entity_consensus,
     )
 
 
@@ -2281,6 +2286,7 @@ async def health() -> HealthResponse:
         status="ok",
         advanced_available=_advanced_available(),
         agent_available=_agent_available(),
+        entity_consensus_available=True,
         agent_policy=_agent_policy_label(*_resolve_agent_policy()),
         agent_provider=_resolve_agent_policy()[1],
         verify_available=True,
@@ -2332,6 +2338,7 @@ async def analyze(
     file: UploadFile,
     accepted_constraint_ids: str | None = Form(default=None),
     repair_mode: str = Form(default="deterministic"),
+    allow_entity_consensus: bool = Form(default=False),
 ) -> AnalyzeResponse:
     """Analyze an uploaded CSV through profile, constraint review, and dry-run repair."""
     advanced_requested = request.query_params.get("advanced", "false").lower() == "true"
@@ -2359,6 +2366,7 @@ async def analyze(
                 accepted_constraint_ids=accepted_ids,
                 advanced_requested=advanced_requested,
                 repair_mode=mode,
+                allow_entity_consensus=allow_entity_consensus,
             ),
             timeout_seconds=timeout_seconds,
         )
@@ -2382,6 +2390,7 @@ async def analyze_stream(
     file: UploadFile,
     accepted_constraint_ids: str | None = Form(default=None),
     repair_mode: str = Form(default="deterministic"),
+    allow_entity_consensus: bool = Form(default=False),
 ) -> StreamingResponse:
     """Stream the analyze proof loop as NDJSON workflow events."""
     advanced_requested = request.query_params.get("advanced", "false").lower() == "true"
@@ -2443,6 +2452,7 @@ async def analyze_stream(
                     accepted_constraint_ids=accepted_ids,
                     advanced_requested=advanced_requested,
                     repair_mode=mode,
+                    allow_entity_consensus=allow_entity_consensus,
                 ),
                 timeout_seconds=timeout_seconds,
             )

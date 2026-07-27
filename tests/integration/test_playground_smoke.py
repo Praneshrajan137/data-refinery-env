@@ -179,6 +179,7 @@ def test_health(client: TestClient) -> None:
     assert body["api_version"] == "0.1.0"
     assert body["contract_version"] == "repair_contract_v2"
     assert body["verify_available"] is True
+    assert body["entity_consensus_available"] is True
     assert "server_time_utc" in body
     assert "metrics" in body
     assert "requests_total" in body["metrics"]
@@ -584,6 +585,57 @@ def test_analyze_malformed_csv_returns_problem_detail(client: TestClient) -> Non
         files={"file": ("broken.csv", io.BytesIO(b'id,name\n1,"unterminated'), "text/csv")},
     )
     _assert_problem_response(response, status=400, error="invalid_csv")
+
+
+def _multi_source_csv_bytes() -> bytes:
+    """6 entities x 4 rows; A/B/C each have one wrong value (so no clean FD is
+    inferred), each entity keeps a >=0.7 consensus -> entity_consensus fires."""
+    lines = ["entity,val"]
+    wrong = {"A", "B", "C"}
+    for entity in "ABCDEF":
+        for i in range(4):
+            value = "WRONG" + entity if (entity in wrong and i == 0) else "VAL" + entity
+            lines.append(f"{entity},{value}")
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+@pytest.mark.integration
+def test_analyze_entity_consensus_flag_surfaces_review_suggestions(client: TestClient) -> None:
+    """allow_entity_consensus surfaces cross-row consensus fixes as review suggestions."""
+    csv = _multi_source_csv_bytes()
+
+    off = client.post(
+        "/api/analyze",
+        files={"file": ("multi.csv", io.BytesIO(csv), "text/csv")},
+    )
+    assert off.status_code == 200
+    off_consensus = [
+        s
+        for s in off.json()["receipt"]["suggested_fixes"]
+        if s.get("review_reason") == "unverified_entity_consensus"
+    ]
+    assert off_consensus == []  # off by default
+
+    on = client.post(
+        "/api/analyze",
+        files={"file": ("multi.csv", io.BytesIO(csv), "text/csv")},
+        data={"allow_entity_consensus": "true"},
+    )
+    assert on.status_code == 200
+    on_consensus = [
+        s
+        for s in on.json()["receipt"]["suggested_fixes"]
+        if s.get("review_reason") == "unverified_entity_consensus"
+    ]
+    assert on_consensus, "entity_consensus suggestions should surface when the flag is set"
+    # Held for review (never auto-applied), and the value is a sibling-row consensus.
+    assert all(s["new_value"].startswith("VAL") for s in on_consensus)
+
+
+@pytest.mark.integration
+def test_health_reports_entity_consensus_capability(client: TestClient) -> None:
+    """GET /api/health advertises the entity-consensus capability (always available)."""
+    assert client.get("/api/health").json()["entity_consensus_available"] is True
 
 
 @pytest.mark.integration

@@ -97,6 +97,29 @@ describe("problem detail handling", () => {
     expect((calls[1].init?.body as FormData).get("repair_mode")).toBe("agent");
   });
 
+  it("sends allow_entity_consensus only when the flag is set", async () => {
+    const calls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ input, init });
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    const client = new DataForgeClient("https://api.example.test");
+    const file = new File(["id\n1"], "sample.csv", { type: "text/csv" });
+
+    await client.analyze(file, false, [], "deterministic");
+    expect((calls[0].init?.body as FormData).get("allow_entity_consensus")).toBeNull();
+
+    await client.analyze(file, false, [], "deterministic", true);
+    expect((calls[1].init?.body as FormData).get("allow_entity_consensus")).toBe("true");
+  });
+
   it("parses NDJSON workflow events and returns the final stream analysis", async () => {
     const finalAnalysis = {
       source: { name: "sample.csv", sha256: "a".repeat(64), rows: 1, columns: 1, column_names: ["id"] },

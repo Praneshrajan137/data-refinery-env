@@ -64,6 +64,7 @@ export class DataForgeClient {
     advanced: boolean,
     acceptedConstraintIds: string[] = [],
     repairMode: RepairMode = "deterministic",
+    allowEntityConsensus = false,
   ): Promise<AnalyzeResponse> {
     const params = advanced ? "?advanced=true" : "";
     const formData = new FormData();
@@ -73,6 +74,9 @@ export class DataForgeClient {
     }
     if (repairMode !== "deterministic") {
       formData.append("repair_mode", repairMode);
+    }
+    if (allowEntityConsensus) {
+      formData.append("allow_entity_consensus", "true");
     }
     return this.requestJson<AnalyzeResponse>(`/api/analyze${params}`, {
       method: "POST",
@@ -86,6 +90,7 @@ export class DataForgeClient {
     acceptedConstraintIds: string[] = [],
     options: AnalyzeStreamOptions,
     repairMode: RepairMode = "deterministic",
+    allowEntityConsensus = false,
   ): Promise<AnalyzeResponse> {
     const params = advanced ? "?advanced=true" : "";
     const formData = new FormData();
@@ -95,6 +100,9 @@ export class DataForgeClient {
     }
     if (repairMode !== "deterministic") {
       formData.append("repair_mode", repairMode);
+    }
+    if (allowEntityConsensus) {
+      formData.append("allow_entity_consensus", "true");
     }
 
     const response = await fetch(backendPath(this.backendUrl, `/api/analyze/stream${params}`), {

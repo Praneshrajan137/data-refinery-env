@@ -15,6 +15,7 @@ export interface BackendCapability {
   status: "ok";
   advanced_available: boolean;
   agent_available?: boolean;
+  entity_consensus_available?: boolean;
   agent_policy?: string;
   agent_provider?: string | null;
   verify_available?: boolean;
