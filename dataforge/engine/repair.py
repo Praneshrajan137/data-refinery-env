@@ -313,6 +313,7 @@ class RepairPipelineRequest(BaseModel):
     allow_unproven_autoapply: bool = False
     require_declared_fds_for_autoapply: bool = False
     allow_entity_consensus: bool = False
+    corrector_pool_constrained: bool = False
     require_independent_agreement: bool = True
     interactive: bool = False
     create_dry_run_transaction: bool = False
@@ -564,6 +565,7 @@ def propose_repairs(
     verification_schema: Schema | None = None,
     require_independent_agreement: bool = True,
     allow_entity_consensus: bool = False,
+    corrector_pool_constrained: bool = False,
 ) -> tuple[list[ProposedFix], list[list[RepairAttempt]]]:
     """Run repairers and gates issue-by-issue against a working dataframe.
 
@@ -586,6 +588,7 @@ def propose_repairs(
             allow_llm=allow_llm,
             model=model,
             allow_entity_consensus=allow_entity_consensus,
+            corrector_pool_constrained=corrector_pool_constrained,
         )
     safety_filter = SafetyFilter()
     verifier = SMTVerifier()
@@ -1223,6 +1226,7 @@ def run_repair_pipeline(
             verification_schema=verification_schema,
             require_independent_agreement=request.require_independent_agreement,
             allow_entity_consensus=request.allow_entity_consensus,
+            corrector_pool_constrained=request.corrector_pool_constrained,
         )
 
     # Route LLM-origin corrections: auto-apply only when a calibrated per-class

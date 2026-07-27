@@ -173,3 +173,85 @@ class TestContractBinding:
             fix = corrector.propose(issue, df, None)
 
         assert fix is None
+
+
+class TestPoolConstrained:
+    """Pool-constrained mode: the corrector may only propose a frequent-value member."""
+
+    @staticmethod
+    def _city_df() -> pd.DataFrame:
+        # Boston(3), Denver(2), Austin(2) clear the support>=2 pool; "bostn" is a
+        # rare typo (row 0) that is NOT a pool member.
+        return pd.DataFrame(
+            {
+                "city": [
+                    "bostn",
+                    "Boston",
+                    "Boston",
+                    "Denver",
+                    "Denver",
+                    "Austin",
+                    "Austin",
+                    "Boston",
+                ]
+            }
+        )
+
+    def test_in_pool_value_is_proposed(self, tmp_path: Path) -> None:
+        corrector = LLMCorrectorRepairer(
+            cache_dir=tmp_path, allow_llm=True, model="m", samples=3, pool_constrained=True
+        )
+        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="bostn")
+        fake = _scripted_complete(["Boston", "Boston", "Boston"])
+        with patch("dataforge.repairers.llm_corrector.complete", fake):
+            fix = corrector.propose(issue, self._city_df(), None)
+        assert fix is not None and fix.fix.new_value == "Boston"
+
+    def test_non_pool_value_is_rejected(self, tmp_path: Path) -> None:
+        corrector = LLMCorrectorRepairer(
+            cache_dir=tmp_path, allow_llm=True, model="m", samples=3, pool_constrained=True
+        )
+        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="bostn")
+        # "Bostonn" is a plausible free-text guess but NOT a pool member -> rejected.
+        fake = _scripted_complete(["Bostonn", "Bostonn", "Bostonn"])
+        with patch("dataforge.repairers.llm_corrector.complete", fake):
+            fix = corrector.propose(issue, self._city_df(), None)
+        assert fix is None
+
+    def test_none_answer_abstains(self, tmp_path: Path) -> None:
+        corrector = LLMCorrectorRepairer(
+            cache_dir=tmp_path, allow_llm=True, model="m", samples=3, pool_constrained=True
+        )
+        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="bostn")
+        fake = _scripted_complete(["NONE", "NONE", "NONE"])
+        with patch("dataforge.repairers.llm_corrector.complete", fake):
+            fix = corrector.propose(issue, self._city_df(), None)
+        assert fix is None
+
+    def test_pool_is_injected_into_prompt(self, tmp_path: Path) -> None:
+        corrector = LLMCorrectorRepairer(
+            cache_dir=tmp_path, allow_llm=True, model="m", samples=1, pool_constrained=True
+        )
+        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="bostn")
+        seen: dict[str, str] = {}
+
+        async def _record(messages, *, model, temperature):  # type: ignore[no-untyped-def]
+            seen["user"] = messages[1]["content"]
+            seen["system"] = messages[0]["content"]
+            return "Boston"
+
+        with patch("dataforge.repairers.llm_corrector.complete", _record):
+            corrector.propose(issue, self._city_df(), None)
+        assert "candidate_pool" in seen["user"]
+        assert "Boston" in seen["user"]
+        assert "NONE" in seen["system"]
+
+    def test_off_by_default_allows_free_text(self, tmp_path: Path) -> None:
+        # Default (pool_constrained=False): a non-pool free-text value still proposes,
+        # preserving the existing corrector behavior byte-for-byte.
+        corrector = LLMCorrectorRepairer(cache_dir=tmp_path, allow_llm=True, model="m", samples=3)
+        issue = _issue(row=0, column="city", issue_type="categorical_normalization", actual="bostn")
+        fake = _scripted_complete(["Bostonn", "Bostonn", "Bostonn"])
+        with patch("dataforge.repairers.llm_corrector.complete", fake):
+            fix = corrector.propose(issue, self._city_df(), None)
+        assert fix is not None and fix.fix.new_value == "Bostonn"

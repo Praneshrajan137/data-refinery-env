@@ -331,6 +331,15 @@ def repair(
             "combine with --allow-unproven-autoapply to auto-apply it.",
         ),
     ] = False,
+    corrector_pool_constrained: Annotated[
+        bool,
+        typer.Option(
+            "--corrector-pool-constrained",
+            help="Constrain the LLM corrector to SELECT a value from the column's frequent-value "
+            "pool (vs free-text). Measured ~5-10x higher proposal precision. Requires --allow-llm; "
+            "proposals stay review-only (never auto-applied).",
+        ),
+    ] = False,
     allow_unproven_autoapply: Annotated[
         bool,
         typer.Option(
@@ -529,6 +538,7 @@ def repair(
                 interactive=apply,
                 allow_entity_consensus=allow_entity_consensus,
                 allow_unproven_autoapply=allow_unproven_autoapply,
+                corrector_pool_constrained=corrector_pool_constrained,
                 corrector_policy=corrector_policy,
                 calibration_map_by_class=calibration_maps,
                 corrector_reference_confidences=corrector_reference,

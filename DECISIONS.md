@@ -12,6 +12,45 @@ Format for every entry:
 
 ---
 
+## 2026-07-27 - Candidate-constrained correction: deterministic NO-GO, LLM select-from-pool GO (propose-only)
+**Context**: Asked to elevate hospital candidate-constrained correction to the highest standard. First-
+principles re-derivation + a measure-first Phase 0 gate on hospital (the only categorical-heavy RAHA set:
+beers is out of the registry, rayyan clean-in-pool 1.4%, flights = time values, tax 97.9% numeric).
+**Measured (hospital, 509 errors; existing FD path fixes 451, misses 58)**:
+- Deterministic nearest-valid-in-pool corrector (additive to FD): fixes 23 but CORRUPTS 25 correct cells
+  (precision 0.47). The corruptions are rare-but-correct values that edit-distance cannot tell apart from
+  typos. Same over-correction that got format/categorical repairers withheld. NO-GO.
+- Precision-guard re-enable of the withheld repairers: 60 proposals, 0 correct -> pool-constraining them
+  yields 0 net benefit. NO-GO.
+- Provable-membership promotion: 99.78% of correct fixes are high-support members, but those are FD-
+  deterministic and ALREADY proven/auto-applying -> promotion unlocks nothing on hospital. Redundant.
+- LLM SELECT-FROM-POOL (live gpt-5.6-sol, 58 FD-missed cells): recovered 29, wrong 5, abstained (NONE) 24
+  -> recall 0.50, PRECISION 0.853; false-selection on correct cells 7.5%. The candidate-pool CONSTRAINT
+  lifts LLM correction precision from ~0.08-0.16 (free-text) to 0.85 - a 5-10x gain.
+**Alternatives**: (a) ship the deterministic corrector - rejected (corrupts); (b) auto-apply the LLM
+select-from-pool - rejected (0.85 << the 0.95 promotion bar, 7.5% false-select, the ECE/conformal wall
+stands); (c) propose-only pool-constrained LLM corrector (CHOSEN); (d) document-only - rejected, the lever
+is real.
+**Decision**: Add a flag-gated, propose-only `pool_constrained` mode to `LLMCorrectorRepairer`: it builds
+the column's support-graded frequent-value pool, injects it into the prompt, and enforces membership in
+`_candidate_ok` (non-members and NONE are rejected -> abstain). Threaded through build_repairers ->
+propose_fixes/propose_repairs -> RepairPipelineRequest and exposed as `dataforge repair
+--corrector-pool-constrained` (requires --allow-llm). Corrector output stays plausibility_only and is held
+for review by default (never auto-applied), so this only improves proposal quality. Default OFF -> the
+free-text corrector path is byte-identical.
+**Reasoning**: This is the one lever the measurement validated. It turns the uncalibratable free-text
+corrector (8-16% precision) into a usable 85%-precision proposer that recovers half of hospital's FD
+residual and abstains when unsure - the same human-in-the-loop role the frontier LLM earns elsewhere
+(review-ranker), never auto-apply. The deterministic and promotion levers were honest NO-GOs, documented
+rather than shipped.
+**Reviewed with**: Pranesh K R (funded the live probe; chose to productize the propose-only lever).
+**Reversal criteria**: if a broader dataset shows the pool constraint degrades recall without the precision
+gain, or if confidence can be calibrated enough for conformal to certify auto-apply (needs ~59 flawless
+samples at 0.95/0.95), revisit. Scope caveat: hospital is the only applicable benchmark dataset; the
+mechanism generalizes to any categorical-heavy table but is unmeasured beyond hospital.
+
+---
+
 ## 2026-07-26 - Cross-row entity consensus: fixing flights from 0.0, provably-gated
 **Context**: The product must not merely be honest about what it cannot fix - it must actually
 fix the user's data to the highest level, or no one adopts it. Measured reality: hospital

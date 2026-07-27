@@ -25,7 +25,7 @@ equally strong:
 | Portable, re-verifiable trust certificate | **Differentiated** | `certificate.verify_certificate` / `reverify_certificate`; independent in data, execution, and (schema path) implementation |
 | Distribution-free auto-apply gate (conformal + drift) | **Differentiated** | `conformal.py`; enforced by `release/corrector_gate.py` |
 | Deterministic correction accuracy | **Weak / narrow** | hospital F1 0.7926 (one dataset, under our scoring); flights 0.00 deterministic -> **0.4467 with cross-row entity consensus** (`allow_entity_consensus`); tax sampled 0.00 with 708 false positives |
-| LLM corrector accuracy | **Not usable for auto-apply** | ~6% precision, ECE ~0.8; auto-applies nothing (correctly) |
+| LLM corrector accuracy | **Not usable for auto-apply; usable as a proposer when pool-constrained** | free-text ~6-16% precision, ECE ~0.8 (auto-applies nothing, correctly). Constraining it to SELECT from the column's frequent-value pool lifts proposal precision to 0.85 (measured hospital, `--corrector-pool-constrained`); still review-only, never auto-applied |
 
 The moat is the trust machinery; the repairer is, today, commodity and narrow.
 A product judged on correction F1 competes on its weakest axis. A product judged
@@ -176,6 +176,15 @@ pre-filled one-click suggestion by default, auto-applied only under
 The locked hospital anchor stays byte-identical (0.7926) with the flag off.
 Reproducible evidence: `dataforge/detectors/entity_consensus.py`,
 `dataforge/repairers/entity_consensus.py`, DECISIONS 2026-07-26.
+
+**UPDATE 2026-07-27 - candidate-constrained correction: a mostly-NO-GO with one real lever.**
+Deterministic nearest-valid-in-pool correction is a NO-GO (it corrupts rare-but-correct values that edit-
+distance cannot distinguish from typos: hospital precision 0.47, 25 corruptions to fix 23). But
+constraining the LLM corrector to SELECT from the frequent-value pool (rather than free-generate) is a real
+lever: measured on hospital it lifts correction precision from ~0.08-0.16 to 0.85 and recovers half the FD
+residual, abstaining when unsure. Shipped as the propose-only `--corrector-pool-constrained` mode (never
+auto-applies; 0.85 is below the 0.95 auto-apply bar). Applies to categorical-heavy tables (hospital is the
+only such RAHA dataset). DECISIONS 2026-07-27.
 
 **What this closes and what it opens:** "use a stronger LLM to raise *auto-apply*
 accuracy" is answered - its verified-gate ROI is ~0 (corrector, agent, teacher,

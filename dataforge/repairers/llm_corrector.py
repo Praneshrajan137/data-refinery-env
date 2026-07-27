@@ -61,6 +61,14 @@ CompletionFn = Callable[[list["Message"]], str]
 _DEFAULT_SAMPLES = 3
 _DEFAULT_TEMPERATURE = 0.4
 _MAX_COLUMN_EXAMPLES = 20
+# Candidate-pool constraint (measured lever): restricting the model to SELECT a
+# value from the column's frequent values (rather than free-text) lifted measured
+# correction precision from ~0.08-0.16 to 0.85 on hospital. The pool is the
+# distinct values with support >= _POOL_MIN_SUPPORT, capped at _POOL_CAP by
+# frequency. It is a proposal constraint only -- corrector output is still
+# plausibility_only and held for review by default (never auto-applied).
+_POOL_MIN_SUPPORT = 2
+_POOL_CAP = 50
 
 
 async def complete(messages: list[Message], *, model: str, temperature: float) -> str:
@@ -146,6 +154,7 @@ class LLMCorrectorRepairer:
         samples: int = _DEFAULT_SAMPLES,
         temperature: float = _DEFAULT_TEMPERATURE,
         completion_fn: CompletionFn | None = None,
+        pool_constrained: bool = False,
     ) -> None:
         self._cache_dir = cache_dir
         self._allow_llm = allow_llm
@@ -153,7 +162,9 @@ class LLMCorrectorRepairer:
         self._samples = max(1, samples)
         self._temperature = temperature
         self._completion_fn = completion_fn
+        self._pool_constrained = pool_constrained
         self._schema_cache: tuple[int, Schema] | None = None
+        self._pool_cache: dict[tuple[int, str], list[str]] = {}
 
     def propose(
         self,
@@ -284,10 +295,28 @@ class LLMCorrectorRepairer:
         constraints: Schema,
     ) -> bool:
         """A candidate is acceptable only if it passes every gate the verifier will."""
+        if self._pool_constrained and value not in self._candidate_pool(df, issue.column):
+            return False
         if not contract.check(value).ok:
             return False
         violation = inferred_value_violation(df, issue.row, issue.column, value, constraints)
         return violation is None
+
+    def _candidate_pool(self, df: TableLike, column: str) -> list[str]:
+        """Return the column's frequent-value pool (support-graded, freq-capped).
+
+        Cached per (df identity, column). This is the closed candidate set the
+        constrained corrector must select from; the current (dirty) value is
+        naturally excluded when it is rare (below the support floor).
+        """
+        key = (id(df), column)
+        cached = self._pool_cache.get(key)
+        if cached is not None:
+            return cached
+        counts = Counter(str(v) for v in column_values(df, column) if str(v).strip() != "")
+        pool = [value for value, n in counts.most_common() if n >= _POOL_MIN_SUPPORT][:_POOL_CAP]
+        self._pool_cache[key] = pool
+        return pool
 
     def _build_messages(
         self,
@@ -307,11 +336,22 @@ class LLMCorrectorRepairer:
         if fd_context is not None:
             evidence["functional_dependency"] = fd_context
 
-        system = (
-            "You correct a single erroneous cell in a tabular dataset. "
-            "Use only the evidence provided; do not invent facts. "
-            "Respond with only the corrected value and nothing else."
-        )
+        if self._pool_constrained:
+            pool = self._candidate_pool(df, issue.column)
+            evidence["candidate_pool"] = pool
+            system = (
+                "You correct a single erroneous cell in a tabular dataset. Use only "
+                "the evidence provided; do not invent facts. You MUST choose the "
+                "corrected value EXACTLY from candidate_pool, using the other evidence "
+                "as context to disambiguate. If no candidate is clearly correct, "
+                "respond with exactly NONE. Respond with only the chosen value or NONE."
+            )
+        else:
+            system = (
+                "You correct a single erroneous cell in a tabular dataset. "
+                "Use only the evidence provided; do not invent facts. "
+                "Respond with only the corrected value and nothing else."
+            )
         user = f"{contract.describe()}\n\nEvidence:\n{json.dumps(evidence, sort_keys=True)}"
         return [
             {"role": "system", "content": system},
