@@ -1,0 +1,158 @@
+{
+  "metadata": {
+    "schema_version": "dataforge_benchmark_run_v2",
+    "methods": [
+      "entity_consensus"
+    ],
+    "datasets": [
+      "flights"
+    ],
+    "seeds": 1,
+    "seed_list": [
+      0
+    ],
+    "git_commit": "5af5b3ec497c8d0f363484f88fe9534d84bb8a02",
+    "git_dirty": true,
+    "generated_at_utc": "2026-07-27T13:42:43+00:00",
+    "python_version": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "dependency_versions": {
+      "dataforge": "0.1.0",
+      "httpx": "0.28.1",
+      "pandas": "2.3.3",
+      "pydantic": "2.13.4",
+      "python-dotenv": "1.2.2",
+      "typer": "0.24.1"
+    },
+    "generator_command": "dataforge bench --methods entity_consensus --datasets flights --seeds 1 --seed-list 0",
+    "reproduction_command": "dataforge bench --methods entity_consensus --datasets flights --seeds 1 --seed-list 0",
+    "dataset_evidence": [
+      {
+        "name": "flights",
+        "source_urls": [
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/flights/dirty.csv",
+          "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/flights/clean.csv"
+        ],
+        "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+        "n_rows": 2376,
+        "n_columns": 7
+      }
+    ],
+    "artifact_sha256s": {
+      "dataset:flights:dirty.csv": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+      "dataset:flights:clean.csv": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b"
+    }
+  },
+  "records": [
+    {
+      "method": "entity_consensus",
+      "dataset": "flights",
+      "seed": 0,
+      "status": "ok",
+      "skip_reason": null,
+      "precision": 0.8414,
+      "recall": 0.3041,
+      "f1": 0.4467,
+      "tp": 1496,
+      "fp": 282,
+      "fn": 3424,
+      "avg_steps": 1779.0,
+      "llm_calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "quota_units": 0.0,
+      "gpu_hours": 0.0,
+      "runtime_s": 0.8765,
+      "provider": "local",
+      "model": "deterministic",
+      "warnings": [],
+      "reproduction_command": "dataforge bench --methods entity_consensus --datasets flights --seeds 1 --seed-list 0",
+      "by_class": {
+        "missing_value": {
+          "error_class": "missing_value",
+          "support": 2370,
+          "detected": 2370,
+          "detection_recall": 1.0,
+          "tp": 1224,
+          "fn": 1146,
+          "recall": 0.5165,
+          "predicted_on_class": 1345,
+          "precision_on_class": 0.91
+        },
+        "value_format": {
+          "error_class": "value_format",
+          "support": 143,
+          "detected": 73,
+          "detection_recall": 0.5105,
+          "tp": 16,
+          "fn": 127,
+          "recall": 0.1119,
+          "predicted_on_class": 16,
+          "precision_on_class": 1.0
+        },
+        "text_normalization": {
+          "error_class": "text_normalization",
+          "support": 1729,
+          "detected": 104,
+          "detection_recall": 0.0602,
+          "tp": 104,
+          "fn": 1625,
+          "recall": 0.0602,
+          "predicted_on_class": 104,
+          "precision_on_class": 1.0
+        },
+        "other": {
+          "error_class": "other",
+          "support": 678,
+          "detected": 226,
+          "detection_recall": 0.3333,
+          "tp": 152,
+          "fn": 526,
+          "recall": 0.2242,
+          "predicted_on_class": 157,
+          "precision_on_class": 0.9682
+        }
+      },
+      "ece": null,
+      "precision_at_auto_apply": null,
+      "auto_apply_count": null,
+      "calibration_samples_by_class": null,
+      "calibration_samples_by_type": null,
+      "roc_auc": null,
+      "baseline_roc_auc": null,
+      "ranking_precision_at_k": null,
+      "baseline_precision_at_k": null,
+      "ranking_queue_precision_lift": null,
+      "ranking_k": null
+    }
+  ],
+  "aggregates": [
+    {
+      "method": "entity_consensus",
+      "dataset": "flights",
+      "status": "ok",
+      "skip_reason": null,
+      "seeds_requested": 1,
+      "seeds_completed": 1,
+      "precision_mean": 0.8414,
+      "precision_std": 0.0,
+      "recall_mean": 0.3041,
+      "recall_std": 0.0,
+      "f1_mean": 0.4467,
+      "f1_std": 0.0,
+      "avg_steps_mean": 1779.0,
+      "avg_steps_std": 0.0,
+      "quota_units_mean": 0.0,
+      "quota_units_std": 0.0,
+      "gpu_hours_mean": 0.0,
+      "gpu_hours_std": 0.0,
+      "runtime_s_mean": 0.8765,
+      "runtime_s_std": 0.0,
+      "provider": "local",
+      "model": "deterministic",
+      "reproduction_command": "dataforge bench --methods entity_consensus --datasets flights --seeds 1 --seed-list 0"
+    }
+  ]
+}

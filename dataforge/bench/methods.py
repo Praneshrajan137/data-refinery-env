@@ -45,11 +45,17 @@ def _reproduction_command(method: str, dataset: str, seeds: int) -> str:
 
 def _repairs_from_proposed_fixes(
     dataset: RealWorldDataset,
+    *,
+    allow_entity_consensus: bool = False,
 ) -> tuple[list[BenchmarkRepair], set[tuple[int, str]]]:
     """Run the shipped deterministic detector/repair stack on one dataset.
 
     Returns both the proposed repairs and the set of cells the detectors flagged
     (detection coverage), so detection and correction can be scored separately.
+
+    ``allow_entity_consensus`` (default off) enables the cross-row consensus
+    repairer; it is off for the heuristic baseline so that path stays
+    byte-identical, and on for the entity_consensus method.
     """
     inferred_schema = infer_schema(dataset.dirty_df.copy(deep=True)).to_schema(
         include_inferred_constraints=True
@@ -62,6 +68,7 @@ def _repairs_from_proposed_fixes(
         inferred_schema,
         cache_dir=None,
         allow_llm=False,
+        allow_entity_consensus=allow_entity_consensus,
     )
     repairs = [
         BenchmarkRepair(
@@ -103,6 +110,44 @@ def run_heuristic_episode(dataset: RealWorldDataset, *, seed: int) -> SeedBenchm
         provider="local",
         model="deterministic",
         reproduction_command=_reproduction_command("heuristic", dataset.metadata.name, 1),
+    )
+
+
+def run_entity_consensus_episode(dataset: RealWorldDataset, *, seed: int) -> SeedBenchmarkResult:
+    """Run the deterministic stack WITH the cross-row entity-consensus repairer.
+
+    Identical to the heuristic baseline except it enables ``allow_entity_consensus``,
+    which adds the sibling-row consensus repairer (multi-source data, e.g. flights).
+    Deterministic and LLM-free. The consensus value is held for review by default in
+    the product; this benchmark scores the proposals to measure correction lift
+    (flights correction F1 0.0000 -> 0.4467).
+    """
+    start = time.perf_counter()
+    repairs, detected_cells = _repairs_from_proposed_fixes(dataset, allow_entity_consensus=True)
+    metrics = score_repairs(dataset.ground_truth, repairs)
+    by_class = score_repairs_by_class(dataset.ground_truth, repairs, detected_cells)
+    runtime_s = round(time.perf_counter() - start, 4)
+    return SeedBenchmarkResult(
+        method="entity_consensus",
+        by_class=by_class,
+        dataset=dataset.metadata.name,
+        seed=seed,
+        status="ok",
+        precision=metrics.precision,
+        recall=metrics.recall,
+        f1=metrics.f1,
+        tp=metrics.tp,
+        fp=metrics.fp,
+        fn=metrics.fn,
+        avg_steps=float(1 + len(repairs)),
+        llm_calls=0,
+        prompt_tokens=0,
+        completion_tokens=0,
+        quota_units=0.0,
+        runtime_s=runtime_s,
+        provider="local",
+        model="deterministic",
+        reproduction_command=_reproduction_command("entity_consensus", dataset.metadata.name, 1),
     )
 
 

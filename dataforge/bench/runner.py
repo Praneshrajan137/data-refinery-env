@@ -26,6 +26,7 @@ from dataforge.bench.groq_client import (
     GroqBenchClient,
 )
 from dataforge.bench.methods import (
+    run_entity_consensus_episode,
     run_heuristic_episode,
     run_llm_corrector_episode,
     run_llm_react_episode,
@@ -37,7 +38,15 @@ from dataforge.datasets.real_world import load_real_world_dataset
 from dataforge.datasets.registry import DATASET_REGISTRY
 
 _SUPPORTED_METHODS = frozenset(
-    {"random", "heuristic", "llm_zeroshot", "llm_react", "llm_corrector", "llm_review_ranker"}
+    {
+        "random",
+        "heuristic",
+        "entity_consensus",
+        "llm_zeroshot",
+        "llm_react",
+        "llm_corrector",
+        "llm_review_ranker",
+    }
 )
 
 
@@ -382,6 +391,8 @@ def run_agent_comparison(
                     result = run_random_episode(dataset, seed=seed)
                 elif method == "heuristic":
                     result = run_heuristic_episode(dataset, seed=seed)
+                elif method == "entity_consensus":
+                    result = run_entity_consensus_episode(dataset, seed=seed)
                 elif method == "llm_zeroshot":
                     if client is None or skip_reason is not None:
                         result = _skipped_result(
