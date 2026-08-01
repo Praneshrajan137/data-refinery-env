@@ -1532,9 +1532,9 @@ function MissionBar({
           <span>
             <strong>Cross-row consensus</strong>
             <small>
-              {capability?.entity_consensus_available === false
-                ? "Unavailable"
-                : "Suggest fixes from an entity's sibling rows (review-only)"}
+              {capability?.entity_consensus_available
+                ? "Suggest fixes from an entity's sibling rows (review-only)"
+                : "Unavailable"}
             </small>
           </span>
           <input
@@ -1542,7 +1542,7 @@ function MissionBar({
             type="checkbox"
             role="switch"
             checked={allowEntityConsensus}
-            disabled={busy || capability?.entity_consensus_available === false}
+            disabled={busy || !capability?.entity_consensus_available}
             onChange={(event) => onEntityConsensusChange(event.target.checked)}
           />
         </label>

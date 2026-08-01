@@ -38,3 +38,21 @@ CHANGELOG.md
 # NOTE: README.md is NOT excluded — HuggingFace Spaces reads it for the landing page
 # NOTE: uv.lock is NOT excluded — Dockerfile uses it for reproducible frozen builds
 # NOTE: datasets/ is NOT excluded — environment loads data from it at runtime
+
+# Large trees NOT needed in the backend image (keeps the ACR/HF build context small).
+# The Dockerfile only copies playground/api, pyproject.toml, README.md, dataforge/, constitutions/.
+playground/web/
+eval/
+training/
+tests/
+docs/
+notebooks/
+*.ipynb
+scripts/
+specs/
+packages/
+dataforge-mcp/
+.hf-space-repo/
+.hf-space-stage/
+site/
+

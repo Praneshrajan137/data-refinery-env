@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space";
+const DEFAULT_BACKEND_URL = "https://dataforge-backend.nicestone-bf1c8441.eastus2.azurecontainerapps.io";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const webRoot = dirname(scriptDir);
 const dashboardEditableConfig = join(webRoot, "config.js");
