@@ -28,19 +28,25 @@ from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from dataforge.calibration_map import CalibrationMap
+    from dataforge.table import TableLike
 
 __all__ = [
     "AbstentionAction",
     "AbstentionPolicy",
+    "CalibrationScope",
     "calibrated_conformal_corrector_policy",
     "conformal_corrector_policy",
     "corrector_default_policy",
     "default_policy",
     "fit_thresholds",
     "guard_policy_for_drift",
+    "guard_policy_for_drift_by_class",
+    "guard_policy_for_scope",
+    "load_calibration_scope",
     "load_corrector_calibration",
     "policy_from_corrector_samples",
     "severity_for_action",
+    "table_fingerprint",
 ]
 
 AbstentionAction = Literal["auto_apply", "review"]
@@ -350,6 +356,171 @@ def load_corrector_calibration(
         str(issue_type): [float(c) for c in confs] for issue_type, confs in reference_block.items()
     }
     return policy, maps, reference_confidences
+
+
+def guard_policy_for_drift_by_class(
+    policy: AbstentionPolicy,
+    reference_confidences: Mapping[str, Sequence[float]],
+    live_confidences_by_class: Mapping[str, Sequence[float]],
+    *,
+    psi_threshold: float = 0.2,
+    min_live: int = 5,
+) -> tuple[AbstentionPolicy, dict[str, float]]:
+    """Downgrade only the issue types whose confidence distribution has drifted.
+
+    :func:`guard_policy_for_drift` pools every class into one PSI comparison, which
+    discards precisely the Mondrian structure that :func:`certify_thresholds_by_class`
+    builds: certification is *per class*, so enforcement should be too. Pooling has two
+    failure modes, both silent. A shift confined to one class can be masked by the pooled
+    histogram, leaving a drifted class auto-applying; and a shift in one class can trip the
+    pooled test, needlessly disabling every other class.
+
+    Classes with fewer than ``min_live`` live confidences are left untouched, because PSI
+    on a handful of points is noise rather than evidence.
+
+    Args:
+        policy: The certified policy to start from.
+        reference_confidences: Calibration-time confidences per issue type.
+        live_confidences_by_class: This run's raw LLM confidences per issue type.
+        psi_threshold: PSI above which a class is downgraded (default 0.2).
+        min_live: Minimum live samples before a class is judged at all.
+
+    Returns:
+        ``(guarded_policy, psi_by_class)``. Drifted classes are set to
+        :data:`~dataforge.conformal.ABSTAIN_THRESHOLD` so they can never auto-apply, and
+        are added to ``uncertified_classes`` so the reason surfaces truthfully. Undrifted
+        classes keep their certified thresholds.
+    """
+    from dataforge.conformal import ABSTAIN_THRESHOLD, population_stability_index
+
+    psi_by_class: dict[str, float] = {}
+    drifted: list[str] = []
+    for issue_type, live in live_confidences_by_class.items():
+        reference = reference_confidences.get(issue_type)
+        if not reference or len(live) < min_live:
+            continue
+        psi = population_stability_index(list(reference), list(live))
+        psi_by_class[issue_type] = round(psi, 6)
+        if psi > psi_threshold:
+            drifted.append(issue_type)
+
+    if not drifted:
+        return policy, psi_by_class
+
+    thresholds = dict(policy.auto_apply_thresholds)
+    for issue_type in drifted:
+        thresholds[issue_type] = ABSTAIN_THRESHOLD
+    uncertified = dict(policy.uncertified_classes)
+    for issue_type in drifted:
+        uncertified[issue_type] = (
+            f"drift_downgraded: PSI {psi_by_class[issue_type]:.3f} > {psi_threshold} "
+            "against the calibration reference for this class"
+        )
+    return (
+        policy.model_copy(
+            update={"auto_apply_thresholds": thresholds, "uncertified_classes": uncertified}
+        ),
+        psi_by_class,
+    )
+
+
+class CalibrationScope(BaseModel):
+    """The table a calibration artifact was fitted on, so it cannot be misapplied.
+
+    A conformal certificate is valid only for data exchangeable with its calibration
+    sample. Before this existed, nothing stopped a user pointing
+    ``--corrector-calibration`` at an artifact fitted on a different table entirely: the
+    loader validated JSON shape and nothing else, and the only runtime defence was a PSI
+    check on the confidence histogram that is a no-op for artifacts without a reference.
+    A schema fingerprint is a cheap, decidable necessary condition -- it cannot prove
+    exchangeability, but it catches the blatant case of applying one dataset's certificate
+    to another.
+    """
+
+    model_config = {"frozen": True}
+
+    dataset: str | None = Field(default=None, description="Dataset name recorded at fit time.")
+    columns: tuple[str, ...] = Field(default=(), description="Sorted column names at fit time.")
+    fingerprint: str | None = Field(
+        default=None, description="Stable hash of the sorted column/dtype pairs."
+    )
+
+
+def table_fingerprint(df: TableLike) -> str:
+    """Return a stable hash of a table's column set.
+
+    Deliberately excludes row count and cell values: a certificate should survive a table
+    growing or its rows changing, but not its *shape* changing.
+
+    **Honest limit.** This is a *necessary* condition, not a sufficient one. Two tables
+    with identical columns can still be non-exchangeable (different populations, units, or
+    eras), so a matching fingerprint does not establish that a certificate applies -- it
+    only rules out the blatant case of applying one dataset's certificate to a structurally
+    different table. Distribution drift remains the responsibility of the PSI guards.
+    """
+    import hashlib
+
+    from dataforge.table import column_names
+
+    parts = sorted(str(name) for name in column_names(df))
+    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:32]
+
+
+def load_calibration_scope(path: Path) -> CalibrationScope | None:
+    """Read the optional ``scope`` block from a calibration artifact.
+
+    Returns ``None`` when absent, which is the case for every artifact written before this
+    field existed. ``None`` means "unknown scope", and callers must treat that as *not
+    verifiable* rather than as *verified*.
+    """
+    raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("Corrector calibration artifact must be a JSON object.")
+    block = raw.get("scope")
+    if not isinstance(block, dict):
+        return None
+    return CalibrationScope.model_validate(block)
+
+
+def guard_policy_for_scope(
+    policy: AbstentionPolicy,
+    scope: CalibrationScope | None,
+    df: TableLike,
+) -> tuple[AbstentionPolicy, str | None]:
+    """Refuse a certified policy whose calibration table does not match this one.
+
+    Fails **closed on unknown**: an artifact with no recorded scope cannot be shown to
+    apply here, so auto-apply is downgraded rather than assumed valid. That is the
+    conservative reading of the exchangeability precondition, and it is the opposite of
+    the previous behaviour, which accepted any artifact against any table.
+
+    Args:
+        policy: The certified policy from the artifact.
+        scope: The artifact's recorded scope, or ``None`` if it has none.
+        df: The table about to be repaired.
+
+    Returns:
+        ``(policy, None)`` when the scope matches, else
+        ``(corrector_default_policy(), reason)``.
+    """
+    if policy.auto_apply_thresholds == {} and policy.default_threshold > 1.0:
+        return policy, None  # already fully disabled; nothing to guard
+    if scope is None or scope.fingerprint is None:
+        return (
+            corrector_default_policy(),
+            "calibration artifact records no table scope, so it cannot be shown to apply "
+            "to this table; auto-apply downgraded to propose-only",
+        )
+    actual = table_fingerprint(df)
+    if actual != scope.fingerprint:
+        return (
+            corrector_default_policy(),
+            f"calibration artifact was fitted on a different table shape "
+            f"(scope fingerprint {scope.fingerprint}, this table {actual}"
+            + (f", scope dataset {scope.dataset!r}" if scope.dataset else "")
+            + "); auto-apply downgraded to propose-only",
+        )
+    return policy, None
 
 
 def guard_policy_for_drift(

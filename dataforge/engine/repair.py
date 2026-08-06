@@ -23,6 +23,7 @@ from dataforge.calibration import (
     AbstentionPolicy,
     corrector_default_policy,
     guard_policy_for_drift,
+    guard_policy_for_drift_by_class,
 )
 from dataforge.calibration_map import CalibrationMap
 from dataforge.detectors import run_all_detectors
@@ -314,6 +315,7 @@ class RepairPipelineRequest(BaseModel):
     require_declared_fds_for_autoapply: bool = False
     allow_entity_consensus: bool = False
     corrector_pool_constrained: bool = False
+    corrector_structured: bool = False
     require_independent_agreement: bool = True
     interactive: bool = False
     create_dry_run_transaction: bool = False
@@ -566,6 +568,7 @@ def propose_repairs(
     require_independent_agreement: bool = True,
     allow_entity_consensus: bool = False,
     corrector_pool_constrained: bool = False,
+    corrector_structured: bool = False,
 ) -> tuple[list[ProposedFix], list[list[RepairAttempt]]]:
     """Run repairers and gates issue-by-issue against a working dataframe.
 
@@ -589,6 +592,7 @@ def propose_repairs(
             model=model,
             allow_entity_consensus=allow_entity_consensus,
             corrector_pool_constrained=corrector_pool_constrained,
+            corrector_structured=corrector_structured,
         )
     safety_filter = SafetyFilter()
     verifier = SMTVerifier()
@@ -840,17 +844,34 @@ def _guard_corrector_policy_for_drift(
     """Downgrade the corrector policy to propose-not-apply under distribution drift.
 
     The conformal auto-apply guarantee holds only for data exchangeable with the
-    calibration sample. We PSI-compare the live LLM-confidence distribution (raw
-    confidences of LLM-provenance fixes this run) against the pooled calibration
-    reference; if the shift exceeds the PSI threshold, :func:`guard_policy_for_drift`
-    returns the conservative propose-not-apply policy so the certificate is never
-    claimed outside its scope. A no-op when there is no reference, no LLM fix, or the
-    policy is already the conservative default.
+    calibration sample. Drift is judged **per issue type**, because certification is
+    per issue type: :func:`guard_policy_for_drift_by_class` disables only the classes whose
+    own confidence distribution has shifted, leaving the rest certified. Pooling every class
+    into one PSI test (the previous behaviour) both masked single-class drift behind the
+    aggregate histogram and let one drifted class needlessly disable every other.
+
+    Falls back to the pooled comparison only when no class has enough live samples to judge,
+    so a small run still gets some protection rather than none. A no-op when there is no
+    reference or no LLM fix.
     """
     if not reference_confidences:
         return policy
+    live_by_class: dict[str, list[float]] = {}
+    for fix in fixes:
+        if fix.provenance in _LLM_PROVENANCE:
+            live_by_class.setdefault(fix.fix.detector_id, []).append(fix.confidence)
+    if not live_by_class:
+        return policy
+
+    guarded, psi_by_class = guard_policy_for_drift_by_class(
+        policy, reference_confidences, live_by_class
+    )
+    if psi_by_class:
+        return guarded
+    # No class had enough live samples to judge; fall back to the pooled test so a
+    # small run is not left completely unguarded.
     reference = [conf for confs in reference_confidences.values() for conf in confs]
-    live = [fix.confidence for fix in fixes if fix.provenance in _LLM_PROVENANCE]
+    live = [conf for confs in live_by_class.values() for conf in confs]
     if not reference or not live:
         return policy
     return guard_policy_for_drift(policy, reference, live)
@@ -1227,6 +1248,7 @@ def run_repair_pipeline(
             require_independent_agreement=request.require_independent_agreement,
             allow_entity_consensus=request.allow_entity_consensus,
             corrector_pool_constrained=request.corrector_pool_constrained,
+            corrector_structured=request.corrector_structured,
         )
 
     # Route LLM-origin corrections: auto-apply only when a calibrated per-class

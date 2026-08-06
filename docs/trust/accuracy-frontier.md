@@ -112,7 +112,7 @@ ones, so they are not inferable from in-table signal without a declared schema o
 an external model. DataForge's deterministic in-table correction is therefore at
 its **honest frontier**. Further auto-apply accuracy must come from (1)
 schema-directed **reviewed** repair (shipped: `date_transposition`) or (2) the
-calibrated, conformally-certified LLM path (`docs/trust/` + `dataforge.conformal`)
+calibrated, conformally-certified LLM path (`docs/trust/certification-promises.md` + `dataforge.conformal`)
 — never from more in-table detector hunting that guesses. Chasing a headline F1
 by auto-applying unprovable values is explicitly out of scope; it would violate
 the product's core guarantee.

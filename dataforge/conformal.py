@@ -115,6 +115,7 @@ def certify_threshold(
     alpha: float,
     delta: float = 0.05,
     min_support: int = 30,
+    grid: Sequence[float] | None = None,
 ) -> float | None:
     """Certify the lowest confidence threshold whose auto-apply error <= alpha.
 
@@ -133,6 +134,18 @@ def certify_threshold(
     (valid for data exchangeable with the calibration sample; see the module
     docstring). We return the lowest certified threshold to maximize coverage.
 
+    **Validity caveat on the candidate grid - do not gloss this.** Fixed sequential
+    testing requires the candidate sequence to be *pre-specified*, i.e. independent
+    of the calibration labels. When ``grid`` is ``None`` this function derives the
+    candidates from the *observed* calibration confidences, which is data-dependent
+    selection. That is a **validity** weakness, not merely the coverage/power
+    limitation it has previously been documented as: the clean family-wise ``delta``
+    claim above is then not strictly earned. The effect is plausibly second-order
+    here, because the grid depends on the confidence *values* while the tests depend
+    on the *labels* - but it is not zero and must not be presented as an exact
+    distribution-free guarantee. Pass an explicit ``grid`` to obtain the guarantee
+    exactly as stated.
+
     Args:
         calibration: ``(confidence, was_correct)`` pairs from a held-out
             calibration split - never the samples used to report final metrics.
@@ -140,6 +153,9 @@ def certify_threshold(
         delta: Failure probability of the guarantee.
         min_support: Minimum accepted-sample count before a threshold is eligible
             to certify (guards against certifying on a starved set).
+        grid: Optional pre-specified, label-independent candidate thresholds, tested
+            in descending order. Supplying this is what makes the FWER claim exact;
+            omitting it falls back to the observed confidences (see the caveat above).
 
     Returns:
         The lowest certified confidence threshold, or ``None`` if none can be
@@ -153,8 +169,16 @@ def certify_threshold(
         return None
 
     certified: float | None = None
-    # Fixed sequence: purest (highest) threshold first, descending.
-    for threshold in sorted({conf for conf, _ in calibration}, reverse=True):
+    # Fixed sequence: purest (highest) threshold first, descending. A caller-supplied
+    # grid is label-independent and therefore makes the FWER claim exact; the fallback
+    # derives candidates from observed confidences, which is data-dependent selection
+    # (see the validity caveat in the docstring).
+    candidates = (
+        sorted({float(value) for value in grid}, reverse=True)
+        if grid is not None
+        else sorted({conf for conf, _ in calibration}, reverse=True)
+    )
+    for threshold in candidates:
         accepted = [correct for conf, correct in calibration if conf >= threshold]
         n = len(accepted)
         if n < min_support:
