@@ -826,7 +826,10 @@ class TestAzureBenchClient:
             )
             client.complete([{"role": "user", "content": "hi"}])
             client.complete([{"role": "user", "content": "hi"}])
-            with pytest.raises(CostCapExceededError, match="Azure spend guard tripped"):
+            # The shared SpendMeter names the provider by its canonical
+            # identifier, so the message is lowercase for every provider (the
+            # old per-client copies disagreed: "Azure"/"Bedrock" but "grok").
+            with pytest.raises(CostCapExceededError, match="azure spend guard tripped"):
                 client.complete([{"role": "user", "content": "hi"}])
 
         assert client.cumulative_usd == pytest.approx(0.054)

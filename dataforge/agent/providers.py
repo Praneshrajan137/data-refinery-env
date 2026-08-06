@@ -16,6 +16,12 @@ No LLM calls are made by detectors — this module is for the agent loop
 
 The interface is:
     ``async def complete(messages, model, temperature) -> str``
+
+and, for callers that need spend accounting or a constrained response format:
+    ``async def complete_with_usage(...) -> Completion``
+
+``complete`` delegates to ``complete_with_usage``, so existing callers are
+unaffected while the product path finally becomes meterable.
 """
 
 from __future__ import annotations
@@ -25,7 +31,9 @@ from dataclasses import dataclass
 from typing import Literal, TypedDict
 
 import httpx
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+
+from dataforge.spend import SpendMeter, meter_from_env
 
 # ── Message type ──────────────────────────────────────────────────────────
 
@@ -56,6 +64,126 @@ class ProviderError(Exception):
     def __init__(self, provider: str, message: str) -> None:
         self.provider = provider
         super().__init__(f"[{provider}] {message}")
+
+
+# ── Usage accounting ──────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Usage:
+    """Token usage for a single completion.
+
+    Args:
+        prompt_tokens: Billed prompt tokens.
+        completion_tokens: Billed completion tokens (inclusive of reasoning).
+        reasoning_tokens: Hidden reasoning tokens, when the provider reports them.
+        present: Whether the provider actually returned a usage payload. False
+            means the numbers are zeros, not that the call was free -- callers
+            that meter spend must treat this as unaccounted.
+    """
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    present: bool = True
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Completion:
+    """A provider completion plus its usage and provenance."""
+
+    text: str
+    usage: Usage
+    provider: str
+    model: str
+
+
+def _usage_from_openai(data: dict[str, object]) -> Usage:
+    """Extract usage from an OpenAI-style response body."""
+    raw = data.get("usage")
+    if not isinstance(raw, dict):
+        return Usage(present=False)
+    details = raw.get("completion_tokens_details")
+    reasoning = 0
+    if isinstance(details, dict):
+        value = details.get("reasoning_tokens", 0)
+        reasoning = int(value) if isinstance(value, int | float) else 0
+    return Usage(
+        prompt_tokens=int(raw.get("prompt_tokens", 0) or 0),
+        completion_tokens=int(raw.get("completion_tokens", 0) or 0),
+        reasoning_tokens=reasoning,
+    )
+
+
+def _usage_from_gemini(data: dict[str, object]) -> Usage:
+    """Extract usage from a Gemini generateContent response body."""
+    raw = data.get("usageMetadata")
+    if not isinstance(raw, dict):
+        return Usage(present=False)
+    return Usage(
+        prompt_tokens=int(raw.get("promptTokenCount", 0) or 0),
+        completion_tokens=int(raw.get("candidatesTokenCount", 0) or 0),
+    )
+
+
+def _usage_from_bedrock(data: dict[str, object]) -> Usage:
+    """Extract usage from a Bedrock Converse response body."""
+    raw = data.get("usage")
+    if not isinstance(raw, dict):
+        return Usage(present=False)
+    return Usage(
+        prompt_tokens=int(raw.get("inputTokens", 0) or 0),
+        completion_tokens=int(raw.get("outputTokens", 0) or 0),
+    )
+
+
+# The product path had no spend guard at all: `dataforge repair --agent` could
+# make unbounded billable calls. This process-wide meter closes that hole. It is
+# configured from DATAFORGE_MAX_USD (or DATAFORGE_<PROVIDER>_MAX_USD) and rebuilt
+# when the provider changes, so tests and long-lived processes stay correct.
+_METER: SpendMeter | None = None
+_METER_KEY: tuple[str, str] | None = None
+
+
+def _active_meter(provider: str, model: str) -> SpendMeter:
+    """Return the process-wide spend meter for this provider/model."""
+    global _METER, _METER_KEY
+    key = (provider, model)
+    if _METER is None or key != _METER_KEY:
+        _METER = meter_from_env(provider=provider, model=model)
+        _METER_KEY = key
+    return _METER
+
+
+def spend_meter() -> SpendMeter | None:
+    """Return the active product-path spend meter, if any calls have been made.
+
+    Exposed so a CLI or script can emit a spend receipt after a run.
+    """
+    return _METER
+
+
+def reset_spend_meter() -> None:
+    """Discard the process-wide meter (used by tests and between runs)."""
+    global _METER, _METER_KEY
+    _METER = None
+    _METER_KEY = None
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Return whether a provider failure is worth retrying.
+
+    The previous policy retried *every* ``HTTPStatusError`` -- including 400/401/404,
+    which will never succeed on retry and just triple the latency of a
+    misconfiguration -- while not retrying timeouts at all, even though a slow
+    reasoning deployment timing out mid-run was the documented failure mode that
+    killed earlier paid runs. This mirrors the bench clients' correct policy.
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in {429, 500, 502, 503, 504}
+    return False
 
 
 # ── Provider dispatch ─────────────────────────────────────────────────────
@@ -153,6 +281,9 @@ async def complete(
 ) -> str:
     """Send a chat completion request to the active LLM provider.
 
+    Thin wrapper over :func:`complete_with_usage` that returns only the text, so
+    every existing caller is unaffected by the addition of usage accounting.
+
     Args:
         messages: List of chat messages forming the conversation.
         model: Optional model override. If None, uses the provider default.
@@ -164,34 +295,85 @@ async def complete(
     Raises:
         NotImplementedError: If the provider is not yet implemented.
         ProviderError: If the API call fails after retries.
+        CostCapExceededError: If the configured USD cap is exceeded.
 
     Example:
         >>> import asyncio
         >>> msgs = [{"role": "user", "content": "What is 2+2?"}]
         >>> # result = asyncio.run(complete(msgs))  # requires API key
     """
+    result = await complete_with_usage(messages, model=model, temperature=temperature)
+    return result.text
+
+
+async def complete_with_usage(
+    messages: list[Message],
+    *,
+    model: str | None = None,
+    temperature: float = 0.0,
+    response_format: dict[str, object] | None = None,
+) -> Completion:
+    """Send a chat completion request and return the text plus token usage.
+
+    Usage is recorded against a process-wide spend meter configured from
+    ``DATAFORGE_MAX_USD`` / ``DATAFORGE_<PROVIDER>_MAX_USD``, so the product path
+    is capped rather than unbounded.
+
+    Args:
+        messages: List of chat messages forming the conversation.
+        model: Optional model override. If None, uses the provider default.
+        temperature: Sampling temperature (0.0 = deterministic). Ignored by
+            reasoning deployments, which do not support the parameter.
+        response_format: Optional OpenAI-style ``response_format`` (e.g. a strict
+            ``json_schema``). Supported on the OpenAI-compatible and Azure paths;
+            ignored elsewhere.
+
+    Returns:
+        A :class:`Completion` with text, usage, provider, and resolved model.
+
+    Raises:
+        NotImplementedError: If the provider is not yet implemented.
+        ProviderError: If the API call fails after retries.
+        CostCapExceededError: If the configured USD cap is exceeded.
+    """
     provider = get_provider_name()
 
     if provider in _OPENAI_COMPAT_CONFIG:
-        return await _complete_openai_compat(
-            messages, provider=provider, model=model, temperature=temperature
+        result = await _complete_openai_compat(
+            messages,
+            provider=provider,
+            model=model,
+            temperature=temperature,
+            response_format=response_format,
         )
-    if provider == "gemini":
-        return await _complete_gemini(messages, model=model, temperature=temperature)
-    if provider == "bedrock":
-        return await _complete_bedrock(messages, model=model, temperature=temperature)
-    if provider == "azure":
-        return await _complete_azure(messages, model=model, temperature=temperature)
-
-    if provider in _SUPPORTED_PROVIDERS:
+    elif provider == "gemini":
+        result = await _complete_gemini(messages, model=model, temperature=temperature)
+    elif provider == "bedrock":
+        result = await _complete_bedrock(messages, model=model, temperature=temperature)
+    elif provider == "azure":
+        result = await _complete_azure(
+            messages,
+            model=model,
+            temperature=temperature,
+            response_format=response_format,
+        )
+    elif provider in _SUPPORTED_PROVIDERS:
         raise NotImplementedError(
             f"Provider '{provider}' is planned but not yet implemented. "
             f"Use 'groq', 'grok', 'cerebras', 'gemini', 'bedrock', or 'azure'."
         )
+    else:
+        raise NotImplementedError(
+            f"Unknown provider '{provider}'. Supported: {sorted(_SUPPORTED_PROVIDERS)}"
+        )
 
-    raise NotImplementedError(
-        f"Unknown provider '{provider}'. Supported: {sorted(_SUPPORTED_PROVIDERS)}"
+    _active_meter(result.provider, result.model).record(
+        prompt_tokens=result.usage.prompt_tokens,
+        completion_tokens=result.usage.completion_tokens,
+        reasoning_tokens=result.usage.reasoning_tokens,
+        usage_present=result.usage.present,
     )
+    return result
 
 
 # ── OpenAI-compatible providers (groq, grok/xAI, cerebras) ────────────────
@@ -233,7 +415,7 @@ _OPENAI_COMPAT_CONFIG: dict[str, _OpenAICompatConfig] = {
 
 
 @retry(
-    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    retry=retry_if_exception(_is_retryable),
     wait=wait_exponential(multiplier=1, min=1, max=30),
     stop=stop_after_attempt(3),
     reraise=True,
@@ -244,7 +426,8 @@ async def _complete_openai_compat(
     provider: str,
     model: str | None = None,
     temperature: float = 0.0,
-) -> str:
+    response_format: dict[str, object] | None = None,
+) -> Completion:
     """Call any OpenAI-compatible chat completions API (groq, grok, cerebras).
 
     Args:
@@ -252,9 +435,10 @@ async def _complete_openai_compat(
         provider: One of the keys in ``_OPENAI_COMPAT_CONFIG``.
         model: Model name (defaults to the provider's configured default).
         temperature: Sampling temperature.
+        response_format: Optional OpenAI-style structured-output spec.
 
     Returns:
-        The assistant's response text.
+        The completion text with token usage.
 
     Raises:
         ProviderError: If the API key is missing or the response is malformed.
@@ -264,11 +448,14 @@ async def _complete_openai_compat(
     if not api_key:
         raise ProviderError(provider, f"{config.api_key_env} environment variable not set")
 
-    payload = {
-        "model": model or resolve_model(provider),
+    model_name = model or resolve_model(provider)
+    payload: dict[str, object] = {
+        "model": model_name,
         "messages": [dict(m) for m in messages],
         "temperature": temperature,
     }
+    if response_format is not None:
+        payload["response_format"] = response_format
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
@@ -283,9 +470,15 @@ async def _complete_openai_compat(
 
     data = response.json()
     try:
-        return str(data["choices"][0]["message"]["content"])
+        text = str(data["choices"][0]["message"]["content"])
     except (KeyError, IndexError) as exc:
         raise ProviderError(provider, f"Unexpected response format: {data}") from exc
+    return Completion(
+        text=text,
+        usage=_usage_from_openai(data),
+        provider=provider,
+        model=model_name,
+    )
 
 
 async def _complete_groq(
@@ -295,9 +488,10 @@ async def _complete_groq(
     temperature: float = 0.0,
 ) -> str:
     """Backward-compatible Groq entry point; delegates to the generic path."""
-    return await _complete_openai_compat(
+    result = await _complete_openai_compat(
         messages, provider="groq", model=model, temperature=temperature
     )
+    return result.text
 
 
 # ── Gemini provider ──────────────────────────────────────────────────────
@@ -309,7 +503,7 @@ _GEMINI_DEFAULT_MODEL = "gemini-2.0-flash"
 
 
 @retry(
-    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    retry=retry_if_exception(_is_retryable),
     wait=wait_exponential(multiplier=1, min=1, max=30),
     stop=stop_after_attempt(3),
     reraise=True,
@@ -319,7 +513,7 @@ async def _complete_gemini(
     *,
     model: str | None = None,
     temperature: float = 0.0,
-) -> str:
+) -> Completion:
     """Call Google's Gemini generativeLanguage API.
 
     Args:
@@ -328,7 +522,7 @@ async def _complete_gemini(
         temperature: Sampling temperature.
 
     Returns:
-        The assistant's response text.
+        The completion text with token usage.
 
     Raises:
         ProviderError: If the response is malformed.
@@ -373,9 +567,15 @@ async def _complete_gemini(
 
     data = response.json()
     try:
-        return str(data["candidates"][0]["content"]["parts"][0]["text"])
+        text = str(data["candidates"][0]["content"]["parts"][0]["text"])
     except (KeyError, IndexError) as exc:
         raise ProviderError("gemini", f"Unexpected response format: {data}") from exc
+    return Completion(
+        text=text,
+        usage=_usage_from_gemini(data),
+        provider="gemini",
+        model=model_name,
+    )
 
 
 # ── Bedrock provider ─────────────────────────────────────────────────────
@@ -386,7 +586,7 @@ _BEDROCK_MAX_TOKENS = 256
 
 
 @retry(
-    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    retry=retry_if_exception(_is_retryable),
     wait=wait_exponential(multiplier=1, min=1, max=30),
     stop=stop_after_attempt(3),
     reraise=True,
@@ -396,7 +596,7 @@ async def _complete_bedrock(
     *,
     model: str | None = None,
     temperature: float = 0.0,
-) -> str:
+) -> Completion:
     """Call Amazon Bedrock's Converse API using a bearer-token API key.
 
     Bedrock is not OpenAI-compatible: the ``system`` prompt is a top-level
@@ -458,9 +658,15 @@ async def _complete_bedrock(
 
     data = response.json()
     try:
-        return str(data["output"]["message"]["content"][0]["text"])
+        text = str(data["output"]["message"]["content"][0]["text"])
     except (KeyError, IndexError) as exc:
         raise ProviderError("bedrock", f"Unexpected response format: {data}") from exc
+    return Completion(
+        text=text,
+        usage=_usage_from_bedrock(data),
+        provider="bedrock",
+        model=model_name,
+    )
 
 
 # ── Azure OpenAI provider ────────────────────────────────────────────────
@@ -531,7 +737,7 @@ def _azure_marketplace_guard(model_name: str) -> None:
 
 
 @retry(
-    retry=retry_if_exception_type(httpx.HTTPStatusError),
+    retry=retry_if_exception(_is_retryable),
     wait=wait_exponential(multiplier=1, min=1, max=30),
     stop=stop_after_attempt(3),
     reraise=True,
@@ -541,7 +747,8 @@ async def _complete_azure(
     *,
     model: str | None = None,
     temperature: float = 0.0,
-) -> str:
+    response_format: dict[str, object] | None = None,
+) -> Completion:
     """Call an Azure OpenAI deployment's chat/completions API.
 
     Azure OpenAI is OpenAI-compatible (system stays a message role), but the
@@ -598,6 +805,8 @@ async def _complete_azure(
         payload["reasoning_effort"] = effort
     if _env_truthy("DATAFORGE_AZURE_SEND_TEMPERATURE"):
         payload["temperature"] = temperature
+    if response_format is not None:
+        payload["response_format"] = response_format
 
     async with httpx.AsyncClient(timeout=_azure_timeout_s()) as client:
         response = await client.post(
@@ -610,6 +819,12 @@ async def _complete_azure(
 
     data = response.json()
     try:
-        return str(data["choices"][0]["message"]["content"])
+        text = str(data["choices"][0]["message"]["content"])
     except (KeyError, IndexError) as exc:
         raise ProviderError("azure", f"Unexpected response format: {data}") from exc
+    return Completion(
+        text=text,
+        usage=_usage_from_openai(data),
+        provider="azure",
+        model=model_name,
+    )

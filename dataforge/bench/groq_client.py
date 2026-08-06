@@ -10,6 +10,16 @@ from typing import Protocol, cast
 
 import httpx
 
+from dataforge.spend import CostCapExceededError, ModelPrice, SpendMeter
+
+__all__ = [
+    "BenchLLMClient",
+    "CostCapExceededError",
+    "GroqCompletion",
+    "ProviderRateLimitError",
+    "ProviderRequestError",
+]
+
 
 class ProviderRequestError(RuntimeError):
     """Raised when a provider rejects a benchmark request payload."""
@@ -19,13 +29,29 @@ class ProviderRateLimitError(ProviderRequestError):
     """Raised when a provider asks us to wait longer than the configured cap."""
 
 
-class CostCapExceededError(RuntimeError):
-    """Raised when cumulative estimated spend crosses the configured USD cap.
+def _build_meter(
+    *,
+    provider: str,
+    model: str,
+    usd_per_1k_input: float | None,
+    usd_per_1k_output: float | None,
+    max_usd: float | None,
+) -> SpendMeter:
+    """Build the single shared spend guard for a bench client.
 
-    This is a hard stop: once raised, no further billable calls are made. The
-    estimate uses conservative (high) per-token prices so the guard trips early
-    rather than late.
+    Prices of ``None`` mean "unpriced" (free tier), which disables the USD guard
+    while still counting calls and tokens -- exactly the previous behavior of the
+    per-client guards this replaces.
     """
+    price = (
+        None
+        if usd_per_1k_input is None or usd_per_1k_output is None
+        else ModelPrice(
+            usd_per_1k_input=usd_per_1k_input,
+            usd_per_1k_output=usd_per_1k_output,
+        )
+    )
+    return SpendMeter(provider=provider, model=model, price=price, max_usd=max_usd)
 
 
 def _is_rate_limit_error(exc: BaseException) -> bool:
@@ -58,6 +84,22 @@ def _retry_after_s(exc: httpx.HTTPStatusError, *, fallback_s: float) -> float:
         return max(float(raw_retry_after), fallback_s)
     except ValueError:
         return fallback_s
+
+
+def _reasoning_tokens(usage: object) -> int:
+    """Return hidden reasoning tokens from an OpenAI-style usage payload.
+
+    Reasoning models bill these as completion tokens but report them separately
+    under ``completion_tokens_details``. They were previously invisible, which
+    made it impossible to see why a small answer cost so much.
+    """
+    if not isinstance(usage, dict):
+        return 0
+    details = usage.get("completion_tokens_details")
+    if not isinstance(details, dict):
+        return 0
+    value = details.get("reasoning_tokens", 0)
+    return int(value) if isinstance(value, int | float) else 0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -119,7 +161,13 @@ class OpenAICompatBenchClient:
         self._usd_per_1k_input = usd_per_1k_input
         self._usd_per_1k_output = usd_per_1k_output
         self._max_usd = max_usd
-        self._cumulative_usd = 0.0
+        self._meter = _build_meter(
+            provider=provider,
+            model=model,
+            usd_per_1k_input=usd_per_1k_input,
+            usd_per_1k_output=usd_per_1k_output,
+            max_usd=max_usd,
+        )
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -128,6 +176,11 @@ class OpenAICompatBenchClient:
                 "Content-Type": "application/json",
             },
         )
+
+    @property
+    def meter(self) -> SpendMeter:
+        """Return the spend meter, for receipt emission after a run."""
+        return self._meter
 
     @property
     def model(self) -> str:
@@ -142,7 +195,7 @@ class OpenAICompatBenchClient:
     @property
     def cumulative_usd(self) -> float:
         """Return the cumulative estimated spend so far (0 when guard is off)."""
-        return self._cumulative_usd
+        return self._meter.cumulative_usd
 
     def _respect_spacing(self) -> None:
         """Sleep long enough to keep requests sequential with a fixed gap."""
@@ -247,20 +300,11 @@ class OpenAICompatBenchClient:
     def _enforce_cost_guard(self, prompt_tokens: int, completion_tokens: int) -> None:
         """Accumulate estimated spend and hard-stop if it crosses the USD cap.
 
-        A no-op when no per-token prices are configured (the default), so Groq
-        and Cerebras behavior is unchanged.
+        Delegates to the shared :class:`~dataforge.spend.SpendMeter`. A no-op for
+        the USD cap when no per-token prices are configured (the default), so
+        Groq and Cerebras behavior is unchanged.
         """
-        if self._usd_per_1k_input is None or self._usd_per_1k_output is None:
-            return
-        self._cumulative_usd += (prompt_tokens / 1000.0) * self._usd_per_1k_input + (
-            completion_tokens / 1000.0
-        ) * self._usd_per_1k_output
-        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
-            raise CostCapExceededError(
-                f"{self._provider} spend guard tripped: estimated "
-                f"${self._cumulative_usd:.4f} exceeds cap ${self._max_usd:.2f}. "
-                "No further calls will be made."
-            )
+        self._meter.record(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
 
 class GroqBenchClient(OpenAICompatBenchClient):
@@ -369,6 +413,9 @@ class GeminiBenchClient:
         max_retry_after_s: float = 120.0,
         timeout_s: float = 60.0,
         temperature: float = 0.0,
+        max_usd: float | None = None,
+        usd_per_1k_input: float | None = 0.002,
+        usd_per_1k_output: float | None = 0.006,
     ) -> None:
         self._api_key = api_key
         self._model = model.removeprefix("models/")
@@ -378,11 +425,30 @@ class GeminiBenchClient:
         self._max_retry_after_s = max_retry_after_s
         self._timeout_s = timeout_s
         self._temperature = temperature
+        # Gemini previously had no cost guard of any kind -- no prices, no cap, no
+        # accumulation -- despite being billable beyond the free tier.
+        self._meter = _build_meter(
+            provider="gemini",
+            model=self._model,
+            usd_per_1k_input=usd_per_1k_input,
+            usd_per_1k_output=usd_per_1k_output,
+            max_usd=max_usd,
+        )
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
             headers={"Content-Type": "application/json"},
         )
+
+    @property
+    def meter(self) -> SpendMeter:
+        """Return the spend meter, for receipt emission after a run."""
+        return self._meter
+
+    @property
+    def cumulative_usd(self) -> float:
+        """Return the running estimated spend across all completed calls."""
+        return self._meter.cumulative_usd
 
     @property
     def model(self) -> str:
@@ -506,6 +572,11 @@ class GeminiBenchClient:
             text = "".join(str(part.get("text", "")) for part in parts)
         except (KeyError, IndexError, TypeError) as exc:
             raise ValueError(f"Unexpected gemini response payload: {json.dumps(payload)}") from exc
+        self._meter.record(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            usage_present=bool(usage),
+        )
         return GroqCompletion(
             text=text,
             prompt_tokens=prompt_tokens,
@@ -547,6 +618,7 @@ class AzureBenchClient:
         send_temperature: bool = False,
         temperature: float = 0.0,
         reasoning_effort: str | None = None,
+        max_request_seconds: float | None = 300.0,
     ) -> None:
         self._api_key = api_key
         self._model = model
@@ -563,7 +635,18 @@ class AzureBenchClient:
         self._send_temperature = send_temperature
         self._temperature = temperature
         self._reasoning_effort = reasoning_effort
-        self._cumulative_usd = 0.0
+        # Wall-time budget across ALL retries for ONE request. Without it,
+        # max_retries=5 against a 180s timeout plus backoff spends
+        # 5*180 + 20 = 920s (~15.3 min) on a single hung request -- which silently
+        # consumed an entire authorised benchmark run once, producing no data.
+        self._max_request_seconds = max_request_seconds
+        self._meter = _build_meter(
+            provider="azure",
+            model=model,
+            usd_per_1k_input=usd_per_1k_input,
+            usd_per_1k_output=usd_per_1k_output,
+            max_usd=max_usd,
+        )
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -571,9 +654,14 @@ class AzureBenchClient:
         )
 
     @property
+    def meter(self) -> SpendMeter:
+        """Return the spend meter, for receipt emission after a run."""
+        return self._meter
+
+    @property
     def cumulative_usd(self) -> float:
         """Return the running estimated spend across all completed calls."""
-        return self._cumulative_usd
+        return self._meter.cumulative_usd
 
     @property
     def model(self) -> str:
@@ -594,7 +682,11 @@ class AzureBenchClient:
         if remaining > 0:
             time.sleep(remaining)
 
-    def _payload(self, messages: list[dict[str, str]]) -> dict[str, object]:
+    def _payload(
+        self,
+        messages: list[dict[str, str]],
+        response_format: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """Build an Azure OpenAI chat/completions request payload."""
         payload: dict[str, object] = {
             "messages": list(messages),
@@ -604,19 +696,37 @@ class AzureBenchClient:
             payload["reasoning_effort"] = self._reasoning_effort
         if self._send_temperature:
             payload["temperature"] = self._temperature
+        if response_format is not None:
+            payload["response_format"] = response_format
         return payload
 
-    def _post(self, messages: list[dict[str, str]]) -> dict[str, object]:
+    def _post(
+        self,
+        messages: list[dict[str, str]],
+        response_format: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """Issue the underlying Azure OpenAI chat/completions request."""
         endpoint = f"{self._endpoint}/openai/deployments/{self._model}/chat/completions"
         last_rate_limit_error: httpx.HTTPStatusError | None = None
+        started = time.monotonic()
         for attempt in range(self._max_retries):
+            if (
+                self._max_request_seconds is not None
+                and attempt > 0
+                and time.monotonic() - started > self._max_request_seconds
+            ):
+                raise TimeoutError(
+                    f"azure request exceeded its total retry budget of "
+                    f"{self._max_request_seconds:.0f}s after {attempt} attempt(s). "
+                    "Raising DATAFORGE_AZURE_MAX_REQUEST_S or lowering "
+                    "DATAFORGE_AZURE_TIMEOUT_S will change this bound."
+                )
             response: httpx.Response | None = None
             try:
                 response = self._client.post(
                     endpoint,
                     params={"api-version": self._api_version},
-                    json=self._payload(messages),
+                    json=self._payload(messages, response_format),
                 )
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
@@ -658,10 +768,22 @@ class AzureBenchClient:
             raise last_rate_limit_error
         raise RuntimeError("azure request failed without a response.")
 
-    def complete(self, messages: list[dict[str, str]]) -> GroqCompletion:
-        """Send one benchmark completion request to Azure OpenAI."""
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        response_format: dict[str, object] | None = None,
+    ) -> GroqCompletion:
+        """Send one benchmark completion request to Azure OpenAI.
+
+        Args:
+            messages: Chat messages.
+            response_format: Optional OpenAI-style structured-output spec. Without
+                this, a caller asking for a schema-constrained sample would
+                silently receive free text, making "structured mode" a fiction in
+                every benchmark that routes through this client.
+        """
         self._respect_spacing()
-        payload = self._post(messages)
+        payload = self._post(messages, response_format)
         self._last_success_at = time.monotonic()
 
         warnings: list[str] = []
@@ -681,15 +803,12 @@ class AzureBenchClient:
 
         # Accumulate a conservative cost estimate and hard-stop if it crosses the
         # configured USD cap, so a bounded run can never overspend trial credit.
-        self._cumulative_usd += (
-            prompt_tokens / 1000.0 * self._usd_per_1k_input
-            + completion_tokens / 1000.0 * self._usd_per_1k_output
+        self._meter.record(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            reasoning_tokens=_reasoning_tokens(usage),
+            usage_present=bool(usage),
         )
-        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
-            raise CostCapExceededError(
-                f"Azure spend guard tripped: estimated ${self._cumulative_usd:.4f} "
-                f"exceeds cap ${self._max_usd:.2f}. No further calls will be made."
-            )
 
         return GroqCompletion(
             text=text,
@@ -735,7 +854,13 @@ class BedrockBenchClient:
         self._usd_per_1k_input = usd_per_1k_input
         self._usd_per_1k_output = usd_per_1k_output
         self._temperature = temperature
-        self._cumulative_usd = 0.0
+        self._meter = _build_meter(
+            provider="bedrock",
+            model=model,
+            usd_per_1k_input=usd_per_1k_input,
+            usd_per_1k_output=usd_per_1k_output,
+            max_usd=max_usd,
+        )
         self._last_success_at: float | None = None
         self._client = httpx.Client(
             timeout=self._timeout_s,
@@ -746,9 +871,14 @@ class BedrockBenchClient:
         )
 
     @property
+    def meter(self) -> SpendMeter:
+        """Return the spend meter, for receipt emission after a run."""
+        return self._meter
+
+    @property
     def cumulative_usd(self) -> float:
         """Return the running estimated spend across all completed calls."""
-        return self._cumulative_usd
+        return self._meter.cumulative_usd
 
     @property
     def model(self) -> str:
@@ -868,15 +998,11 @@ class BedrockBenchClient:
 
         # Accumulate a conservative cost estimate and hard-stop if it crosses
         # the configured USD cap, so a bounded run can never overspend.
-        self._cumulative_usd += (
-            prompt_tokens / 1000.0 * self._usd_per_1k_input
-            + completion_tokens / 1000.0 * self._usd_per_1k_output
+        self._meter.record(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            usage_present=bool(usage),
         )
-        if self._max_usd is not None and self._cumulative_usd > self._max_usd:
-            raise CostCapExceededError(
-                f"Bedrock spend guard tripped: estimated ${self._cumulative_usd:.4f} "
-                f"exceeds cap ${self._max_usd:.2f}. No further calls will be made."
-            )
 
         return GroqCompletion(
             text=text,

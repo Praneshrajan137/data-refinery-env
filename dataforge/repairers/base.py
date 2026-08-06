@@ -10,7 +10,9 @@ from dataforge.detectors.base import Issue, Schema
 from dataforge.table import TableLike
 from dataforge.transactions.txn import CellFix
 
-ProvenanceLiteral = Literal["deterministic", "llm_cache", "llm_live", "external", "entity_consensus"]
+ProvenanceLiteral = Literal[
+    "deterministic", "llm_cache", "llm_live", "external", "entity_consensus"
+]
 AttemptStatusLiteral = Literal[
     "accepted",
     "denied",

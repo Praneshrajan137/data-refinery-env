@@ -36,6 +36,7 @@ from dataforge.bench.methods import (
 )
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset, load_real_world_dataset
 from dataforge.evaluation_contract import InferabilityLabel
+from dataforge.spend import cap_from_env
 
 Difficulty = Literal["easy", "medium"]
 Preset = Literal["smoke", "full"]
@@ -1777,15 +1778,9 @@ def _build_provider_client(
                 "AZURE_OPENAI_ENDPOINT must be set to use the azure teacher provider "
                 "(e.g. https://<resource>.openai.azure.com). See docs/azure-teacher-setup.md."
             )
-        raw_cap = os.environ.get("DATAFORGE_AZURE_MAX_USD", "").strip()
-        max_usd: float | None = None
-        if raw_cap:
-            try:
-                parsed = float(raw_cap)
-            except ValueError:
-                parsed = 0.0
-            if parsed > 0:
-                max_usd = parsed
+        # Cap resolution is shared with the bench runner via dataforge.spend, so
+        # the teacher path also honours the global DATAFORGE_MAX_USD fallback
+        # (it previously read only the Azure-specific variable).
         return AzureBenchClient(
             api_key=api_key,
             model=model,
@@ -1796,7 +1791,7 @@ def _build_provider_client(
             max_retries=max_retries,
             max_retry_after_s=max_retry_after_s,
             timeout_s=timeout_s,
-            max_usd=max_usd,
+            max_usd=cap_from_env("azure"),
             usd_per_1k_input=float(os.environ.get("DATAFORGE_AZURE_USD_PER_1K_INPUT", "0.005")),
             usd_per_1k_output=float(os.environ.get("DATAFORGE_AZURE_USD_PER_1K_OUTPUT", "0.015")),
             send_temperature=os.environ.get("DATAFORGE_AZURE_SEND_TEMPERATURE", "").strip().lower()

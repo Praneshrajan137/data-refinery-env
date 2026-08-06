@@ -36,6 +36,7 @@ from dataforge.bench.methods import (
 )
 from dataforge.datasets.real_world import load_real_world_dataset
 from dataforge.datasets.registry import DATASET_REGISTRY
+from dataforge.spend import cap_from_env
 
 _SUPPORTED_METHODS = frozenset(
     {
@@ -45,6 +46,7 @@ _SUPPORTED_METHODS = frozenset(
         "llm_zeroshot",
         "llm_react",
         "llm_corrector",
+        "llm_corrector_structured",
         "llm_review_ranker",
     }
 )
@@ -109,6 +111,20 @@ def _llm_skip_reason() -> str | None:
             return "XAI_API_KEY is not set."
         return None
     return "DATAFORGE_LLM_PROVIDER must be set to groq, grok, bedrock, gemini, or azure."
+
+
+def _estimating_provider(methods: list[str]) -> str | None:
+    """Return the provider to price the pre-flight spend estimate against.
+
+    Returns ``None`` when no LLM method is requested, or when the provider is
+    unusable (missing credentials) and the run will be skipped anyway -- a run
+    that makes no call must never be refused on budget grounds.
+    """
+    if not any(method.startswith("llm_") for method in methods):
+        return None
+    if _llm_skip_reason() is not None:
+        return None
+    return os.environ.get("DATAFORGE_LLM_PROVIDER", "").strip().lower() or None
 
 
 def _env_float(name: str, default: float) -> float:
@@ -203,15 +219,6 @@ def _build_grok_client() -> GrokBenchClient:
 
 def _build_bedrock_client() -> BedrockBenchClient:
     """Construct a Bedrock benchmark client from env-driven knobs."""
-    raw_cap = os.environ.get("DATAFORGE_BEDROCK_MAX_USD", "").strip()
-    max_usd: float | None = None
-    if raw_cap:
-        try:
-            parsed = float(raw_cap)
-        except ValueError:
-            parsed = 0.0
-        if parsed > 0:
-            max_usd = parsed
     return BedrockBenchClient(
         api_key=os.environ["AWS_BEARER_TOKEN_BEDROCK"],
         model=os.environ["DATAFORGE_BEDROCK_MODEL"],
@@ -220,7 +227,7 @@ def _build_bedrock_client() -> BedrockBenchClient:
         max_tokens=_env_int("DATAFORGE_BEDROCK_MAX_TOKENS", 256),
         max_retries=_env_int("DATAFORGE_BEDROCK_MAX_RETRIES", 3),
         timeout_s=_env_float("DATAFORGE_BEDROCK_TIMEOUT_S", 30.0),
-        max_usd=max_usd,
+        max_usd=cap_from_env("bedrock"),
         usd_per_1k_input=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_INPUT", 0.003),
         usd_per_1k_output=_env_float("DATAFORGE_BEDROCK_USD_PER_1K_OUTPUT", 0.015),
         temperature=_env_float("DATAFORGE_BEDROCK_TEMPERATURE", 0.0),
@@ -228,7 +235,12 @@ def _build_bedrock_client() -> BedrockBenchClient:
 
 
 def _build_gemini_client() -> GeminiBenchClient:
-    """Construct a Gemini benchmark client from env-driven knobs."""
+    """Construct a Gemini benchmark client from env-driven knobs.
+
+    Gemini previously had no cost guard at all -- no prices, no cap, no
+    accumulation -- despite being billable beyond the free tier. It now honours
+    ``DATAFORGE_GEMINI_MAX_USD`` like every other metered provider.
+    """
     return GeminiBenchClient(
         api_key=os.environ["GEMINI_API_KEY"],
         model=os.environ.get("DATAFORGE_GEMINI_MODEL", "gemini-3.1-pro-preview"),
@@ -237,20 +249,14 @@ def _build_gemini_client() -> GeminiBenchClient:
         max_retries=_env_int("DATAFORGE_GEMINI_MAX_RETRIES", 5),
         timeout_s=_env_float("DATAFORGE_GEMINI_TIMEOUT_S", 60.0),
         temperature=_env_float("DATAFORGE_GEMINI_TEMPERATURE", 0.0),
+        max_usd=cap_from_env("gemini"),
+        usd_per_1k_input=_env_float("DATAFORGE_GEMINI_USD_PER_1K_INPUT", 0.002),
+        usd_per_1k_output=_env_float("DATAFORGE_GEMINI_USD_PER_1K_OUTPUT", 0.006),
     )
 
 
 def _build_azure_client() -> AzureBenchClient:
     """Construct an Azure OpenAI benchmark client from env-driven knobs."""
-    raw_cap = os.environ.get("DATAFORGE_AZURE_MAX_USD", "").strip()
-    max_usd: float | None = None
-    if raw_cap:
-        try:
-            parsed = float(raw_cap)
-        except ValueError:
-            parsed = 0.0
-        if parsed > 0:
-            max_usd = parsed
     return AzureBenchClient(
         api_key=os.environ["AZURE_API_KEY"],
         model=os.environ["DATAFORGE_AZURE_MODEL"],
@@ -260,7 +266,7 @@ def _build_azure_client() -> AzureBenchClient:
         max_tokens=_env_int("DATAFORGE_AZURE_MAX_TOKENS", 256),
         max_retries=_env_int("DATAFORGE_AZURE_MAX_RETRIES", 5),
         timeout_s=_env_float("DATAFORGE_AZURE_TIMEOUT_S", 60.0),
-        max_usd=max_usd,
+        max_usd=cap_from_env("azure"),
         usd_per_1k_input=_env_float("DATAFORGE_AZURE_USD_PER_1K_INPUT", 0.005),
         usd_per_1k_output=_env_float("DATAFORGE_AZURE_USD_PER_1K_OUTPUT", 0.015),
         send_temperature=os.environ.get("DATAFORGE_AZURE_SEND_TEMPERATURE", "").strip().lower()
@@ -268,6 +274,9 @@ def _build_azure_client() -> AzureBenchClient:
         temperature=_env_float("DATAFORGE_AZURE_TEMPERATURE", 0.0),
         reasoning_effort=os.environ.get("DATAFORGE_AZURE_REASONING_EFFORT", "").strip().lower()
         or None,
+        # Caps total retry wall-time for one request. 180s x 5 retries silently
+        # burned a whole authorised run once; 300s bounds the worst case.
+        max_request_seconds=_env_float("DATAFORGE_AZURE_MAX_REQUEST_S", 300.0),
     )
 
 
@@ -330,11 +339,15 @@ def run_agent_comparison(
         seeds=len(resolved_seed_list),
         corrector_max_issues=corrector_max_issues,
     )
-    # Validate call budget before any client instantiation or dataset loads that could
-    # trigger network access in tests with environment variables set.
+    # Validate call budget AND pre-flight spend before any client instantiation or
+    # dataset loads that could trigger network access in tests with environment
+    # variables set. The spend check is what stops a bounded-but-expensive run
+    # from silently burning credit until the in-flight cap trips.
     validate_estimated_calls(
         estimated_calls=estimated_calls,
         really_run_big_bench=really_run_big_bench,
+        provider=_estimating_provider(methods),
+        model=os.environ.get("DATAFORGE_AZURE_MODEL", "").strip() or None,
     )
 
     reproduction_command = reproduction_command or _reproduction_command(
@@ -404,7 +417,7 @@ def run_agent_comparison(
                         )
                     else:
                         result = run_llm_zeroshot_episode(dataset, seed=seed, client=client)
-                elif method == "llm_corrector":
+                elif method in ("llm_corrector", "llm_corrector_structured"):
                     if client is None or skip_reason is not None:
                         result = _skipped_result(
                             method=method,
@@ -420,6 +433,7 @@ def run_agent_comparison(
                             client=client,
                             max_issues=corrector_max_issues,
                             cache_dir=corrector_cache_dir,
+                            structured=method == "llm_corrector_structured",
                         )
                 elif method == "llm_review_ranker":
                     if client is None or skip_reason is not None:

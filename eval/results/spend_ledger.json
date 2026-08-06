@@ -1,0 +1,268 @@
+{
+  "schema": "dataforge_spend_ledger_v1",
+  "receipts": [
+    {
+      "run_id": "azure-capability-probe-653f66d4",
+      "utc": "2026-08-04T10:13:15+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 4,
+      "prompt_tokens": 98,
+      "completion_tokens": 71,
+      "reasoning_tokens": 32,
+      "estimated_usd": 0.001555,
+      "cap_usd": 1.0,
+      "method": "capability_probe",
+      "dataset": null,
+      "git_sha": null,
+      "notes": [
+        "decision=structured_enum"
+      ]
+    },
+    {
+      "run_id": "corrector-arm-sweep-76a0e2e4",
+      "utc": "2026-08-04T10:27:11+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 24,
+      "prompt_tokens": 16896,
+      "completion_tokens": 237,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.088035,
+      "cap_usd": 1.0,
+      "method": "corrector_arm_sweep",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "selected=A_freetext_k3",
+        "all_zero=True"
+      ]
+    },
+    {
+      "run_id": "corrector-arm-sweep-interrupted-reconstructed",
+      "utc": "2026-08-04T17:37:33+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_usd": 4.32431,
+      "cap_usd": 8.0,
+      "method": "corrector_arm_sweep",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "RECONSTRUCTED from the artifact after a user-cancelled run.",
+        "Token counts unavailable (meter lost with the process); USD is the artifact estimate.",
+        "Cause: receipts were written only at completion. Fixed: checkpoints now write receipts.",
+        "Data not reusable: raw (confidence,correct) pairs were not persisted at that time."
+      ]
+    },
+    {
+      "run_id": "corrector-arm-sweep-final",
+      "utc": "2026-08-05T04:44:26+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 1596,
+      "prompt_tokens": 1106894,
+      "completion_tokens": 26998,
+      "reasoning_tokens": 0,
+      "estimated_usd": 5.93944,
+      "cap_usd": 11.0,
+      "method": "corrector_arm_sweep",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "selected=A_freetext_k3",
+        "issues_completed=173",
+        "complete=False"
+      ]
+    },
+    {
+      "run_id": "corrector-arm-sweep-final-segment1-reconstructed",
+      "utc": "2026-08-05T09:00:05+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_usd": 1.8021,
+      "cap_usd": 11.0,
+      "method": "corrector_arm_sweep",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "RECONSTRUCTED: issues 1-40 of run corrector-arm-sweep-final.",
+        "The resumed process ran pre-fix code that reported only its own segment,",
+        "so its receipt upsert overwrote this segment. Carry-forward is now implemented",
+        "(prior_usd + includes_prior_segments_usd) so this cannot recur.",
+        "USD from the segment-1 checkpoint artifact; token counts unavailable."
+      ]
+    },
+    {
+      "run_id": "flagship-smoke",
+      "utc": "2026-08-05T09:08:45+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 27,
+      "prompt_tokens": 27315,
+      "completion_tokens": 540,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.144675,
+      "cap_usd": 1.0,
+      "method": "flagship_structured_k9",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "arm=B_structured_k9",
+        "issues_completed=3",
+        "proposals=0",
+        "certified=False"
+      ]
+    },
+    {
+      "run_id": "flagship-structured-k9-retry-timeout-reconstructed",
+      "utc": "2026-08-05T10:06:03+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_usd": 1.21,
+      "cap_usd": 20.0,
+      "method": "flagship_structured_k9",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "RECONSTRUCTED. Supersedes flagship-structured-k9-throttled-reconstructed (~\\.90),",
+        "which was WRONG: it assumed throttling at ~540 calls. CORRECTED CAUSE: a retry-timeout",
+        "stall. max_retries=5 x DATAFORGE_AZURE_TIMEOUT_S=180 + min(2*(attempt+1),120) backoff",
+        "= 5*180 + 20 = 920s (~15.3 min) for ONE hung request -- matching the observed window.",
+        "RIGOROUS UPPER BOUND (recorded here): the run never reached its first checkpoint at",
+        "index 25, so it issued fewer than 25 issues x 9 calls = 225 calls at the measured",
+        "0.00536 USD/call (smoke: 0.1447/27) => <= 1.21 USD.",
+        "POINT ESTIMATE under the single-hung-request explanation: ~5-30 calls => ~0.03-0.16 USD.",
+        "The bound is recorded rather than the point estimate so the ledger stays conservative",
+        "without being fabricated. Only the Azure portal can settle whether timed-out requests",
+        "were billed at all."
+      ]
+    },
+    {
+      "run_id": "triage-compare-smoke",
+      "utc": "2026-08-05T10:16:27+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 12,
+      "prompt_tokens": 9785,
+      "completion_tokens": 204,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.051985,
+      "cap_usd": 1.0,
+      "method": "triage_scorer_comparison",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "cells_scored=3",
+        "abstentions=2"
+      ]
+    },
+    {
+      "run_id": "triage-compare-main",
+      "utc": "2026-08-05T10:38:43+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 597,
+      "prompt_tokens": 370999,
+      "completion_tokens": 9804,
+      "reasoning_tokens": 0,
+      "estimated_usd": 2.002055,
+      "cap_usd": 5.0,
+      "method": "triage_scorer_comparison",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "cells_scored=150",
+        "abstentions=134"
+      ]
+    },
+    {
+      "run_id": "triage-compare-enriched",
+      "utc": "2026-08-05T10:59:09+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 597,
+      "prompt_tokens": 389486,
+      "completion_tokens": 9966,
+      "reasoning_tokens": 0,
+      "estimated_usd": 2.09692,
+      "cap_usd": 5.0,
+      "method": "triage_scorer_comparison",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "cells_scored=150",
+        "abstentions=100"
+      ]
+    },
+    {
+      "run_id": "ranker-arms-smoke",
+      "utc": "2026-08-05T18:54:46+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.0,
+      "cap_usd": 1.0,
+      "method": "ranker_arms_cross_dataset",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "datasets=['hospital']",
+        "regime=default"
+      ]
+    },
+    {
+      "run_id": "ranker-arms-smoke2",
+      "utc": "2026-08-06T09:22:22+00:00",
+      "provider": "azure",
+      "model": "gpt-5-mini",
+      "calls": 8,
+      "prompt_tokens": 2310,
+      "completion_tokens": 88,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.000754,
+      "cap_usd": 1.0,
+      "method": "ranker_arms_cross_dataset",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "datasets=['hospital']",
+        "regime=default"
+      ]
+    },
+    {
+      "run_id": "ranker-arms-gpt5mini",
+      "utc": "2026-08-06T10:10:32+00:00",
+      "provider": "azure",
+      "model": "gpt-5-mini",
+      "calls": 1800,
+      "prompt_tokens": 441884,
+      "completion_tokens": 19800,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.150071,
+      "cap_usd": 8.0,
+      "method": "ranker_arms_cross_dataset",
+      "dataset": "hospital,rayyan,flights",
+      "git_sha": null,
+      "notes": [
+        "datasets=['hospital', 'rayyan', 'flights']",
+        "regime=default"
+      ]
+    }
+  ]
+}

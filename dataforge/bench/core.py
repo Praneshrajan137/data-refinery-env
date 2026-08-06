@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
 from dataforge.datasets.registry import DATASET_REGISTRY
+from dataforge.spend import cap_from_env, estimate_usd, price_for
 
 BenchmarkStatus = Literal["ok", "skipped"]
 BENCHMARK_SCHEMA_VERSION = "dataforge_benchmark_run_v2"
@@ -25,6 +26,11 @@ BENCHMARK_SCHEMA_VERSION = "dataforge_benchmark_run_v2"
 # Kept in sync with LLMCorrectorRepairer's default; duplicated here to avoid a
 # circular import between core and the bench methods module.
 _CORRECTOR_ESTIMATE_SAMPLES = 3
+# Per-call token averages for the pre-flight spend estimate, measured from the
+# committed corrector artifacts (~347 prompt / ~99 completion) and rounded up so
+# the estimate errs high, matching the conservative price table.
+_ESTIMATE_PROMPT_TOKENS = 400
+_ESTIMATE_COMPLETION_TOKENS = 120
 
 
 class BenchmarkRepair(BaseModel):
@@ -437,7 +443,7 @@ def estimate_llm_calls(
                 estimated += chunks * seeds
             elif method == "llm_react":
                 estimated += chunks * 2 * seeds
-            elif method == "llm_corrector":
+            elif method in ("llm_corrector", "llm_corrector_structured"):
                 # Conservative upper bound: at most one detected issue per row,
                 # each resolved with the default self-consistency sample count.
                 # A configured issue cap bounds this directly.
@@ -451,12 +457,82 @@ def estimate_llm_calls(
     return estimated
 
 
-def validate_estimated_calls(*, estimated_calls: int, really_run_big_bench: bool) -> None:
-    """Enforce the free-tier call budget."""
+def estimate_run_usd(
+    *,
+    estimated_calls: int,
+    provider: str,
+    model: str | None = None,
+) -> float | None:
+    """Estimate a run's spend in USD before making any billable call.
+
+    The per-call token averages are measured from committed benchmark artifacts
+    (``eval/results/corrector_gpt56sol_hospital.json``: ~347 prompt and ~99
+    completion tokens per corrector call) and rounded up, so the estimate errs
+    high like the price table does.
+
+    Args:
+        estimated_calls: Output of :func:`estimate_llm_calls`.
+        provider: Active provider identifier.
+        model: Optional model/deployment name.
+
+    Returns:
+        The estimated spend in USD, or ``None`` when the provider is unpriced
+        (free tier), in which case no monetary refusal is possible.
+    """
+    return estimate_usd(
+        calls=estimated_calls,
+        avg_prompt_tokens=_ESTIMATE_PROMPT_TOKENS,
+        avg_completion_tokens=_ESTIMATE_COMPLETION_TOKENS,
+        price=price_for(provider, model),
+    )
+
+
+def validate_estimated_calls(
+    *,
+    estimated_calls: int,
+    really_run_big_bench: bool,
+    provider: str | None = None,
+    model: str | None = None,
+    max_usd: float | None = None,
+) -> None:
+    """Enforce the free-tier call budget and the pre-flight USD budget.
+
+    Two independent refusals:
+
+    * **Call budget** -- the long-standing free-tier guard at 500 calls.
+    * **Spend budget** -- a pre-flight estimate against the configured cap. The
+      codebase already estimated calls and already knew prices but never
+      multiplied them, so a bounded run against a metered frontier deployment
+      passed the call guard unexamined and only tripped the in-flight cap after
+      real money had been spent. This refuses *before* the first call.
+
+    Args:
+        estimated_calls: Estimated number of billable calls.
+        really_run_big_bench: Whether the caller opted past the call budget.
+        provider: Active provider; when None the spend check is skipped.
+        model: Optional model/deployment name.
+        max_usd: Cap override; defaults to the provider's configured cap.
+
+    Raises:
+        ValueError: If either budget would be exceeded.
+    """
     if estimated_calls > 500 and not really_run_big_bench:
         raise ValueError(
             "Estimated benchmark size exceeds 500 free-tier LLM calls. "
             "Pass --really-run-big-bench to continue."
+        )
+    if provider is None:
+        return
+    cap = max_usd if max_usd is not None else cap_from_env(provider)
+    if cap is None:
+        return
+    estimate = estimate_run_usd(estimated_calls=estimated_calls, provider=provider, model=model)
+    if estimate is not None and estimate > cap:
+        raise ValueError(
+            f"Estimated spend ${estimate:.2f} for {estimated_calls} {provider} calls "
+            f"exceeds the configured cap ${cap:.2f}. No call was made. Either raise "
+            f"DATAFORGE_{provider.upper()}_MAX_USD (or DATAFORGE_MAX_USD), or shrink "
+            "the run with DATAFORGE_CORRECTOR_MAX_ISSUES / fewer seeds / fewer datasets."
         )
 
 
