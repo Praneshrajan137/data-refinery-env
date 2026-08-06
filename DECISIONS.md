@@ -27,6 +27,28 @@ returning HTTP 401 mid-session. The reachable resource
 not `gpt-5.6-sol`. These numbers are therefore **not comparable** to the earlier gpt-5.6-sol figures, and
 `scripts/bench/repoint_azure_env.py` records the switch. Measured cost fell ~50x, to ~$0.0001/call.
 
+**ROOT CAUSE of the model loss, investigated 2026-08-06 so it is not re-investigated.** `gpt-5.6-sol` is a
+genuine, currently-offered model on this resource (version `2026-07-09`, `GlobalStandard` SKU listed by
+`az cognitiveservices account list-models`). It cannot be deployed because **quota is 0**:
+
+- `az ...deployment create` fails with `InsufficientQuota: quota limit is 0 for gpt-5.6-sol - GlobalStandard`
+  (attempted, so this is not quota-API lag);
+- quota is **0.0 in all 26 regions checked**, and across **every** SKU - GlobalStandard, DataZoneStandard and
+  Provisioned/PTU;
+- the subscription is `quotaId: FreeTrial_2014-09-01` with `spendingLimit: On`, and the pattern is decisive:
+  **every premium tier is 0** (gpt-5, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6-sol/luna/terra) while only mini/nano tiers
+  carry quota (gpt-5-mini 500, gpt-4.1-mini 200, o4-mini 100, gpt-oss-120b 5000). That is a subscription-tier
+  policy, not a misconfiguration, so no CLI action unlocks it;
+- `az account list --all` shows only this subscription, so the prior account is not reachable to switch back.
+
+**Consequence for reproducibility, recorded rather than hidden**: the gpt-5.6-sol baselines in this document
+(hospital 0.946, rayyan 0.955, flights 0.514, and the arm-sweep AUCs 0.554/0.862/0.948) **cannot be
+reproduced on this subscription**. Reproducing them requires either converting the subscription off Free
+Trial (a billing action) and being granted premium quota, or access to the original subscription. Until then,
+treat every gpt-5.6-sol number here as a historical measurement whose artifact is committed but whose rerun
+is blocked - which is precisely why the raw `(score, label)` pairs are persisted.
+
+
 | dataset | n | positives | evidence-free AUC | with-evidence AUC | paired delta CI |
 | --- | --- | --- | --- | --- | --- |
 | hospital | 300 | 169 | 0.8717 [0.8304, 0.9092] | 0.9043 [0.8683, 0.9372] | [-0.0138, +0.0827] |
