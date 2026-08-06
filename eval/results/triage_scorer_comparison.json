@@ -1,0 +1,50 @@
+{
+  "schema": "dataforge_triage_scorer_comparison_v1",
+  "question": "Do ReviewRanker and the structured corrector rank a review queue equivalently, on the same cells and the same label?",
+  "dataset": "hospital",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "population": "ENRICHED stratified draw from the flagship set",
+  "enriched": true,
+  "enrich_seed": 20260805,
+  "natural_base_rate_note": "The detector queue's natural precision on this dataset is ~4.5% (371 genuine errors among 8299 flagged cells), so an unenriched 150-cell sample yields ~3 positives -- too few for any comparison.",
+  "label": "cell is a genuine error (present in ground truth)",
+  "abstention_handling": "corrector abstention scored 0.0, not dropped -- dropping would restore the survivor bias this comparison exists to remove",
+  "cells_scored": 150,
+  "cells_planned": 150,
+  "corrector_abstentions": 100,
+  "corrector_abstention_rate": 0.6667,
+  "scorers": [
+    {
+      "scorer": "review_ranker",
+      "n": 150,
+      "positives": 40,
+      "base_rate": 0.2667,
+      "roc_auc": 0.958,
+      "roc_auc_ci95": [
+        0.9121,
+        0.9955
+      ],
+      "calls_per_cell": 1,
+      "precision_at_k_suppressed": "sample was enriched with positives; precision@k is not base-rate invariant"
+    },
+    {
+      "scorer": "structured_corrector",
+      "n": 150,
+      "positives": 40,
+      "base_rate": 0.2667,
+      "roc_auc": 0.979,
+      "roc_auc_ci95": [
+        0.9461,
+        0.9979
+      ],
+      "calls_per_cell": 3,
+      "precision_at_k_suppressed": "sample was enriched with positives; precision@k is not base-rate invariant"
+    }
+  ],
+  "paired_auc_delta_ci95": [
+    -0.0287,
+    0.0738
+  ],
+  "estimated_usd": 2.09692
+}

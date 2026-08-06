@@ -1,0 +1,1197 @@
+{
+  "schema": "dataforge_detector_queue_composition_v1",
+  "question": "What does the detector queue actually contain, and how much human effort does one genuine error cost when the queue is worked unranked?",
+  "regime_note": "'default' is the shipped run_all_detectors(df) path. 'inferred_constraints' additionally supplies a schema mined from the DIRTY data, enabling FD-violation detection. Every paid API-phase experiment used 'inferred_constraints', so any precision claim from those runs is scoped to that regime and must not be stated as a property of the detectors generally. See docs/trust/constraint-circularity.md.",
+  "ground_truth_completeness": "COMPLETE BY CONSTRUCTION relative to the clean reference: real_world._compute_ground_truth labels every cell where dirty != clean. A flagged cell absent from ground truth therefore matches the reference and is a false positive with respect to it, NOT an unlabelled error. Residual caveat: the reference is itself curated, so see false_positive_examples.",
+  "seed": 20260805,
+  "datasets": {
+    "hospital": {
+      "rows": 1000,
+      "ground_truth_cells": 509,
+      "regimes": {
+        "default": {
+          "flagged_cells": 549,
+          "true_errors_flagged": 308,
+          "false_positives": 241,
+          "precision": 0.56102,
+          "precision_ci95_wilson": [
+            0.519226,
+            0.601966
+          ],
+          "recall": 0.605108,
+          "false_positive_rate_of_queue": 0.43898,
+          "cells_reviewed_per_true_error": 1.782,
+          "distinct_confidences": 60,
+          "most_common_confidences": [
+            [
+              0.95,
+              178
+            ],
+            [
+              0.96,
+              47
+            ],
+            [
+              0.9,
+              47
+            ],
+            [
+              0.92,
+              28
+            ]
+          ],
+          "by_issue_type": {
+            "entity_consensus": {
+              "flagged": 258,
+              "true_errors": 216,
+              "precision": 0.837209,
+              "precision_ci95_wilson": [
+                0.787273,
+                0.877251
+              ]
+            },
+            "outlier": {
+              "flagged": 99,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.037355
+              ]
+            },
+            "type_mismatch": {
+              "flagged": 92,
+              "true_errors": 92,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.959917,
+                1.0
+              ]
+            },
+            "format_violation": {
+              "flagged": 61,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.059246
+              ]
+            },
+            "decimal_shift": {
+              "flagged": 39,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.08967
+              ]
+            }
+          },
+          "false_positive_examples": [
+            {
+              "row": 451,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "20018",
+              "clean_reference_value": "20018",
+              "detector_confidence": 0.9,
+              "detector_reason": "Value 20018 is a robust outlier in column 'ProviderNumber' (modified z-score 481.3, median 10029)."
+            },
+            {
+              "row": 426,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "10164",
+              "clean_reference_value": "10164",
+              "detector_confidence": 0.75,
+              "detector_reason": "Value 10164 is a robust outlier in column 'ProviderNumber' (modified z-score 6.5, median 10029)."
+            },
+            {
+              "row": 401,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "10108",
+              "clean_reference_value": "10108",
+              "detector_confidence": 0.62,
+              "detector_reason": "Value 10108 is a robust outlier in column 'ProviderNumber' (modified z-score 3.8, median 10029)."
+            },
+            {
+              "row": 27,
+              "column": "index",
+              "issue_type": "format_violation",
+              "flagged_value": "28",
+              "clean_reference_value": "28",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value '28' has shape '99' but column 'index' is dominated by shape '999' (90%)."
+            },
+            {
+              "row": 454,
+              "column": "City",
+              "issue_type": "entity_consensus",
+              "flagged_value": "sheffield",
+              "clean_reference_value": "sheffield",
+              "detector_confidence": 0.7272727272727273,
+              "detector_reason": "Value 'sheffield' in column 'City' disagrees with the consensus 'birmingham' shared by 73% of the rows for entity 'jefferson' (grouped by 'CountyName'). The con"
+            },
+            {
+              "row": 410,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "10108",
+              "clean_reference_value": "10108",
+              "detector_confidence": 0.62,
+              "detector_reason": "Value 10108 is a robust outlier in column 'ProviderNumber' (modified z-score 3.8, median 10029)."
+            },
+            {
+              "row": 429,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "10164",
+              "clean_reference_value": "10164",
+              "detector_confidence": 0.75,
+              "detector_reason": "Value 10164 is a robust outlier in column 'ProviderNumber' (modified z-score 6.5, median 10029)."
+            },
+            {
+              "row": 47,
+              "column": "index",
+              "issue_type": "decimal_shift",
+              "flagged_value": "48",
+              "clean_reference_value": "48",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 48 in column 'index' appears to be ~10x too small compared to the typical value (median ~500.5)"
+            },
+            {
+              "row": 58,
+              "column": "index",
+              "issue_type": "decimal_shift",
+              "flagged_value": "59",
+              "clean_reference_value": "59",
+              "detector_confidence": 0.86,
+              "detector_reason": "Value 59 in column 'index' appears to be ~10x too small compared to the typical value (median ~500.5)"
+            },
+            {
+              "row": 443,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "20017",
+              "clean_reference_value": "20017",
+              "detector_confidence": 0.9,
+              "detector_reason": "Value 20017 is a robust outlier in column 'ProviderNumber' (modified z-score 481.2, median 10029)."
+            },
+            {
+              "row": 412,
+              "column": "ProviderNumber",
+              "issue_type": "outlier",
+              "flagged_value": "10158",
+              "clean_reference_value": "10158",
+              "detector_confidence": 0.74,
+              "detector_reason": "Value 10158 is a robust outlier in column 'ProviderNumber' (modified z-score 6.2, median 10029)."
+            },
+            {
+              "row": 96,
+              "column": "index",
+              "issue_type": "format_violation",
+              "flagged_value": "97",
+              "clean_reference_value": "97",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value '97' has shape '99' but column 'index' is dominated by shape '999' (90%)."
+            }
+          ]
+        },
+        "inferred_constraints": {
+          "flagged_cells": 10373,
+          "true_errors_flagged": 455,
+          "false_positives": 9918,
+          "precision": 0.043864,
+          "precision_ci95_wilson": [
+            0.040089,
+            0.047977
+          ],
+          "recall": 0.89391,
+          "false_positive_rate_of_queue": 0.956136,
+          "cells_reviewed_per_true_error": 22.798,
+          "distinct_confidences": 23,
+          "most_common_confidences": [
+            [
+              0.95,
+              10261
+            ],
+            [
+              0.9,
+              41
+            ],
+            [
+              0.85,
+              21
+            ],
+            [
+              0.75,
+              19
+            ]
+          ],
+          "by_issue_type": {
+            "fd_violation": {
+              "flagged": 10192,
+              "true_errors": 455,
+              "precision": 0.044643,
+              "precision_ci95_wilson": [
+                0.040802,
+                0.048827
+              ]
+            },
+            "outlier": {
+              "flagged": 80,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.04582
+              ]
+            },
+            "format_violation": {
+              "flagged": 61,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.059246
+              ]
+            },
+            "decimal_shift": {
+              "flagged": 39,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.08967
+              ]
+            },
+            "entity_consensus": {
+              "flagged": 1,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.793457
+              ]
+            }
+          },
+          "false_positive_examples": [
+            {
+              "row": 296,
+              "column": "PhoneNumber",
+              "issue_type": "fd_violation",
+              "flagged_value": "2053258100",
+              "clean_reference_value": "2053258100",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('ZipCode',) -> PhoneNumber violated: ZipCode='('35233',)' maps to multiple values: {'2053258100', '20593xx011', '2059344011'}"
+            },
+            {
+              "row": 117,
+              "column": "Address1",
+              "issue_type": "fd_violation",
+              "flagged_value": "702 n main st",
+              "clean_reference_value": "702 n main st",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('ProviderNumber',) -> Address1 violated: ProviderNumber='('10007',)' maps to multiple values: {'702xnxmainxst', '702 n main st', '702 x m"
+            },
+            {
+              "row": 968,
+              "column": "Condition",
+              "issue_type": "fd_violation",
+              "flagged_value": "pneumonia",
+              "clean_reference_value": "pneumonia",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('MeasureCode',) -> Condition violated: MeasureCode='('pn-4',)' maps to multiple values: {'pneumonia', 'xneumonia'}"
+            },
+            {
+              "row": 748,
+              "column": "HospitalOwner",
+              "issue_type": "fd_violation",
+              "flagged_value": "proprietary",
+              "clean_reference_value": "proprietary",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('ProviderNumber',) -> HospitalOwner violated: ProviderNumber='('10036',)' maps to multiple values: {'proprietary', 'prxprietary'}"
+            },
+            {
+              "row": 628,
+              "column": "MeasureName",
+              "issue_type": "fd_violation",
+              "flagged_value": "pneumonia patients whose initial emergency room blood culture was performed prior to the administration of the first hospital dose of antibiotics",
+              "clean_reference_value": "pneumonia patients whose initial emergency room blood culture was performed prior to the administration of the first hospital dose of antibiotics",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('MeasureCode',) -> MeasureName violated: MeasureCode='('pn-3b',)' maps to multiple values: {'pneumonia patients whose initial emergency r"
+            },
+            {
+              "row": 676,
+              "column": "Condition",
+              "issue_type": "fd_violation",
+              "flagged_value": "heart failure",
+              "clean_reference_value": "heart failure",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('MeasureName',) -> Condition violated: MeasureName='('heart failure patients given smoking cessation advice/counseling',)' maps to multip"
+            },
+            {
+              "row": 82,
+              "column": "State",
+              "issue_type": "fd_violation",
+              "flagged_value": "al",
+              "clean_reference_value": "al",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('ProviderNumber',) -> State violated: ProviderNumber='('10006',)' maps to multiple values: {'al', 'xl'}"
+            },
+            {
+              "row": 42,
+              "column": "CountyName",
+              "issue_type": "fd_violation",
+              "flagged_value": "houston",
+              "clean_reference_value": "houston",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('City',) -> CountyName violated: City='('dothan',)' maps to multiple values: {'houston', 'housxon'}"
+            },
+            {
+              "row": 963,
+              "column": "State",
+              "issue_type": "fd_violation",
+              "flagged_value": "al",
+              "clean_reference_value": "al",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('CountyName',) -> State violated: CountyName='('coffee',)' maps to multiple values: {'al', 'ax'}"
+            },
+            {
+              "row": 564,
+              "column": "ZipCode",
+              "issue_type": "fd_violation",
+              "flagged_value": "36106",
+              "clean_reference_value": "36106",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('ProviderNumber',) -> ZipCode violated: ProviderNumber='('10024',)' maps to multiple values: {'36106', '3x10x'}"
+            },
+            {
+              "row": 536,
+              "column": "PhoneNumber",
+              "issue_type": "fd_violation",
+              "flagged_value": "3342882100",
+              "clean_reference_value": "3342882100",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('ProviderNumber',) -> PhoneNumber violated: ProviderNumber='('10023',)' maps to multiple values: {'3342xx2100', '3342882100'}"
+            },
+            {
+              "row": 252,
+              "column": "MeasureCode",
+              "issue_type": "fd_violation",
+              "flagged_value": "hf-2",
+              "clean_reference_value": "hf-2",
+              "detector_confidence": 0.95,
+              "detector_reason": "Functional dependency ('MeasureName',) -> MeasureCode violated: MeasureName='('heart failure patients given an evaluation of left ventricular systolic (lvs) fun"
+            }
+          ]
+        }
+      }
+    },
+    "flights": {
+      "rows": 2376,
+      "ground_truth_cells": 4920,
+      "regimes": {
+        "default": {
+          "flagged_cells": 2929,
+          "true_errors_flagged": 2773,
+          "false_positives": 156,
+          "precision": 0.94674,
+          "precision_ci95_wilson": [
+            0.938006,
+            0.954302
+          ],
+          "recall": 0.563618,
+          "false_positive_rate_of_queue": 0.05326,
+          "cells_reviewed_per_true_error": 1.056,
+          "distinct_confidences": 62,
+          "most_common_confidences": [
+            [
+              0.82,
+              793
+            ],
+            [
+              1.0,
+              708
+            ],
+            [
+              0.8,
+              164
+            ],
+            [
+              0.74,
+              164
+            ]
+          ],
+          "by_issue_type": {
+            "entity_consensus": {
+              "flagged": 1686,
+              "true_errors": 1622,
+              "precision": 0.96204,
+              "precision_ci95_wilson": [
+                0.951818,
+                0.970162
+              ]
+            },
+            "missing_value": {
+              "flagged": 1025,
+              "true_errors": 1025,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.996266,
+                1.0
+              ]
+            },
+            "format_violation": {
+              "flagged": 126,
+              "true_errors": 126,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.970413,
+                1.0
+              ]
+            },
+            "decimal_shift": {
+              "flagged": 92,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.040083
+              ]
+            }
+          },
+          "false_positive_examples": [
+            {
+              "row": 324,
+              "column": "sched_arr_time",
+              "issue_type": "entity_consensus",
+              "flagged_value": "2:35 p.m.",
+              "clean_reference_value": "2:35 p.m.",
+              "detector_confidence": 0.75,
+              "detector_reason": "Value '2:35 p.m.' in column 'sched_arr_time' disagrees with the consensus '2:17 p.m.' shared by 75% of the rows for entity '2:49 p.m.' (grouped by 'act_arr_time"
+            },
+            {
+              "row": 116,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "117",
+              "clean_reference_value": "117",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 117 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 12,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "13",
+              "clean_reference_value": "13",
+              "detector_confidence": 0.92,
+              "detector_reason": "Value 13 in column 'tuple_id' appears to be ~100x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 2314,
+              "column": "sched_dep_time",
+              "issue_type": "entity_consensus",
+              "flagged_value": "4:00 p.m.",
+              "clean_reference_value": "4:00 p.m.",
+              "detector_confidence": 0.8571428571428571,
+              "detector_reason": "Value '4:00 p.m.' in column 'sched_dep_time' disagrees with the consensus '3:05 p.m.' shared by 86% of the rows for entity '6:30 p.m.' (grouped by 'sched_arr_ti"
+            },
+            {
+              "row": 86,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "87",
+              "clean_reference_value": "87",
+              "detector_confidence": 0.73,
+              "detector_reason": "Value 87 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 1217,
+              "column": "sched_arr_time",
+              "issue_type": "entity_consensus",
+              "flagged_value": "6:30 p.m.",
+              "clean_reference_value": "6:30 p.m.",
+              "detector_confidence": 0.7368421052631579,
+              "detector_reason": "Value '6:30 p.m.' in column 'sched_arr_time' disagrees with the consensus '7:05 p.m.' shared by 74% of the rows for entity '6:36 p.m.' (grouped by 'act_arr_time"
+            },
+            {
+              "row": 89,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "90",
+              "clean_reference_value": "90",
+              "detector_confidence": 0.76,
+              "detector_reason": "Value 90 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 163,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "164",
+              "clean_reference_value": "164",
+              "detector_confidence": 0.72,
+              "detector_reason": "Value 164 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 119,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "120",
+              "clean_reference_value": "120",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 120 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 94,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "95",
+              "clean_reference_value": "95",
+              "detector_confidence": 0.81,
+              "detector_reason": "Value 95 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 113,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "114",
+              "clean_reference_value": "114",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 114 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 967,
+              "column": "sched_arr_time",
+              "issue_type": "entity_consensus",
+              "flagged_value": "10:45 a.m.",
+              "clean_reference_value": "10:45 a.m.",
+              "detector_confidence": 0.75,
+              "detector_reason": "Value '10:45 a.m.' in column 'sched_arr_time' disagrees with the consensus '11:05 a.m.' shared by 75% of the rows for entity '11:00 a.m.' (grouped by 'act_arr_t"
+            }
+          ]
+        },
+        "inferred_constraints": {
+          "flagged_cells": 2929,
+          "true_errors_flagged": 2773,
+          "false_positives": 156,
+          "precision": 0.94674,
+          "precision_ci95_wilson": [
+            0.938006,
+            0.954302
+          ],
+          "recall": 0.563618,
+          "false_positive_rate_of_queue": 0.05326,
+          "cells_reviewed_per_true_error": 1.056,
+          "distinct_confidences": 62,
+          "most_common_confidences": [
+            [
+              0.82,
+              793
+            ],
+            [
+              1.0,
+              708
+            ],
+            [
+              0.8,
+              164
+            ],
+            [
+              0.74,
+              164
+            ]
+          ],
+          "by_issue_type": {
+            "entity_consensus": {
+              "flagged": 1686,
+              "true_errors": 1622,
+              "precision": 0.96204,
+              "precision_ci95_wilson": [
+                0.951818,
+                0.970162
+              ]
+            },
+            "missing_value": {
+              "flagged": 1025,
+              "true_errors": 1025,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.996266,
+                1.0
+              ]
+            },
+            "format_violation": {
+              "flagged": 126,
+              "true_errors": 126,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.970413,
+                1.0
+              ]
+            },
+            "decimal_shift": {
+              "flagged": 92,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.040083
+              ]
+            }
+          },
+          "false_positive_examples": [
+            {
+              "row": 975,
+              "column": "sched_dep_time",
+              "issue_type": "entity_consensus",
+              "flagged_value": "8:41 a.m.",
+              "clean_reference_value": "8:41 a.m.",
+              "detector_confidence": 0.7692307692307693,
+              "detector_reason": "Value '8:41 a.m.' in column 'sched_dep_time' disagrees with the consensus '8:35 a.m.' shared by 77% of the rows for entity '8:51 a.m.' (grouped by 'act_dep_time"
+            },
+            {
+              "row": 16,
+              "column": "sched_dep_time",
+              "issue_type": "entity_consensus",
+              "flagged_value": "11:45 a.m.",
+              "clean_reference_value": "11:45 a.m.",
+              "detector_confidence": 0.7272727272727273,
+              "detector_reason": "Value '11:45 a.m.' in column 'sched_dep_time' disagrees with the consensus '11:50 a.m.' shared by 73% of the rows for entity '12:13 p.m.' (grouped by 'act_dep_t"
+            },
+            {
+              "row": 84,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "85",
+              "clean_reference_value": "85",
+              "detector_confidence": 0.71,
+              "detector_reason": "Value 85 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 89,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "90",
+              "clean_reference_value": "90",
+              "detector_confidence": 0.76,
+              "detector_reason": "Value 90 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 115,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "116",
+              "clean_reference_value": "116",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 116 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 86,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "87",
+              "clean_reference_value": "87",
+              "detector_confidence": 0.73,
+              "detector_reason": "Value 87 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 104,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "105",
+              "clean_reference_value": "105",
+              "detector_confidence": 0.89,
+              "detector_reason": "Value 105 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 101,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "102",
+              "clean_reference_value": "102",
+              "detector_confidence": 0.87,
+              "detector_reason": "Value 102 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 130,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "131",
+              "clean_reference_value": "131",
+              "detector_confidence": 0.92,
+              "detector_reason": "Value 131 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 11,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "12",
+              "clean_reference_value": "12",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 12 in column 'tuple_id' appears to be ~100x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 150,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "151",
+              "clean_reference_value": "151",
+              "detector_confidence": 0.79,
+              "detector_reason": "Value 151 in column 'tuple_id' appears to be ~10x too small compared to the typical value (median ~1188.5)"
+            },
+            {
+              "row": 13,
+              "column": "tuple_id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "14",
+              "clean_reference_value": "14",
+              "detector_confidence": 0.86,
+              "detector_reason": "Value 14 in column 'tuple_id' appears to be ~100x too small compared to the typical value (median ~1188.5)"
+            }
+          ]
+        }
+      }
+    },
+    "rayyan": {
+      "rows": 1000,
+      "ground_truth_cells": 948,
+      "regimes": {
+        "default": {
+          "flagged_cells": 2336,
+          "true_errors_flagged": 799,
+          "false_positives": 1537,
+          "precision": 0.342038,
+          "precision_ci95_wilson": [
+            0.323073,
+            0.361521
+          ],
+          "recall": 0.842827,
+          "false_positive_rate_of_queue": 0.657962,
+          "cells_reviewed_per_true_error": 2.924,
+          "distinct_confidences": 36,
+          "most_common_confidences": [
+            [
+              0.5,
+              637
+            ],
+            [
+              0.72,
+              372
+            ],
+            [
+              0.74,
+              319
+            ],
+            [
+              0.8,
+              210
+            ]
+          ],
+          "by_issue_type": {
+            "missing_value": {
+              "flagged": 1155,
+              "true_errors": 75,
+              "precision": 0.064935,
+              "precision_ci95_wilson": [
+                0.052117,
+                0.080638
+              ]
+            },
+            "date_transposition": {
+              "flagged": 637,
+              "true_errors": 637,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.994005,
+                1.0
+              ]
+            },
+            "format_violation": {
+              "flagged": 293,
+              "true_errors": 85,
+              "precision": 0.290102,
+              "precision_ci95_wilson": [
+                0.241122,
+                0.344516
+              ]
+            },
+            "decimal_shift": {
+              "flagged": 112,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.033163
+              ]
+            },
+            "type_mismatch": {
+              "flagged": 64,
+              "true_errors": 2,
+              "precision": 0.03125,
+              "precision_ci95_wilson": [
+                0.008612,
+                0.106975
+              ]
+            },
+            "outlier": {
+              "flagged": 49,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.0727
+              ]
+            },
+            "categorical_normalization": {
+              "flagged": 25,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.133196
+              ]
+            },
+            "entity_consensus": {
+              "flagged": 1,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.793457
+              ]
+            }
+          },
+          "false_positive_examples": [
+            {
+              "row": 819,
+              "column": "article_jcreated_at",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.86,
+              "detector_reason": "Missing value in column 'article_jcreated_at', which is 91% populated."
+            },
+            {
+              "row": 822,
+              "column": "journal_issn",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.74,
+              "detector_reason": "Missing value in column 'journal_issn', which is 68% populated."
+            },
+            {
+              "row": 398,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 446,
+              "column": "article_pagination",
+              "issue_type": "type_mismatch",
+              "flagged_value": "721",
+              "clean_reference_value": "721",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value '721' looks numeric in predominantly string column 'article_pagination'"
+            },
+            {
+              "row": 115,
+              "column": "article_jcreated_at",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.86,
+              "detector_reason": "Missing value in column 'article_jcreated_at', which is 91% populated."
+            },
+            {
+              "row": 100,
+              "column": "article_pagination",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.84,
+              "detector_reason": "Missing value in column 'article_pagination', which is 89% populated."
+            },
+            {
+              "row": 115,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 631,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 619,
+              "column": "journal_issn",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.74,
+              "detector_reason": "Missing value in column 'journal_issn', which is 68% populated."
+            },
+            {
+              "row": 745,
+              "column": "article_pagination",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.84,
+              "detector_reason": "Missing value in column 'article_pagination', which is 89% populated."
+            },
+            {
+              "row": 980,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 313,
+              "column": "journal_issn",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.74,
+              "detector_reason": "Missing value in column 'journal_issn', which is 68% populated."
+            }
+          ]
+        },
+        "inferred_constraints": {
+          "flagged_cells": 2336,
+          "true_errors_flagged": 799,
+          "false_positives": 1537,
+          "precision": 0.342038,
+          "precision_ci95_wilson": [
+            0.323073,
+            0.361521
+          ],
+          "recall": 0.842827,
+          "false_positive_rate_of_queue": 0.657962,
+          "cells_reviewed_per_true_error": 2.924,
+          "distinct_confidences": 36,
+          "most_common_confidences": [
+            [
+              0.5,
+              637
+            ],
+            [
+              0.72,
+              372
+            ],
+            [
+              0.74,
+              319
+            ],
+            [
+              0.8,
+              210
+            ]
+          ],
+          "by_issue_type": {
+            "missing_value": {
+              "flagged": 1155,
+              "true_errors": 75,
+              "precision": 0.064935,
+              "precision_ci95_wilson": [
+                0.052117,
+                0.080638
+              ]
+            },
+            "date_transposition": {
+              "flagged": 637,
+              "true_errors": 637,
+              "precision": 1.0,
+              "precision_ci95_wilson": [
+                0.994005,
+                1.0
+              ]
+            },
+            "format_violation": {
+              "flagged": 293,
+              "true_errors": 85,
+              "precision": 0.290102,
+              "precision_ci95_wilson": [
+                0.241122,
+                0.344516
+              ]
+            },
+            "decimal_shift": {
+              "flagged": 112,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.033163
+              ]
+            },
+            "type_mismatch": {
+              "flagged": 64,
+              "true_errors": 2,
+              "precision": 0.03125,
+              "precision_ci95_wilson": [
+                0.008612,
+                0.106975
+              ]
+            },
+            "outlier": {
+              "flagged": 49,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.0727
+              ]
+            },
+            "categorical_normalization": {
+              "flagged": 25,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.133196
+              ]
+            },
+            "entity_consensus": {
+              "flagged": 1,
+              "true_errors": 0,
+              "precision": 0.0,
+              "precision_ci95_wilson": [
+                0.0,
+                0.793457
+              ]
+            }
+          },
+          "false_positive_examples": [
+            {
+              "row": 5,
+              "column": "id",
+              "issue_type": "format_violation",
+              "flagged_value": "98234",
+              "clean_reference_value": "98234",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value '98234' has shape '99999' but column 'id' is dominated by shape '999999' (89%)."
+            },
+            {
+              "row": 156,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 533,
+              "column": "article_language",
+              "issue_type": "categorical_normalization",
+              "flagged_value": "ENG",
+              "clean_reference_value": "ENG",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 'ENG' is a normalization variant of the dominant form 'eng' in column 'article_language'."
+            },
+            {
+              "row": 844,
+              "column": "article_pagination",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.84,
+              "detector_reason": "Missing value in column 'article_pagination', which is 89% populated."
+            },
+            {
+              "row": 95,
+              "column": "article_jvolumn",
+              "issue_type": "decimal_shift",
+              "flagged_value": "3",
+              "clean_reference_value": "3",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 3 in column 'article_jvolumn' appears to be ~10x too small compared to the typical value (median ~29)"
+            },
+            {
+              "row": 763,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 85,
+              "column": "article_jvolumn",
+              "issue_type": "decimal_shift",
+              "flagged_value": "3",
+              "clean_reference_value": "3",
+              "detector_confidence": 0.95,
+              "detector_reason": "Value 3 in column 'article_jvolumn' appears to be ~10x too small compared to the typical value (median ~29)"
+            },
+            {
+              "row": 558,
+              "column": "article_jissue",
+              "issue_type": "decimal_shift",
+              "flagged_value": "350",
+              "clean_reference_value": "350",
+              "detector_confidence": 0.87,
+              "detector_reason": "Value 350 in column 'article_jissue' appears to be ~100x the typical value (median ~3)"
+            },
+            {
+              "row": 130,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            },
+            {
+              "row": 446,
+              "column": "id",
+              "issue_type": "decimal_shift",
+              "flagged_value": "56014",
+              "clean_reference_value": "56014",
+              "detector_confidence": 0.9,
+              "detector_reason": "Value 56014 in column 'id' appears to be ~10x too small compared to the typical value (median ~501140)"
+            },
+            {
+              "row": 472,
+              "column": "article_jvolumn",
+              "issue_type": "decimal_shift",
+              "flagged_value": "348",
+              "clean_reference_value": "348",
+              "detector_confidence": 0.84,
+              "detector_reason": "Value 348 in column 'article_jvolumn' appears to be ~10x the typical value (median ~29)"
+            },
+            {
+              "row": 700,
+              "column": "article_language",
+              "issue_type": "missing_value",
+              "flagged_value": "",
+              "clean_reference_value": "",
+              "detector_confidence": 0.72,
+              "detector_reason": "Missing value in column 'article_language', which is 64% populated."
+            }
+          ]
+        }
+      }
+    }
+  }
+}

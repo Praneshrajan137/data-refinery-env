@@ -1,0 +1,37 @@
+{
+  "schema": "dataforge_corrector_calibration_structured_v1",
+  "preregistration": "eval/preregistration/api_phase_certification.md",
+  "deviation": "AMENDMENT 2: arm selection overridden from A_freetext_k3 to B_structured_k9 (free-text confidence has measured zero discrimination). Primary endpoint expected NULL and declared so in advance; certification is arithmetically out of reach within budget.",
+  "arm": "B_structured_k9",
+  "k": 9,
+  "dataset": "hospital",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "complete": true,
+  "issues_completed": 3,
+  "issues_planned": 3,
+  "attempted": 3,
+  "proposals": 0,
+  "conformal": {
+    "alpha": 0.05,
+    "delta": 0.05,
+    "min_support": 30,
+    "calib_fraction": 0.5,
+    "split_seed": 20260804,
+    "pooled_across_seeds": false
+  },
+  "analysis": {
+    "status": "no_samples"
+  },
+  "certified": false,
+  "estimated_usd": 0.144675,
+  "run_outcome": "NOT_OBTAINED_RETRY_TIMEOUT_STALL",
+  "run_outcome_note": "The flagship measurement was NOT obtained. CORRECTED CAUSE (2026-08-05): not throttling. AzureBenchClient runs max_retries=5 against DATAFORGE_AZURE_TIMEOUT_S=180 with min(2*(attempt+1),120) backoff, so a single hung request consumes 5*180 + 20 = 920s (~15.3 min) before raising TimeoutError, which the flagship loop catches per-issue and continues past. That matches the observed ~15-minute silent window exactly. Consequently real billable calls in that window were ~5, not ~540, and the original ~.90 receipt overstated spend by up to ~100x; it has been reissued with the corrected cause and bound. This artifact contains only a 3-issue smoke sample and no flagship samples. The primary endpoint is discharged as a NULL on the basis of the ARM SWEEP (eval/results/corrector_arm_sweep.json, 173 issues), not this file.",
+  "primary_endpoint": "NULL",
+  "primary_endpoint_basis": "eval/results/corrector_arm_sweep.json",
+  "run_outcome_root_causes": [
+    "unbounded per-issue retry wall-time (920s for one request)",
+    "no per-issue progress logging, so a stall is indistinguishable from death",
+    "180s timeout applied to ~30-token enum-constrained answers (set from runbook guidance for long reasoning outputs)"
+  ]
+}

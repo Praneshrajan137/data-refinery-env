@@ -1,0 +1,799 @@
+{
+  "schema": "dataforge_corrector_arm_sweep_v1",
+  "preregistration": "eval/preregistration/api_phase_certification.md",
+  "dataset": "hospital",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "complete": false,
+  "issues_completed": 173,
+  "issues_planned": 250,
+  "split": {
+    "seed": 20260804,
+    "sweep_fraction": 0.2,
+    "sweep_size": 2074,
+    "flagship_size": 8299,
+    "probed": 250
+  },
+  "conformal": {
+    "alpha": 0.05,
+    "delta": 0.05,
+    "min_support": 30
+  },
+  "arms": {
+    "A_freetext_k3": {
+      "attempted_issues": 173,
+      "proposals": 39,
+      "abstentions": 134,
+      "abstention_rate": 0.7746,
+      "precision": 0.2821,
+      "correct": 11,
+      "confidence_grid_size": 3,
+      "confidence_grid": [
+        0.333333,
+        0.666667,
+        1.0
+      ],
+      "roc_auc": 0.5536,
+      "roc_auc_ci95": [
+        0.5,
+        0.6167
+      ],
+      "precision_at_top_20pct": 0.375,
+      "ece_secondary_not_evidence": 0.6838,
+      "ece": 0.6838,
+      "by_issue_type": {
+        "fd_violation": {
+          "n": 39,
+          "precision": 0.2821,
+          "certified_threshold": null,
+          "projected_coverage": 0.0,
+          "uncertified_reason": "precision_below_target: n=39 but Clopper-Pearson upper error 0.833 > alpha 0.05 (corrector too imprecise; need >= 59 all-correct at threshold)"
+        }
+      },
+      "samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            1.0,
+            false
+          ]
+        ]
+      },
+      "projected_certified_coverage": 0.0
+    },
+    "B_structured_k3": {
+      "attempted_issues": 173,
+      "proposals": 35,
+      "abstentions": 138,
+      "abstention_rate": 0.7977,
+      "precision": 0.3143,
+      "correct": 11,
+      "confidence_grid_size": 14,
+      "confidence_grid": [
+        0.293333,
+        0.333333,
+        0.366667,
+        0.5,
+        0.505,
+        0.506667,
+        0.51,
+        0.523333,
+        0.666667,
+        0.876667,
+        0.99,
+        0.993333,
+        0.996667,
+        1.0
+      ],
+      "roc_auc": 0.8617,
+      "roc_auc_ci95": [
+        0.7465,
+        0.9573
+      ],
+      "precision_at_top_20pct": 0.8571,
+      "ece_secondary_not_evidence": 0.5071,
+      "ece": 0.5071,
+      "by_issue_type": {
+        "fd_violation": {
+          "n": 35,
+          "precision": 0.3143,
+          "certified_threshold": null,
+          "projected_coverage": 0.0,
+          "uncertified_reason": "precision_below_target: n=35 but Clopper-Pearson upper error 0.813 > alpha 0.05 (corrector too imprecise; need >= 59 all-correct at threshold)"
+        }
+      },
+      "samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            true
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.9899999999999999,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.5233333333333333,
+            false
+          ],
+          [
+            0.9899999999999999,
+            true
+          ],
+          [
+            0.5,
+            false
+          ],
+          [
+            0.8766666666666666,
+            false
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.51,
+            false
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.505,
+            false
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.9899999999999999,
+            true
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.5066666666666667,
+            false
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.9933333333333333,
+            true
+          ],
+          [
+            0.3666666666666667,
+            false
+          ],
+          [
+            0.9899999999999999,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.29333333333333333,
+            false
+          ],
+          [
+            0.9899999999999999,
+            true
+          ],
+          [
+            0.9899999999999999,
+            false
+          ],
+          [
+            0.9966666666666667,
+            true
+          ],
+          [
+            0.3333333333333333,
+            false
+          ],
+          [
+            0.505,
+            false
+          ]
+        ]
+      },
+      "projected_certified_coverage": 0.0
+    },
+    "B_structured_k5": {
+      "attempted_issues": 173,
+      "proposals": 35,
+      "abstentions": 138,
+      "abstention_rate": 0.7977,
+      "precision": 0.3143,
+      "correct": 11,
+      "confidence_grid_size": 15,
+      "confidence_grid": [
+        0.2,
+        0.38,
+        0.4275,
+        0.5,
+        0.505,
+        0.506667,
+        0.534,
+        0.6,
+        0.63,
+        0.75,
+        0.916,
+        0.99,
+        0.996,
+        0.998,
+        1.0
+      ],
+      "roc_auc": 0.8788,
+      "roc_auc_ci95": [
+        0.767,
+        0.9659
+      ],
+      "precision_at_top_20pct": 0.8571,
+      "ece_secondary_not_evidence": 0.4887,
+      "ece": 0.4887,
+      "by_issue_type": {
+        "fd_violation": {
+          "n": 35,
+          "precision": 0.3143,
+          "certified_threshold": null,
+          "projected_coverage": 0.0,
+          "uncertified_reason": "precision_below_target: n=35 but Clopper-Pearson upper error 0.813 > alpha 0.05 (corrector too imprecise; need >= 59 all-correct at threshold)"
+        }
+      },
+      "samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            true
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.6,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.534,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            0.5,
+            false
+          ],
+          [
+            0.916,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.63,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.5066666666666667,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            0.6,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.2,
+            false
+          ],
+          [
+            0.505,
+            false
+          ],
+          [
+            0.998,
+            true
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.75,
+            false
+          ],
+          [
+            1.0,
+            false
+          ],
+          [
+            0.9960000000000001,
+            true
+          ],
+          [
+            0.4275,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.38,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.998,
+            true
+          ],
+          [
+            0.2,
+            false
+          ],
+          [
+            0.505,
+            false
+          ]
+        ]
+      },
+      "projected_certified_coverage": 0.0
+    },
+    "B_structured_k9": {
+      "attempted_issues": 173,
+      "proposals": 37,
+      "abstentions": 136,
+      "abstention_rate": 0.7861,
+      "precision": 0.2973,
+      "correct": 11,
+      "confidence_grid_size": 21,
+      "confidence_grid": [
+        0.111111,
+        0.222222,
+        0.32125,
+        0.436667,
+        0.444444,
+        0.5,
+        0.506667,
+        0.5075,
+        0.516,
+        0.527778,
+        0.555556,
+        0.595714,
+        0.666667,
+        0.888889,
+        0.924444,
+        0.988889,
+        0.99,
+        0.995556,
+        0.996667,
+        0.998889,
+        1.0
+      ],
+      "roc_auc": 0.9476,
+      "roc_auc_ci95": [
+        0.8836,
+        0.9889
+      ],
+      "precision_at_top_20pct": 0.8571,
+      "ece_secondary_not_evidence": 0.4632,
+      "ece": 0.4632,
+      "by_issue_type": {
+        "fd_violation": {
+          "n": 37,
+          "precision": 0.2973,
+          "certified_threshold": null,
+          "projected_coverage": 0.0,
+          "uncertified_reason": "precision_below_target: n=37 but Clopper-Pearson upper error 0.823 > alpha 0.05 (corrector too imprecise; need >= 59 all-correct at threshold)"
+        }
+      },
+      "samples_by_type": {
+        "fd_violation": [
+          [
+            1.0,
+            true
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.6666666666666666,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.1111111111111111,
+            false
+          ],
+          [
+            0.5277777777777778,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            0.5,
+            false
+          ],
+          [
+            0.9244444444444445,
+            false
+          ],
+          [
+            0.9888888888888889,
+            false
+          ],
+          [
+            0.8888888888888888,
+            false
+          ],
+          [
+            0.5957142857142858,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.516,
+            false
+          ],
+          [
+            0.9888888888888889,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            0.5555555555555556,
+            false
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.2222222222222222,
+            false
+          ],
+          [
+            0.5066666666666667,
+            false
+          ],
+          [
+            0.9966666666666667,
+            true
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.5555555555555556,
+            false
+          ],
+          [
+            0.8888888888888888,
+            false
+          ],
+          [
+            0.9955555555555556,
+            true
+          ],
+          [
+            0.32125,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            1.0,
+            true
+          ],
+          [
+            0.4366666666666667,
+            false
+          ],
+          [
+            0.1111111111111111,
+            false
+          ],
+          [
+            0.99,
+            true
+          ],
+          [
+            0.99,
+            false
+          ],
+          [
+            0.9988888888888889,
+            true
+          ],
+          [
+            0.4444444444444444,
+            false
+          ],
+          [
+            0.5075000000000001,
+            false
+          ]
+        ]
+      },
+      "projected_certified_coverage": 0.0
+    }
+  },
+  "selected_arm": "A_freetext_k3",
+  "all_arms_project_zero_coverage": true,
+  "selection_rule": "highest projected certified coverage; ties and all-zero break to lowest k",
+  "estimated_usd": 5.93944,
+  "reanalysed": true,
+  "reanalysis_note": "Metrics recomputed offline from persisted (confidence, correct) pairs. No provider calls, no spend. Adds roc_auc + bootstrap CI + top-20% precision, which are the confound-free discrimination metrics; ECE is retained only as a secondary observation because it conflates calibration with discrimination."
+}

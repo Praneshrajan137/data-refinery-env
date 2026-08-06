@@ -1,0 +1,81 @@
+{
+  "schema": "dataforge_azure_capability_probe_v1",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "api_version": "2025-04-01-preview",
+  "probes": {
+    "baseline": {
+      "accepted": true,
+      "content": "ok",
+      "content_is_empty": false,
+      "prompt_tokens": 13,
+      "completion_tokens": 5,
+      "reasoning_tokens": 0,
+      "expectation": "accept",
+      "matches_documentation": true
+    },
+    "json_mode": {
+      "accepted": false,
+      "error_kind": "http_400",
+      "error": "{   \"error\": {     \"message\": \"'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.\",     \"type\": \"invalid_request_error\",     \"param\": \"messages\",     \"code\": null   } }",
+      "expectation": "accept",
+      "matches_documentation": false
+    },
+    "structured_outputs_enum": {
+      "accepted": true,
+      "content": "{\"value\":\"NONE\",\"confidence\":1}",
+      "content_is_empty": false,
+      "prompt_tokens": 59,
+      "completion_tokens": 56,
+      "reasoning_tokens": 32,
+      "expectation": "accept",
+      "matches_documentation": true,
+      "enum_honoured": true
+    },
+    "reasoning_effort_none": {
+      "accepted": true,
+      "content": "ok",
+      "content_is_empty": false,
+      "prompt_tokens": 13,
+      "completion_tokens": 5,
+      "reasoning_tokens": 0,
+      "expectation": "accept",
+      "matches_documentation": true
+    },
+    "reasoning_effort_minimal": {
+      "accepted": false,
+      "error_kind": "http_400",
+      "error": "{   \"error\": {     \"message\": \"Unsupported value: 'reasoning_effort' does not support 'minimal' with this model. Supported values are: 'none', 'low', 'medium', 'high', and 'xhigh'.\",     \"type\": \"invalid_request_error\",     \"param\": \"reasoning_effort\",     \"code\": \"unsupported_value\"   } }",
+      "expectation": "accept",
+      "matches_documentation": false
+    },
+    "verbosity_low": {
+      "accepted": true,
+      "content": "ok",
+      "content_is_empty": false,
+      "prompt_tokens": 13,
+      "completion_tokens": 5,
+      "reasoning_tokens": 0,
+      "expectation": "accept",
+      "matches_documentation": true
+    },
+    "temperature": {
+      "accepted": false,
+      "error_kind": "http_400",
+      "error": "{   \"error\": {     \"message\": \"Unsupported value: 'temperature' does not support 0.2 with this model. Only the default (1) value is supported.\",     \"type\": \"invalid_request_error\",     \"param\": \"temperature\",     \"code\": \"unsupported_value\"   } }",
+      "expectation": "reject",
+      "matches_documentation": true
+    },
+    "logprobs": {
+      "accepted": false,
+      "error_kind": "http_400",
+      "error": "{   \"error\": {     \"message\": \"Unsupported parameter: 'logprobs' is not supported with this model.\",     \"type\": \"invalid_request_error\",     \"param\": \"logprobs\",     \"code\": \"unsupported_parameter\"   } }",
+      "expectation": "reject",
+      "matches_documentation": true
+    }
+  },
+  "decision": "structured_enum",
+  "decision_note": "structured_enum: the candidate pool becomes a hard decode-time enum and the model-confidence field becomes real. prompt_json_fallback: instruct JSON in the prompt and validate locally; pool membership stays a post-filter.",
+  "estimated_usd": 0.001555,
+  "calls": 4
+}

@@ -1,0 +1,111 @@
+{
+  "schema": "dataforge_review_gate_probe_v1",
+  "hypothesis": "A runtime-observable property of the detector-confidence distribution (normalized entropy) predicts whether the free baseline ranking is informative, and can therefore gate paid LLM triage automatically.",
+  "entropy_threshold": 0.2,
+  "findings": {
+    "hospital": {
+      "queue_size": 10373,
+      "distinct_confidences": 23,
+      "normalized_entropy": 0.0263,
+      "confidence_std": 0.0131,
+      "most_common": [
+        [
+          0.95,
+          10261
+        ],
+        [
+          0.9,
+          41
+        ],
+        [
+          0.85,
+          21
+        ],
+        [
+          0.75,
+          19
+        ]
+      ],
+      "gate_would_fire": true,
+      "llm_actually_helps": true,
+      "gate_correct": true,
+      "measured_outcome": {
+        "llm_roc_auc": 0.9459,
+        "baseline_roc_auc": 0.488,
+        "queue_precision_lift": 11.11,
+        "baseline_precision_at_k": 0.0
+      }
+    },
+    "flights": {
+      "queue_size": 1941,
+      "distinct_confidences": 44,
+      "normalized_entropy": 0.6043,
+      "confidence_std": 0.0943,
+      "most_common": [
+        [
+          0.8,
+          700
+        ],
+        [
+          1.0,
+          424
+        ],
+        [
+          0.72,
+          98
+        ],
+        [
+          0.75,
+          94
+        ]
+      ],
+      "gate_would_fire": false,
+      "llm_actually_helps": false,
+      "gate_correct": true,
+      "measured_outcome": {
+        "llm_roc_auc": 0.514,
+        "baseline_roc_auc": 0.0201,
+        "queue_precision_lift": 0.8411,
+        "baseline_precision_at_k": 0.6014
+      }
+    },
+    "rayyan": {
+      "queue_size": 2336,
+      "distinct_confidences": 36,
+      "normalized_entropy": 0.641,
+      "confidence_std": 0.1594,
+      "most_common": [
+        [
+          0.5,
+          637
+        ],
+        [
+          0.72,
+          372
+        ],
+        [
+          0.74,
+          319
+        ],
+        [
+          0.8,
+          210
+        ]
+      ],
+      "gate_would_fire": false,
+      "llm_actually_helps": true,
+      "gate_correct": false,
+      "measured_outcome": {
+        "llm_roc_auc": 0.9545,
+        "baseline_roc_auc": 0.5404,
+        "queue_precision_lift": 50.0,
+        "baseline_precision_at_k": 0.0
+      }
+    }
+  },
+  "mispredicted_datasets": [
+    "rayyan"
+  ],
+  "verdict": "NO_GO",
+  "conclusion": "NO-GO. rayyan has a well-spread confidence distribution (entropy 0.64) yet a chance-level baseline (ROC-AUC 0.54) that the LLM beats decisively (0.96). Dispersion therefore does NOT predict baseline informativeness: that property depends on whether confidence CORRELATES with correctness, which requires ground truth the product does not have at runtime. Shipping this gate would silently withhold a ~50x queue-precision lift on rayyan-like data. The triager ships as an explicit user opt-in instead, with queue size surfaced as cost guidance rather than an automatic decision."
+}
