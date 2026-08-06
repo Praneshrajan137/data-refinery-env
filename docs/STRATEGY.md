@@ -206,3 +206,221 @@ Reproducible evidence: `scripts/data/measure_teacher_grounding.py`,
 `scripts/bench/probe_llm_detector.py`, `dataforge/bench/ranking_metrics.py`,
 `eval/results/llm_detector_confirm.json`, `eval/results/llm_review_ranker_*.json`,
 DECISIONS 2026-07-25.
+**UPDATE 2026-08-04 - the calibration lever, narrowed by measurement and then acted on.**
+Lever 2 above ("calibration research on the proposer's confidence") was the vaguest
+item in this document. It is now concrete, because two of its candidate mechanisms
+were *measured* rather than argued about:
+
+- **Token logprobs: CLOSED.** The obvious continuous-confidence signal is
+  unavailable. Microsoft Learn lists `logprobs`/`top_logprobs` as unsupported on
+  reasoning models, and the live deployment confirms it for $0.0016:
+  `"Unsupported parameter: 'logprobs' is not supported with this model."`
+  (`eval/results/azure_capability_probe.json`). Guarded by
+  `tests/unit/test_azure_capability_probe.py` so the refusal is not re-litigated.
+- **`temperature`: also rejected** ("Only the default (1) value is supported").
+  This means the corrector's `temperature=0.4` never took effect on Azure, so
+  sample diversity is not tunable that way and `k` must be measured empirically.
+- **Structured Outputs with an `enum`: OPEN, and now built.**
+
+The mechanical insight this produced is worth stating plainly, because it explains
+the whole "calibration wall" more precisely than "the model is confidently wrong":
+`conformal.certify_threshold` searches only *observed* confidence values. With
+`k = 3`, self-consistency agreement takes about three distinct values, so there is
+almost nowhere to place a threshold that isolates a clean high-confidence slice.
+The wall was partly a **grid-resolution problem**, not only a model-quality problem.
+
+Constraining the corrector to a hard decode-time `enum` (the new
+`corrector_structured` mode, default off) fixes three things at once: pool
+membership becomes a guarantee rather than a post-filter, the previously *dead*
+`min(agreement, model_confidence)` safety invariant becomes reachable (the old
+prompts never asked for JSON, so the model-confidence path never executed), and the
+confidence grid widens.
+
+**MEASURED OUTCOME (hospital, live gpt-5.6-sol, 173 issues, pre-registered):** not
+certified - and the null is more informative than the previous one, though less
+dramatic than first reported (see the retraction below).
+
+Measured by **ROC-AUC of confidence against correctness** - threshold-free, so it
+cannot be gamed by choosing a favourable cut:
+
+| Arm | n | precision | **ROC-AUC** | 95% CI | top-20% precision |
+| --- | --- | --- | --- | --- | --- |
+| free-text k=3 | 39 | 0.282 | **0.554** | [0.500, 0.617] | 0.375 |
+| structured k=3 | 35 | 0.314 | **0.862** | [0.741, 0.956] | 0.857 |
+| structured k=9 | 37 | 0.297 | **0.948** | [0.885, 0.990] | 0.857 |
+
+1. **Free-text self-consistency confidence has no usable discriminating signal.** Its
+   CI lower bound sits exactly at 0.5, the "no information" convention. This is a
+   sharper diagnosis than "a larger model is confidently wrong": the *score* was the
+   problem too, so earlier attempts were partly measuring a low-resolution instrument.
+2. **The structured enum creates real ordering** - same corrector, same model, chance
+   to AUC 0.948, with non-overlapping CIs on paired data.
+
+> **RETRACTED (2026-08-05).** An earlier version of this section claimed the binding
+> constraint had shifted from *calibration quality* to **accepted-set sample size**,
+> and cited **ECE 0.68 -> 0.46** as evidence of value. Both are withdrawn.
+>
+> - The precision **level** does not clear the bar: top-6 1.000 (Clopper-Pearson 95%
+>   upper error **0.393**), top-10 **0.800**, top-17 **0.647**. The "n=6 at 100%"
+>   figure was a *selected extremum* - the largest all-correct prefix. Precision decays
+>   as the slice grows, so more data would most likely produce a **firmer NO**.
+>   Certification remains bound by achievable precision (~0.80 top-tier vs a 0.95 bar),
+>   which is the same conclusion this document already recorded for the pool-constrained
+>   corrector (0.85, propose-only). The new work refines the diagnosis; it does not
+>   overturn the finding.
+> - ECE is confounded for this purpose: it is a weighted mean of
+>   `|mean_confidence - accuracy|`, so at low accuracy *any* uniformly-lower score
+>   improves it with zero gain in ordering. It conflates calibration with
+>   discrimination, and `certify_threshold` depends only on discrimination.
+
+**Where this does point.** AUC 0.948 is a *triage* result, and the review queue is a
+consumer this project already ships. The bounding caveat: that AUC is measured only over
+cells where the corrector chose to propose (~18% of attempts), so it describes ranking
+*proposals*, not ranking an unfiltered detector queue.
+
+**Matched follow-up (2026-08-05).** The apparent tie between the corrector (0.948) and
+`ReviewRanker` (0.946) was not a real comparison - different populations, different
+labels. Rerun on the same cells with the same label, paired:
+
+| scorer | n | positives | ROC-AUC | 95% CI | calls/cell |
+| --- | --- | --- | --- | --- | --- |
+| `ReviewRanker` | 150 | 40 | 0.958 | [0.912, 0.996] | **1** |
+| structured corrector | 150 | 40 | 0.979 | [0.946, 0.998] | **3** |
+
+Paired AUC delta 95% CI **[-0.029, +0.074]** - straddles zero, so on hospital there is
+**no detectable difference** in ranking power (a failure to detect a difference, not a
+proof of equivalence). **On hospital, for ranking alone the ranker wins on cost: equal
+measurable power at one third the calls; for ranking plus a candidate value, the corrector
+alone (3 calls) beats ranker-then-corrector (4 calls).**
+
+> **RETRACTED the same day (2026-08-05).** This section previously concluded that "the two
+> are substantially redundant as rankers, making this a product decision." That was
+> **generalised from a single dataset** and is withdrawn. `eval/results/review_gate_probe.json`
+> -- committed earlier in the same session -- already showed:
+>
+> | dataset | queue | LLM ranker ROC-AUC | free baseline ROC-AUC |
+> | --- | --- | --- | --- |
+> | hospital | 10,373 | 0.9459 | 0.488 |
+> | rayyan | 2,336 | 0.9545 | 0.5404 |
+> | **flights** | 1,941 | **0.514** | **0.0201** |
+>
+> On flights the LLM ranker is **at chance**, so redundancy is a statement about datasets
+> where both scorers work. The corrected claim: **the LLM ranker's value is
+> dataset-dependent, and that dependence is not predictable at runtime.**
+>
+> The free baseline in that table is also not a fair control: it is the detector's own sort
+> order, and on hospital 10,261 of 10,373 cells share `confidence = 0.95` (entropy 0.0263),
+> so 0.488 measures a *near-constant feature*. On flights it is 0.0201 -- anti-correlated,
+> inverting to ~0.98, **better than the LLM**. A genuine free ranker built from the
+> per-cell signals the pipeline already computes and discards has not yet been measured.
+
+**The constraint this exposes, which outranks everything above.** Whether confidence
+carries usable signal depends on whether it *correlates with correctness* - and that
+requires ground truth the product does not have at runtime. Confidence dispersion was
+tested as a runtime proxy and **refuted**: rayyan has entropy 0.641 yet a chance-level
+baseline (0.540) that the LLM beats at 0.955. So DataForge currently **cannot tell a user
+in advance whether paid triage will help their table.** This is the same unsolved transfer
+problem that conformal exchangeability rests on, and it is the highest-value open problem
+in this document.
+
+### UPDATE 2026-08-05: paired cross-dataset evidence, and a refuted "obvious improvement"
+
+Run on **gpt-5-mini** (the original deployment became unreachable; these numbers are **not
+comparable** to gpt-5.6-sol figures), 300 cells per dataset, default detector regime, same
+cells, same label, paired. Artifact `eval/results/ranker_arms_cross_dataset.json`, $0.15.
+
+| dataset | n | positives | evidence-free AUC | with-evidence AUC | paired delta CI |
+| --- | --- | --- | --- | --- | --- |
+| hospital | 300 | 169 | 0.8717 | 0.9043 | [-0.0138, +0.0827] |
+| rayyan | 300 | 101 | 0.6562 | **0.2557** | **[-0.4722, -0.3292]** |
+| flights | 300 | 283 | 0.5740 | 0.5458 | [-0.1834, +0.1293] |
+
+**The triager does not generalise, and now depends on the model too.** rayyan scored 0.955
+on gpt-5.6-sol and 0.656 on gpt-5-mini. So the feature's value varies with **dataset and
+model**, neither knowable at runtime without labels. flights carries only 17 negatives at a
+0.943 base rate, so no AUC claim belongs there - but its base rate already answers the
+product question: nothing to triage.
+
+**Feeding the ranker detector evidence is measured harmful.** The hypothesis was that the
+ranker was handicapped by re-deriving what the detectors already knew. Refuted: no
+detectable change on hospital, and **0.656 -> 0.256 on rayyan** (below chance), with
+top-decile precision collapsing 0.567 -> 0.067. The cause is anchoring on a 33.7%-precise
+detector. **The strategic lesson is larger than the feature:** the verifier is valuable
+because it is *independent* of the detector, so contaminating it with the detector's opinion
+converts an independent check into an amplifier of the detector's errors. Kept opt-in and
+default-off purely so the negative result stays reproducible.
+
+
+### UPDATE 2026-08-05: the flooded queue is self-inflicted, and that reprices the triager
+
+Measured in both detector regimes, free, no provider calls
+(`scripts/bench/measure_detector_precision.py`, artifact
+`eval/results/detector_queue_composition.json`):
+
+| dataset | regime | flagged | true | precision | recall | cells per real error |
+| --- | --- | --- | --- | --- | --- | --- |
+| hospital | default | 549 | 308 | **0.561** | 0.605 | **1.78** |
+| hospital | inferred constraints | 10,373 | 455 | **0.044** | 0.894 | **22.80** |
+| flights | either (identical) | 2,929 | 2,773 | 0.947 | 0.564 | 1.06 |
+| rayyan | either (identical) | 2,336 | 799 | 0.342 | 0.843 | 2.92 |
+
+**Queue flooding is a configuration choice, not a dataset property.** Inferred FD
+constraints alter **only hospital** - flights and rayyan are byte-identical across regimes.
+On hospital they buy **+147 true errors for +9,824 false positives (~67 FPs per extra real
+error)** and degrade review effort **12.8x**.
+
+The 2026-07-25 triager decision activated on "low queue base precision", treating it as
+something datasets arrive with. It is instead something this product does to itself. Switch
+inferred constraints off and hospital enters the flights regime - already high-precision,
+nothing to triage. **So the strategic priority inverts: the cheapest large improvement to
+human review is not buying LLM ranking of spurious flags, it is not emitting them.**
+
+This does not mean deleting inferred constraints. They genuinely lift hospital recall
+0.605 -> 0.894, which is the right trade when a missed error costs more than a wasted
+review. It means the dial must be an **explicit, costed choice** with the exchange rate
+shown at the point of decision - not a silent default that manufactures the very problem a
+paid feature is then sold to solve.
+
+
+Two things this experiment taught that generalise beyond it: the detector queue's natural
+precision is only **~4.5%** on hospital **under inferred FD constraints** (the shipped
+default detector path is 56% precise on the same dataset -- see
+`eval/results/detector_queue_composition.json`), so an unenriched 150-cell sample yields ~3
+positives and deceptively tight CIs (the sample was enriched to 40 positives, valid because
+ROC-AUC is base-rate invariant, with `precision@k` suppressed because it is not); and the
+corrector abstains on **67%** of cells, so average-rank tie handling - not the score itself
+- carries much of its measured AUC.
+
+
+
+Certified auto-apply remains opt-in and remains **disabled**: every threshold sits at
+the `1.01` sentinel and `release/corrector_gate.py` confirms `enabled_classes == []`.
+The authorised flagship run at k=9 produced no data and no number from it is claimed
+anywhere; the cause was a retry-timeout stall (`5 x 180s + 20s backoff = 920s` for one
+hung request), not throttling as first reported. See Amendment 3 of the pre-registration
+for the corrected post-mortem.
+
+
+
+**UPDATE 2026-08-04 - the review triager is now reachable, and its auto-fire gate is a NO-GO.**
+The triager described above was measured but had **no product surface** - not
+exported, no CLI flag, no tool. It now ships on the Python API, the CLI
+(`--review-rank`), and MCP (`dataforge_review_rank`). The honest product rule stated
+above ("fire the LLM triager only on low-base-precision queues (a free per-run
+signal)") turned out to be **wrong as stated**: there is no such free signal.
+A dispersion-based gate fires correctly on hospital and flights but abstains on
+rayyan, where the triager delivers a ~50x queue-precision lift, because dispersion
+does not imply that detector confidence *correlates with correctness* - and that
+correlation cannot be known without ground truth. Firing is therefore an explicit
+user decision. Evidence: `eval/results/review_gate_probe.json`.
+
+**UPDATE 2026-08-04 - spend is now a trust surface.**
+The paid-inference layer had none of the accountability the rest of the system
+insists on: the product path returned a bare string and so could not be metered or
+capped at all, per-run spend estimates were discarded at process exit, and the
+"budget" guard counted calls rather than dollars despite prices and a call estimate
+both being available. There are now three independent layers - a pre-flight refusal,
+an in-flight hard stop, and a committed append-only receipt ledger - documented in
+[trust/spend-accountability.md](trust/spend-accountability.md). A system that refuses
+to write a cell without proof should not spend a dollar without a receipt.
+

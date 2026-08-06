@@ -1,0 +1,163 @@
+# Quantitative claims bound to the artifacts that justify them.
+#
+# WHY THIS FILE EXISTS
+# The API phase published five false or mis-scoped numbers in prose docs. Each was caught
+# only by deliberate re-investigation, never by CI, because the existing truth checkers
+# verify different things: `readme_truth.py` polices whether a *kind* of claim may appear,
+# `benchmark_truth.py` regenerates marker-delimited blocks, and `openapi_contract.py`
+# diffs snapshots. None of them verifies a hand-written number in prose against the
+# artifact it came from. That is the gap this file and `scripts/ci/docs_truth.py` close.
+#
+# HOW IT WORKS
+# Each entry names a document, an artifact, a JSON pointer into that artifact, and the
+# exact string the resolved value must render as. The checker fails when the artifact and
+# the prose disagree -- in either direction. There is no float tolerance by design: the
+# expected string is compared as it is written, which is how the rest of this repo handles
+# numbers in markdown (`dataforge/bench/report.py` freezes floats to fixed precision at
+# generation time). If a number legitimately changes, the artifact changes, the checker
+# fails, and the prose must be updated deliberately.
+#
+# SCOPE
+# This is not "every number in the docs" -- it is the load-bearing ones, where being wrong
+# changes a decision. Adding a claim here is cheap; leaving a decision-relevant number
+# unbound is what proved expensive.
+
+claims:
+  # --- The central discrimination finding (arm sweep) ---
+  - id: freetext_auc
+    doc: eval/preregistration/api_phase_certification.md
+    artifact: eval/results/corrector_arm_sweep.json
+    pointer: /arms/A_freetext_k3/roc_auc
+    format: "{:.3f}"
+    expect: "0.554"
+    note: >-
+      Free-text self-consistency confidence is at chance. This is the mechanical reason
+      every prior certification attempt returned 0.0 coverage.
+
+  - id: structured_k9_auc
+    doc: eval/preregistration/api_phase_certification.md
+    artifact: eval/results/corrector_arm_sweep.json
+    pointer: /arms/B_structured_k9/roc_auc
+    format: "{:.3f}"
+    expect: "0.948"
+    note: The structured enum creates real ordering where free text has none.
+
+  - id: structured_k3_auc
+    doc: eval/preregistration/api_phase_certification.md
+    artifact: eval/results/corrector_arm_sweep.json
+    pointer: /arms/B_structured_k3/roc_auc
+    format: "{:.3f}"
+    expect: "0.862"
+
+  # --- Detector queue composition: the regime distinction ---
+  - id: hospital_default_precision
+    doc: DECISIONS.md
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/hospital/regimes/default/precision
+    format: "{:.4f}"
+    expect: "0.5610"
+    note: >-
+      The shipped default detector path. Contradicts the retracted "~95% of flagged cells
+      are not real errors" framing, which held only under inferred FD constraints.
+
+  - id: hospital_inferred_precision
+    doc: DECISIONS.md
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/hospital/regimes/inferred_constraints/precision
+    format: "{:.4f}"
+    expect: "0.0439"
+    note: The flooded queue that justified paid triage. Hospital-only, configuration-caused.
+
+  - id: flights_default_precision
+    doc: DECISIONS.md
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/flights/regimes/default/precision
+    format: "{:.4f}"
+    expect: "0.9467"
+    note: Already high-precision, so there is nothing for a triager to reorder.
+
+  - id: rayyan_default_precision
+    doc: DECISIONS.md
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/rayyan/regimes/default/precision
+    format: "{:.4f}"
+    expect: "0.3420"
+
+  # --- The transfer finding: what the paid ranker actually buys ---
+  - id: free_ranker_transfer_hospital
+    doc: DECISIONS.md
+    artifact: eval/results/free_vs_llm_ranker.json
+    pointer: /regimes/default/leave_one_dataset_out/hospital/free_transfer_roc_auc
+    format: "{:.4f}"
+    expect: "0.9316"
+    note: Free features transfer acceptably here, which is why hospital alone looked decisive.
+
+  - id: free_ranker_transfer_rayyan
+    doc: DECISIONS.md
+    artifact: eval/results/free_vs_llm_ranker.json
+    pointer: /regimes/default/leave_one_dataset_out/rayyan/free_transfer_roc_auc
+    format: "{:.4f}"
+    expect: "0.2722"
+    note: >-
+      Anti-correlated. This single number is why the free ranker must never be a silent
+      default, and why the paid ranker's value is transfer rather than information.
+
+  - id: free_ranker_in_sample_rayyan
+    doc: DECISIONS.md
+    artifact: eval/results/free_vs_llm_ranker.json
+    pointer: /regimes/default/leave_one_dataset_out/rayyan/free_in_sample_roc_auc
+    format: "{:.4f}"
+    expect: "0.9999"
+    note: >-
+      Near-perfect given labels. Quoting this without the transfer number beside it would
+      be the exact error this phase kept making.
+
+  # --- The disconfirming dataset that a published claim ignored ---
+  - id: flights_llm_ranker_at_chance
+    doc: DECISIONS.md
+    artifact: eval/results/review_gate_probe.json
+    pointer: /findings/flights/measured_outcome/llm_roc_auc
+    format: "{:.3f}"
+    expect: "0.514"
+    note: >-
+      The LLM ranker is at chance on flights. This was committed before the redundancy
+      claim was published, and refuted it; the claim generalised from hospital anyway.
+
+  # --- Paired cross-dataset run on gpt-5-mini (NOT comparable to gpt-5.6-sol figures) ---
+  - id: xds_hospital_bare_auc
+    doc: DECISIONS.md
+    artifact: eval/results/ranker_arms_cross_dataset.json
+    pointer: /datasets/hospital/arms/0/roc_auc
+    format: "{:.4f}"
+    expect: "0.8717"
+
+  - id: xds_rayyan_bare_auc
+    doc: DECISIONS.md
+    artifact: eval/results/ranker_arms_cross_dataset.json
+    pointer: /datasets/rayyan/arms/0/roc_auc
+    format: "{:.4f}"
+    expect: "0.6562"
+    note: >-
+      rayyan scored 0.955 on gpt-5.6-sol and 0.656 here, so triage quality depends on the
+      model as well as the dataset -- neither knowable at runtime without labels.
+
+  - id: xds_rayyan_evidence_auc
+    doc: DECISIONS.md
+    artifact: eval/results/ranker_arms_cross_dataset.json
+    pointer: /datasets/rayyan/arms/1/roc_auc
+    format: "{:.4f}"
+    expect: "0.2557"
+    note: >-
+      Below chance. Supplying detector evidence to the ranker is MEASURED HARMFUL: the model
+      anchors on a 33.7%-precise detector and inherits its false positives. This refuted the
+      "information defect" hypothesis that motivated the parameter.
+
+  - id: xds_flights_bare_auc
+    doc: DECISIONS.md
+    artifact: eval/results/ranker_arms_cross_dataset.json
+    pointer: /datasets/flights/arms/0/roc_auc
+    format: "{:.4f}"
+    expect: "0.5740"
+    note: >-
+      Only 17 negatives in 300 cells at a 0.943 base rate, so the CI spans chance and no AUC
+      claim belongs here. The base rate already answers the product question.

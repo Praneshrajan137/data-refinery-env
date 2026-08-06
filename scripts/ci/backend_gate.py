@@ -48,6 +48,7 @@ MYPY_PATHS = [
     "playground/api/app.py",
     "scripts/ci/readme_truth.py",
     "scripts/ci/benchmark_truth.py",
+    "scripts/ci/docs_truth.py",
     "scripts/ci/full_vision_external_gate.py",
     "scripts/ci/installed_package_smoke.py",
     "scripts/ci/openapi_contract.py",
@@ -479,6 +480,7 @@ def main() -> int:
             ),
             _run("README truth", [PYTHON, "scripts/ci/readme_truth.py"]),
             _run("benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]),
+            _run("docs truth", [PYTHON, "scripts/ci/docs_truth.py", "--check"]),
             _run("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
             _run(
                 "release doctor",
