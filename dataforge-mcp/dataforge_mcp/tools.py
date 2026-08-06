@@ -16,6 +16,7 @@ from dataforge import (
     Issue,
     ProposedFix,
     RepairPipelineRequest,
+    ReviewRanker,
     SafetyContext,
     SafetyFilter,
     SafetyVerdict,
@@ -49,6 +50,19 @@ class IssueResult(BaseModel):
     expected: str | None
     actual: str
     reason: str
+
+
+class RankedCellResult(BaseModel):
+    """A review-queue triage score for one flagged cell.
+
+    Deliberately carries no candidate value: a triage score orders a human's
+    queue and must not be mistakable for something applicable.
+    """
+
+    row: int
+    column: str
+    score: float
+    provenance: str
 
 
 class FixResult(BaseModel):
@@ -329,6 +343,47 @@ def dataforge_verify_fix(fix_spec: dict[str, Any]) -> VerifyFixResult:
         verifier_verdict=verifier_result.verdict.value,
         unsat_core=list(verifier_result.unsat_core),
     )
+
+
+def dataforge_review_rank(path: str, max_cells: int = 25) -> list[RankedCellResult]:
+    """Order a review queue by how likely each flagged cell is a real error.
+
+    Read-only triage, not repair. Detected cells are scored by a grounded
+    yes/no LLM vote and returned highest-score-first, so a human reviews likely
+    true errors before false positives. Measured on a flooded queue this lifted
+    review precision from ~5% to ~41%; on an already-precise queue it adds
+    nothing, so firing it is an explicit choice rather than an automatic one.
+
+    Nothing here can write: a score carries no candidate value, and this tool
+    never touches the transaction or apply path.
+
+    Args:
+        path: CSV file to triage.
+        max_cells: Maximum number of flagged cells to score (bounds LLM spend).
+
+    Returns:
+        Ranked cells, highest triage score first.
+    """
+    csv_path = _resolve_csv_path(path)
+    df, issues = _run_detection(csv_path)
+    cells = [(issue.row, issue.column) for issue in issues][: max(0, max_cells)]
+    if not cells:
+        return []
+    # cache_dir=None: MCP integrations may only use the root public facade, and
+    # the per-file cache helper is internal. MCP calls are short-lived, so the
+    # lost cache reuse is marginal; the CLI path (inside the package) caches.
+    ranker = ReviewRanker(cache_dir=None)
+    scored = ranker.rank(cells, df)
+    ordered = sorted(scored, key=lambda s: (-s.score, s.row, s.column))
+    return [
+        RankedCellResult(
+            row=s.row,
+            column=s.column,
+            score=round(s.score, 4),
+            provenance=s.provenance,
+        )
+        for s in ordered
+    ]
 
 
 def dataforge_apply_repairs(path: str, mode: Literal["dry_run", "apply"]) -> TxnReceipt:

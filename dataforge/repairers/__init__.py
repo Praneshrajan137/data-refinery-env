@@ -43,6 +43,7 @@ def build_repairers(
     model: str | None = None,
     allow_entity_consensus: bool = False,
     corrector_pool_constrained: bool = False,
+    corrector_structured: bool = False,
 ) -> dict[str, Repairer]:
     """Construct the default repairer registry.
 
@@ -89,6 +90,7 @@ def build_repairers(
             allow_llm=True,
             model=model,
             pool_constrained=corrector_pool_constrained,
+            structured=corrector_structured,
         )
         registry["missing_value"] = FallbackRepairer(MissingValueRepairer(), corrector)
         registry["format_violation"] = corrector
@@ -107,6 +109,7 @@ def propose_fixes(
     model: str | None = None,
     allow_entity_consensus: bool = False,
     corrector_pool_constrained: bool = False,
+    corrector_structured: bool = False,
 ) -> list[ProposedFix]:
     """Run all Week 2 repairers and return proposed fixes.
 
@@ -127,6 +130,7 @@ def propose_fixes(
         model=model,
         allow_entity_consensus=allow_entity_consensus,
         corrector_pool_constrained=corrector_pool_constrained,
+        corrector_structured=corrector_structured,
     )
     proposed: list[ProposedFix] = []
     seen_cells: set[tuple[int, str]] = set()

@@ -340,6 +340,36 @@ def repair(
             "proposals stay review-only (never auto-applied).",
         ),
     ] = False,
+    corrector_structured: Annotated[
+        bool,
+        typer.Option(
+            "--corrector-structured",
+            help="Enforce the candidate pool as a hard decode-time enum via Structured Outputs "
+            "(instead of a prompt request plus post-filter), and require the model to emit a "
+            "confidence. Implies --corrector-pool-constrained. Requires --allow-llm and provider "
+            "support; proposals stay review-only unless a certified calibration artifact is loaded.",
+        ),
+    ] = False,
+    review_rank: Annotated[
+        bool,
+        typer.Option(
+            "--review-rank",
+            help="Order the review queue by an LLM triage score (highest-likelihood real "
+            "errors first). Presentation-only: a score can never be applied. Most valuable "
+            "when the queue is flooded with detector false positives; adds nothing when the "
+            "queue is already high-precision. Requires a provider key.",
+        ),
+    ] = False,
+    review_rank_max_cells: Annotated[
+        int,
+        typer.Option(
+            "--review-rank-max-cells",
+            min=1,
+            help="Maximum flagged cells to triage with --review-rank (one LLM call each). "
+            "Bounds spend. When the queue is larger, the excess is left unranked and a "
+            "warning reports how much was covered.",
+        ),
+    ] = 200,
     allow_unproven_autoapply: Annotated[
         bool,
         typer.Option(
@@ -510,6 +540,12 @@ def repair(
         corrector_policy = None
         calibration_maps = None
         corrector_reference = None
+        if corrector_structured and not allow_llm:
+            _print_error(
+                "--corrector-structured requires --allow-llm.",
+                hint="Add --allow-llm, or drop --corrector-structured.",
+            )
+            raise typer.Exit(code=2)
         if corrector_calibration is not None:
             if not allow_llm:
                 _print_error(
@@ -523,6 +559,15 @@ def repair(
                 corrector_calibration
             )
 
+        ranker = None
+        if review_rank:
+            from dataforge.review import ReviewRanker
+            from dataforge.transactions.log import cache_dir_for
+
+            # Presentation-only by construction: the ranker is passed as a
+            # separate argument to run_repair_pipeline, not as part of the
+            # request, so there is no path from a triage score to a mutation.
+            ranker = ReviewRanker(cache_dir=cache_dir_for(resolved_path), model=llm_model)
         result = run_repair_pipeline(
             RepairPipelineRequest(
                 source_path=resolved_path,
@@ -539,10 +584,13 @@ def repair(
                 allow_entity_consensus=allow_entity_consensus,
                 allow_unproven_autoapply=allow_unproven_autoapply,
                 corrector_pool_constrained=corrector_pool_constrained,
+                corrector_structured=corrector_structured,
                 corrector_policy=corrector_policy,
                 calibration_map_by_class=calibration_maps,
                 corrector_reference_confidences=corrector_reference,
-            )
+            ),
+            review_ranker=ranker,
+            review_ranker_max_cells=review_rank_max_cells,
         )
     except Exception as exc:
         _print_error(
@@ -556,6 +604,21 @@ def repair(
         raise typer.Exit(code=0 if result.fixes else 1)
 
     output_console = Console()
+    if review_rank:
+        # Silence here was the real defect: a capped triage pass on a flooded
+        # queue would rank a small slice and say nothing, so the user would
+        # believe the whole queue had been ordered. Report coverage explicitly.
+        ranked = len(result.receipt.review_ranking)
+        flagged = result.receipt.issues_count
+        if ranked < flagged:
+            output_console.print(
+                f"[yellow]Triaged {ranked} of {flagged} flagged cells "
+                f"(--review-rank-max-cells={review_rank_max_cells}). The remaining "
+                f"{flagged - ranked} are unranked; raise the cap to cover more, at "
+                f"one LLM call per cell.[/yellow]"
+            )
+        else:
+            output_console.print(f"[green]Triaged all {ranked} flagged cells.[/green]")
     render_repair_diff(result.fixes, output_console, file_path=str(resolved_path))
     failed_issue_count = _render_failure_summary(result, output_console)
 

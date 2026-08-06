@@ -13,6 +13,7 @@ from dataforge_mcp.tools import (
     dataforge_detect_errors,
     dataforge_profile,
     dataforge_revert,
+    dataforge_review_rank,
     dataforge_verify_and_apply,
     dataforge_verify_fix,
 )
@@ -61,6 +62,7 @@ class TestDataForgeMcpTools:
         assert names == {
             "dataforge_profile",
             "dataforge_detect_errors",
+            "dataforge_review_rank",
             "dataforge_verify_fix",
             "dataforge_apply_repairs",
             "dataforge_verify_and_apply",
@@ -87,6 +89,26 @@ class TestDataForgeMcpTools:
         assert profile.columns == 2
         assert profile.total_issues >= 1
         assert any(issue.issue_type == "decimal_shift" for issue in issues)
+
+    def test_review_rank_is_read_only_and_bounded(self, tmp_path: Path) -> None:
+        """Triage scores order a queue; they can never become a write."""
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        before = csv_path.read_bytes()
+
+        # max_cells=0 bounds spend to zero calls, so this stays offline while
+        # still exercising the tool's contract.
+        ranked = dataforge_review_rank(str(csv_path), max_cells=0)
+
+        assert ranked == []
+        assert csv_path.read_bytes() == before
+
+    def test_review_rank_result_carries_no_applicable_value(self) -> None:
+        # A RankedCellResult deliberately has no `new_value`: nothing about a
+        # triage score should be mistakable for something applicable.
+        from dataforge_mcp.tools import RankedCellResult
+
+        assert set(RankedCellResult.model_fields) == {"row", "column", "score", "provenance"}
 
     def test_profile_rejects_paths_outside_allowed_roots(self, tmp_path: Path) -> None:
         outside = tmp_path.parent / f"{tmp_path.name}-outside.csv"

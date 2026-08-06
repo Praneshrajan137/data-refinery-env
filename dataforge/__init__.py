@@ -111,6 +111,8 @@ __all__ = [
     "VerifyAndApplyRequest",
     "__version__",
     "verify_and_apply",
+    "CellScore",
+    "ReviewRanker",
     "load_schema",
     "build_constraint_review_artifact",
     "constraint_ir_from_schema",
@@ -173,6 +175,12 @@ _PUBLIC_EXPORTS: dict[str, tuple[str, str]] = {
     "VerifiedFix": ("dataforge.engine.repair", "VerifiedFix"),
     "VerifyAndApplyRequest": ("dataforge.engine.repair", "VerifyAndApplyRequest"),
     "verify_and_apply": ("dataforge.engine.repair", "verify_and_apply"),
+    # Review-queue triage. Measured a decisive win on flooded queues (hospital
+    # review precision 5.0% -> 40.7%, rayyan ~50x queue-precision lift) but was
+    # previously reachable only through `dataforge bench` -- no export, no CLI
+    # flag, no tool. Presentation-only: a score can never reach the apply gate.
+    "CellScore": ("dataforge.review", "CellScore"),
+    "ReviewRanker": ("dataforge.review", "ReviewRanker"),
     "load_schema": ("dataforge.cli.common", "load_schema"),
     "build_constraint_review_artifact": (
         "dataforge.schema_inference",

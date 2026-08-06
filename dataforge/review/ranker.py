@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -36,6 +36,8 @@ if TYPE_CHECKING:
     from dataforge.agent.providers import Message
 
 CompletionFn = Callable[[list["Message"]], str]
+#: Per-cell detector findings the ranker may be shown. Keys are ``(row, column)``.
+DetectorEvidence = Mapping[tuple[int, str], Mapping[str, object]]
 
 _DEFAULT_SAMPLES = 1
 _DEFAULT_TEMPERATURE = 0.0
@@ -45,6 +47,18 @@ _SYSTEM_PROMPT = (
     "flagged as possibly erroneous. Using the whole row as context, decide "
     "whether the flagged cell's value is actually erroneous. Respond with ONLY "
     "'yes' (erroneous) or 'no' (fine). No prose."
+)
+
+# Used ONLY when detector evidence is supplied. Keeping the evidence-free prompt
+# byte-identical preserves every existing cache entry and leaves the previously
+# measured behaviour untouched, so the two paths can be compared honestly.
+_SYSTEM_PROMPT_WITH_EVIDENCE = (
+    "You are a data-quality auditor. A specific cell in a table row has been "
+    "flagged as possibly erroneous by automated detectors, whose findings are "
+    "included. The detectors have high recall but low precision, so treat their "
+    "findings as evidence to weigh, not as ground truth. Using the whole row and "
+    "those findings, decide whether the flagged cell's value is actually "
+    "erroneous. Respond with ONLY 'yes' (erroneous) or 'no' (fine). No prose."
 )
 
 
@@ -85,19 +99,60 @@ class ReviewRanker:
         self._temperature = temperature
         self._completion_fn = completion_fn
 
-    def rank(self, cells: Sequence[tuple[int, str]], df: TableLike) -> list[CellScore]:
+    def rank(
+        self,
+        cells: Sequence[tuple[int, str]],
+        df: TableLike,
+        evidence: DetectorEvidence | None = None,
+    ) -> list[CellScore]:
         """Score each ``(row, column)`` and return them highest-score first.
 
         Ties preserve input order (stable sort), so a caller may pre-order
         ``cells`` by a free baseline (e.g. detector confidence) to break ties.
+
+        Args:
+            cells: The flagged cells to score.
+            df: The table the cells belong to.
+            evidence: Optional per-cell detector findings (``issue_type``, ``severity``,
+                ``confidence``, ``reason``, ``expected``). When omitted the prompt is
+                byte-identical to the original evidence-free one, so existing caches and
+                previously measured results remain valid.
+
+                **MEASURED HARMFUL -- do not enable by default.** The hypothesis behind
+                this parameter was that the ranker was handicapped by re-deriving a
+                judgement the detectors had already made. Measurement refuted it
+                (``eval/results/ranker_arms_cross_dataset.json``, gpt-5-mini, 300 cells per
+                dataset, paired): supplying evidence moved ROC-AUC by +0.033 on hospital
+                (CI [-0.014, +0.083], no detectable change) and **-0.401 on rayyan**
+                (0.656 -> 0.256, CI [-0.472, -0.329]) -- below chance, with precision in the
+                top decile collapsing from 0.567 to 0.067.
+
+                The cause is anchoring: the model inherits the detectors' false positives
+                instead of checking them. rayyan's detectors are only 33.7% precise, so
+                trusting them is worse than ignoring them. A prompt that explicitly warns
+                the findings are low-precision did **not** prevent this.
+
+                The deeper reason matters for the trust story: the verifier's value comes
+                from being *independent* of the detector. Feeding it the detector's opinion
+                converts an independent check into an amplifier of the detector's errors.
+                Retained only so the negative result stays reproducible.
         """
-        scored = [self._score(row, column, df) for row, column in cells]
+        scored = [
+            self._score(row, column, df, (evidence or {}).get((row, column)))
+            for row, column in cells
+        ]
         return sorted(scored, key=lambda cs: cs.score, reverse=True)
 
-    def _score(self, row: int, column: str, df: TableLike) -> CellScore:
+    def _score(
+        self,
+        row: int,
+        column: str,
+        df: TableLike,
+        cell_evidence: Mapping[str, object] | None = None,
+    ) -> CellScore:
         if row < 0 or row >= row_count(df) or column not in column_names(df):
             return CellScore(row, column, 0.0, "invalid")
-        prompt = self._build_messages(row, column, df)
+        prompt = self._build_messages(row, column, df, cell_evidence)
         cache_path = self._cache_path(row, column, df, prompt)
         cached = self._read_cache(cache_path)
         if cached is not None:
@@ -113,15 +168,27 @@ class ReviewRanker:
 
         return asyncio.run(complete(prompt, model=self._model, temperature=self._temperature))
 
-    def _build_messages(self, row: int, column: str, df: TableLike) -> list[Message]:
+    def _build_messages(
+        self,
+        row: int,
+        column: str,
+        df: TableLike,
+        cell_evidence: Mapping[str, object] | None = None,
+    ) -> list[Message]:
         values = {col: str(cell_value(df, row, col)) for col in column_names(df)}
-        evidence = {
+        evidence: dict[str, object] = {
             "flagged_column": column,
             "flagged_value": values.get(column, ""),
             "row": values,
         }
+        system = _SYSTEM_PROMPT
+        if cell_evidence:
+            evidence["detector_findings"] = {
+                key: str(value) for key, value in sorted(cell_evidence.items())
+            }
+            system = _SYSTEM_PROMPT_WITH_EVIDENCE
         return [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": system},
             {
                 "role": "user",
                 "content": json.dumps(evidence, sort_keys=True, separators=(",", ":")),

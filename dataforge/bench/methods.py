@@ -159,6 +159,8 @@ def run_llm_corrector_episode(
     samples: int = _CORRECTOR_SAMPLES,
     max_issues: int | None = None,
     cache_dir: Path | None = None,
+    pool_constrained: bool = False,
+    structured: bool = False,
 ) -> SeedBenchmarkResult:
     """Run the grounded, contract-bound LLM corrector as a benchmark method.
 
@@ -187,6 +189,21 @@ def run_llm_corrector_episode(
         warnings.extend(completion.warnings)
         return completion.text
 
+    def _structured_adapter(
+        messages: list[Message], response_format: dict[str, object] | None
+    ) -> str:
+        # Forwarding the schema is load-bearing: without it a "structured" run
+        # would silently be free text and the reported result would be a fiction.
+        completion = client.complete(
+            cast("list[dict[str, str]]", messages),
+            response_format,  # type: ignore[call-arg]
+        )
+        counters["llm_calls"] += 1
+        counters["prompt_tokens"] += completion.prompt_tokens
+        counters["completion_tokens"] += completion.completion_tokens
+        warnings.extend(completion.warnings)
+        return completion.text
+
     inferred_schema = infer_schema(dataset.dirty_df.copy(deep=True)).to_schema(
         include_inferred_constraints=True
     )
@@ -207,7 +224,17 @@ def run_llm_corrector_episode(
         model=client.model,
         samples=samples,
         completion_fn=_adapter,
+        structured_completion_fn=_structured_adapter if structured else None,
+        pool_constrained=pool_constrained,
+        structured=structured,
     )
+    if pool_constrained or structured:
+        # Record the mode in the artifact: the same confidence number means
+        # something different under a closed candidate set, so a calibration map
+        # fit on free-text output must not be reused here.
+        warnings.append(
+            "corrector_mode_structured" if structured else "corrector_mode_pool_constrained"
+        )
     ground_truth = {(cell.row, cell.column): cell.clean_value for cell in dataset.ground_truth}
 
     repairs: list[BenchmarkRepair] = []

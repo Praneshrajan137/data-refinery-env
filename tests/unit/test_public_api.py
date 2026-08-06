@@ -10,6 +10,8 @@ EXPECTED_PUBLIC_EXPORTS = {
     "CONTRACT_VERSION",
     "CandidateFix",
     "CandidateRepair",
+    "CellScore",
+    "ReviewRanker",
     "CellFix",
     "ExternalFix",
     "ConstraintCandidate",

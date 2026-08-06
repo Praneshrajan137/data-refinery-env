@@ -30,6 +30,10 @@ REVIEW_REASON_HUMAN: dict[str, str] = {
     "out_of_inferred_domain": "The proposed value falls outside the values inferred from the column.",
     "inferred_fd_not_declared": "The supporting dependency was inferred, not declared, so it is not auto-applied.",
     "unverified_transposition": "A transposition was proposed but could not be proven.",
+    "unverified_entity_consensus": (
+        "Sibling rows for this entity agree on a different value, but agreement is "
+        "evidence, not proof, so it is suggested rather than applied."
+    ),
     "stale_precondition": "The row changed after the proposal, so it was not applied.",
     "invalid_target": "The proposed value failed the target's constraints.",
 }

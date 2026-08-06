@@ -22,6 +22,26 @@ fills). It is built to be safe and honest, not impressive:
   monotonic-safety invariant: model confidence can only *lower*, never raise, the
   effective confidence. It is fed only into the calibrated abstention policy and
   can never push a fix past the SMT/constitution/conformal floor.
+* **Optionally schema-constrained** (``structured=True``). The candidate pool
+  becomes a hard decode-time ``enum`` via Structured Outputs instead of a prompt
+  request plus post-filter. This matters for three measured reasons:
+
+  - Pool membership becomes a *guarantee*, so no sample is wasted being filtered
+    out after it was paid for, and the ``votes / total`` agreement denominator
+    stops being polluted by inadmissible samples.
+  - The ``confidence`` field becomes reachable. In free-text mode both system
+    prompts ask for "only the value", never JSON, so ``_parse_confidence``
+    returns ``None`` on every production call and the ``min(...)`` invariant above
+    never fires. Under a strict schema the field is required, so it is real.
+  - The confidence grid widens from the ~3 discrete values that ``k=3`` agreement
+    can take to a continuous score. ``conformal.certify_threshold`` searches only
+    *observed* confidences, so a 3-point grid leaves almost nowhere to place a
+    threshold that isolates a clean high-confidence slice.
+
+  Support is per-deployment and the vendor docs disagree, so it is measured, not
+  assumed: see ``eval/results/azure_capability_probe.json``. Note that reasoning
+  deployments reject ``temperature``, so ``temperature`` is a no-op there and
+  sample diversity must be tuned via ``k``, not temperature.
 * **Cached.** Results are keyed by a content hash of the grounded prompt and the
   model, so repeated runs are deterministic and free; a cache hit is reported
   with ``llm_cache`` provenance.
@@ -58,6 +78,12 @@ if TYPE_CHECKING:
 # (e.g. in the benchmark) without changing the production provider path.
 CompletionFn = Callable[[list["Message"]], str]
 
+# Structured-mode override. Kept as a SEPARATE type rather than widening
+# ``CompletionFn``: the schema must actually reach the wire, and a one-argument
+# override would silently drop it, making "structured mode" a no-op through the
+# benchmark adapter while still reporting structured results.
+StructuredCompletionFn = Callable[[list["Message"], dict[str, object] | None], str]
+
 _DEFAULT_SAMPLES = 3
 _DEFAULT_TEMPERATURE = 0.4
 _MAX_COLUMN_EXAMPLES = 20
@@ -70,16 +96,30 @@ _MAX_COLUMN_EXAMPLES = 20
 _POOL_MIN_SUPPORT = 2
 _POOL_CAP = 50
 
+# The sentinel the model must emit when no candidate is clearly correct. It is a
+# member of the enum so abstention is always representable -- otherwise a strict
+# schema would force the model to pick a value it does not believe.
+_ABSTAIN_TOKEN = "NONE"
 
-async def complete(messages: list[Message], *, model: str, temperature: float) -> str:
+
+async def complete(
+    messages: list[Message],
+    *,
+    model: str,
+    temperature: float,
+    response_format: dict[str, object] | None = None,
+) -> str:
     """Lazy provider wrapper kept patchable for tests."""
     try:
-        from dataforge.agent.providers import complete as provider_complete
+        from dataforge.agent.providers import complete_with_usage
     except ImportError as exc:  # pragma: no cover - exercised only without extra
         raise RuntimeError(
             "The LLM corrector requires the provider extra: pip install 'dataforge[providers]'."
         ) from exc
-    return await provider_complete(messages, model=model, temperature=temperature)
+    result = await complete_with_usage(
+        messages, model=model, temperature=temperature, response_format=response_format
+    )
+    return result.text
 
 
 def _resolve_model() -> str:
@@ -154,7 +194,9 @@ class LLMCorrectorRepairer:
         samples: int = _DEFAULT_SAMPLES,
         temperature: float = _DEFAULT_TEMPERATURE,
         completion_fn: CompletionFn | None = None,
+        structured_completion_fn: StructuredCompletionFn | None = None,
         pool_constrained: bool = False,
+        structured: bool = False,
     ) -> None:
         self._cache_dir = cache_dir
         self._allow_llm = allow_llm
@@ -162,7 +204,13 @@ class LLMCorrectorRepairer:
         self._samples = max(1, samples)
         self._temperature = temperature
         self._completion_fn = completion_fn
-        self._pool_constrained = pool_constrained
+        self._structured_completion_fn = structured_completion_fn
+        self._structured = structured
+        # A decode-time enum IS the pool constraint, so structured mode implies
+        # it. Keeping them independent would allow a schema whose enum is the
+        # whole column while the post-filter still rejected values -- two
+        # disagreeing definitions of "admissible".
+        self._pool_constrained = pool_constrained or structured
         self._schema_cache: tuple[int, Schema] | None = None
         self._pool_cache: dict[tuple[int, str], list[str]] = {}
 
@@ -237,7 +285,8 @@ class LLMCorrectorRepairer:
             chosen, agreement = self._vote(cached_samples, issue, df, contract, constraints)
             return chosen, agreement, "llm_cache"
 
-        raw_samples = [self._one_sample(prompt) for _ in range(self._samples)]
+        response_format = self._response_format(df, issue)
+        raw_samples = [self._one_sample(prompt, response_format) for _ in range(self._samples)]
         samples = [_parse_sample(raw) for raw in raw_samples]
         values = [value for value, _ in samples]
         confidences = [confidence for _, confidence in samples]
@@ -245,11 +294,58 @@ class LLMCorrectorRepairer:
         chosen, agreement = self._vote(samples, issue, df, contract, constraints)
         return chosen, agreement, "llm_live"
 
-    def _one_sample(self, prompt: list[Message]) -> str:
-        """Draw one raw completion, via the injected fn or the provider layer."""
+    def _response_format(self, df: TableLike, issue: Issue) -> dict[str, object] | None:
+        """Return a strict Structured-Outputs schema, or ``None`` in free-text mode.
+
+        Honours every documented Structured Outputs constraint: ``strict: true``,
+        ``additionalProperties: false``, every property required, and no
+        unsupported type-specific keywords (notably no ``minimum``/``maximum`` on
+        ``confidence`` -- it is clamped locally by ``_parse_confidence`` instead,
+        which also keeps the parser authoritative over untrusted model output).
+        """
+        if not self._structured:
+            return None
+        pool = self._candidate_pool(df, issue.column)
+        if not pool:
+            # No closed candidate set means no enum to constrain to. Abstain from
+            # the structured path rather than emit a degenerate one-value schema.
+            return None
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "cell_correction",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "value": {"type": "string", "enum": [*pool, _ABSTAIN_TOKEN]},
+                        "confidence": {"type": "number"},
+                    },
+                    "required": ["value", "confidence"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+    def _one_sample(self, prompt: list[Message], response_format: dict[str, object] | None) -> str:
+        """Draw one raw completion, via an injected fn or the provider layer."""
+        if response_format is not None and self._structured_completion_fn is not None:
+            return self._structured_completion_fn(prompt, response_format)
         if self._completion_fn is not None:
             return self._completion_fn(prompt)
-        return asyncio.run(complete(prompt, model=self._model, temperature=self._temperature))
+        if response_format is None:
+            # Omit the kwarg entirely (rather than passing None) so the free-text
+            # call signature is exactly what it was before structured mode
+            # existed. Anything patching `complete` keeps working unchanged.
+            return asyncio.run(complete(prompt, model=self._model, temperature=self._temperature))
+        return asyncio.run(
+            complete(
+                prompt,
+                model=self._model,
+                temperature=self._temperature,
+                response_format=response_format,
+            )
+        )
 
     def _vote(
         self,
@@ -295,6 +391,11 @@ class LLMCorrectorRepairer:
         constraints: Schema,
     ) -> bool:
         """A candidate is acceptable only if it passes every gate the verifier will."""
+        # The abstention sentinel is never a candidate value. Under a strict enum
+        # the model must answer with a member of the schema, so this is how it
+        # says "no candidate is clearly correct".
+        if value == _ABSTAIN_TOKEN:
+            return False
         if self._pool_constrained and value not in self._candidate_pool(df, issue.column):
             return False
         if not contract.check(value).ok:
@@ -336,7 +437,20 @@ class LLMCorrectorRepairer:
         if fd_context is not None:
             evidence["functional_dependency"] = fd_context
 
-        if self._pool_constrained:
+        if self._structured:
+            pool = self._candidate_pool(df, issue.column)
+            evidence["candidate_pool"] = pool
+            # The enum already enforces membership at decode time, so the prompt
+            # spends its words on the decision rule and on making abstention
+            # feel legitimate rather than on restating the constraint.
+            system = (
+                "You correct a single erroneous cell in a tabular dataset. Use only "
+                "the evidence provided; do not invent facts. Choose the value that the "
+                "evidence supports, and report your confidence in it from 0 to 1. If no "
+                f"candidate is clearly correct, answer {_ABSTAIN_TOKEN} -- abstaining is "
+                "correct and preferred over guessing."
+            )
+        elif self._pool_constrained:
             pool = self._candidate_pool(df, issue.column)
             evidence["candidate_pool"] = pool
             system = (
@@ -416,6 +530,10 @@ class LLMCorrectorRepairer:
             "prompt": prompt,
             "model": self._model,
             "samples": self._samples,
+            # Structured and free-text modes produce different distributions from
+            # the same prompt, so they must not share a cache entry. Omitted when
+            # False so every pre-existing cache file stays valid.
+            **({"structured": True} if self._structured else {}),
         }
         digest = sha256_bytes(json.dumps(payload, sort_keys=True).encode("utf-8"))
         model_slug = self._model.replace("/", "_")

@@ -14,6 +14,7 @@ from dataforge_mcp.tools import (
     dataforge_detect_errors,
     dataforge_profile,
     dataforge_revert,
+    dataforge_review_rank,
     dataforge_verify_and_apply,
     dataforge_verify_fix,
 )
@@ -37,6 +38,7 @@ def create_server(*, host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
     mcp.tool(name="dataforge_profile")(dataforge_profile)
     mcp.tool(name="dataforge_detect_errors")(dataforge_detect_errors)
     mcp.tool(name="dataforge_verify_fix")(dataforge_verify_fix)
+    mcp.tool(name="dataforge_review_rank")(dataforge_review_rank)
     mcp.tool(name="dataforge_apply_repairs")(dataforge_apply_repairs)
     mcp.tool(name="dataforge_verify_and_apply")(dataforge_verify_and_apply)
     mcp.tool(name="dataforge_agent_repair")(dataforge_agent_repair)
