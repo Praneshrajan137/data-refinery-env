@@ -22,9 +22,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from dataforge.calibration import (
     AbstentionPolicy,
+    CalibrationScope,
     corrector_default_policy,
     guard_policy_for_drift,
     guard_policy_for_drift_by_class,
+    guard_policy_for_scope,
 )
 from dataforge.calibration_map import CalibrationMap
 from dataforge.detectors import run_all_detectors
@@ -326,6 +328,16 @@ class RepairPipelineRequest(BaseModel):
     corrector_policy: AbstentionPolicy | None = None
     calibration_map_by_class: dict[str, CalibrationMap] | None = None
     corrector_reference_confidences: dict[str, list[float]] | None = None
+    #: Scope of the artifact ``corrector_policy`` came from. Guarded **fail-closed**: a
+    #: policy that can auto-apply but carries no scope is downgraded, because a conformal
+    #: certificate is valid only for data exchangeable with its calibration sample and an
+    #: unscoped artifact cannot be shown to apply here. Set ``corrector_scope_verified`` to
+    #: bypass, which is what in-process callers constructing a policy directly should do.
+    corrector_calibration_scope: CalibrationScope | None = None
+    #: Assert that this policy's scope was established out of band. Exists so tests and
+    #: library callers that build a policy in memory are not forced to fabricate a scope,
+    #: while a policy loaded from a file still has to prove it belongs to this table.
+    corrector_scope_verified: bool = False
 
     model_config = ConfigDict(
         strict=True,
@@ -1189,9 +1201,15 @@ def _receipt_limitations(
     failures: list[RepairFailure],
     batch_safety: SafetyResult,
     txn_id: str | None,
+    scope_guard_reason: str | None = None,
 ) -> list[str]:
     """Describe honest limits for the exact receipt payload."""
     limitations: list[str] = []
+    if scope_guard_reason is not None:
+        # A silent downgrade is the failure mode to avoid: the user would believe a
+        # certificate applied when it had been withdrawn. Recorded in the receipt so the
+        # withdrawal is durable evidence rather than a console line that scrolls away.
+        limitations.append(f"Corrector auto-apply withdrawn: {scope_guard_reason}")
     if request.mode == "dry_run":
         limitations.append("Dry run only; no source data was mutated.")
     if txn_id is None:
@@ -1342,6 +1360,23 @@ def run_repair_pipeline(
     # stay byte-identical.
     corrector_policy = request.corrector_policy or corrector_default_policy()
     authoritative_schema_present = effective_schema is not None
+    scope_guard_reason: str | None = None
+    # Scope guard, before drift. A conformal certificate is valid only for data
+    # exchangeable with its calibration sample, and the cheapest decidable necessary
+    # condition is that the table still has the same shape. This runs FIRST because the
+    # drift guard is a no-op without a reference histogram, so an artifact fitted on another
+    # table and carrying no reference was previously guarded by nothing at all.
+    #
+    # Skipped under allow_unproven_autoapply because that mode does not rest on a
+    # certificate: the user has explicitly opted into unproven auto-apply and the receipt
+    # records the provenance as plausibility_only. There is no certificate claim to keep
+    # inside its scope, so enforcing one here would be theatre.
+    if not (request.corrector_scope_verified or request.allow_unproven_autoapply):
+        corrector_policy, scope_reason = guard_policy_for_scope(
+            corrector_policy, request.corrector_calibration_scope, df
+        )
+        if scope_reason is not None:
+            scope_guard_reason = scope_reason
     # PSI drift guard: the conformal auto-apply guarantee is only valid for data
     # exchangeable with the calibration sample. If the live LLM-confidence
     # distribution has drifted from the calibration reference, downgrade to
@@ -1474,7 +1509,7 @@ def run_repair_pipeline(
     )
     proof_obligations = _proof_obligations(attempt_groups)
     root_causes = _root_causes(issues, attempt_groups)
-    limitations = _receipt_limitations(request, failures, batch_safety, txn_id)
+    limitations = _receipt_limitations(request, failures, batch_safety, txn_id, scope_guard_reason)
     patch_plan_sha256 = _patch_plan_sha256(source_sha256, accepted_fixes)
     with repair_stage_span(
         "receipt",

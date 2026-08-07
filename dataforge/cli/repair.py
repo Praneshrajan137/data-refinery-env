@@ -570,6 +570,7 @@ def repair(
         corrector_policy = None
         calibration_maps = None
         corrector_reference = None
+        corrector_scope = None
         if corrector_structured and not allow_llm:
             _print_error(
                 "--corrector-structured requires --allow-llm.",
@@ -583,11 +584,18 @@ def repair(
                     hint="Add --allow-llm, or drop --corrector-calibration.",
                 )
                 raise typer.Exit(code=2)
-            from dataforge.calibration import load_corrector_calibration
+            from dataforge.calibration import (
+                load_calibration_scope,
+                load_corrector_calibration,
+            )
 
             corrector_policy, calibration_maps, corrector_reference = load_corrector_calibration(
                 corrector_calibration
             )
+            # Load the artifact's recorded scope so the pipeline can refuse a certificate
+            # fitted on a different table. Without this the scope guard is unreachable and
+            # any artifact is accepted against any table.
+            corrector_scope = load_calibration_scope(corrector_calibration)
 
         ranker = None
         if review_rank:
@@ -618,6 +626,7 @@ def repair(
                 corrector_policy=corrector_policy,
                 calibration_map_by_class=calibration_maps,
                 corrector_reference_confidences=corrector_reference,
+                corrector_calibration_scope=corrector_scope,
                 fd_detection_source=_parse_fd_detection(fd_detection),
             ),
             review_ranker=ranker,
