@@ -9,6 +9,7 @@ import typer
 
 from dataforge.cli.audit import audit
 from dataforge.cli.bench import bench
+from dataforge.cli.calibrate import calibrate
 from dataforge.cli.constraints import constraints_app
 from dataforge.cli.profile import profile
 from dataforge.cli.quickstart import quickstart
@@ -43,6 +44,7 @@ def _main(
 
 
 app.command(name="profile")(profile)
+app.command(name="calibrate")(calibrate)
 app.command(name="quickstart")(quickstart)
 app.command(name="repair")(repair)
 app.command(name="verify-apply")(verify_apply)
