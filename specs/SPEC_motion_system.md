@@ -52,13 +52,26 @@ control.
 
 ## 5. Agent States
 
-- Thinking: quiet ultraviolet cadence.
-- Acting: cinnabar progress pulse tied to active workflow events.
-- Waiting: teal-steel stillness with no loop.
-- Asking, uncertain, interrupted: brass attention hold, no shaking.
-- Confident, completed, recovered: viridian settle.
-- Failed, escalated: hematite snap to still state.
-- Delegated: teal-steel handoff reveal.
+The vocabulary is the eight live `AgentMotionState` values. The prior twelve-state list is
+retired: ten of its states were only ever drawn in a legend and never rendered on a live
+surface, and a language with words nobody speaks communicates nothing. Every state below
+maps to a real pipeline or trace event and to exactly one motion primitive, so no state can
+be legend-only. See `docs/design/perceptual-language.md` section 4.1 for the trust-rung
+rationale and `playground/web/src/motion.ts` (`agentStatePrimitive`) for the binding.
+
+| State | Primitive | Motion | Trust rung |
+| --- | --- | --- | --- |
+| `verifying` | `resolve` | data-tone cadence; may loop while a check is running | claim in progress |
+| `proposing` | `hover` | ultraviolet uncommitted hold; may loop | plausibility, not proven |
+| `proven` | `settle` | viridian settle, one-shot | proven |
+| `held` | `pause` | brass arrested hold, no shaking | held / abstention |
+| `asking` | `pause` | brass attention hold, no shaking | held, awaiting a human |
+| `rejected` | `recoil` | hematite recoil once, never loops | rejected / unknown |
+| `done` | `settle` | viridian settle, one-shot | proven, terminal |
+| `idle` | `still` | perfectly still; stillness is punctuation | no claim |
+
+Only `verifying` and `proposing` may loop. Everything else is one-shot or still, so motion
+weight never out-claims verification strength.
 
 ## 6. Accessibility And Performance
 

@@ -316,6 +316,36 @@ class ConstraintReviewApp(App[ConstraintReviewArtifact]):
         )
 
 
+def _warn_accepted_fd_queue_cost(artifact: ConstraintReviewArtifact) -> None:
+    """Warn when accepted functional dependencies will enlarge the review queue.
+
+    This is the moment of choice. Accepting an FD candidate is one keystroke, and the
+    consequence is measured: on hospital it takes the queue from 549 cells at 0.561
+    precision to 10,373 at 0.044 -- +147 true errors bought with +9,824 false positives, and
+    review effort from 1.78 to 22.80 cells per real error. Recall genuinely rises
+    (0.605 -> 0.894), so this warns rather than refuses.
+
+    Counts rather than re-detects on purpose: reading the source CSV here would make a pure
+    artifact operation do file IO, and the artifact cannot guarantee the CSV is still
+    present. ``dataforge profile --constraints-out`` reports the measured cell cost, and
+    ``repair --fd-detection declared`` is the control.
+    """
+    accepted_fds = [
+        entry
+        for entry in artifact.candidates
+        if entry.decision == "accepted" and entry.candidate.kind == "functional_dependency"
+    ]
+    if not accepted_fds:
+        return
+    _console.print(
+        f"[yellow]{len(accepted_fds)} accepted functional dependencies will be able to "
+        "RAISE ISSUES, not just authorize repairs. Inferred FDs raise recall but can flood "
+        "review (measured: 19x on hospital, 1.78 -> 22.80 cells per real error). Use "
+        "'dataforge repair --fd-detection declared' to keep the queue reviewable, and see "
+        "docs/trust/constraint-circularity.md.[/yellow]"
+    )
+
+
 @constraints_app.command(name="review")
 def review_constraints(
     path: Annotated[
@@ -403,5 +433,6 @@ def review_constraints(
         )
     else:
         _print_review_table(updated)
+        _warn_accepted_fd_queue_cost(updated)
         if dry_run:
             _console.print("[yellow]Dry run: no constraint artifact was written.[/yellow]")

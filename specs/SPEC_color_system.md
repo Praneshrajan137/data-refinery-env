@@ -23,9 +23,10 @@ language of system meaning, not decoration.
   `--df-line-*`, `--df-action-*`, `--df-focus-*`, `--df-status-*`,
   `--df-agent-*`, `--df-info-*`, `--df-selection-*`, `--df-disabled-*`,
   `--df-loading-*`, and `--df-diff-*`.
-- [ ] Agent-state tokens exist for thinking, acting, waiting, asking,
-  uncertain, confident, completed, failed, interrupted, delegated, escalated,
-  and recovered states.
+- [ ] Agent-state tokens exist for the eight live states: verifying, proposing,
+  proven, held, rejected, asking, done, and idle. The prior twelve-state list is
+  retired (see `docs/design/perceptual-language.md` section 4.1); states with no
+  live render path are not re-added as legend entries.
 - [ ] Light and dark schemes preserve the same semantic meanings.
 - [ ] `prefers-contrast: more` strengthens text, lines, focus, and command
   borders without changing semantic hue meaning.
@@ -69,12 +70,15 @@ language of system meaning, not decoration.
 
 ## 5. Interaction Semantics
 
-- Thinking and cognition use ultraviolet text/line on neutral surfaces.
-- Acting and primary progress use cinnabar text/line on neutral surfaces.
-- Waiting and delegated inspection use teal-steel text/line.
-- Asking, uncertainty, interruption, and review use brass text/line.
-- Confidence, completion, proof, and recovery use viridian text/line.
-- Failure and escalation use hematite text/line.
+- Verification in progress uses data-tone text/line on neutral surfaces.
+- Unproven model cognition (`proposing`) uses ultraviolet text/line on neutral
+  surfaces, and never the proven tone.
+- Proof, completion, and applied outcomes (`proven`, `done`) use viridian
+  text/line.
+- Held outcomes and questions awaiting a human (`held`, `asking`) use brass
+  text/line.
+- Rejection and unknown verdicts (`rejected`) use hematite text/line.
+- No claim in progress (`idle`) uses neutral text/line only.
 - Hover uses neutral material elevation, selection uses neutral field plus
   vermilion line, disabled uses neutral subdued text/line, and loading uses a
   vermilion line plus explicit text/icon state.

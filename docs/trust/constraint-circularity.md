@@ -49,6 +49,28 @@ defense must therefore be **architectural**, not a smarter score.
    With no schema, the product proposes **zero** FD corrections — the 696-708 occur
    only under the bench's `include_inferred_constraints=True`, never in the product
    default.
+
+   > **CORRECTION (2026-08-06).** The paragraph above is true about *corrections* and
+   > misleading about *flags*, and the distinction cost 19x. Accepting a mined FD in
+   > `constraints review` folds it into `effective_schema`, and from there it reaches
+   > `fd_violation` and raises issues. The playground does exactly this
+   > ([playground/api/app.py](../../playground/api/app.py), the accept-candidate path). So
+   > while `include_inferred_constraints=True` is bench-only, its *effect on the review
+   > queue* is product-reachable in one keystroke.
+   >
+   > Measured on hospital (`eval/results/detector_queue_composition.json`): accepting the
+   > mined FDs takes the queue from **549 cells at 0.561 precision** to **10,373 cells at
+   > 0.044** — **+147 true errors bought with +9,824 false positives**, and review effort
+   > from **1.78 to 22.80 cells per real error**. Recall genuinely improves (0.605 ->
+   > 0.894), so this is a dial, not a defect. What was missing was the ability to *set* it:
+   > `require_declared_fds_for_autoapply` runs after detection and filters fixes, so it
+   > stopped writes while leaving every flag in the human queue.
+   >
+   > Now controllable: `fd_detection_source` on `RepairPipelineRequest`
+   > (`--fd-detection {declared,accepted,none}`) narrows which FDs may raise issues, and
+   > `profile --constraints-out` warns what accepting them would cost before you accept.
+   > This document's own framing of "inferred constraints inform review" as the *safe*
+   > outcome understated the price of informing review.
 2. **Mining rejects the vacuous cases + informs the rest.** `_fd_candidates`
    ([schema_inference.py](../../dataforge/schema_inference.py)) rejects near-key
    determinants (`_MAX_DETERMINANT_UNIQUE_FRACTION`) and low-support candidates

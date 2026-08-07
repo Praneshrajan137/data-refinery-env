@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING, Annotated, cast
 
 import typer
 from rich.console import Console
@@ -27,7 +27,7 @@ from dataforge.ui.repair_diff import render_repair_diff
 if TYPE_CHECKING:
     import pandas as pd
 
-    from dataforge.engine.repair import RepairPipelineResult
+    from dataforge.engine.repair import FdDetectionSource, RepairPipelineResult
 
 _console = Console(stderr=True)
 
@@ -70,6 +70,24 @@ def _resolve_constraints(
     if not resolved_constraints.exists():
         raise typer.BadParameter(f"Constraints file '{constraints_path}' does not exist.")
     return load_constraint_review_artifact(resolved_constraints)
+
+
+def _parse_fd_detection(value: str) -> FdDetectionSource:
+    """Validate --fd-detection, failing fast on a typo rather than silently defaulting.
+
+    A silent fallback here would be dangerous: mistyping the strict value would leave the
+    permissive default in place and quietly reinstate a 19x review queue.
+    """
+    normalized = value.strip().lower()
+    if normalized not in ("declared", "accepted", "none"):
+        _print_error(
+            f"--fd-detection must be 'declared', 'accepted', or 'none' (got {value!r}).",
+            hint="'declared' keeps only hand-declared FDs able to raise issues.",
+        )
+        raise typer.Exit(code=2)
+    # String form on purpose: FdDetectionSource is imported only under TYPE_CHECKING, so a
+    # bare name here raises NameError at runtime.
+    return cast("FdDetectionSource", normalized)
 
 
 def _print_error(message: str, *, hint: str | None = None) -> None:
@@ -370,6 +388,18 @@ def repair(
             "warning reports how much was covered.",
         ),
     ] = 200,
+    fd_detection: Annotated[
+        str,
+        typer.Option(
+            "--fd-detection",
+            help="Which functional dependencies may RAISE ISSUES: 'accepted' (default: any "
+            "FD in the effective schema), 'declared' (only hand-declared FDs), or 'none'. "
+            "Inferred FDs are cheap to accept and expensive to live with: on hospital they "
+            "turn a 549-cell queue that is 56% real errors into 10,373 cells at 4.4% -- "
+            "+147 true errors for +9,824 false positives. Note that "
+            "--require-declared-fds-for-autoapply only blocks writes, not flags.",
+        ),
+    ] = "accepted",
     allow_unproven_autoapply: Annotated[
         bool,
         typer.Option(
@@ -588,6 +618,7 @@ def repair(
                 corrector_policy=corrector_policy,
                 calibration_map_by_class=calibration_maps,
                 corrector_reference_confidences=corrector_reference,
+                fd_detection_source=_parse_fd_detection(fd_detection),
             ),
             review_ranker=ranker,
             review_ranker_max_cells=review_rank_max_cells,

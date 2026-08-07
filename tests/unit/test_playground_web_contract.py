@@ -9,6 +9,23 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 INDEX_PATH = PROJECT_ROOT / "playground" / "web" / "index.html"
 CONFIG_PATH = PROJECT_ROOT / "playground" / "web" / "public" / "config.js"
+SYNC_SCRIPT_PATH = PROJECT_ROOT / "playground" / "web" / "scripts" / "sync_runtime_config.mjs"
+
+# The live AgentMotionState vocabulary. The prior 12-state palette had 10 states that were
+# only ever drawn in a legend and never rendered on a live surface; it was deliberately
+# retired (see dataforge motion.ts and docs/design/perceptual-language.md section 4.1).
+# These tests kept iterating the retired list and failed for that reason alone, so the
+# vocabulary now lives here once instead of being duplicated at three call sites.
+AGENT_MOTION_STATES = (
+    "verifying",
+    "proposing",
+    "proven",
+    "held",
+    "rejected",
+    "asking",
+    "done",
+    "idle",
+)
 PACKAGE_PATH = PROJECT_ROOT / "playground" / "web" / "package.json"
 SRC_DIR = PROJECT_ROOT / "playground" / "web" / "src"
 COLOR_CSS_PATH = SRC_DIR / "design" / "color-system.generated.css"
@@ -25,13 +42,30 @@ def test_index_uses_relative_asset_paths_and_config_contract() -> None:
     assert 'src="/src/main.tsx"' in body
 
 
+def _default_backend_url() -> str:
+    """Return the backend host the sync script actually defaults to.
+
+    Derived rather than duplicated: this literal previously lived in two test files and
+    both went stale when the backend migrated from an HF Space to Azure Container Apps,
+    failing for a reason unrelated to the contract under test. Reading it from the
+    generator means the next host migration is a one-line change in one place.
+    """
+    source = SYNC_SCRIPT_PATH.read_text(encoding="utf-8")
+    match = re.search(r'DEFAULT_BACKEND_URL\s*=\s*"([^"]+)"', source)
+    assert match is not None, (
+        f"{SYNC_SCRIPT_PATH.name} no longer declares DEFAULT_BACKEND_URL; the runtime "
+        "config contract cannot be verified without it"
+    )
+    return match.group(1)
+
+
 def test_config_js_exposes_backend_url_contract() -> None:
     """config.js defines the committed runtime contract for the backend URL."""
     body = CONFIG_PATH.read_text(encoding="utf-8")
     assert "window.__DATAFORGE_CONFIG__" in body
     assert "BACKEND_URL" in body
     assert 'BACKEND_URL: ""' not in body
-    assert "https://Praneshrajan15-dataforge-playground.hf.space" in body
+    assert _default_backend_url() in body
 
 
 def test_frontend_stays_storage_free_and_capability_aware() -> None:
@@ -96,20 +130,7 @@ def test_frontend_motion_system_contract() -> None:
     assert "transform" in styles
     assert "opacity" in styles
 
-    for state in (
-        "thinking",
-        "acting",
-        "waiting",
-        "asking",
-        "uncertain",
-        "confident",
-        "completed",
-        "failed",
-        "interrupted",
-        "delegated",
-        "escalated",
-        "recovered",
-    ):
+    for state in AGENT_MOTION_STATES:
         assert f"{state}:" in motion_source
         assert state in motion_test
 
@@ -164,20 +185,7 @@ def test_frontend_uses_generated_color_system_contract() -> None:
         "--df-diff-old-bg",
         "--df-diff-new-bg",
     ]
-    agent_states = [
-        "thinking",
-        "acting",
-        "waiting",
-        "asking",
-        "uncertain",
-        "confident",
-        "completed",
-        "failed",
-        "interrupted",
-        "delegated",
-        "escalated",
-        "recovered",
-    ]
+    agent_states = list(AGENT_MOTION_STATES)
     for state in agent_states:
         required_tokens.extend(
             [
@@ -256,20 +264,7 @@ def test_apex_color_system_avoids_light_theme_pastel_state_slabs() -> None:
         "--df-diff-old-bg",
         "--df-diff-new-bg",
     ]
-    for state in (
-        "thinking",
-        "acting",
-        "waiting",
-        "asking",
-        "uncertain",
-        "confident",
-        "completed",
-        "failed",
-        "interrupted",
-        "delegated",
-        "escalated",
-        "recovered",
-    ):
+    for state in AGENT_MOTION_STATES:
         large_state_backgrounds.append(f"--df-agent-{state}-bg")
 
     for token in large_state_backgrounds:

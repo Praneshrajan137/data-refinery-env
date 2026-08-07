@@ -20,10 +20,12 @@ from dataforge.cli.common import load_schema, read_csv, resolve_cli_path
 from dataforge.detectors import run_all_detectors
 from dataforge.detectors.base import Issue, Schema, Severity
 from dataforge.schema_inference import (
+    SchemaInferenceResult,
     build_constraint_review_artifact,
     dump_constraint_review_artifact,
     infer_schema,
 )
+from dataforge.table import TableLike
 from dataforge.ui.profile_view import render_profile_table
 
 _console = Console(stderr=True)
@@ -41,6 +43,39 @@ def _should_fail(issues: Sequence[Issue], fail_on: FailOn) -> bool:
     if fail_on == "unsafe":
         return any(severity == Severity.UNSAFE for severity in severities)
     return any(severity >= Severity.REVIEW for severity in severities)
+
+
+def _warn_fd_queue_cost(
+    df: TableLike, inference: SchemaInferenceResult, current_issues: int
+) -> None:
+    """Report what accepting the mined functional dependencies would cost the queue.
+
+    The exchange rate has to be visible at the moment of choice. Accepting an FD candidate
+    is one keystroke in ``constraints review``, and the consequence is measured: on hospital
+    it turns a 549-cell queue that is 56% real errors into 10,373 cells at 4.4% -- +147 true
+    errors bought with +9,824 false positives, and review effort going from 1.78 to 22.80
+    cells per real error. Recall genuinely improves (0.61 -> 0.89), which is why this warns
+    rather than refuses: it is a dial, not a defect.
+
+    Silent by design when there are no FD candidates, so the common case stays quiet.
+    """
+    from dataforge.engine.repair import fd_flag_cost
+
+    schema = inference.to_schema(include_inferred_constraints=True)
+    if not schema.functional_dependencies:
+        return
+    projected = fd_flag_cost(df, schema)
+    if projected <= current_issues:
+        return
+    multiple = projected / current_issues if current_issues else 0.0
+    _console.print(
+        f"[yellow]{len(schema.functional_dependencies)} inferred functional "
+        f"dependencies were written to the artifact. Accepting them would flag about "
+        f"{projected:,} cells against {current_issues:,} today"
+        + (f" (~{multiple:.0f}x)" if multiple >= 2 else "")
+        + ". Inferred FDs raise recall but can flood review; accept selectively, and see "
+        "docs/trust/constraint-circularity.md.[/yellow]"
+    )
 
 
 def profile(
@@ -120,6 +155,7 @@ def profile(
                 dump_constraint_review_artifact(artifact),
                 encoding="utf-8",
             )
+            _warn_fd_queue_cost(df, schema_inference, len(issues))
         except Exception as exc:
             _console.print(f"[bold red]Error writing constraints artifact:[/bold red] {exc}")
             raise typer.Exit(code=2) from exc

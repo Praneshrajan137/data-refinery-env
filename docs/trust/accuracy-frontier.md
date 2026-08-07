@@ -81,6 +81,12 @@ Every cell error falls into one of four honest classes:
   exists only in `dataforge/bench/methods.py`. The corruption oracle now proves
   this default-path safety on spurious-FD tables
   (`tests/property/test_no_corruption_invariant.py::test_engine_never_corrupts_via_spurious_fd`).
+  **Correction (2026-08-06):** this is accurate about *corrections* and misleading about
+  *flags*. `include_inferred_constraints` is indeed bench-only, but accepting a mined FD in
+  `constraints review` folds it into `effective_schema`, from where `fd_violation` raises
+  issues — the playground does this. On hospital that takes the review queue from 549 cells
+  at 0.561 precision to 10,373 at 0.044. Auto-apply stays safe; the *queue* does not. See
+  `docs/trust/constraint-circularity.md` and `--fd-detection`.
 - **The measured limit of mining (an important, honest negative result).** The
   near-key + minimum-support guards (see [constraint-circularity.md](constraint-circularity.md))
   removed the vacuous near-key FDs (`zip` "determining" `salary`), but the FP count

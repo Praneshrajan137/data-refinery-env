@@ -16,6 +16,7 @@ ASSETSIGNORE_PATH = PROJECT_ROOT / "playground" / "web" / "public" / ".assetsign
 WEB_PACKAGE_PATH = PROJECT_ROOT / "playground" / "web" / "package.json"
 WEB_CONFIG_PATH = PROJECT_ROOT / "playground" / "web" / "config.js"
 PUBLIC_CONFIG_PATH = PROJECT_ROOT / "playground" / "web" / "public" / "config.js"
+SYNC_SCRIPT_PATH = PROJECT_ROOT / "playground" / "web" / "scripts" / "sync_runtime_config.mjs"
 HEADERS_PATH = PROJECT_ROOT / "playground" / "web" / "public" / "_headers"
 RENDERER_PATH = PROJECT_ROOT / "scripts" / "playground" / "render_web_config.py"
 DEPLOY_SPACE_PATH = PROJECT_ROOT / "scripts" / "playground" / "deploy_space.py"
@@ -70,7 +71,13 @@ def test_cloudflare_dashboard_config_path_is_supported() -> None:
     assert "config:sync" in package
     assert "scripts/sync_runtime_config.mjs" in package
     assert 'BACKEND_URL: ""' in web_config
-    assert "https://Praneshrajan15-dataforge-playground.hf.space" in public_config
+    # Derived from the generator, not duplicated: this assertion previously hardcoded a
+    # retired HF Space host and failed after the backend moved to Azure Container Apps,
+    # for a reason unrelated to the Cloudflare config contract it exists to check.
+    sync_source = SYNC_SCRIPT_PATH.read_text(encoding="utf-8")
+    match = re.search(r'DEFAULT_BACKEND_URL\s*=\s*"([^"]+)"', sync_source)
+    assert match is not None, "sync_runtime_config.mjs no longer declares DEFAULT_BACKEND_URL"
+    assert match.group(1) in public_config
 
 
 def test_hf_sync_workflow_targets_dataforge_playground_space() -> None:

@@ -13,6 +13,7 @@ import json
 import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
@@ -313,6 +314,7 @@ class RepairPipelineRequest(BaseModel):
     confirm_escalations: bool = False
     allow_unproven_autoapply: bool = False
     require_declared_fds_for_autoapply: bool = False
+    fd_detection_source: FdDetectionSource = "accepted"
     allow_entity_consensus: bool = False
     corrector_pool_constrained: bool = False
     corrector_structured: bool = False
@@ -772,6 +774,82 @@ _UNTRUSTED_PROVENANCE = frozenset({"llm_live", "llm_cache", "external", "entity_
 _DETECTION_ONLY_SUGGESTION_TYPES = frozenset({"date_transposition"})
 
 
+FdDetectionSource = Literal["declared", "accepted", "none"]
+
+
+def schema_for_fd_detection(
+    schema: Schema | None,
+    declared_schema: Schema | None,
+    source: FdDetectionSource,
+) -> Schema | None:
+    """Restrict which functional dependencies are allowed to raise issues.
+
+    ``fd_violation`` is the only detector that reads ``schema.functional_dependencies``
+    (see ``dataforge/detectors/fd_violation.py``), and it is tier-0 ``UNSAFE`` at
+    confidence 0.95, so it wins its cell outright against every other detector. An FD
+    therefore does not merely add flags -- it displaces what other detectors would have
+    said about the cells it covers.
+
+    That matters because inferred FDs are cheap to accept and expensive to live with.
+    Measured on hospital (``eval/results/detector_queue_composition.json``): accepting the
+    mined FDs turns a 549-cell queue that is 56% real errors into a 10,373-cell queue that
+    is 4.4% real errors -- **+147 true errors bought with +9,824 false positives**, and
+    review effort degrading from 1.78 to 22.80 cells per real error.
+
+    ``require_declared_fds_for_autoapply`` does not help here: it runs after detection and
+    filters *fixes*, so it stops the machine writing while leaving every flag in the human
+    queue. Before this function there was no control anywhere that gated FD **detection**.
+
+    Args:
+        schema: The effective schema (declared plus accepted reviewed constraints).
+        declared_schema: The hand-declared schema only, or ``None``.
+        source: ``accepted`` keeps every FD in ``schema`` (the historical default);
+            ``declared`` keeps only FDs also present in ``declared_schema``; ``none``
+            disables FD detection entirely.
+
+    Returns:
+        A schema with ``functional_dependencies`` narrowed as requested. All other schema
+        content is preserved untouched, because no other detector output depends on it.
+    """
+    if schema is None or source == "accepted":
+        return schema
+    if source == "none":
+        return replace(schema, functional_dependencies=())
+    declared = (
+        frozenset(declared_schema.functional_dependencies)
+        if declared_schema is not None
+        else frozenset()
+    )
+    kept = tuple(fd for fd in schema.functional_dependencies if fd in declared)
+    return replace(schema, functional_dependencies=kept)
+
+
+def fd_flag_cost(df: TableLike, schema: Schema) -> int:
+    """Return how many distinct CELLS the schema's functional dependencies would flag.
+
+    Free: one detector, no LLM and no proof. Exists so a user can be shown the queue cost
+    of accepting an FD candidate *before* accepting it, rather than discovering a 19x queue
+    afterwards.
+
+    Counts distinct ``(row, column)`` cells, not raw issues. ``FDViolationDetector`` emits
+    one issue per violated dependency, so a cell covered by several FDs appears many times
+    -- on hospital the raw count is 50,721 against a real queue contribution of ~9,800.
+    Reporting the raw number would overstate the cost roughly fivefold, which for a feature
+    whose only purpose is an honest preview would be worse than showing nothing.
+
+    **Measured accuracy**: a slight *over*estimate. On hospital this returns 10,192 against
+    a true queue delta of 9,824 (+3.7%), because some FD-covered cells were already flagged
+    by another detector, so accepting the FDs displaces those flags rather than adding to
+    them. Erring high is the right direction for a cost warning, but do not present the
+    figure as exact.
+    """
+    from dataforge.detectors.fd_violation import FDViolationDetector
+
+    if not schema.functional_dependencies:
+        return 0
+    return len({(issue.row, issue.column) for issue in FDViolationDetector().detect(df, schema)})
+
+
 def _partition_auto_apply(
     fixes: list[ProposedFix],
     policy: AbstentionPolicy,
@@ -1221,8 +1299,14 @@ def run_repair_pipeline(
         source_sha256=source_sha256,
     )
     df = read_csv(source_path)
+    # Narrow which FDs may raise issues BEFORE detection. This is the only place the
+    # queue-volume cost of an inferred FD can be controlled; the auto-apply guard below
+    # runs too late to prevent flags.
+    detection_schema = schema_for_fd_detection(
+        effective_schema, request.repair_schema, request.fd_detection_source
+    )
     with repair_stage_span("detect", row_count=row_count(df)):
-        issues = run_all_detectors(df, effective_schema)
+        issues = run_all_detectors(df, detection_schema)
     review_ranking = (
         _build_review_ranking(review_ranker, df, issues, max_cells=review_ranker_max_cells)
         if review_ranker is not None
