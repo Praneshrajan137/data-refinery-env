@@ -137,6 +137,11 @@ dataforge profile fixtures/hospital_10rows.csv --constraints-out constraints.jso
 dataforge constraints review constraints.json
 dataforge repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
 dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --dry-run
+# Measure precision on YOUR table: draw a random sample, label it, get exact intervals.
+dataforge calibrate fixtures/hospital_10rows.csv --per-class 8
+dataforge calibrate fixtures/hospital_10rows.csv --label 3:City=error --label 7:City=correct
+# Inferred FDs raise recall but can flood review; keep the queue to declared FDs only.
+dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --fd-detection declared --dry-run
 dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
 dataforge bench --methods random,heuristic --datasets hospital,flights --seeds 3 --seed-list 0,1,2
 ```
@@ -203,10 +208,25 @@ trustworthy rather than impressive:
   certifies each class's threshold with conformal risk control (fixed sequential
   testing + exact Clopper-Pearson bounds): with probability >= 1 - delta, a
   certified class's auto-applied error rate is <= alpha on data exchangeable with
-  the calibration split. A Population Stability Index monitor downgrades auto-apply
-  back to review when the live distribution drifts, so the guarantee is never
-  claimed outside its scope. The SMT verifier and safety constitution remain the
-  hard floor beneath all of this.
+  the calibration split. Two independent guards keep that claim inside its scope: a
+  **table-scope check** refuses a certificate whose calibration table has a different
+  shape, failing closed when an artifact records no scope at all; and a **Population
+  Stability Index monitor** downgrades auto-apply back to review when the live
+  confidence distribution drifts. The scope check runs first, because PSI returns early
+  when an artifact carries no reference histogram — so an artifact fitted elsewhere and
+  carrying no reference would otherwise be guarded by nothing. Every downgrade is
+  recorded in `receipt.limitations` rather than printed, so a withdrawn certificate
+  leaves durable evidence. The SMT verifier and safety constitution remain the hard
+  floor beneath all of this.
+- **Locally certifiable, even though it is not globally certified.** The reason no class
+  ships auto-apply-enabled is not squeamishness: conformal risk control requires the
+  calibration data to be exchangeable with the target, and no benchmark can establish
+  that against a table it has never seen. `dataforge calibrate` closes that gap from the
+  other side. You label a small random sample of *your* table, and because the
+  calibration data then *is* the table, exchangeability holds by construction rather
+  than by assumption. Certification consumes **repair** verdicts ("is this proposed value
+  right?"), never detection verdicts ("was this flag right?") — the two come apart, and
+  certifying writes on the latter would authorize overwriting cells nobody validated.
 
 Cost is explicit: the corrector spends `k` LLM calls per detected issue. The
 `llm_corrector` benchmark method reports per-class correction F1, calibration

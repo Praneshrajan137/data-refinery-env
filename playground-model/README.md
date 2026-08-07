@@ -1,6 +1,7 @@
 ---
 title: DataForge 0.5B GRPO
 sdk: gradio
+sdk_version: 6.20.0
 app_file: app.py
 license: apache-2.0
 models:

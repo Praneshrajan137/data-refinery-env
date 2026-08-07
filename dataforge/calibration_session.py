@@ -113,6 +113,13 @@ class CalibrationSessionArtifact(BaseModel):
     fd_detection_source: str = Field(min_length=1)
     sampling_strategy: SamplingStrategy = "random_within_class"
     seed: int
+    #: Provider and model that produced the repair proposals being judged. Recorded because
+    #: corrector accuracy is model-specific and NOT monotone in model capability: on hospital,
+    #: Azure gpt-5-mini scores precision_at_auto_apply 0.077 against a smaller Gemini model's
+    #: 0.16. So a certificate earned under one model says nothing about another, and a
+    #: certificate that does not name its model cannot be checked at all.
+    corrector_provider: str | None = None
+    corrector_model: str | None = None
     samples: list[CalibrationSample] = Field(default_factory=list)
 
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
@@ -180,6 +187,8 @@ def build_calibration_session(
     fd_detection_source: str,
     per_class: int = _DEFAULT_PER_CLASS,
     seed: int = _DEFAULT_SEED,
+    corrector_provider: str | None = None,
+    corrector_model: str | None = None,
 ) -> CalibrationSessionArtifact:
     """Draw a stratified random sample of flagged cells for adjudication.
 
@@ -250,6 +259,8 @@ def build_calibration_session(
         flagged_cells_total=len(best_per_cell),
         fd_detection_source=fd_detection_source,
         seed=seed,
+        corrector_provider=corrector_provider,
+        corrector_model=corrector_model,
         samples=samples,
     )
 
@@ -295,17 +306,31 @@ def label_repair_sample(
     decision: CalibrationDecision,
     proposed_repair: str | None = None,
     repair_confidence: float | None = None,
+    corrector_provider: str | None = None,
+    corrector_model: str | None = None,
 ) -> CalibrationSessionArtifact:
     """Record a verdict on a *proposed replacement value*, not on the flag.
 
     Separate from :func:`label_calibration_sample` so the two cannot be confused at a call
     site. ``decision="correct"`` here means the proposed value is right.
 
+    ``corrector_model`` is recorded on the artifact the first time it is supplied, because a
+    certificate is only meaningful for the model that earned it. Mixing two models in one
+    session is refused rather than silently averaged: the resulting threshold would describe
+    neither model, and corrector accuracy is measurably model-specific.
+
     Raises:
         KeyError: If the cell was never sampled.
         ValueError: If there is no proposal to judge, since a verdict on nothing would
-            enter certification as a real observation.
+            enter certification as a real observation; or if this verdict comes from a
+            different model than the session already records.
     """
+    if corrector_model is not None and artifact.corrector_model not in (None, corrector_model):
+        raise ValueError(
+            f"this session's repair verdicts were produced by "
+            f"{artifact.corrector_model!r}, but {corrector_model!r} was supplied. A "
+            "certificate cannot span two models; start a separate session."
+        )
     updated: list[CalibrationSample] = []
     found = False
     for sample in artifact.samples:
@@ -335,7 +360,12 @@ def label_repair_sample(
         raise KeyError(
             f"cell (row={row}, column={column!r}) is not part of this calibration session"
         )
-    return artifact.model_copy(update={"samples": updated})
+    changes: dict[str, object] = {"samples": updated}
+    if corrector_model is not None:
+        changes["corrector_model"] = corrector_model
+    if corrector_provider is not None:
+        changes["corrector_provider"] = corrector_provider
+    return artifact.model_copy(update=changes)
 
 
 def summarize_calibration(
@@ -419,6 +449,10 @@ class SessionCertification(BaseModel):
     repair_labels_used: int = Field(ge=0)
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     table_fingerprint: str
+    #: The model whose proposals earned this certificate. A certificate is void under a
+    #: different model; see :func:`certificate_model_mismatch`.
+    corrector_provider: str | None = None
+    corrector_model: str | None = None
 
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
 
@@ -515,7 +549,50 @@ def certify_from_session(
         repair_labels_used=len(usable),
         source_sha256=artifact.source_sha256,
         table_fingerprint=artifact.table_fingerprint,
+        corrector_provider=artifact.corrector_provider,
+        corrector_model=artifact.corrector_model,
     )
+
+
+def certificate_model_mismatch(
+    certification: SessionCertification,
+    *,
+    provider: str | None,
+    model: str | None,
+) -> str | None:
+    """Return why a certificate does not apply to this model, or ``None`` if it does.
+
+    Fails **closed on unknown**, matching :func:`~dataforge.calibration.guard_policy_for_scope`.
+    A certificate that never recorded its model cannot be shown to apply to the model now
+    running, so it is refused rather than assumed portable.
+
+    Model identity is not a formality here. Corrector accuracy is model-specific and does not
+    track model capability: on hospital, Azure ``gpt-5-mini`` measured
+    ``precision_at_auto_apply`` 0.077 while a smaller Gemini model measured 0.16. Silently
+    reusing one model's certificate for another would transfer a guarantee across the exact
+    boundary that measurement shows it does not cross.
+    """
+    if certification.corrector_model is None:
+        return (
+            "certificate records no corrector model, so it cannot be shown to apply to the "
+            "model now running; re-run calibration to earn it for this model"
+        )
+    if model is None:
+        return (
+            f"certificate was earned on model {certification.corrector_model!r} but the "
+            "running model is unknown"
+        )
+    if certification.corrector_model != model or (
+        certification.corrector_provider is not None
+        and provider is not None
+        and certification.corrector_provider != provider
+    ):
+        return (
+            f"certificate was earned on {certification.corrector_provider or 'unknown'}"
+            f"/{certification.corrector_model} but {provider or 'unknown'}/{model} is "
+            "running; corrector accuracy is model-specific, so re-run calibration"
+        )
+    return None
 
 
 def dump_calibration_session(artifact: CalibrationSessionArtifact) -> str:

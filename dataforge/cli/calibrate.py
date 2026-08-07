@@ -184,6 +184,10 @@ def calibrate(
         if not issues:
             _console.print("[green]No issues detected; nothing to calibrate.[/green]")
             raise typer.Exit(code=0)
+        # Deliberately does NOT record a corrector model here. This command samples detector
+        # findings; no repair has been proposed yet, so naming the currently-configured model
+        # would assert it produced proposals it never made. The model is recorded when a
+        # repair verdict is attached, by whoever supplies the proposal.
         artifact = build_calibration_session(
             issues,
             source_path=resolved_path,
