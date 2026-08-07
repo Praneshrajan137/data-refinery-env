@@ -60,7 +60,21 @@ _DEFAULT_SEED = 20260806
 
 
 class CalibrationSample(BaseModel):
-    """One flagged cell offered to the user for adjudication."""
+    """One flagged cell offered to the user for adjudication.
+
+    Carries **two independent verdicts**, because they answer different questions and
+    conflating them would authorize writing wrong values:
+
+    * ``decision`` -- was this cell genuinely an error? This measures *detection* precision.
+    * ``repair_decision`` -- is ``proposed_repair`` the right replacement? This measures
+      *corrector* accuracy, and it is the only one that can certify auto-apply.
+
+    A cell can be correctly flagged while the proposed fix is wrong. On hospital, row 3
+    ``City`` is ``'birminghxm'`` and should be ``'birmingham'``; a corrector proposing
+    ``'Boston'`` is wrong on a correctly-flagged cell. So detection precision 1.0 is fully
+    compatible with corrector accuracy 0.0, and certifying repair-writing on detection
+    labels would be a category error with data loss as the consequence.
+    """
 
     row: int = Field(ge=0)
     column: str = Field(min_length=1)
@@ -70,6 +84,16 @@ class CalibrationSample(BaseModel):
     reason: str = Field(min_length=1)
     decision: CalibrationDecision = "pending"
     note: str | None = None
+    #: The corrector's proposed replacement, when one exists. ``None`` means no repair was
+    #: proposed, so this cell can never contribute to certification.
+    proposed_repair: str | None = None
+    #: Confidence attached to ``proposed_repair``. This -- not ``detector_confidence`` -- is
+    #: the value a certified threshold is compared against.
+    repair_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: Whether ``proposed_repair`` is correct. ``correct`` here means "the proposed value is
+    #: right", which is the opposite polarity to ``decision``, where ``error`` means "the
+    #: flag was right". Kept separate deliberately.
+    repair_decision: CalibrationDecision = "pending"
 
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
 
@@ -180,7 +204,22 @@ def build_calibration_session(
         An all-``pending`` artifact ready for labelling.
     """
     by_class: dict[str, list[Issue]] = {}
+    # Deduplicate to one issue per cell FIRST, so (row, column) is a primary key by
+    # construction. `run_all_detectors` already yields one issue per cell -- verified across
+    # hospital, flights and rayyan under both FD regimes -- because tier-0 precedence resolves
+    # each cell. But labelling keys on (row, column), so if that invariant ever changed, one
+    # user verdict would silently label a second class's sample and double-count it in the
+    # precision estimate. Enforcing it here makes the guarantee local instead of borrowed.
+    best_per_cell: dict[tuple[int, str], Issue] = {}
     for issue in issues:
+        key = (issue.row, issue.column)
+        incumbent = best_per_cell.get(key)
+        if incumbent is None or (issue.confidence, issue.issue_type) > (
+            incumbent.confidence,
+            incumbent.issue_type,
+        ):
+            best_per_cell[key] = issue
+    for issue in best_per_cell.values():
         by_class.setdefault(issue.issue_type, []).append(issue)
 
     rng = random.Random(seed)
@@ -206,7 +245,9 @@ def build_calibration_session(
         row_count=row_count,
         columns=[str(column) for column in columns],
         table_fingerprint=table_fingerprint,
-        flagged_cells_total=len(issues),
+        # Distinct cells, not raw issues. The same conflation made an earlier fd_flag_cost
+        # overstate the queue by 5x; the field is named for cells, so it counts cells.
+        flagged_cells_total=len(best_per_cell),
         fd_detection_source=fd_detection_source,
         seed=seed,
         samples=samples,
@@ -242,6 +283,57 @@ def label_calibration_sample(
         raise KeyError(
             f"cell (row={row}, column={column!r}) is not part of this calibration session; "
             "labelling an unsampled cell would break the random-sample guarantee"
+        )
+    return artifact.model_copy(update={"samples": updated})
+
+
+def label_repair_sample(
+    artifact: CalibrationSessionArtifact,
+    *,
+    row: int,
+    column: str,
+    decision: CalibrationDecision,
+    proposed_repair: str | None = None,
+    repair_confidence: float | None = None,
+) -> CalibrationSessionArtifact:
+    """Record a verdict on a *proposed replacement value*, not on the flag.
+
+    Separate from :func:`label_calibration_sample` so the two cannot be confused at a call
+    site. ``decision="correct"`` here means the proposed value is right.
+
+    Raises:
+        KeyError: If the cell was never sampled.
+        ValueError: If there is no proposal to judge, since a verdict on nothing would
+            enter certification as a real observation.
+    """
+    updated: list[CalibrationSample] = []
+    found = False
+    for sample in artifact.samples:
+        if sample.row == row and sample.column == column:
+            found = True
+            value = proposed_repair if proposed_repair is not None else sample.proposed_repair
+            confidence = (
+                repair_confidence if repair_confidence is not None else sample.repair_confidence
+            )
+            if value is None or confidence is None:
+                raise ValueError(
+                    f"cell (row={row}, column={column!r}) has no proposed repair and "
+                    "confidence to judge; pass proposed_repair and repair_confidence"
+                )
+            updated.append(
+                sample.model_copy(
+                    update={
+                        "repair_decision": decision,
+                        "proposed_repair": value,
+                        "repair_confidence": confidence,
+                    }
+                )
+            )
+        else:
+            updated.append(sample)
+    if not found:
+        raise KeyError(
+            f"cell (row={row}, column={column!r}) is not part of this calibration session"
         )
     return artifact.model_copy(update={"samples": updated})
 
@@ -285,6 +377,145 @@ def summarize_calibration(
             )
         )
     return out
+
+
+#: Pre-specified, label-independent candidate thresholds, tested in descending order.
+#: Fixed as a module constant precisely because ``certify_threshold``'s family-wise error
+#: claim is only exact when the grid does not depend on the calibration labels. Deriving a
+#: grid from the observed confidences -- which is what passing ``grid=None`` does -- is a
+#: *validity* weakness, not merely a power one, so this path never does it.
+CERTIFICATION_GRID: tuple[float, ...] = (
+    0.99,
+    0.98,
+    0.97,
+    0.96,
+    0.95,
+    0.94,
+    0.92,
+    0.90,
+    0.88,
+    0.85,
+    0.82,
+    0.80,
+    0.75,
+    0.70,
+    0.65,
+    0.60,
+)
+
+
+class SessionCertification(BaseModel):
+    """The outcome of certifying auto-apply from a user's own repair labels."""
+
+    alpha: float
+    delta: float
+    grid: list[float]
+    min_support: int
+    #: ``{issue_type: threshold}``. ``ABSTAIN_THRESHOLD`` means never auto-apply.
+    thresholds: dict[str, float] = Field(default_factory=dict)
+    #: Why a class was not certified, keyed by issue type.
+    reasons: dict[str, str] = Field(default_factory=dict)
+    certified_classes: list[str] = Field(default_factory=list)
+    repair_labels_used: int = Field(ge=0)
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    table_fingerprint: str
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+
+def repair_labelled_samples(
+    artifact: CalibrationSessionArtifact,
+) -> list[CalibrationSample]:
+    """Return only samples carrying a usable *repair* verdict.
+
+    A sample qualifies only with a proposed repair, a confidence for it, and a verdict on
+    it. Detection verdicts are deliberately ignored here.
+    """
+    return [
+        sample
+        for sample in artifact.samples
+        if sample.repair_decision != "pending"
+        and sample.proposed_repair is not None
+        and sample.repair_confidence is not None
+    ]
+
+
+def certify_from_session(
+    artifact: CalibrationSessionArtifact,
+    *,
+    alpha: float = 0.05,
+    delta: float = 0.05,
+    min_support: int = 30,
+) -> SessionCertification:
+    """Certify per-class auto-apply thresholds from the user's own repair labels.
+
+    This is the one place a local guarantee is reachable where the global one was not.
+    Conformal risk control requires the calibration data to be exchangeable with the target,
+    which no benchmark can establish against an unseen user table -- the reason
+    ``certify_thresholds_by_class`` ships with ``enabled_classes == []``. Here the
+    calibration data *is* the table, so exchangeability holds by construction.
+
+    **Uses repair labels only.** ``decision`` measures whether a flag was right; auto-apply
+    needs to know whether the proposed *value* is right. Certifying on detection labels would
+    authorize overwriting cells with unvalidated replacements, so this function refuses to
+    look at them.
+
+    Raises:
+        ValueError: If no sample carries a repair verdict. Silently returning empty
+            thresholds would read as "nothing could be certified" when the truth is
+            "the wrong question was answered".
+    """
+    from dataforge.conformal import ABSTAIN_THRESHOLD, certification_reason, certify_threshold
+
+    usable = repair_labelled_samples(artifact)
+    if not usable:
+        raise ValueError(
+            "no repair verdicts in this session, so auto-apply cannot be certified. "
+            "Detection verdicts answer 'was this flag right?', while auto-apply requires "
+            "'is the proposed replacement right?' -- certifying on the former would "
+            "authorize writing unvalidated values."
+        )
+
+    by_class: dict[str, list[tuple[float, bool]]] = {}
+    for sample in usable:
+        assert sample.repair_confidence is not None  # narrowed by repair_labelled_samples
+        by_class.setdefault(sample.issue_type, []).append(
+            (sample.repair_confidence, sample.repair_decision == "correct")
+        )
+
+    thresholds: dict[str, float] = {}
+    reasons: dict[str, str] = {}
+    certified: list[str] = []
+    for issue_type, samples in sorted(by_class.items()):
+        threshold = certify_threshold(
+            samples,
+            alpha=alpha,
+            delta=delta,
+            min_support=min_support,
+            grid=CERTIFICATION_GRID,
+        )
+        if threshold is None:
+            thresholds[issue_type] = ABSTAIN_THRESHOLD
+            reason = certification_reason(
+                samples, alpha=alpha, delta=delta, min_support=min_support
+            )
+            reasons[issue_type] = reason or "not certified"
+        else:
+            thresholds[issue_type] = threshold
+            certified.append(issue_type)
+
+    return SessionCertification(
+        alpha=alpha,
+        delta=delta,
+        grid=list(CERTIFICATION_GRID),
+        min_support=min_support,
+        thresholds=thresholds,
+        reasons=reasons,
+        certified_classes=certified,
+        repair_labels_used=len(usable),
+        source_sha256=artifact.source_sha256,
+        table_fingerprint=artifact.table_fingerprint,
+    )
 
 
 def dump_calibration_session(artifact: CalibrationSessionArtifact) -> str:
