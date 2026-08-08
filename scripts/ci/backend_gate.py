@@ -132,6 +132,36 @@ PIP_AUDIT_EXCEPTIONS = [
         ),
         upstream_reference="https://github.com/advisories/GHSA-rrmf-rvhw-rf47",
     ),
+    PipAuditException(
+        vuln_id="PYSEC-2026-3609",
+        package="pymdown-extensions",
+        scope="docs build toolchain only (docs/requirements.txt); not installed by the "
+        "core, playground, or MCP runtime",
+        expires_on=date(2026, 11, 8),
+        reason=(
+            "Triaged 2026-08-08. The advisory is scoped to the pymdownx.b64 extension's "
+            "path traversal, and docs/mkdocs.yml enables only details, highlight, "
+            "inlinehilite, snippets and superfences -- b64 is NOT enabled, so the "
+            "vulnerable code path is never loaded. The fix is also unreachable today: "
+            "mkdocs-material 9.6.23 requires pymdown-extensions~=10.2, so 11.x cannot be "
+            "installed without first upgrading mkdocs-material. Revisit when "
+            "mkdocs-material accepts 11.x."
+        ),
+        upstream_reference="https://github.com/advisories/PYSEC-2026-3609",
+    ),
+    PipAuditException(
+        vuln_id="CVE-2026-67422",
+        package="pymdown-extensions",
+        scope="docs build toolchain only (docs/requirements.txt); not installed by the "
+        "core, playground, or MCP runtime",
+        expires_on=date(2026, 11, 8),
+        reason=(
+            "Triaged 2026-08-08, same package and same blocker as PYSEC-2026-3609: b64 is "
+            "not enabled in docs/mkdocs.yml, and the 11.0.1 fix is blocked by "
+            "mkdocs-material 9.6.23's pymdown-extensions~=10.2 pin."
+        ),
+        upstream_reference="https://nvd.nist.gov/vuln/detail/CVE-2026-67422",
+    ),
 ]
 EXCLUDED_SECRET_DIRS = {
     ".git",

@@ -65,8 +65,12 @@ dev = [
     "msgpack>=1.2.1",
     "pydantic-settings>=2.14.2",
     "PyJWT>=2.13.0",
-    "ruff>=0.11",
-    "mypy>=1.10",
+    # Lint/type tooling is pinned to a narrow range on purpose. Unbounded ranges made CI a
+    # moving target: ruff 0.16 began formatting Python code blocks inside Markdown, which
+    # broke the side-package format check with no code change, and CI resolved mypy 2.3 while
+    # a developer machine sat on 1.20. A gate that depends on which day it ran is not a gate.
+    "ruff>=0.16.2,<0.17",
+    "mypy>=2.3,<3",
     "pandas-stubs>=2.2",
     "types-PyYAML",
     "huggingface_hub==1.13.0",

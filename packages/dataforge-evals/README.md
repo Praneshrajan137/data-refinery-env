@@ -113,6 +113,7 @@ Any agent can plug in by implementing:
 ```python
 from dataforge_evals import AgentTask, Fix
 
+
 class MyAgent:
     name = "my-agent"
 

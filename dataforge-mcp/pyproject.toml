@@ -7,7 +7,12 @@ license = "Apache-2.0"
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "dataforge_07>=0.1.0,<0.2",
-    "mcp>=1.27",
+    # Capped at <2 deliberately. mcp 2.0.0 is a breaking release: CallToolResult.isError
+    # was renamed to is_error and mcp.server.fastmcp moved, so this package's code and
+    # scripts/ci/installed_package_smoke.py do not run against it. This was the only
+    # uncapped dependency in the file, and CI duly resolved to 2.0.0 and broke. Raising the
+    # cap is a deliberate migration, not a version bump.
+    "mcp>=1.27,<2",
     "PyJWT>=2.13.0,<3",
 ]
 classifiers = [
