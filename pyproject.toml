@@ -190,6 +190,17 @@ exclude = [
 module = ["torch", "torch.*", "transformers", "transformers.*"]
 ignore_missing_imports = true
 
+# `mcp` ships in the separate `dataforge-mcp` distribution and is deliberately NOT a
+# dependency of the core package, so `pip install -e ".[dev]"` does not provide it. The one
+# consumer (`scripts/ci/installed_package_smoke.py`) imports it lazily inside a function and
+# is skipped when absent. Without this, CI type-check fails while a developer machine that
+# happens to have `mcp` installed passes -- which is exactly how this drifted undetected.
+# `ignore_missing_imports` only suppresses the "cannot find stubs" error; when `mcp` IS
+# installed, mypy still type-checks against the real package.
+[[tool.mypy.overrides]]
+module = ["mcp", "mcp.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 addopts = "-ra --strict-markers --strict-config"
