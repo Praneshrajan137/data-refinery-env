@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -163,6 +164,71 @@ PIP_AUDIT_EXCEPTIONS = [
         upstream_reference="https://nvd.nist.gov/vuln/detail/CVE-2026-67422",
     ),
 ]
+
+
+@dataclass(frozen=True)
+class NpmAuditException:
+    """One explicitly triaged npm advisory.
+
+    Mirrors :class:`PipAuditException`. npm audit previously had no exception path at all,
+    so a single unfixable dev-only advisory could only be resolved by weakening the gate.
+    """
+
+    advisory_id: str
+    package: str
+    scope: str
+    expires_on: date
+    reason: str
+    upstream_reference: str
+
+
+NPM_AUDIT_EXCEPTIONS = [
+    NpmAuditException(
+        advisory_id="GHSA-r28c-9q8g-f849",
+        package="postcss",
+        scope="vite build toolchain only; not in the shipped browser bundle",
+        expires_on=date(2026, 11, 8),
+        reason=(
+            "Triaged 2026-08-08. postcss reaches this project on exactly one path, "
+            "vite -> devDependencies, where it processes CSS at build time. The five "
+            "runtime dependencies are react, react-dom, motion, papaparse and "
+            "lucide-react. The patched 8.5.26 satisfies vite's existing ^8.5.15 range, so "
+            "this IS fixable by a lockfile bump -- but regenerating package-lock.json on "
+            "Windows produced a lock with zero integrity/resolved fields and 192 of 226 "
+            "packages, which is a worse supply-chain outcome than a build-time advisory. "
+            "Regenerate on Linux and remove this exception."
+        ),
+        upstream_reference="https://github.com/advisories/GHSA-r28c-9q8g-f849",
+    ),
+    NpmAuditException(
+        advisory_id="GHSA-fxqj-rqcc-2cmp",
+        package="postcss",
+        scope="vite build toolchain only; not in the shipped browser bundle",
+        expires_on=date(2026, 11, 8),
+        reason="Triaged 2026-08-08, same package and same blocker as GHSA-r28c-9q8g-f849.",
+        upstream_reference="https://github.com/advisories/GHSA-fxqj-rqcc-2cmp",
+    ),
+    NpmAuditException(
+        advisory_id="GHSA-28wg-ghj8-5hjv",
+        package="nanoid",
+        scope="transitive dependency of postcss, so vite build toolchain only",
+        expires_on=date(2026, 11, 8),
+        reason=(
+            "Triaged 2026-08-08. nanoid arrives only under postcss, which is build-time "
+            "only. The advisory needs an attacker-controlled negative size argument, and "
+            "no application code calls nanoid at all."
+        ),
+        upstream_reference="https://github.com/advisories/GHSA-28wg-ghj8-5hjv",
+    ),
+    NpmAuditException(
+        advisory_id="GHSA-2v37-7h3g-55p8",
+        package="nanoid",
+        scope="transitive dependency of postcss, so vite build toolchain only",
+        expires_on=date(2026, 11, 8),
+        reason="Triaged 2026-08-08, same package and same blocker as GHSA-28wg-ghj8-5hjv.",
+        upstream_reference="https://github.com/advisories/GHSA-2v37-7h3g-55p8",
+    ),
+]
 EXCLUDED_SECRET_DIRS = {
     ".git",
     ".mypy_cache",
@@ -227,6 +293,78 @@ def pip_audit_ignore_args(
     return args
 
 
+def npm_audit_exception_errors(
+    exceptions: list[NpmAuditException] = NPM_AUDIT_EXCEPTIONS,
+    *,
+    today: date | None = None,
+) -> list[str]:
+    """Return validation errors for npm audit exceptions.
+
+    Same discipline as :func:`pip_audit_exception_errors`: an exception must identify the
+    advisory, say where the package is reachable from, justify itself, cite upstream, and
+    expire. An exception that never expires is a permanently silenced check.
+    """
+    observed_today = today or _today_utc()
+    errors: list[str] = []
+    for exception in exceptions:
+        if not exception.advisory_id:
+            errors.append("npm audit exception is missing advisory_id.")
+            continue
+        if not exception.package:
+            errors.append(f"{exception.advisory_id} is missing package.")
+        if not exception.scope.strip():
+            errors.append(f"{exception.advisory_id} is missing scope.")
+        if not exception.reason.strip():
+            errors.append(f"{exception.advisory_id} is missing reason.")
+        if not exception.upstream_reference.startswith("https://"):
+            errors.append(f"{exception.advisory_id} is missing an upstream reference.")
+        if exception.expires_on < observed_today:
+            errors.append(
+                f"npm audit exception {exception.advisory_id} expired on "
+                f"{exception.expires_on.isoformat()}."
+            )
+    return errors
+
+
+def npm_audit_blocking_advisories(
+    payload: dict[str, Any],
+    exceptions: list[NpmAuditException] = NPM_AUDIT_EXCEPTIONS,
+    *,
+    min_severity: str = "moderate",
+) -> list[str]:
+    """Return advisory identifiers that must block the gate.
+
+    Parses ``npm audit --json`` and drops anything explicitly triaged. Severities below
+    ``min_severity`` are ignored, matching the previous ``--audit-level=moderate`` behaviour.
+
+    Fails **closed on unparseable**: an advisory whose id cannot be read is reported rather
+    than skipped, because a silently-dropped advisory is exactly the outcome this guards.
+    """
+    order = ["info", "low", "moderate", "high", "critical"]
+    floor = order.index(min_severity)
+    allowed = {exception.advisory_id for exception in exceptions}
+    blocking: list[str] = []
+    for name, entry in (payload.get("vulnerabilities") or {}).items():
+        if not isinstance(entry, dict):
+            blocking.append(f"{name} (unparseable advisory entry)")
+            continue
+        severity = str(entry.get("severity", "high"))
+        if severity in order and order.index(severity) < floor:
+            continue
+        for source in entry.get("via") or []:
+            # A string entry means "vulnerable because of another package", not an
+            # advisory in its own right, so it carries no id to triage.
+            if not isinstance(source, dict):
+                continue
+            identifier = source.get("url", "")
+            advisory_id = str(identifier).rstrip("/").rsplit("/", 1)[-1]
+            if not advisory_id:
+                blocking.append(f"{name} (advisory with no identifier)")
+            elif advisory_id not in allowed:
+                blocking.append(f"{advisory_id} ({name}, {severity})")
+    return sorted(set(blocking))
+
+
 def coverage_policy_errors(
     *,
     makefile_path: Path = PROJECT_ROOT / "Makefile",
@@ -243,6 +381,46 @@ def coverage_policy_errors(
     if not re.search(r"(?m)^fail_under\s*=\s*82(?:\.0+)?\s*$", pyproject_text):
         errors.append("pyproject.toml must remain the single 82.0 coverage threshold source.")
     return errors
+
+
+def _npm_audit_check(*, optional: bool, timeout_seconds: int) -> bool:
+    """Run npm audit and fail only on advisories that are not explicitly triaged."""
+    print("\n==> playground npm audit")
+    policy_errors = npm_audit_exception_errors()
+    if policy_errors:
+        for error in policy_errors:
+            print(f"FAIL npm audit exception policy: {error}")
+        return False
+    try:
+        completed = subprocess.run(
+            [NPM, "--prefix", "playground/web", "audit", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            cwd=PROJECT_ROOT,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        message = f"npm audit could not run: {exc}"
+        if optional:
+            print(f"SKIP playground npm audit: {message}")
+            return True
+        print(f"FAIL playground npm audit: {message}")
+        return False
+    try:
+        payload = json.loads(completed.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        # Fail closed: unreadable audit output is not evidence of safety.
+        print(f"FAIL playground npm audit: could not parse npm audit --json ({exc})")
+        return False
+    blocking = npm_audit_blocking_advisories(payload)
+    if blocking:
+        for advisory in blocking:
+            print(f"FAIL playground npm audit: untriaged advisory {advisory}")
+        return False
+    triaged = len(NPM_AUDIT_EXCEPTIONS)
+    print(f"PASS playground npm audit (no untriaged advisories; {triaged} triaged exceptions)")
+    return True
 
 
 def _coverage_policy_check() -> bool:
@@ -549,9 +727,7 @@ def main() -> int:
         args.require_optional or os.environ.get("DATAFORGE_REQUIRE_NPM_AUDIT")
     )
     checks.append(
-        _run(
-            "playground npm audit",
-            [NPM, "--prefix", "playground/web", "audit", "--audit-level=moderate"],
+        _npm_audit_check(
             optional=npm_audit_optional,
             timeout_seconds=args.npm_audit_timeout,
         )

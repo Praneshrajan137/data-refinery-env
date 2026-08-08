@@ -7,15 +7,46 @@ from pathlib import Path
 
 from scripts.ci import backend_gate
 
+#: Every vulnerability the backend gate is allowed to ignore, listed explicitly so a new
+#: exception cannot be added without a reviewer seeing it here. Adding an entry to
+#: PIP_AUDIT_EXCEPTIONS without updating this list fails the suite, which is the point.
+EXPECTED_AUDIT_EXCEPTIONS = [
+    ("CVE-2025-3000", "torch", date(2026, 10, 14)),
+    ("PYSEC-2026-3609", "pymdown-extensions", date(2026, 11, 8)),
+    ("CVE-2026-67422", "pymdown-extensions", date(2026, 11, 8)),
+]
+
+
+def test_pip_audit_exceptions_are_exactly_the_reviewed_set() -> None:
+    """No vulnerability may be ignored without appearing in the reviewed list above."""
+    actual = [(e.vuln_id, e.package, e.expires_on) for e in backend_gate.PIP_AUDIT_EXCEPTIONS]
+
+    assert actual == EXPECTED_AUDIT_EXCEPTIONS
+
 
 def test_pip_audit_exception_is_structured_and_not_expired() -> None:
-    """The Torch audit exception must remain scoped and time-bounded."""
+    """Every audit exception must remain scoped and time-bounded."""
     errors = backend_gate.pip_audit_exception_errors(today=date(2026, 7, 16))
 
     assert errors == []
-    assert backend_gate.PIP_AUDIT_EXCEPTIONS[0].package == "torch"
-    assert backend_gate.PIP_AUDIT_EXCEPTIONS[0].expires_on == date(2026, 10, 14)
-    assert backend_gate.pip_audit_ignore_args() == ["--ignore-vuln", "CVE-2025-3000"]
+    expected_args = [
+        arg for vuln_id, _, _ in EXPECTED_AUDIT_EXCEPTIONS for arg in ("--ignore-vuln", vuln_id)
+    ]
+    assert backend_gate.pip_audit_ignore_args() == expected_args
+
+
+def test_every_audit_exception_carries_its_justification() -> None:
+    """An exception without scope, reason and an upstream reference is not a triage.
+
+    These fields are what separate a documented, time-boxed exception from a silenced
+    check, so emptiness is a policy violation rather than a cosmetic gap.
+    """
+    for exception in backend_gate.PIP_AUDIT_EXCEPTIONS:
+        assert exception.scope.strip(), f"{exception.vuln_id} has no scope"
+        assert exception.reason.strip(), f"{exception.vuln_id} has no reason"
+        assert exception.upstream_reference.startswith("https://"), (
+            f"{exception.vuln_id} has no upstream reference"
+        )
 
 
 def test_pip_audit_exception_expires_deterministically() -> None:
@@ -24,6 +55,90 @@ def test_pip_audit_exception_expires_deterministically() -> None:
 
     assert errors
     assert "expired on 2026-10-14" in errors[0]
+
+
+#: Every npm advisory the gate is allowed to ignore, listed for the same reason as the pip
+#: set above: an exception must be visible to a reviewer, not buried in a helper.
+EXPECTED_NPM_EXCEPTIONS = [
+    ("GHSA-r28c-9q8g-f849", "postcss"),
+    ("GHSA-fxqj-rqcc-2cmp", "postcss"),
+    ("GHSA-28wg-ghj8-5hjv", "nanoid"),
+    ("GHSA-2v37-7h3g-55p8", "nanoid"),
+]
+
+
+def _payload(advisory_url: str, *, severity: str = "high", name: str = "somepkg") -> dict:
+    return {"vulnerabilities": {name: {"severity": severity, "via": [{"url": advisory_url}]}}}
+
+
+def test_npm_audit_exceptions_are_exactly_the_reviewed_set() -> None:
+    actual = [(e.advisory_id, e.package) for e in backend_gate.NPM_AUDIT_EXCEPTIONS]
+
+    assert actual == EXPECTED_NPM_EXCEPTIONS
+
+
+def test_npm_audit_exceptions_validate_and_are_unexpired() -> None:
+    assert backend_gate.npm_audit_exception_errors(today=date(2026, 8, 8)) == []
+
+
+def test_npm_audit_exceptions_expire() -> None:
+    """An exception that never expires is a permanently silenced check."""
+    errors = backend_gate.npm_audit_exception_errors(today=date(2026, 11, 9))
+
+    assert errors
+    assert any("expired on 2026-11-08" in error for error in errors)
+
+
+def test_a_triaged_advisory_does_not_block() -> None:
+    payload = _payload("https://github.com/advisories/GHSA-r28c-9q8g-f849", name="postcss")
+
+    assert backend_gate.npm_audit_blocking_advisories(payload) == []
+
+
+def test_an_untriaged_advisory_blocks() -> None:
+    """The guard must actually stop something, or it is decoration."""
+    payload = _payload("https://github.com/advisories/GHSA-not-triaged-0000")
+
+    blocking = backend_gate.npm_audit_blocking_advisories(payload)
+
+    assert blocking
+    assert "GHSA-not-triaged-0000" in blocking[0]
+
+
+def test_severities_below_the_floor_are_ignored() -> None:
+    payload = _payload("https://github.com/advisories/GHSA-low-0000", severity="low")
+
+    assert backend_gate.npm_audit_blocking_advisories(payload) == []
+
+
+def test_high_severity_is_above_the_floor() -> None:
+    payload = _payload("https://github.com/advisories/GHSA-high-0000", severity="high")
+
+    assert backend_gate.npm_audit_blocking_advisories(payload) != []
+
+
+def test_an_advisory_with_no_identifier_fails_closed() -> None:
+    """An advisory that cannot be identified must not be silently dropped."""
+    payload = {"vulnerabilities": {"x": {"severity": "high", "via": [{"url": ""}]}}}
+
+    assert backend_gate.npm_audit_blocking_advisories(payload) != []
+
+
+def test_an_unparseable_entry_fails_closed() -> None:
+    payload = {"vulnerabilities": {"x": "not-a-dict"}}
+
+    assert backend_gate.npm_audit_blocking_advisories(payload) != []
+
+
+def test_a_clean_audit_blocks_nothing() -> None:
+    assert backend_gate.npm_audit_blocking_advisories({"vulnerabilities": {}}) == []
+
+
+def test_string_via_entries_are_not_treated_as_advisories() -> None:
+    """A string 'via' means 'vulnerable through another package', carrying no id."""
+    payload = {"vulnerabilities": {"x": {"severity": "high", "via": ["postcss"]}}}
+
+    assert backend_gate.npm_audit_blocking_advisories(payload) == []
 
 
 def test_coverage_policy_rejects_makefile_fail_under_drift(tmp_path: Path) -> None:
