@@ -581,6 +581,7 @@ class AgentRepairReceipt(BaseModel):
     safety_verdict: str
     reason: str
     fixes: list[FixResult]
+    held_fixes: list[FixResult] = Field(default_factory=list)
     trace: list[AgentRepairRecord]
 
 
@@ -591,19 +592,26 @@ def dataforge_agent_repair(
     provider: str | None = None,
     model: str | None = None,
     max_steps: int = 30,
-    confirm_escalations: bool = True,
+    schema_path: str | None = None,
+    confirm_escalations: bool = False,
+    allow_unproven_autoapply: bool = False,
 ) -> AgentRepairReceipt:
     """Run the verified autonomous agent: deterministic floor then LLM residual.
 
-    The agent applies the deterministic repairers first (high-accuracy floor),
-    then an autonomous policy resolves the remaining issues. Every write is
-    gated by the safety constitution and the SMT verifier and committed through
-    a reversible transaction, so the agent can only add proven-safe fixes.
+    The agent applies the deterministic repairers first (high-accuracy floor), then an
+    autonomous policy resolves the remaining issues. Every candidate passes the safety
+    constitution and the verifier, and every write is committed through a reversible
+    transaction.
+
+    An agent value is LLM-derived, so it auto-applies only when it is *proven* --
+    verified against an authoritative ``schema_path``. Without a schema it is checked
+    only by the advisory inferred guard, so it is held and returned in ``held_fixes``
+    rather than written, unless ``allow_unproven_autoapply`` is set.
 
     Args:
         path: CSV path (must be under an allowed MCP root).
         mode: ``dry_run`` (default) or ``apply``.
-        policy: Agent backend — ``hosted`` provider (default; needs a server-side
+        policy: Agent backend -- ``hosted`` provider (default; needs a server-side
             API key), ``local`` trained model, ``deterministic`` (floor only,
             no LLM), or ``custom:<name>`` for a registered policy.
         provider: Hosted provider override (``groq`` or ``gemini``); falls back
@@ -611,13 +619,18 @@ def dataforge_agent_repair(
         model: Model id override for the hosted provider. When omitted, falls back
             to ``DATAFORGE_<PROVIDER>_MODEL`` and then the provider default.
         max_steps: Maximum agent reasoning steps.
-        confirm_escalations: Acknowledge that live LLM-originated writes are
-            auto-confirmed past the soft safety-escalation gate. Required for an
-            LLM policy to apply fixes autonomously.
+        schema_path: Optional authoritative schema. Required for an agent fix to be
+            proven, and therefore for one to be auto-applied.
+        confirm_escalations: Acknowledge that live LLM-originated writes may pass the
+            soft safety-escalation gate. Required for an LLM policy to apply fixes
+            autonomously. Off by default, matching every other surface.
+        allow_unproven_autoapply: Accept fixes that are evidence-strong but NOT proven
+            (no authoritative schema). Recorded truthfully as not-proven in the
+            certificate; still reversible. Off by default.
 
     Returns:
-        A structured receipt with the verified fixes, audit trace, and revert
-        command.
+        A structured receipt with the applied fixes, any held fixes, the audit trace,
+        and the revert command.
     """
     from dataforge.agent import AgentRepairRequest, run_agent_repair
 
@@ -634,12 +647,13 @@ def dataforge_agent_repair(
         AgentRepairRequest(
             source_path=csv_path,
             mode=mode,
-            schema=None,
+            schema=_load_optional_schema(schema_path),
             policy=policy,
             provider=provider,
             model=model,
             max_steps=max_steps,
             confirm_escalations=confirm_escalations,
+            allow_unproven_autoapply=allow_unproven_autoapply,
         )
     )
     return AgentRepairReceipt(
@@ -662,6 +676,7 @@ def dataforge_agent_repair(
         safety_verdict=result.safety_verdict,
         reason=result.reason,
         fixes=[_verified_fix_to_result(fix) for fix in result.fixes],
+        held_fixes=[_verified_fix_to_result(fix) for fix in result.held_fixes],
         trace=[
             AgentRepairRecord(
                 step=record.step,

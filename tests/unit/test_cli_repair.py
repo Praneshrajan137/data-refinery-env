@@ -19,9 +19,9 @@ from dataforge.cli.repair import (
     _propose_repairs,
     _render_attempt_summary,
     _resolve_escalation,
-    apply_fixes_to_csv,
 )
 from dataforge.detectors.base import Issue, Schema, Severity
+from dataforge.engine.repair import _apply_fixes_to_csv
 from dataforge.repairers.base import ProposedFix, RepairAttempt
 from dataforge.safety import SafetyContext, SafetyResult, SafetyVerdict
 from dataforge.schema_inference import (
@@ -105,7 +105,7 @@ class TestRepairCommand:
         _write_repairable_csv(csv_path)
 
         with pytest.raises(ValueError, match="Column 'missing'"):
-            apply_fixes_to_csv(
+            _apply_fixes_to_csv(
                 csv_path,
                 [
                     CellFix(
@@ -119,7 +119,7 @@ class TestRepairCommand:
             )
 
         with pytest.raises(ValueError, match="Row 99"):
-            apply_fixes_to_csv(
+            _apply_fixes_to_csv(
                 csv_path,
                 [
                     CellFix(
@@ -133,7 +133,7 @@ class TestRepairCommand:
             )
 
         with pytest.raises(ValueError, match="stale fix"):
-            apply_fixes_to_csv(
+            _apply_fixes_to_csv(
                 csv_path,
                 [
                     CellFix(
@@ -147,7 +147,7 @@ class TestRepairCommand:
             )
 
         with pytest.raises(ValueError, match="Unsupported repair operation"):
-            apply_fixes_to_csv(
+            _apply_fixes_to_csv(
                 csv_path,
                 [
                     CellFix(
@@ -268,7 +268,7 @@ class TestRepairCommand:
             path.write_bytes(mutated)
             return hashlib.sha256(mutated).hexdigest()
 
-        with patch("dataforge.engine.repair.apply_fixes_to_csv", side_effect=fake_apply):
+        with patch("dataforge.engine.repair._apply_fixes_to_csv", side_effect=fake_apply):
             result = runner.invoke(app, ["repair", str(csv_path), "--apply"])
 
         assert result.exit_code == 0

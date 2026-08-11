@@ -29,12 +29,15 @@ Selectable backends (via :func:`make_policy`):
 
 ``custom:<name>``
     A user-registered policy (see :func:`register_policy`). Custom policies are
-    still wrapped by the controller's executor, so they cannot bypass the gate.
+    still wrapped by the controller's executor and subject to the proven-only
+    gate, so they cannot write an unproven value.
 
 The policy never writes data. Every ``FIX`` it proposes is gated by the
 controller's executor (safety constitution + SMT verifier) before it can be
-staged, so a weak policy can only *fail to help* — it can never corrupt data
-or ship a repair below the deterministic baseline.
+staged, and staged fixes are then filtered by the proven-only gate -- an LLM value
+with no authoritative schema is held, not written. So a weak policy can only *fail
+to help*; it can never corrupt data or ship a repair below the deterministic
+baseline.
 """
 
 from __future__ import annotations

@@ -13,7 +13,7 @@ from pathlib import Path
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from dataforge.cli.repair import apply_fixes_to_csv
+from dataforge.engine.repair import _apply_fixes_to_csv
 from dataforge.transactions.log import append_applied_event, append_created_transaction
 from dataforge.transactions.revert import revert_transaction
 from dataforge.transactions.txn import CellFix, RepairTransaction
@@ -101,7 +101,10 @@ def test_revert_is_bytes_identical(csv_and_fixes: tuple[bytes, list[CellFix]]) -
         )
         log_path = append_created_transaction(txn)
 
-        post_sha256 = apply_fixes_to_csv(source_path, fixes)
+        # Uses the private raw byte-writer deliberately: this test builds the journal
+        # by hand to isolate the revert path, so it needs the write WITHOUT
+        # apply_transaction's own journalling on top.
+        post_sha256 = _apply_fixes_to_csv(source_path, fixes)
         append_applied_event(log_path, txn.txn_id, post_sha256=post_sha256)
 
         reverted = revert_transaction(txn.txn_id, search_root=temp_path)

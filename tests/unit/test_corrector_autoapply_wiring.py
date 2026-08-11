@@ -21,7 +21,7 @@ from dataforge.calibration import (
 )
 from dataforge.calibration_map import CalibrationMap
 from dataforge.conformal import certification_reason, min_samples_for_certification
-from dataforge.engine.repair import _guard_corrector_policy_for_drift, _partition_auto_apply
+from dataforge.engine.repair import _guard_corrector_policy_for_drift, partition_auto_apply
 from dataforge.repairers.base import ProposedFix
 from dataforge.transactions.txn import CellFix
 
@@ -70,10 +70,10 @@ _LOWERING = CalibrationMap(method="isotonic", x_knots=(0.0, 1.0), y_knots=(0.0, 
 class TestPartitionAutoApply:
     def test_schema_proven_high_confidence_auto_applies(self) -> None:
         fix = _llm_fix(0.9)
-        auto, held, plausibility = _partition_auto_apply(
+        auto, held, plausibility = partition_auto_apply(
             [fix],
             _POLICY,
-            authoritative_schema_present=True,
+            covered_columns=frozenset({"c"}),
             allow_unproven_autoapply=False,
             calibration_map_by_class={"missing_value": _RAISING},
         )
@@ -82,10 +82,10 @@ class TestPartitionAutoApply:
 
     def test_no_schema_holds_as_plausibility_only(self) -> None:
         fix = _llm_fix(0.99)
-        auto, held, plausibility = _partition_auto_apply(
+        auto, held, plausibility = partition_auto_apply(
             [fix],
             _POLICY,
-            authoritative_schema_present=False,
+            covered_columns=frozenset(),
             allow_unproven_autoapply=False,
             calibration_map_by_class={"missing_value": _RAISING},
         )
@@ -95,10 +95,10 @@ class TestPartitionAutoApply:
     def test_calibration_below_threshold_holds(self) -> None:
         # Raw 0.9 would clear 0.8, but the lowering map pulls it to 0.45 -> held.
         fix = _llm_fix(0.9)
-        auto, held, _ = _partition_auto_apply(
+        auto, held, _ = partition_auto_apply(
             [fix],
             _POLICY,
-            authoritative_schema_present=True,
+            covered_columns=frozenset({"c"}),
             allow_unproven_autoapply=False,
             calibration_map_by_class={"missing_value": _LOWERING},
         )
@@ -107,10 +107,10 @@ class TestPartitionAutoApply:
 
     def test_deterministic_fix_always_auto_applies(self) -> None:
         fix = _deterministic_fix()
-        auto, held, plausibility = _partition_auto_apply(
+        auto, held, plausibility = partition_auto_apply(
             [fix],
             _POLICY,
-            authoritative_schema_present=False,
+            covered_columns=frozenset(),
             allow_unproven_autoapply=False,
             calibration_map_by_class={"missing_value": _LOWERING},
         )
@@ -120,10 +120,10 @@ class TestPartitionAutoApply:
     def test_no_maps_uses_raw_confidence(self) -> None:
         # Backward compatible: without maps, raw 0.9 clears the 0.8 threshold.
         fix = _llm_fix(0.9)
-        auto, _, _ = _partition_auto_apply(
+        auto, _, _ = partition_auto_apply(
             [fix],
             _POLICY,
-            authoritative_schema_present=True,
+            covered_columns=frozenset({"c"}),
             allow_unproven_autoapply=False,
         )
         assert auto == [fix]
@@ -178,10 +178,10 @@ class TestDriftGuard:
         reference = {"missing_value": [0.9] * 40 + [0.95] * 40}
         fix = _llm_fix(0.1)
         guarded = _guard_corrector_policy_for_drift(_POLICY, [fix], reference)
-        auto, held, _ = _partition_auto_apply(
+        auto, held, _ = partition_auto_apply(
             [_llm_fix(0.9)],  # a fix that WOULD clear the raw 0.8 threshold
             guarded,
-            authoritative_schema_present=True,
+            covered_columns=frozenset({"c"}),
             allow_unproven_autoapply=False,
         )
         assert auto == []
@@ -192,10 +192,10 @@ class TestDriftGuard:
         live_fix = _llm_fix(0.9)
         guarded = _guard_corrector_policy_for_drift(_POLICY, [live_fix], reference)
         # Same policy object semantics: a 0.9 fix still auto-applies.
-        auto, _, _ = _partition_auto_apply(
+        auto, _, _ = partition_auto_apply(
             [live_fix],
             guarded,
-            authoritative_schema_present=True,
+            covered_columns=frozenset({"c"}),
             allow_unproven_autoapply=False,
         )
         assert auto == [live_fix]
@@ -229,10 +229,10 @@ class TestRealArtifactSelectsNothing:
         # A maximally confident LLM fix on the dominant class, calibrated through
         # the shipped map, must still be HELD (calibrated score < 1.01 sentinel).
         fix = _llm_fix(1.0, issue_type="fd_violation")
-        auto, held, _ = _partition_auto_apply(
+        auto, held, _ = partition_auto_apply(
             [fix],
             policy,
-            authoritative_schema_present=True,
+            covered_columns=frozenset({"c"}),
             allow_unproven_autoapply=False,
             calibration_map_by_class=maps,
         )

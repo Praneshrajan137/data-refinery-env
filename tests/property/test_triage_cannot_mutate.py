@@ -2,7 +2,7 @@
 
 The review ranker is safe "by construction": it is passed to ``run_repair_pipeline`` as a
 separate keyword argument rather than as a field of ``RepairPipelineRequest``, and
-``_partition_auto_apply`` never receives it. But construction-based safety was never
+``partition_auto_apply`` never receives it. But construction-based safety was never
 *tested* under varying scores. The existing unit tests in
 ``tests/unit/test_review_triage_surface.py`` stub the completion function with a constant
 (``lambda _m: "yes"``), so every cell receives the same score -- which means those tests
@@ -98,7 +98,7 @@ def _run(tmp_path: Path, scores: Sequence[float] | None) -> tuple[dict[str, obje
     All runs must share one directory, because receipt fields derive from the source path;
     comparing runs in different temp directories would fail for reasons unrelated to triage.
 
-    ``mode="dry_run"`` still exercises ``_partition_auto_apply``, so the invariant is tested
+    ``mode="dry_run"`` still exercises ``partition_auto_apply``, so the invariant is tested
     where the auto-apply decision is made, not merely where bytes land.
     """
     from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline

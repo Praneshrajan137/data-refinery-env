@@ -8,8 +8,21 @@ same gates the deterministic pipeline uses — the constitutional
 Rejections return the safety reason and SMT unsat-core so the controller can
 feed them back to the policy for self-correction.
 
-This is the heart of the safety invariant: the policy proposes, the executor
-disposes, and nothing unverified is ever staged for the transaction commit.
+The policy proposes, the executor disposes: nothing that fails safety or the
+verifier is ever staged for the transaction commit.
+
+**What staging does and does not mean.** Staging is a value-level check, not a proof.
+With an authoritative schema, ``SMTVerifier`` discharges the constraints with z3. With
+no schema, the check is the *advisory inferred guard* — type, domain, regex and
+unanimous-FD consensus derived from the (possibly dirty) table — whose gaps are
+enumerated in ``docs/trust/inferred-guard-gaps.md``. A staged schema-less LLM value is
+therefore ``plausibility_only``, and the proven-only gate in the controller and in
+``apply_transaction`` is what keeps it off disk, not this executor.
+
+Until 2026-08-09 this file passed only three positional arguments to
+``SMTVerifier.verify``, omitting ``verification_schema``. With no schema the verifier
+short-circuits to a vacuous ACCEPT — row in bounds, column exists — so every agent
+value was staged as "verified" without anything having examined the value at all.
 """
 
 from __future__ import annotations
@@ -33,6 +46,7 @@ from dataforge.agent.tool_actions import (
 from dataforge.detectors.base import Schema
 from dataforge.repairers.base import ProposedFix
 from dataforge.safety import SafetyContext, SafetyFilter, SafetyVerdict
+from dataforge.schema_inference import infer_verification_schema
 from dataforge.table import (
     TableLike,
     cell_value,
@@ -98,6 +112,8 @@ class VerifiedActionExecutor:
     ) -> None:
         self._df = working_df
         self._schema = schema
+        self._verification_schema_cache: Schema | None = None
+        self._verification_schema_inferred = False
         self._safety = SafetyFilter()
         self._verifier = SMTVerifier()
         self._context = safety_context or SafetyContext()
@@ -129,6 +145,26 @@ class VerifiedActionExecutor:
         stale-value conflicts at commit time.
         """
         self._resolved.add((row, column))
+
+    def _verification_schema(self) -> Schema | None:
+        """The inferred advisory guard, computed at most once per episode.
+
+        This is the same value-level safety net ``propose_repairs`` uses. Without it,
+        ``SMTVerifier`` short-circuits to a vacuous ACCEPT for a schema-less fix -- it
+        checks only that the row is in bounds and the column exists -- so every agent
+        value was "verified" without anything having examined the value.
+
+        Computed LAZILY because inference walks the whole table, and the common case
+        (``policy="deterministic"``, or an episode where the agent proposes no FIX at
+        all) never needs it. An earlier version inferred eagerly in ``__init__`` and paid
+        that cost on every construction.
+        """
+        if self._schema is not None:
+            return None
+        if not self._verification_schema_inferred:
+            self._verification_schema_cache = infer_verification_schema(self._df)
+            self._verification_schema_inferred = True
+        return self._verification_schema_cache
 
     def execute(self, action: Action) -> ActionOutcome:
         """Dispatch an action to its handler."""
@@ -209,7 +245,12 @@ class VerifiedActionExecutor:
                 rejection_reason=safety_result.reason,
             )
 
-        verifier_result = self._verifier.verify(self._df, [proposed], self._schema)
+        verifier_result = self._verifier.verify(
+            self._df,
+            [proposed],
+            self._schema,
+            verification_schema=self._verification_schema(),
+        )
         if verifier_result.verdict == VerificationVerdict.ACCEPT:
             set_cell_value(self._df, action.row, action.column, action.new_value)
             self._staged.append(proposed)

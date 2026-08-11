@@ -118,6 +118,15 @@ class PatchPlan(BaseModel):
     reversible: bool
     apply_supported: bool
     apply_requires_approval: bool = True
+    # Whether an authoritative declared/reviewed schema backed verification. The
+    # plan carries this so the *apply* primitive can enforce the proven-only
+    # invariant from the plan alone (see ``enforce_plan_proven_only``) instead of
+    # trusting each calling surface to have gated the fixes first.
+    authoritative_schema_present: bool = False
+    # The columns the authoritative schema actually constrains. Carried alongside the
+    # boolean because authority is per-column: one accepted constraint must not grant
+    # proven status to a fix on a column the schema never mentions.
+    authoritative_columns: tuple[str, ...] = ()
     audit_metadata: dict[str, str] = Field(default_factory=dict)
     reason: str = Field(min_length=1)
 
@@ -140,6 +149,8 @@ class PatchPlan(BaseModel):
         audit_metadata: dict[str, str] | None = None,
         apply_supported: bool | None = None,
         reversible: bool | None = None,
+        authoritative_schema_present: bool = False,
+        authoritative_columns: tuple[str, ...] = (),
     ) -> PatchPlan:
         """Construct a stable plan with derived SQL and support flags."""
         stable = bool(row_identity_columns) and all(op.row_identity.stable for op in operations)
@@ -165,6 +176,8 @@ class PatchPlan(BaseModel):
             safety_verdict=safety_verdict,
             reversible=is_reversible,
             apply_supported=supported,
+            authoritative_schema_present=authoritative_schema_present,
+            authoritative_columns=authoritative_columns,
             audit_metadata=audit_metadata or {},
             reason=reason,
         )
@@ -176,3 +189,51 @@ class PatchPlan(BaseModel):
     def sha256(self) -> str:
         """Return a SHA-256 digest of the canonical plan."""
         return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
+
+
+def enforce_plan_proven_only(plan: PatchPlan, *, allow_unproven_autoapply: bool) -> None:
+    """Refuse to apply a plan containing ``plausibility_only`` operations.
+
+    The table-store counterpart of :func:`dataforge.engine.repair.enforce_proven_only`.
+    A warehouse write does not go through ``apply_transaction`` -- it is raw SQL
+    issued by the backend adapter -- so the proven-only invariant has to be enforced
+    at that primitive too, or the whole gate is only as good as the calling surface
+    remembering to partition first. It did not remember: ``run_table_store_repair``
+    wrote LLM-derived values via SQL UPDATE with no strength check at all.
+
+    Strength is derived from each operation's ``provenance`` plus the plan's
+    ``authoritative_schema_present``, using the same single rule the CSV path uses,
+    so the two primitives cannot drift apart on what "proven" means.
+
+    Raises:
+        TableStoreError: If any operation is unproven and the opt-in is not set.
+    """
+    from dataforge.engine.repair import verification_strength_for
+    from dataforge.stores.base import TableStoreError
+
+    if allow_unproven_autoapply:
+        return
+    covered = frozenset(plan.authoritative_columns)
+    unproven = [
+        op
+        for op in plan.operations
+        if verification_strength_for(
+            op.provenance,
+            # Per-COLUMN authority: the schema must constrain THIS operation's column.
+            authoritative_schema_present=op.column in covered,
+        )
+        == "plausibility_only"
+    ]
+    if not unproven:
+        return
+    cells = ", ".join(
+        f"row {op.row} column {op.column!r} (provenance {op.provenance})" for op in unproven[:5]
+    )
+    if len(unproven) > 5:
+        cells += f", and {len(unproven) - 5} more"
+    raise TableStoreError(
+        f"Refusing to write {len(unproven)} unproven operation(s) to {plan.target}: "
+        f"{cells}. These values were checked only by the advisory inferred guard, not "
+        "proven against an authoritative schema. Either supply a declared schema or "
+        "pass allow_unproven_autoapply=True to accept them as unproven."
+    )

@@ -4,30 +4,53 @@ Enforces the product invariant that every surface (CLI, MCP, verified agent,
 playground) shares ONE write primitive and produces ONE self-verifying trust
 certificate.
 
-Scope, stated honestly (this is a defense-in-depth pair, not one silver bullet):
+Scope, stated honestly (this is defense-in-depth, not one silver bullet):
 
-* ``test_single_write_primitive_is_defined_once`` + ``test_no_new_apply_transaction_caller``
-  are STATIC guards: they prove the journaled-write primitive is defined once and
-  is only *called* from a reviewed allowlist. They do NOT, by themselves, prove a
-  surface cannot mutate data by some OTHER mechanism (e.g. a raw ``to_csv``); a
-  determined new write path via a different call would slip past a string scan.
-* The RUNTIME no-corruption / reversibility guarantee is enforced elsewhere and
-  is the real safety net: ``tests/property/test_no_corruption_invariant.py`` (a
-  correct cell is never changed; nothing unverified is auto-applied) and
+* ``test_every_write_primitive_is_registered`` + ``test_registry_has_no_stale_entries``
+  + ``test_every_user_data_write_names_its_gate`` are STATIC guards over the
+  ``_WRITE_PRIMITIVE_REGISTRY`` below. They prove that every write site in every package
+  in this repo has been classified, and that each one able to touch user data names the
+  gate protecting it. They are a regex scan, so a write reached through an alias,
+  ``getattr``, or an entry point will not appear.
+* ``test_raw_byte_writer_is_not_public`` pins the one write that CANNOT be gated:
+  ``_apply_fixes_to_csv`` takes ``CellFix``, which has no provenance, and performs no
+  journalling or locking. Privacy, not a gate, is what keeps it off other surfaces.
+* The RUNTIME no-corruption / reversibility guarantee is the real safety net:
+  ``tests/property/test_no_corruption_invariant.py`` (a correct cell is never changed;
+  nothing unproven is auto-applied on ANY write surface) and
   ``tests/property/test_revert_is_bytes_identical.py`` (every applied change is
   byte-for-byte reversible). ``test_pipeline_writes_are_journaled_and_reversible``
-  below ties that to this file: an applied repair is journaled and reverts exactly.
+  below ties that to this file.
 
-Together the static allowlist (catches the easy regression: a new
-``apply_transaction`` caller) and the runtime invariants (catch the hard one:
-corruption/irreversibility regardless of mechanism) give the guarantee; neither
-alone is claimed to be complete.
+Neither layer alone is claimed to be complete.
+
+Two lessons are encoded here, both learned from real failures on 2026-08-09:
+
+1. **Registries are keyed by primitive, not by caller.** This file used to allowlist the
+   *callers* of ``apply_transaction``. That could not see ``DuckDBStore``'s raw SQL,
+   ``revert_transaction``'s direct ``atomic_write_bytes``, or the constraints-artifact
+   rewrite -- three genuine user-data writes. Callers are unbounded; primitives are ~30
+   and change rarely. The allowlist had also rotted, carrying ``cli/repair.py`` on the
+   strength of a wrapper with no callers at all, which is why
+   ``test_registry_has_no_stale_entries`` now exists.
+2. **A guard that delegates must name what the other guard covers.** This file used to
+   delegate "nothing unverified is auto-applied" to
+   ``test_no_corruption_invariant.py``, while that file only ever exercised
+   ``run_repair_pipeline``. Each guard assumed the other covered the agent and
+   table-store surfaces, and neither did -- so an unproven LLM value could be written
+   for four weeks with a green suite. The delegation above is sound only because that
+   file now parametrizes the invariant over every write surface. If you add a surface,
+   add it there too; being in this registry is classification, not coverage.
 """
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
+import dataforge.engine as engine_pkg
 from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.certificate import reverify_certificate, verify_certificate
 from dataforge.cli.common import load_schema
@@ -41,18 +64,204 @@ from dataforge.engine.repair import (
 )
 from dataforge.transactions.revert import revert_transaction
 
-DATAFORGE_PKG = Path(__file__).resolve().parents[2] / "dataforge"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+DATAFORGE_PKG = REPO_ROOT / "dataforge"
 
-# The single journaled-write primitive is ``engine.repair.apply_transaction``.
-# These are the only modules permitted to call it: the pipeline (defines it),
-# the agent controller, the CLI delegating wrapper, and the CSV store boundary.
-# A new caller means a new surface is writing outside the blessed path -> review.
-_WRITE_CALLER_ALLOWLIST = {
-    "engine/repair.py",
-    "agent/controller.py",
-    "cli/repair.py",
-    "stores/csv.py",
+# ── Write-primitive registry ────────────────────────────────────────────────────
+#
+# WHY THIS IS KEYED BY PRIMITIVE AND NOT BY CALLER.
+#
+# Until 2026-08-09 this file allowlisted the *callers* of ``apply_transaction``. That
+# design failed twice over:
+#   * It saw one primitive. ``DuckDBStore.apply_patch_plan`` issues raw SQL, and
+#     ``revert_transaction`` calls ``atomic_write_bytes`` directly -- both invisible to a
+#     scan for ``apply_transaction(``.
+#   * Callers are unbounded and grow with every surface; the list rotted (it carried
+#     ``cli/repair.py`` on the strength of a wrapper that had no callers at all).
+#
+# Primitives are few (29 entries, and they change rarely) and every write must go
+# through one. So the registry enumerates PRIMITIVES and requires each to be classified.
+# An unregistered write fails the scan; a registry entry whose write has been deleted
+# ALSO fails, so the registry cannot rot the way the allowlist did.
+#
+# STATED LIMITS (do not upgrade these to guarantees):
+#   * This is a regex scan of source text. A write reached through an alias, ``getattr``,
+#     an entry point, or a C extension will not appear. Widening the patterns already
+#     caught one real miss: ``schema_inference.py:333`` uses ``os.fdopen``, which an
+#     earlier ``.open("wb")``-only pattern did not match.
+#   * Being registered is not proof of safety. It is proof that somebody classified it.
+#     The runtime guarantee is ``tests/property/test_no_corruption_invariant.py``.
+
+_WritePrimitiveKind = Literal["user_data", "metadata", "scratch", "read_only"]
+
+_WRITE_PATTERNS: dict[str, re.Pattern[str]] = {
+    "open_write": re.compile(r"(?:\.|\b)(?:open|fdopen)\(\s*[^)]*?[\"'][wxa]b?\+?[\"']"),
+    "os_write": re.compile(r"os\.write\("),
+    "write_bytes": re.compile(r"\.write_bytes\("),
+    "write_text": re.compile(r"\.write_text\("),
+    "writelines": re.compile(r"\.writelines\("),
+    "os_replace": re.compile(r"os\.replace\("),
+    "sql_mutate": re.compile(r"execute\(\s*[\"']?\s*(UPDATE|INSERT|DELETE|MERGE|COMMIT)", re.I),
+    "sql_exec_var": re.compile(r"\.execute\(sql\)"),
+    "unlink": re.compile(r"\.unlink\("),
+    "shutil_mutate": re.compile(r"shutil\.(move|copy|copy2|copyfile|rmtree)\("),
 }
+
+# Every distribution in the repo, so a side package cannot write outside the registry.
+_SCAN_ROOTS: dict[str, Path] = {
+    "dataforge": DATAFORGE_PKG,
+    "mcp": REPO_ROOT / "dataforge-mcp" / "dataforge_mcp",
+    "dbt": REPO_ROOT / "packages" / "dataforge-dbt" / "dataforge_dbt",
+    "evals": REPO_ROOT / "packages" / "dataforge-evals" / "dataforge_evals",
+    "patterns": REPO_ROOT / "packages" / "dataforge-agent-patterns" / "src",
+}
+
+
+@dataclass(frozen=True)
+class WritePrimitive:
+    """One classified write site. ``gate`` is required for ``user_data``."""
+
+    location: str
+    token: str
+    kind: _WritePrimitiveKind
+    note: str
+    gate: str = ""
+
+
+_WRITE_PRIMITIVE_REGISTRY: tuple[WritePrimitive, ...] = (
+    # ---- user data: the writes that can damage what the user gave us ----
+    WritePrimitive(
+        "dataforge:transactions/files.py",
+        "open_write",
+        "user_data",
+        "atomic_write_bytes: the single leaf that can rewrite a user CSV.",
+        gate="Callers only: apply_transaction (enforce_proven_only) and "
+        "revert_transaction (audit verdict + post-state hash match).",
+    ),
+    WritePrimitive(
+        "dataforge:transactions/files.py",
+        "os_replace",
+        "user_data",
+        "The atomic rename that publishes the payload written above.",
+        gate="Same as the open_write entry: it is the second half of one operation.",
+    ),
+    WritePrimitive(
+        "dataforge:stores/duckdb.py",
+        "sql_mutate",
+        "user_data",
+        "COMMIT of forward/rollback SQL against the user's relation.",
+        gate="enforce_plan_proven_only at the top of apply_patch_plan.",
+    ),
+    WritePrimitive(
+        "dataforge:stores/duckdb.py",
+        "sql_exec_var",
+        "user_data",
+        "Executes plan.forward_sql / rollback_sql (UPDATE). Line 214 of the same "
+        "module is a scalar READ that this pattern over-matches; kept in one entry "
+        "because the scan is per-module, not per-line.",
+        gate="enforce_plan_proven_only at the top of apply_patch_plan.",
+    ),
+    WritePrimitive(
+        "dataforge:schema_inference.py",
+        "open_write",
+        "user_data",
+        "Rewrites the user's CONSTRAINTS artifact, not their table. Mutating it "
+        "changes which constraints count as authoritative, i.e. it moves the premise "
+        "of 'proven' rather than a value. See docs/trust/authority-is-mutable.md.",
+        gate="validate_constraint_review_artifact + human review via "
+        "'dataforge constraints review'. Deliberately NOT proven-only: there is no "
+        "fix whose strength could be judged.",
+    ),
+    WritePrimitive(
+        "dataforge:schema_inference.py",
+        "os_replace",
+        "user_data",
+        "Atomic publish of the constraints artifact written above.",
+        gate="Same as the schema_inference open_write entry.",
+    ),
+    WritePrimitive(
+        "dataforge:schema_inference.py",
+        "unlink",
+        "user_data",
+        "Cleanup of the constraints temp file on failure.",
+        gate="Failure path only; removes the temp file, never the user's artifact.",
+    ),
+    # ---- metadata: journals, snapshots, caches, reports ----
+    WritePrimitive(
+        "dataforge:engine/repair.py",
+        "open_write",
+        "metadata",
+        "_write_snapshot_once: the immutable pre-apply snapshot that makes revert "
+        "possible. Writing this is what MAKES a write reversible.",
+    ),
+    WritePrimitive(
+        "dataforge:engine/repair.py", "unlink", "metadata", "Snapshot cleanup on failure."
+    ),
+    WritePrimitive("dataforge:transactions/files.py", "unlink", "metadata", "Lock-file release."),
+    WritePrimitive(
+        "dataforge:transactions/files.py",
+        "os_write",
+        "metadata",
+        "Writes pid+timestamp into the exclusive lock file. The lock is what makes "
+        "concurrent writes to one source safe, so this write protects user data "
+        "rather than touching it.",
+    ),
+    WritePrimitive(
+        "dataforge:stores/duckdb.py", "open_write", "metadata", "Table-store snapshot write."
+    ),
+    WritePrimitive(
+        "dataforge:stores/duckdb.py", "unlink", "metadata", "Table-store snapshot cleanup."
+    ),
+    WritePrimitive("dataforge:spend.py", "write_text", "metadata", "Spend ledger receipts."),
+    WritePrimitive("dataforge:bench/core.py", "write_text", "metadata", "Benchmark results."),
+    WritePrimitive(
+        "dataforge:bench/report.py", "write_text", "metadata", "Benchmark report/README refresh."
+    ),
+    WritePrimitive(
+        "dataforge:cli/calibrate.py", "write_text", "metadata", "Calibration session artifact."
+    ),
+    WritePrimitive(
+        "dataforge:cli/profile.py", "write_text", "metadata", "Inferred-constraints output."
+    ),
+    WritePrimitive(
+        "dataforge:repairers/fd_violation.py", "write_text", "metadata", "LLM response cache."
+    ),
+    WritePrimitive(
+        "dataforge:repairers/llm_corrector.py", "write_text", "metadata", "LLM response cache."
+    ),
+    WritePrimitive("dataforge:review/ranker.py", "write_text", "metadata", "LLM triage cache."),
+    WritePrimitive(
+        "dataforge:datasets/real_world.py",
+        "write_bytes",
+        "metadata",
+        "RAHA benchmark dataset cache under ~/.dataforge/cache.",
+    ),
+    WritePrimitive(
+        "dataforge:release/doctor.py", "unlink", "metadata", "Release-doctor temp cleanup."
+    ),
+    WritePrimitive(
+        "dataforge:release/gate.py",
+        "shutil_mutate",
+        "scratch",
+        "Release-gate scratch trees (packaging smoke tests).",
+    ),
+    WritePrimitive("dbt:dispatch.py", "write_text", "metadata", "dbt journal artifact."),
+    WritePrimitive("dbt:dispatch.py", "unlink", "metadata", "dbt temp cleanup."),
+    WritePrimitive("evals:report.py", "write_text", "metadata", "Evaluation report artifacts."),
+    # ---- scratch: temp dirs and packaged fixtures, never user data ----
+    WritePrimitive(
+        "dataforge:certificate.py",
+        "write_bytes",
+        "scratch",
+        "Re-verification writes the post-state into a TemporaryDirectory to re-read it.",
+    ),
+    WritePrimitive(
+        "dataforge:cli/quickstart.py",
+        "write_bytes",
+        "scratch",
+        "Copies a packaged fixture into a TemporaryDirectory; takes no user path.",
+    ),
+)
 
 
 def _decimal_shift_case(tmp_path: Path) -> tuple[Path, object]:
@@ -83,29 +292,97 @@ def test_single_write_primitive_is_defined_once() -> None:
     )
 
 
-def test_no_new_apply_transaction_caller() -> None:
-    """STATIC guard: every caller of the journaled-write primitive is allowlisted.
+def _scan_write_primitives() -> dict[tuple[str, str], list[int]]:
+    """Return {(location, token): line numbers} for every write site in every package."""
+    found: dict[tuple[str, str], list[int]] = {}
+    for label, root in _SCAN_ROOTS.items():
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*.py")):
+            location = f"{label}:{path.relative_to(root).as_posix()}"
+            for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith("#"):
+                    continue
+                for token, pattern in _WRITE_PATTERNS.items():
+                    if pattern.search(stripped):
+                        found.setdefault((location, token), []).append(lineno)
+    return found
 
-    This catches the common regression -- a new surface calling ``apply_transaction``
-    directly. It is a string scan, so it does NOT prove a surface cannot write by
-    another mechanism; the runtime no-corruption/reversibility invariants (see the
-    module docstring) are what guarantee safety regardless of mechanism.
+
+def test_every_write_primitive_is_registered() -> None:
+    """No code in any package may write without being classified in the registry.
+
+    This replaced ``test_no_new_apply_transaction_caller`` on 2026-08-09. That test
+    allowlisted CALLERS of one primitive and therefore could not see DuckDB's raw SQL,
+    revert's direct ``atomic_write_bytes``, or the constraints-artifact rewrite -- three
+    real user-data writes.
     """
-    callers: set[str] = set()
-    for path in DATAFORGE_PKG.rglob("*.py"):
-        rel = path.relative_to(DATAFORGE_PKG).as_posix()
-        for line in path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if "apply_transaction(" not in stripped:
-                continue
-            if stripped.startswith(("def ", "from ", "import ")):
-                continue
-            callers.add(rel)
-    unexpected = callers - _WRITE_CALLER_ALLOWLIST
-    assert not unexpected, (
-        "New surface(s) call the write primitive outside the reviewed allowlist "
-        f"(possible parallel write path): {sorted(unexpected)}. If intentional, add "
-        "to _WRITE_CALLER_ALLOWLIST and confirm it routes through apply_transaction."
+    found = _scan_write_primitives()
+    registered = {(entry.location, entry.token) for entry in _WRITE_PRIMITIVE_REGISTRY}
+
+    unregistered = sorted(found.keys() - registered)
+    assert not unregistered, (
+        "Unregistered write primitive(s) found: "
+        + "; ".join(f"{loc} [{tok}] at lines {found[(loc, tok)]}" for loc, tok in unregistered)
+        + ". Every write must be classified in _WRITE_PRIMITIVE_REGISTRY as user_data, "
+        "metadata, scratch or read_only. If it is user_data it must also name its gate."
+    )
+
+
+def test_registry_has_no_stale_entries() -> None:
+    """A registry entry whose write no longer exists must be deleted.
+
+    The predecessor allowlist rotted exactly this way: it carried ``cli/repair.py``
+    because of ``_apply_transaction``, a wrapper with no callers anywhere. A stale entry
+    is worse than a missing one -- it makes the registry look reviewed when it is not.
+    """
+    found = _scan_write_primitives()
+    registered = {(entry.location, entry.token) for entry in _WRITE_PRIMITIVE_REGISTRY}
+
+    stale = sorted(registered - found.keys())
+    assert not stale, (
+        f"Registry entries no longer match any write in the source: {stale}. "
+        "Delete them; do not leave the registry describing code that is gone."
+    )
+
+
+def test_every_user_data_write_names_its_gate() -> None:
+    """A write that can touch user data must say what protects it."""
+    ungated = [
+        (entry.location, entry.token)
+        for entry in _WRITE_PRIMITIVE_REGISTRY
+        if entry.kind == "user_data" and not entry.gate.strip()
+    ]
+    assert not ungated, f"user_data write(s) with no declared gate: {ungated}"
+
+
+def test_registry_entries_are_unique() -> None:
+    """Duplicate keys would let one entry silently mask another's classification."""
+    keys = [(entry.location, entry.token) for entry in _WRITE_PRIMITIVE_REGISTRY]
+    duplicates = sorted({key for key in keys if keys.count(key) > 1})
+    assert not duplicates, f"Duplicate registry keys: {duplicates}"
+
+
+def test_raw_byte_writer_is_not_public() -> None:
+    """``_apply_fixes_to_csv`` must never be re-exported.
+
+    It writes a user CSV with no journal, no snapshot and no lock, and it takes
+    ``CellFix`` (no provenance) so the proven-only gate is undecidable there. It WAS in
+    ``engine.__all__`` until 2026-08-09, which made an irreversible user-data write part
+    of the supported API -- a reversibility hole, which is a stronger invariant in
+    PRODUCT.md than the proven-only one.
+    """
+    assert "apply_fixes_to_csv" not in engine_pkg.__all__
+    assert not hasattr(engine_pkg, "apply_fixes_to_csv")
+
+    callers = {
+        path.relative_to(DATAFORGE_PKG).as_posix()
+        for path in DATAFORGE_PKG.rglob("*.py")
+        if "_apply_fixes_to_csv(" in path.read_text(encoding="utf-8")
+    }
+    assert callers == {"engine/repair.py"}, (
+        f"The raw byte-writer must only be used inside engine/repair.py; found {callers}"
     )
 
 

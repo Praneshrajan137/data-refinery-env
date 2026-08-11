@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from dataforge.detectors.base import Schema
-from dataforge.engine.repair import apply_transaction, read_csv
+from dataforge.engine.repair import apply_transaction, authoritative_columns, read_csv
 from dataforge.repairers.base import ProposedFix
 from dataforge.stores.base import StoreApplyReceipt, TableStore
 from dataforge.stores.patch_plan import PatchOperation, PatchPlan, RowIdentity
@@ -37,7 +37,8 @@ class CSVStore(TableStore):
         smt_obligations: tuple[str, ...] = (),
     ) -> PatchPlan:
         """Describe existing CSV cell edits as a patch plan."""
-        del schema
+        authoritative_schema_present = schema is not None
+        covered_columns = authoritative_columns(schema)
         operations = tuple(
             PatchOperation.from_cell_fix(
                 fix.fix,
@@ -69,6 +70,8 @@ class CSVStore(TableStore):
             audit_metadata={"source": "csv_reference_engine"},
             apply_supported=bool(operations),
             reversible=True,
+            authoritative_schema_present=authoritative_schema_present,
+            authoritative_columns=tuple(sorted(covered_columns)),
         )
 
     def apply_patch_plan(
@@ -78,12 +81,23 @@ class CSVStore(TableStore):
         state_root: Path | None = None,
         source_bytes: bytes | None = None,
         fixes: list[ProposedFix] | None = None,
+        allow_unproven_autoapply: bool = False,
     ) -> StoreApplyReceipt:
-        """Apply through the existing CSV transaction path."""
+        """Apply through the existing CSV transaction path.
+
+        The proven-only gate is enforced inside ``apply_transaction`` itself, so this
+        adapter only has to forward the caller's opt-in and the plan's schema status.
+        """
         del state_root
         if fixes is None or source_bytes is None:
             raise ValueError("CSVStore.apply_patch_plan requires source bytes and fixes.")
-        txn_id = apply_transaction(self.path, fixes, source_bytes)
+        txn_id = apply_transaction(
+            self.path,
+            fixes,
+            source_bytes,
+            covered_columns=frozenset(plan.authoritative_columns),
+            allow_unproven_autoapply=allow_unproven_autoapply,
+        )
         return StoreApplyReceipt(
             ok=True,
             txn_id=txn_id,

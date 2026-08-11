@@ -64,9 +64,19 @@ class TableStore(Protocol):
         """Build a reversible patch plan for verified fixes."""
 
     def apply_patch_plan(
-        self, plan: PatchPlan, *, state_root: Path | None = None
+        self,
+        plan: PatchPlan,
+        *,
+        state_root: Path | None = None,
+        allow_unproven_autoapply: bool = False,
     ) -> StoreApplyReceipt:
-        """Apply a patch plan through the backend transaction mechanism."""
+        """Apply a patch plan through the backend transaction mechanism.
+
+        Implementations MUST enforce the proven-only invariant before mutating --
+        ``enforce_plan_proven_only`` for SQL backends, or ``apply_transaction``'s
+        own gate for the CSV backend. ``allow_unproven_autoapply`` is the caller's
+        explicit acknowledgement that unproven writes are permitted.
+        """
 
 
 class TableStoreError(RuntimeError):

@@ -9,9 +9,15 @@ from pathlib import Path
 from typing import Any
 
 from dataforge.detectors.base import Schema
+from dataforge.engine.repair import authoritative_columns
 from dataforge.repairers.base import ProposedFix
 from dataforge.stores.base import StoreApplyReceipt, TableStore, TableStoreError
-from dataforge.stores.patch_plan import PatchOperation, PatchPlan, RowIdentity
+from dataforge.stores.patch_plan import (
+    PatchOperation,
+    PatchPlan,
+    RowIdentity,
+    enforce_plan_proven_only,
+)
 from dataforge.stores.sql import ensure_safe_relation, quote_identifier, sql_literal
 from dataforge.table import Table, TableLike, cell_value, column_names, row_count
 from dataforge.transactions.log import (
@@ -109,7 +115,8 @@ class DuckDBStore(TableStore):
         smt_obligations: tuple[str, ...] = (),
     ) -> PatchPlan:
         """Build SQL patch and rollback statements for verified fixes."""
-        del schema
+        authoritative_schema_present = schema is not None
+        covered_columns = authoritative_columns(schema)
         table = self.read_table()
         operations: list[PatchOperation] = []
         for proposed in fixes:
@@ -162,6 +169,8 @@ class DuckDBStore(TableStore):
             touched_constraints=touched_constraints,
             smt_obligations=smt_obligations,
             audit_metadata={"database": str(self.database_path)},
+            authoritative_schema_present=authoritative_schema_present,
+            authoritative_columns=tuple(sorted(covered_columns)),
         )
 
     def _relation_rows(self, connection: Any) -> list[dict[str, str]]:
@@ -213,12 +222,14 @@ class DuckDBStore(TableStore):
         plan: PatchPlan,
         *,
         state_root: Path | None = None,
+        allow_unproven_autoapply: bool = False,
     ) -> StoreApplyReceipt:
         """Apply a verified DuckDB patch plan inside a transaction."""
         if plan.backend != self.backend:
             raise TableStoreError(f"Patch plan backend {plan.backend!r} does not match DuckDB.")
         if not plan.apply_supported or not plan.reversible:
             raise TableStoreError(plan.reason)
+        enforce_plan_proven_only(plan, allow_unproven_autoapply=allow_unproven_autoapply)
         state_dir = (state_root or Path.cwd()).resolve()
         txn_id = generate_txn_id()
         snapshot_bytes = self._snapshot_bytes(plan)

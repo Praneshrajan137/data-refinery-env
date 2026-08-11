@@ -28,12 +28,31 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
+from dataforge.agent import AgentRepairRequest, make_policy, run_agent_repair
 from dataforge.calibration import AbstentionPolicy
-from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline
+from dataforge.engine.repair import (
+    ExternalFix,
+    RepairPipelineRequest,
+    UnprovenWriteError,
+    VerifyAndApplyRequest,
+    apply_transaction,
+    run_repair_pipeline,
+    verify_and_apply,
+)
+from dataforge.repairers.base import ProposedFix
+from dataforge.stores.base import TableStoreError
+from dataforge.stores.patch_plan import (
+    PatchOperation,
+    PatchPlan,
+    RowIdentity,
+    enforce_plan_proven_only,
+)
 from dataforge.transactions.revert import revert_transaction
+from dataforge.transactions.txn import CellFix
 
 _NUMERIC_PREFIX = "num_"
 _TEXT_PREFIX = "txt_"
@@ -305,8 +324,14 @@ def test_permissive_policy_never_auto_applies_plausibility_only(adversarial: str
     Even under a fully permissive corrector policy AND confirmed escalations, a
     plausibility-only fix (an LLM value with no authoritative schema -- exactly
     where the gaps live) is NEVER auto-applied without the explicit
-    ``allow_unproven_autoapply`` opt-in. This proves the guarantee holds for ANY
-    configuration, not just the default.
+    ``allow_unproven_autoapply`` opt-in.
+
+    Scope, stated precisely: this varies the CORRECTOR POLICY on ONE surface
+    (``run_repair_pipeline``). It previously claimed to prove the guarantee "for ANY
+    configuration", which was false in a way that mattered -- the guarantee did not
+    hold on the agent or table-store surfaces, and this test could not have detected
+    that because it never called them. Surface coverage is
+    ``test_every_write_surface_enforces_proven_only`` below.
     """
     rows = "".join(f"{i},Boston\n" for i in range(1, 8))
     csv_text = f"id,city\n{rows}8,\n"
@@ -336,3 +361,225 @@ def test_permissive_policy_never_auto_applies_plausibility_only(adversarial: str
             f"plausibility-only value {adversarial!r} auto-applied under a permissive policy"
         )
         assert result.receipt.applied is False
+
+
+# ── Surface coverage for the proven-only invariant ──────────────────────────────
+#
+# DECISIONS.md 2026-07-11 declared proven-only auto-apply an invariant holding "under
+# any policy". The gate was plumbed into engine/repair.py only, and its two callers
+# (run_repair_pipeline, verify_and_apply) were the only paths that honoured it. The
+# agent controller and run_table_store_repair each reached a mutation primitive
+# directly, so an LLM value could be written having cleared no value-level check.
+#
+# The invariant is now enforced INSIDE the mutation primitives, and these tests
+# parametrize over the surfaces rather than over one surface's policy. A new surface
+# inherits the gate by construction; if someone adds one that does not, the primitive
+# raises rather than writing.
+
+
+def _unproven_fix() -> ProposedFix:
+    """An LLM-derived fix: untrusted provenance, so unproven without a schema."""
+    return ProposedFix(
+        fix=CellFix(
+            row=1, column="score", old_value="abc", new_value="30", detector_id="type_mismatch"
+        ),
+        reason="llm proposal",
+        confidence=0.99,
+        provenance="llm_live",
+    )
+
+
+@settings(max_examples=25, suppress_health_check=[HealthCheck.too_slow], deadline=None)
+@given(new_value=st.text(min_size=1, max_size=8).filter(lambda s: s.strip() != ""))
+def test_write_primitive_refuses_any_unproven_value(new_value: str) -> None:
+    """``apply_transaction`` itself refuses, so no caller can bypass the gate.
+
+    This is the structural property. The previous design enforced proven-only at the
+    calling surface, which meant safety depended on each caller remembering to
+    partition first -- and two of them did not.
+    """
+    fix = _unproven_fix().model_copy(
+        update={"fix": _unproven_fix().fix.model_copy(update={"new_value": new_value})}
+    )
+    with tempfile.TemporaryDirectory() as temp_dir:
+        source = Path(temp_dir) / "data.csv"
+        source.write_bytes(b"id,score\n1,10\n2,abc\n")
+        original = source.read_bytes()
+
+        try:
+            apply_transaction(source, [fix], original)
+        except UnprovenWriteError:
+            pass
+        else:  # pragma: no cover - this is the failure we are asserting against
+            raise AssertionError(f"unproven value {new_value!r} was written to disk")
+
+        assert source.read_bytes() == original
+
+
+class TestEveryWriteSurfaceEnforcesProvenOnly:
+    """Each surface that can mutate user data must hold an unproven LLM value."""
+
+    def test_pipeline_surface_holds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "data.csv"
+            rows = "".join(f"{i},Boston\n" for i in range(1, 8))
+            source.write_bytes(f"id,city\n{rows}8,\n".encode())
+            original = source.read_bytes()
+
+            with patch("dataforge.repairers.llm_corrector.complete", _fake_complete("Atlantis")):
+                result = run_repair_pipeline(
+                    RepairPipelineRequest(
+                        source_path=source,
+                        mode="apply",
+                        allow_llm=True,
+                        confirm_escalations=True,
+                    )
+                )
+
+            assert result.receipt.applied is False
+            assert source.read_bytes() == original
+
+    def test_verify_and_apply_surface_holds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "data.csv"
+            source.write_bytes(b"id,score\n1,10\n2,abc\n")
+            original = source.read_bytes()
+
+            result = verify_and_apply(
+                VerifyAndApplyRequest(
+                    source_path=source,
+                    fixes=[ExternalFix(row=1, column="score", new_value="30")],
+                    mode="apply",
+                    confirm_escalations=True,
+                )
+            )
+
+            assert result.receipt.applied is False
+            assert source.read_bytes() == original
+
+    def test_agent_surface_holds(self) -> None:
+        responses = [
+            '{"action_type":"FIX","row":2,"column":"score",'
+            '"new_value":"30","justification":"guess"}',
+            '{"action_type":"FINALIZE"}',
+        ]
+        state = {"i": 0}
+
+        def _complete(messages, model, temperature):  # noqa: ANN001, ANN202
+            index = state["i"]
+            state["i"] = min(index + 1, len(responses) - 1)
+            return responses[index]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "data.csv"
+            source.write_bytes(b"id,score\n1,10\n2,20\n3,abc\n")
+            original = source.read_bytes()
+
+            result = run_agent_repair(
+                AgentRepairRequest(
+                    source_path=source,
+                    mode="apply",
+                    policy="hosted",
+                    max_steps=4,
+                    confirm_escalations=True,
+                ),
+                policy=make_policy("hosted", completion_override=_complete),
+            )
+
+            assert result.applied is False
+            assert source.read_bytes() == original
+
+    def test_watch_surface_has_no_llm_path_at_all(self) -> None:
+        """``dataforge watch --apply`` is safe by construction, not by the gate.
+
+        Watch re-applies on EVERY mtime change, in a loop, so it is the
+        highest-frequency write surface in the product, and Round 1 never enumerated it.
+        Investigating it produced a better answer than adding it to the gate parametrization:
+        ``_repair_once`` builds a ``RepairPipelineRequest`` with no ``allow_llm`` and no
+        agent option, and the field defaults to ``False``, so this surface **cannot
+        produce an untrusted fix in the first place**. Its exposure is structurally zero.
+
+        A first version of this test ran ``_repair_once`` with a patched corrector and
+        asserted the bytes were unchanged. That assertion held for a trivial reason -- the
+        corrector was never called -- and it SURVIVED having the gate removed, which is
+        the definition of a worthless test. Pinning the real property instead: if someone
+        adds an LLM or agent option to watch, this test fails and they must add watch to
+        the gate parametrization above.
+        """
+        import importlib
+
+        # Resolve the MODULE explicitly. ``dataforge.cli.__init__`` binds the name
+        # ``watch`` to a function, which shadows the submodule -- so both
+        # ``from dataforge.cli import watch`` and ``import dataforge.cli.watch as w``
+        # silently yield the function, and a source scan then reads only its body.
+        watch_module = importlib.import_module("dataforge.cli.watch")
+        source = Path(str(watch_module.__file__)).read_text(encoding="utf-8")
+        assert "allow_llm" not in source, (
+            "watch now has an LLM path. It can therefore produce plausibility_only "
+            "fixes, so add it to the surface parametrization above and re-verify by "
+            "mutation that the new test actually detects an ungated write."
+        )
+        assert "run_agent_repair" not in source, (
+            "watch now has an agent path -- same requirement as above."
+        )
+        # And confirm the only write it can reach is the gated pipeline.
+        assert "run_repair_pipeline" in source
+
+    def test_dbt_surface_reaches_the_gated_store_path(self) -> None:
+        """The dbt package's ``mode="apply"`` path must go through the gated store API.
+
+        ``packages/dataforge-dbt`` calls ``run_table_store_repair(mode="apply")``, which
+        reaches DuckDB's raw SQL primitive. It never sets ``allow_llm``, so today every
+        fix it produces is ``deterministic`` and therefore proven -- its exposure is
+        zero for the same structural reason as watch. This test pins that, so enabling
+        LLM repairs there becomes a deliberate, visible act rather than a silent one.
+
+        Checked by source scan because exercising it needs a dbt project and a DuckDB
+        profile; the runtime gate itself is covered by
+        ``tests/unit/test_table_store_proven_gate.py``.
+        """
+        repo_root = Path(__file__).resolve().parents[2]
+        dispatch = repo_root / "packages" / "dataforge-dbt" / "dataforge_dbt" / "dispatch.py"
+        if not dispatch.exists():  # pragma: no cover - side package may be absent
+            pytest.skip("dataforge-dbt package not present")
+        source = dispatch.read_text(encoding="utf-8")
+
+        assert "run_table_store_repair" in source
+        assert "allow_llm" not in source, (
+            "dataforge-dbt now enables LLM repairs, so its writes can be "
+            "plausibility_only. Thread allow_unproven_autoapply through and add a "
+            "runtime test that a held fix never becomes SQL."
+        )
+
+    def test_table_store_surface_holds(self) -> None:
+        # The warehouse primitive is raw SQL, not apply_transaction, so it carries its
+        # own copy of the gate driven by the plan's recorded schema status.
+        unproven_plan = PatchPlan.new(
+            backend="duckdb",
+            target="warehouse://duckdb/t",
+            relation="t",
+            row_identity_columns=("id",),
+            operations=(
+                PatchOperation.from_cell_fix(
+                    _unproven_fix().fix,
+                    relation="t",
+                    row_identity=RowIdentity(
+                        kind="column_values",
+                        columns=("id",),
+                        values={"id": "2"},
+                        stable=True,
+                        reason="test",
+                    ),
+                    reason="llm proposal",
+                    confidence=0.99,
+                    provenance="llm_live",
+                ),
+            ),
+            safety_verdict="allow",
+            rows_scanned=2,
+            reason="test plan",
+            authoritative_schema_present=False,
+        )
+
+        with pytest.raises(TableStoreError, match="unproven"):
+            enforce_plan_proven_only(unproven_plan, allow_unproven_autoapply=False)

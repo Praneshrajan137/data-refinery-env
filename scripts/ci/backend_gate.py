@@ -106,6 +106,11 @@ TRUST_INVARIANT_TESTS = [
     "tests/property/test_revert_is_bytes_identical.py",
     "tests/unit/test_differential_verifier.py",
     "tests/unit/test_certificate.py",
+    # The warehouse mutation primitive is raw SQL, not apply_transaction, so it carries
+    # its own copy of the proven-only gate. It is listed here because that surface went
+    # ungated from 2026-07-11 to 2026-08-09 with a green suite -- see
+    # docs/trust/write-surface-uniformity.md.
+    "tests/unit/test_table_store_proven_gate.py",
 ]
 
 

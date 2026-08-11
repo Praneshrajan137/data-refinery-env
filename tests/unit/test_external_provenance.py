@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataforge.engine.repair import (
     _LLM_PROVENANCE,
     _UNTRUSTED_PROVENANCE,
-    _verification_strength,
+    verification_strength_for,
 )
 from dataforge.repairers.base import ProposedFix
 from dataforge.safety.constitution import _llm_live_candidate
@@ -37,16 +37,18 @@ def test_external_is_untrusted_but_not_llm_calibration() -> None:
 
 def test_external_needs_a_schema_to_be_proven() -> None:
     assert (
-        _verification_strength("external", authoritative_schema_present=False)
+        verification_strength_for("external", authoritative_schema_present=False)
         == "plausibility_only"
     )
-    assert _verification_strength("external", authoritative_schema_present=True) == "proven"
+    assert verification_strength_for("external", authoritative_schema_present=True) == "proven"
 
 
 def test_deterministic_strength_unchanged() -> None:
-    assert _verification_strength("deterministic", authoritative_schema_present=False) == "proven"
     assert (
-        _verification_strength("llm_live", authoritative_schema_present=False)
+        verification_strength_for("deterministic", authoritative_schema_present=False) == "proven"
+    )
+    assert (
+        verification_strength_for("llm_live", authoritative_schema_present=False)
         == "plausibility_only"
     )
 

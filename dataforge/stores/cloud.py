@@ -70,9 +70,10 @@ class CloudWarehouseStore(TableStore):
         plan: PatchPlan,
         *,
         state_root: Path | None = None,
+        allow_unproven_autoapply: bool = False,
     ) -> StoreApplyReceipt:
         """Refuse mutation for unproven cloud adapters."""
-        del state_root
+        del state_root, allow_unproven_autoapply
         raise TableStoreError(
             f"{self.backend} apply is disabled until its conformance suite is enabled."
         )

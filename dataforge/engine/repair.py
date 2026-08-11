@@ -92,6 +92,41 @@ class TransactionApplyError(RepairEngineError):
     """Raised when an apply transaction cannot be completed safely."""
 
 
+class UnprovenWriteError(RepairEngineError):
+    """Raised when a gated mutation primitive is handed a ``plausibility_only`` fix.
+
+    The proven-only invariant is enforced *inside* the mutation primitives rather than
+    at each calling surface, so a caller that simply forgot the gate gets this exception
+    instead of a silent unproven write. Callers that legitimately want an unproven write
+    must say so explicitly via ``allow_unproven_autoapply``.
+
+    Scope, stated exactly (an earlier version of this docstring said "the two mutation
+    primitives", which was false -- the same class of scope error this gate exists to
+    prevent). The gate is enforced at:
+
+    * :func:`apply_transaction` -- the journaled CSV path.
+    * ``DuckDBStore.apply_patch_plan`` -- the warehouse SQL path, via
+      :func:`dataforge.stores.patch_plan.enforce_plan_proven_only`.
+
+    It is NOT enforced at these paths, each for a stated reason:
+
+    * :func:`_apply_fixes_to_csv` -- the raw byte-writer beneath
+      :func:`apply_transaction`. It takes ``CellFix``, which carries no provenance, so
+      strength is not merely unchecked but *undecidable* there. It is private and called
+      only from this module; that, not a gate, is what keeps it off other surfaces.
+    * ``dataforge.transactions.revert.revert_transaction`` -- restores bytes this tool
+      previously recorded, so there is no new value to prove. Gated instead by audit-log
+      verification and a post-state hash match.
+    * ``dataforge.schema_inference.write_constraint_review_artifact_atomic`` -- rewrites
+      the user's *constraints* artifact, not their data. It has no proven-only gate
+      because it mutates the PREMISE of provenness rather than a value; see
+      ``docs/trust/authority-is-mutable.md``.
+
+    The authoritative registry of write primitives, with each one's classification and
+    gate, is ``tests/integration/test_surface_uniformity.py::_WRITE_PRIMITIVE_REGISTRY``.
+    """
+
+
 class CandidateFix(BaseModel):
     """Stable public representation of a proposed cell repair."""
 
@@ -394,8 +429,23 @@ def _csv_bytes_after_fixes(path: Path, fixes: list[CellFix]) -> bytes:
     return table_to_csv_bytes(df)
 
 
-def apply_fixes_to_csv(path: Path, fixes: list[CellFix]) -> str:
-    """Atomically apply ordered cell fixes to a CSV and return post-state SHA-256."""
+def _apply_fixes_to_csv(path: Path, fixes: list[CellFix]) -> str:
+    """Atomically write a CSV with ordered cell fixes applied; return post-state SHA-256.
+
+    PRIVATE ON PURPOSE. This is the raw byte-writer beneath :func:`apply_transaction`,
+    and it is deliberately not part of the public surface:
+
+    * It takes ``CellFix``, which carries no ``provenance``, so the proven-only gate is
+      not merely unchecked here but *undecidable*.
+    * It performs no journalling, no source snapshot and no source lock, so a write
+      through it is **irreversible** -- there is nothing to revert to.
+
+    Both properties are fine for the inner step of a transaction that has already taken
+    the snapshot and the lock. They are not fine as a public API -- and it WAS public
+    (exported in ``dataforge.engine.__all__``) until 2026-08-09. ``PRODUCT.md`` forbids
+    surfaces creating parallel write semantics; exporting the raw byte-writer of a
+    transactional engine is exactly that. Callers want :func:`apply_transaction`.
+    """
     payload = _csv_bytes_after_fixes(path, fixes)
     _atomic_write_bytes(path, payload)
     return hashlib.sha256(payload).hexdigest()
@@ -475,8 +525,26 @@ def apply_transaction(
     source_bytes: bytes,
     *,
     txn_id: str | None = None,
+    covered_columns: frozenset[str] = frozenset(),
+    allow_unproven_autoapply: bool = False,
 ) -> str:
-    """Journal, snapshot, atomically apply fixes, and restore bytes on failure."""
+    """Journal, snapshot, atomically apply fixes, and restore bytes on failure.
+
+    Enforces the proven-only invariant before touching disk (see
+    :func:`enforce_proven_only`). The defaults are the safe ones, so an existing
+    caller that passes neither keyword gets proven-only behaviour rather than a
+    silent unproven write.
+
+    ``covered_columns`` is the set of columns an authoritative schema actually
+    constrains -- see :func:`authoritative_columns`. It is a set rather than a boolean
+    because authority is per-column: a schema that declares one column's type says
+    nothing about any other column.
+    """
+    enforce_proven_only(
+        fixes,
+        covered_columns=covered_columns,
+        allow_unproven_autoapply=allow_unproven_autoapply,
+    )
     resolved_path = path.resolve()
     with source_path_lock(resolved_path):
         current_bytes = resolved_path.read_bytes()
@@ -494,7 +562,7 @@ def apply_transaction(
             )
         try:
             with repair_stage_span("transaction_apply", fixes_count=len(fixes)):
-                post_sha256 = apply_fixes_to_csv(
+                post_sha256 = _apply_fixes_to_csv(
                     resolved_path,
                     [proposal.fix for proposal in fixes],
                 )
@@ -780,6 +848,11 @@ _LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
 # carry an LLM calibration map.
 _UNTRUSTED_PROVENANCE = frozenset({"llm_live", "llm_cache", "external", "entity_consensus"})
 
+# How many offending cells an ``UnprovenWriteError`` names before truncating. A
+# batch can be thousands of cells wide; the message exists to identify the class of
+# problem, not to dump the whole queue into a traceback.
+_UNPROVEN_WRITE_REPORT_LIMIT = 5
+
 # Detection-only issue types that carry an exact value in ``Issue.expected`` but
 # have NO registered repairer (no write path). They are surfaced as unverified
 # human-review suggestions, never auto-applied. See DateTranspositionDetector.
@@ -862,11 +935,11 @@ def fd_flag_cost(df: TableLike, schema: Schema) -> int:
     return len({(issue.row, issue.column) for issue in FDViolationDetector().detect(df, schema)})
 
 
-def _partition_auto_apply(
+def partition_auto_apply(
     fixes: list[ProposedFix],
     policy: AbstentionPolicy,
     *,
-    authoritative_schema_present: bool,
+    covered_columns: frozenset[str],
     allow_unproven_autoapply: bool,
     calibration_map_by_class: dict[str, CalibrationMap] | None = None,
 ) -> tuple[list[ProposedFix], list[ProposedFix], list[ProposedFix]]:
@@ -889,14 +962,15 @@ def _partition_auto_apply(
     matches the scale the conformal thresholds were certified on. This is a monotone
     transform: it can only make confidences honest, never re-rank them, so it cannot
     wave through a fix the raw policy would have held below a raw-scale threshold.
+
+    ``covered_columns`` scopes authority per column (:func:`authoritative_columns`): a
+    fix is only schema-proven if the schema constrains ITS column.
     """
     auto: list[ProposedFix] = []
     calibration_held: list[ProposedFix] = []
     plausibility_held: list[ProposedFix] = []
     for fix in fixes:
-        strength = _verification_strength(
-            fix.provenance, authoritative_schema_present=authoritative_schema_present
-        )
+        strength = strength_for_fix(fix, covered_columns)
         if strength == "plausibility_only" and not allow_unproven_autoapply:
             plausibility_held.append(fix)
             continue
@@ -1040,7 +1114,44 @@ def _detection_only_suggestions(issues: list[Issue]) -> list[CandidateRepair]:
     return suggestions
 
 
-def _verification_strength(
+def authoritative_columns(schema: Schema | None) -> frozenset[str]:
+    """Return the columns an authoritative schema actually constrains.
+
+    ``authoritative_schema_present`` used to be a table-level boolean, and that was a
+    real defect, verified end-to-end on 2026-08-09: accepting ONE inferred
+    ``column_type`` candidate on column ``id`` produced an effective schema of
+    ``{"id": "int"}`` with no other constraints, which flipped an ``external`` garbage
+    fix on the UNRELATED column ``city`` from held to applied -- and stamped it
+    ``proven`` in the certificate. Narrow evidence was granting blanket authority, and
+    because ``external`` is not in ``_LLM_PROVENANCE`` it also bypassed the calibration
+    threshold. That is a truthfulness violation, not merely an unproven write.
+
+    Authority is therefore scoped to the columns the schema speaks about. A column counts
+    as covered when the schema declares its type or names it in any constraint. A
+    functional dependency covers its determinant AND its dependent, because a value in
+    either position is checked by the FD.
+    """
+    if schema is None:
+        return frozenset()
+    covered: set[str] = set(schema.columns)
+    covered |= set(schema.pii_columns)
+    covered |= set(schema.primary_key_columns)
+    covered |= set(schema.not_null_columns)
+    covered |= set(schema.unique_columns)
+    covered |= {accepted.column for accepted in schema.accepted_values}
+    covered |= {regex.column for regex in schema.regex_constraints}
+    covered |= {bound.column for bound in schema.domain_bounds}
+    covered |= {relationship.column for relationship in schema.relationships}
+    for dependency in schema.aggregate_dependencies:
+        covered.add(dependency.source_column)
+        covered.add(dependency.target_column)
+    for fd in schema.functional_dependencies:
+        covered.update(fd.determinant)
+        covered.add(fd.dependent)
+    return frozenset(covered)
+
+
+def verification_strength_for(
     provenance: str, *, authoritative_schema_present: bool
 ) -> VerificationStrength:
     """Classify how strongly a fix was verified.
@@ -1049,17 +1160,88 @@ def _verification_strength(
     checked against an authoritative declared/reviewed schema. Otherwise it was
     only checked by the advisory inferred guard -> ``plausibility_only``. Untrusted
     origins (LLM or external) are proven only with an authoritative schema.
+
+    ``authoritative_schema_present`` must be decided FOR THE FIX'S OWN COLUMN -- use
+    :func:`strength_for_fix`, which does that. Passing a table-level boolean here grants
+    authority over columns the schema never mentions; see :func:`authoritative_columns`.
     """
     if provenance not in _UNTRUSTED_PROVENANCE or authoritative_schema_present:
         return "proven"
     return "plausibility_only"
 
 
+def strength_for_fix(fix: ProposedFix, covered_columns: frozenset[str]) -> VerificationStrength:
+    """Column-scoped strength: authority only extends to columns the schema constrains."""
+    return verification_strength_for(
+        fix.provenance,
+        authoritative_schema_present=fix.fix.column in covered_columns,
+    )
+
+
+def enforce_proven_only(
+    fixes: list[ProposedFix],
+    *,
+    covered_columns: frozenset[str],
+    allow_unproven_autoapply: bool,
+) -> None:
+    """Refuse to write a ``plausibility_only`` fix without the explicit opt-in.
+
+    This is the proven-only invariant made *structural*. It is called from inside
+    both mutation primitives -- :func:`apply_transaction` (CSV) and
+    ``DuckDBStore.apply_patch_plan`` (warehouse SQL) -- so a write surface cannot
+    bypass the gate by forgetting to call :func:`partition_auto_apply` first.
+    That is not a hypothetical: the agent controller and the table-store repair
+    path both did exactly that between 2026-07-11 and 2026-08-08, which is why
+    the check now lives at the primitive instead of at each caller.
+
+    Strength is **computed** from ``provenance`` here rather than read from
+    ``ProposedFix.verification_strength``. That field is stamped late (only when a
+    receipt is built) and is frequently ``None`` at write time, so trusting it
+    would make the gate both unreliable and spoofable by any caller that set it.
+
+    Args:
+        fixes: The fixes about to be committed.
+        covered_columns: The columns an authoritative declared/reviewed schema actually
+            constrains (:func:`authoritative_columns`). A fix on a column outside this
+            set was checked only by the advisory inferred guard, where the known
+            verifier-floor gaps live. This is a SET rather than a boolean because a
+            table-level flag let one accepted constraint grant authority over every
+            column -- verified as a live defect on 2026-08-09.
+        allow_unproven_autoapply: The caller's explicit acknowledgement that
+            evidence-strong-but-unproven writes are permitted.
+
+    Raises:
+        UnprovenWriteError: If any fix is ``plausibility_only`` and the opt-in is
+            not set. The message names the offending cells and the flag, because a
+            caller hitting this needs to know which of the two it wants.
+    """
+    if allow_unproven_autoapply:
+        return
+    unproven = [
+        fix for fix in fixes if strength_for_fix(fix, covered_columns) == "plausibility_only"
+    ]
+    if not unproven:
+        return
+    cells = ", ".join(
+        f"row {fix.fix.row} column {fix.fix.column!r} (provenance {fix.provenance})"
+        for fix in unproven[:_UNPROVEN_WRITE_REPORT_LIMIT]
+    )
+    if len(unproven) > _UNPROVEN_WRITE_REPORT_LIMIT:
+        cells += f", and {len(unproven) - _UNPROVEN_WRITE_REPORT_LIMIT} more"
+    raise UnprovenWriteError(
+        f"Refusing to write {len(unproven)} unproven fix(es): {cells}. "
+        "These values were checked only by the advisory inferred guard, not proven "
+        "against an authoritative schema. Either supply a declared schema or pass "
+        "allow_unproven_autoapply=True to accept them as unproven (they stay "
+        "reversible and are recorded truthfully as not-proven in the certificate)."
+    )
+
+
 def _verified_fixes(
     fixes: list[ProposedFix],
     attempt_groups: list[list[RepairAttempt]],
     *,
-    authoritative_schema_present: bool,
+    covered_columns: frozenset[str],
 ) -> list[VerifiedFix]:
     """Build public verified fix payloads using accepted attempt reasons."""
     accepted_reasons: dict[tuple[int, str, str], str] = {}
@@ -1076,9 +1258,7 @@ def _verified_fixes(
                 (fix.fix.row, fix.fix.column, fix.fix.new_value),
                 "Accepted by verifier.",
             ),
-            verification_strength=_verification_strength(
-                fix.provenance, authoritative_schema_present=authoritative_schema_present
-            ),
+            verification_strength=strength_for_fix(fix, covered_columns),
         )
         for fix in fixes
     ]
@@ -1360,6 +1540,13 @@ def run_repair_pipeline(
     # stay byte-identical.
     corrector_policy = request.corrector_policy or corrector_default_policy()
     authoritative_schema_present = effective_schema is not None
+    # Per-column authority. This path is where the table-level flag was most dangerous:
+    # ``external`` provenance is NOT in _LLM_PROVENANCE, so a fix labelled proven here
+    # auto-applies immediately without needing to clear any calibration threshold.
+    covered_columns = authoritative_columns(effective_schema)
+    # Authority is per COLUMN, not per table: a schema that constrains one column says
+    # nothing about any other. See authoritative_columns() for the defect this fixes.
+    covered_columns = authoritative_columns(effective_schema)
     scope_guard_reason: str | None = None
     # Scope guard, before drift. A conformal certificate is valid only for data
     # exchangeable with its calibration sample, and the cheapest decidable necessary
@@ -1406,10 +1593,10 @@ def run_repair_pipeline(
             else:
                 retained.append(fix)
         accepted_fixes = retained
-    accepted_fixes, calibration_suggestions, plausibility_suggestions = _partition_auto_apply(
+    accepted_fixes, calibration_suggestions, plausibility_suggestions = partition_auto_apply(
         accepted_fixes,
         corrector_policy,
-        authoritative_schema_present=authoritative_schema_present,
+        covered_columns=covered_columns,
         allow_unproven_autoapply=request.allow_unproven_autoapply,
         calibration_map_by_class=request.calibration_map_by_class,
     )
@@ -1431,7 +1618,13 @@ def run_repair_pipeline(
         accepted_fixes = []
         reason = batch_safety.reason
     elif request.mode == "apply" and accepted_fixes:
-        txn_id = apply_transaction(source_path, accepted_fixes, source_bytes)
+        txn_id = apply_transaction(
+            source_path,
+            accepted_fixes,
+            source_bytes,
+            covered_columns=covered_columns,
+            allow_unproven_autoapply=request.allow_unproven_autoapply,
+        )
         post_sha256 = sha256_file(source_path)
         applied = True
         reason = f"Applied {len(accepted_fixes)} fix(es)."
@@ -1456,7 +1649,7 @@ def run_repair_pipeline(
     verified_fixes = _verified_fixes(
         accepted_fixes,
         attempt_groups,
-        authoritative_schema_present=authoritative_schema_present,
+        covered_columns=covered_columns,
     )
     candidate_repairs = _candidate_repairs(attempt_groups)
     suggestion_candidates = (
@@ -1647,6 +1840,7 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
     columns = set(column_names(df))
     total_rows = row_count(df)
     authoritative_schema_present = effective_schema is not None
+    covered_columns = authoritative_columns(effective_schema)
     verification_schema = infer_verification_schema(df) if effective_schema is None else None
 
     safety_filter = SafetyFilter()
@@ -1709,10 +1903,10 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
 
     # Untrusted-partition: external fixes are proven (auto-apply) only under an
     # authoritative schema; otherwise held unless the explicit opt-in is set.
-    auto, calibration_held, plausibility_held = _partition_auto_apply(
+    auto, calibration_held, plausibility_held = partition_auto_apply(
         verified,
         corrector_default_policy(),
-        authoritative_schema_present=authoritative_schema_present,
+        covered_columns=covered_columns,
         allow_unproven_autoapply=request.allow_unproven_autoapply,
     )
 
@@ -1724,7 +1918,13 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
         auto = []
         reason = batch_safety.reason
     elif request.mode == "apply" and auto:
-        txn_id = apply_transaction(source_path, auto, source_bytes)
+        txn_id = apply_transaction(
+            source_path,
+            auto,
+            source_bytes,
+            covered_columns=covered_columns,
+            allow_unproven_autoapply=request.allow_unproven_autoapply,
+        )
         post_sha256 = sha256_file(source_path)
         applied = True
         reason = f"Applied {len(auto)} proven external fix(es) proposed by {request.proposer!r}."
@@ -1737,7 +1937,7 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
         VerifiedFix(
             **CandidateFix.from_proposed(fix).model_dump(),
             verifier_reason="Accepted by the safety constitution and the shared prove gate.",
-            verification_strength=_verification_strength(
+            verification_strength=verification_strength_for(
                 fix.provenance, authoritative_schema_present=authoritative_schema_present
             ),
         )

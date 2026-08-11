@@ -21,7 +21,6 @@ from dataforge.stores import (
     run_table_store_repair,
     store_from_uri,
 )
-from dataforge.transactions.txn import CellFix
 from dataforge.ui.repair_diff import render_repair_diff
 
 if TYPE_CHECKING:
@@ -30,24 +29,6 @@ if TYPE_CHECKING:
     from dataforge.engine.repair import FdDetectionSource, RepairPipelineResult
 
 _console = Console(stderr=True)
-
-
-def apply_fixes_to_csv(path: Path, fixes: list[CellFix]) -> str:
-    """Apply ordered cell fixes to a CSV and return the post-state SHA-256.
-
-    Args:
-        path: Source CSV path.
-        fixes: Ordered list of cell fixes to apply.
-
-    Returns:
-        SHA-256 of the written file bytes.
-
-    Raises:
-        ValueError: If a fix references a missing row/column or stale old value.
-    """
-    from dataforge.engine.repair import apply_fixes_to_csv as engine_apply_fixes_to_csv
-
-    return engine_apply_fixes_to_csv(path, fixes)
 
 
 def _resolve_schema(schema_path: Path | None) -> Schema | None:
@@ -215,17 +196,6 @@ def _json_result(result: RepairPipelineResult) -> str:
     return json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True)
 
 
-def _apply_transaction(
-    path: Path,
-    fixes: list[ProposedFix],
-    source_bytes: bytes,
-) -> str:
-    """Compatibility wrapper around the shared repair engine transaction path."""
-    from dataforge.engine.repair import apply_transaction as engine_apply_transaction
-
-    return engine_apply_transaction(path, fixes, source_bytes)
-
-
 def _run_agent_repair(
     resolved_path: Path,
     schema: Schema | None,
@@ -238,6 +208,7 @@ def _run_agent_repair(
     allow_pii: bool,
     confirm_pii: bool,
     confirm_escalations: bool,
+    allow_unproven_autoapply: bool,
     json_output: bool,
 ) -> None:
     """Run the verified autonomous agent and render its result."""
@@ -255,6 +226,7 @@ def _run_agent_repair(
             allow_pii=allow_pii,
             confirm_pii=confirm_pii,
             confirm_escalations=confirm_escalations,
+            allow_unproven_autoapply=allow_unproven_autoapply,
         )
     )
 
@@ -271,6 +243,7 @@ def _run_agent_repair(
             f"Verified fixes: {result.fixes_count} "
             f"([green]{result.floor_fix_count}[/green] deterministic, "
             f"[cyan]{result.agent_fix_count}[/cyan] agent)  "
+            f"Held unproven: {len(result.held_fixes)}  "
             f"Residual: {result.residual_count}\n"
             f"Safety: {result.safety_verdict}  "
             f"{'Applied txn ' + str(result.txn_id) if result.applied else 'Dry run (no mutation)'}",
@@ -500,6 +473,7 @@ def repair(
                 allow_pii=allow_pii,
                 confirm_pii=confirm_pii,
                 confirm_escalations=confirm_escalations,
+                allow_unproven_autoapply=allow_unproven_autoapply,
             )
             if json_output:
                 typer.echo(
@@ -552,6 +526,7 @@ def repair(
                 allow_pii=allow_pii,
                 confirm_pii=confirm_pii,
                 confirm_escalations=confirm_escalations,
+                allow_unproven_autoapply=allow_unproven_autoapply,
                 json_output=json_output,
             )
         except typer.Exit:

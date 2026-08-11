@@ -13,7 +13,7 @@ analysis end to end:
 Two honesty properties are structural rather than advisory:
 
 * **The policy is keyed by `issue_type`**, which is the key
-  ``_partition_auto_apply`` actually uses at inference. Keying by ground-truth
+  ``partition_auto_apply`` actually uses at inference. Keying by ground-truth
   error class would certify a vocabulary the engine never consults.
 * **ECE is reported on the disjoint TEST half only.** Fitting a calibration map and
   then reporting its ECE on the same samples measures nothing.

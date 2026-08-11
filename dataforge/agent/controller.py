@@ -10,14 +10,30 @@ weakening its moat. The control flow is:
    an autonomous policy proposes actions. Every ``FIX`` is gated by the same
    safety constitution and SMT verifier; rejections are fed back so the policy
    self-corrects.
-3. **Single verified commit.** Floor + agent fixes are committed through the
-   existing :func:`dataforge.engine.repair.apply_transaction` — the same atomic,
+3. **Proven-only gate.** An agent value is LLM-derived, so it is *proven* only when
+   an authoritative schema verified it. Otherwise it was checked solely by the
+   advisory inferred guard -- where the known verifier-floor gaps live -- so it is
+   ``plausibility_only`` and is HELD in ``held_fixes`` rather than written.
+4. **Single verified commit.** Floor and proven agent fixes commit through the
+   existing :func:`dataforge.engine.repair.apply_transaction` -- the same atomic,
    journaled, byte-for-byte reversible write path the CLI already uses.
 
-Because the agent only *adds* verified fixes on top of the deterministic floor,
-its output can never be worse than the deterministic baseline, and nothing
-unverified ever reaches disk — regardless of how weak or adversarial the policy
-is.
+Because the agent only *adds* proven fixes on top of the deterministic floor, its
+output can never be worse than the deterministic baseline.
+
+**What is and is not guaranteed.** No unproven value reaches disk unless the caller
+sets ``allow_unproven_autoapply``, and that choice is recorded truthfully as
+not-proven in the certificate. This holds for any policy, however weak or
+adversarial, because the gate is enforced inside ``apply_transaction`` itself rather
+than by this controller remembering to call it.
+
+That wording is deliberately narrower than what this docstring claimed until
+2026-08-09. It previously said "nothing unverified ever reaches disk -- regardless of
+how weak or adversarial the policy is", which was FALSE: this controller called
+``apply_transaction`` directly, skipping the proven-only partition, and a schema-less
+``llm_live`` value was written after clearing only a structural check (row in bounds,
+column exists). See DECISIONS.md 2026-08-09 and
+``tests/property/test_no_corruption_invariant.py``.
 """
 
 from __future__ import annotations
@@ -36,9 +52,11 @@ from dataforge.engine.repair import (
     RepairMode,
     RepairReceipt,
     VerifiedFix,
-    _verification_strength,
     apply_transaction,
+    authoritative_columns,
     propose_repairs,
+    strength_for_fix,
+    verification_strength_for,
 )
 from dataforge.repairers.base import ProposedFix, RepairAttempt
 from dataforge.safety import SafetyContext, SafetyFilter, SafetyVerdict
@@ -76,6 +94,11 @@ class AgentRepairRequest(BaseModel):
     allow_pii: bool = False
     confirm_pii: bool = False
     confirm_escalations: bool = False
+    # Off by default: the proven-only invariant. Without an authoritative schema an
+    # agent (LLM) value is ``plausibility_only`` and is HELD, not written. Setting
+    # this accepts unproven writes; they stay reversible and are recorded truthfully
+    # as not-proven in the certificate.
+    allow_unproven_autoapply: bool = False
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid", populate_by_name=True)
 
@@ -112,9 +135,13 @@ class AgentRepairResult(BaseModel):
     issues_count: int = Field(ge=0)
     safety_verdict: str
     fixes: list[VerifiedFix] = Field(default_factory=list)
+    held_fixes: list[VerifiedFix] = Field(default_factory=list)
     trace: list[AgentActionRecord] = Field(default_factory=list)
     reason: str
     authoritative_schema_present: bool = False
+    # The columns the authoritative schema actually constrains. Authority is per-column:
+    # a schema that declares one column's type grants no authority over any other.
+    covered_columns: tuple[str, ...] = ()
 
     model_config = ConfigDict(frozen=True)
 
@@ -138,9 +165,10 @@ class AgentRepairResult(BaseModel):
             [
                 fix.model_copy(
                     update={
-                        "verification_strength": _verification_strength(
+                        "verification_strength": verification_strength_for(
                             fix.provenance,
-                            authoritative_schema_present=self.authoritative_schema_present,
+                            # Per-COLUMN authority, not table-level.
+                            authoritative_schema_present=fix.column in self.covered_columns,
                         )
                     }
                 )
@@ -359,7 +387,40 @@ def run_agent_repair(
     agent_fixes = executor.staged_fixes
     all_fixes = [*floor_fixes, *agent_fixes]
 
-    # 3. Batch safety gate (mirrors the deterministic pipeline: any non-ALLOW
+    # 3. Proven-only gate (the invariant DECISIONS.md 2026-07-11 declared for every
+    #    policy). An agent value is untrusted provenance, so without an authoritative
+    #    schema it is ``plausibility_only`` -- checked only by the advisory inferred
+    #    guard, where the known verifier-floor gaps live -- and is HELD, not written.
+    #    This controller bypassed the gate from 2026-07-11 until 2026-08-09.
+    #
+    #    Only the STRENGTH dimension is enforced here, not the calibration-confidence
+    #    dimension that ``partition_auto_apply`` also applies. Those are separable: a
+    #    proven fix is correct by construction or schema-verified, whereas the
+    #    per-class calibrated thresholds are a disabled-by-default product policy
+    #    (every committed threshold is the 1.01 sentinel). Imposing them here would
+    #    make agent mode apply nothing even WITH a schema, which is a different and
+    #    much larger change than closing the soundness hole. Live-LLM agent writes
+    #    remain separately gated by ``NO_UNCONFIRMED_LLM_WRITE``.
+    covered_columns = authoritative_columns(schema)
+
+    def _is_held(fix: ProposedFix) -> bool:
+        if request.allow_unproven_autoapply:
+            return False
+        return strength_for_fix(fix, covered_columns) == "plausibility_only"
+
+    # Partition by fix IDENTITY, not by (row, column). An earlier version of this gate
+    # filtered by cell, which would have dropped a PROVEN floor fix whenever an unproven
+    # agent fix touched the same cell. That cannot happen today -- the controller calls
+    # ``executor.mark_resolved`` for every floor fix and the executor refuses a FIX on an
+    # already-resolved cell -- but that is safety two invariants away from here, and a
+    # change to the dedup logic would have broken it silently.
+    # ``test_held_partition_is_by_identity_not_by_cell`` pins the property.
+    held_fixes = [fix for fix in all_fixes if _is_held(fix)]
+    all_fixes = [fix for fix in all_fixes if not _is_held(fix)]
+    floor_fixes = [fix for fix in floor_fixes if not _is_held(fix)]
+    agent_fixes = [fix for fix in agent_fixes if not _is_held(fix)]
+
+    # 4. Batch safety gate (mirrors the deterministic pipeline: any non-ALLOW
     #    verdict voids the batch rather than shipping an inconsistent set).
     batch_safety = SafetyFilter().evaluate_batch(
         all_fixes, SafetyContext(confirm_escalations=request.confirm_escalations)
@@ -373,26 +434,47 @@ def run_agent_repair(
     txn_id: str | None = None
     post_sha256: str | None = None
     reason = "No accepted fixes were produced."
+    held_note = (
+        f" {len(held_fixes)} fix(es) were held as unproven (no authoritative schema); "
+        "pass allow_unproven_autoapply to accept them."
+        if held_fixes
+        else ""
+    )
 
     if batch_safety.verdict != SafetyVerdict.ALLOW:
         reason = batch_safety.reason
     elif request.mode == "apply" and all_fixes:
-        txn_id = apply_transaction(source_path, all_fixes, source_bytes)
+        txn_id = apply_transaction(
+            source_path,
+            all_fixes,
+            source_bytes,
+            covered_columns=authoritative_columns(schema),
+            allow_unproven_autoapply=request.allow_unproven_autoapply,
+        )
         post_sha256 = sha256_file(source_path)
         applied = True
         reason = (
             f"Applied {len(all_fixes)} verified fix(es) "
-            f"({len(floor_fixes)} deterministic, {len(agent_fixes)} agent)."
+            f"({len(floor_fixes)} deterministic, {len(agent_fixes)} agent).{held_note}"
         )
     elif all_fixes:
         reason = (
             f"Dry run produced {len(all_fixes)} verified fix(es) "
             f"({len(floor_fixes)} deterministic, {len(agent_fixes)} agent); "
-            "no source data was mutated."
+            f"no source data was mutated.{held_note}"
+        )
+    elif held_fixes:
+        reason = (
+            f"No fix was auto-applied: {len(held_fixes)} fix(es) are unproven "
+            "(see held_fixes)." + held_note
         )
 
     fix_payloads = [
         _verified_fix_payload(fix, "Accepted by safety and SMT verifier.") for fix in all_fixes
+    ]
+    held_payloads = [
+        _verified_fix_payload(fix, "Held: not proven against an authoritative schema.")
+        for fix in held_fixes
     ]
 
     return AgentRepairResult(
@@ -413,7 +495,9 @@ def run_agent_repair(
         issues_count=len(issues),
         safety_verdict=batch_safety.verdict.value,
         fixes=fix_payloads,
+        held_fixes=held_payloads,
         trace=trace,
         reason=reason,
         authoritative_schema_present=schema is not None,
+        covered_columns=tuple(sorted(covered_columns)),
     )
