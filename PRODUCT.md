@@ -136,10 +136,24 @@ detect -> propose -> SafetyFilter (constitution)
   (deterministic, or verified against an authoritative schema). A
   `plausibility_only` fix (an LLM value with no authoritative schema) is held for
   review unless an explicit opt-in is set, and even then is recorded truthfully as
-  plausibility-only.
+  plausibility-only. This is enforced *inside* the mutation primitives, not at each
+  calling surface, so a surface cannot opt out of it by forgetting to ask.
 - **One write path.** The CLI, MCP server, verified agent, playground, and OpenEnv
   environment must route writes through the single core engine. No surface may
   create parallel write semantics.
+
+  Stated exactly, because an earlier version of this bullet claimed "there are two
+  mutation primitives, not one" and that was **false**. There are four leaf write
+  primitives. Two are gated by the provable-only invariant
+  (`engine.repair.apply_transaction` for files; `DuckDBStore.apply_patch_plan` for
+  warehouse SQL). Two are not, for stated reasons: `revert_transaction` restores bytes
+  the tool itself recorded, so there is no new value to prove; and
+  `write_constraint_review_artifact_atomic` rewrites the user's *constraints* artifact,
+  which changes the premise of provenness rather than a value
+  (`docs/trust/authority-is-mutable.md`). A static scan for callers of one primitive
+  cannot see the others, which is why the registry is keyed by **primitive** and the
+  runtime invariant is parametrized over **surfaces** —
+  `docs/trust/write-surface-uniformity.md`.
 - **The certificate travels.** The receipt is self-contained (source/post hashes,
   applied fixes with verification strength, proof obligations, revert command) and
   can be independently re-verified and reversed away from the machine that

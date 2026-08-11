@@ -126,8 +126,13 @@ flowchart LR
   fails fast without an API key), `local` (trained model, offline), `deterministic`
   (floor only), or `custom:<name>` (registered via `register_policy`). Agent
   fixes are strictly additive on top of the verified floor, so the agent can
-  never ship below the deterministic baseline, and nothing unverified reaches
-  disk. A benchmark gate (`dataforge.bench.agent_promotion_verdict`,
+  never ship below the deterministic baseline. An agent value is LLM-derived, so it
+  auto-applies only when *proven* (verified against an authoritative schema); otherwise
+  it is held in `held_fixes` unless `--allow-unproven-autoapply` is set, and then it is
+  recorded truthfully as not-proven. That gate is enforced inside `apply_transaction`
+  itself, so it holds for any policy rather than depending on the controller invoking it
+  — see `docs/trust/write-surface-uniformity.md` for why that distinction is load-bearing.
+  A benchmark gate (`dataforge.bench.agent_promotion_verdict`,
   `dataforge.release.agent_gate`) blocks promotion to the default path until the
   agent beats baseline F1 with zero safety regressions.
 - **Causal analyzer**: column-level DAG utilities, functional-dependency priors,

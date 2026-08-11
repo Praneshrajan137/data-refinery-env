@@ -12,6 +12,214 @@ Format for every entry:
 
 ---
 
+## 2026-08-09 - Scope authority per column: one accepted constraint was granting blanket `proven` status
+
+**Context**: found while documenting the authority-mutation gap, and worse than the defect that
+started that work. `authoritative_schema_present` was a table-level boolean summarising per-column
+evidence. Verified end to end with a real write to disk: with no declared schema, accepting exactly
+ONE inferred `column_type` candidate on column `id` produced an effective schema of `{"id": "int"}`,
+which flipped the boolean to `True`, which caused an `external` fix setting the UNRELATED column
+`city` to `ZZZ_GARBAGE` to be **applied and stamped `proven`** in the certificate.
+
+| Constraints accepted | Fix on `city` |
+| --- | --- |
+| none | held (correct) |
+| one `column_type` on `id` | applied, labelled `proven` |
+
+Severity, stated carefully this time. It needed no LLM, no agent and no unusual flags -- just
+`verify_and_apply`, which ships as a CLI command and an MCP tool, plus one accepted constraint. It had
+no calibration backstop, because `external` is not in `_LLM_PROVENANCE` and so auto-applies without
+clearing a per-class threshold. And the certificate said `proven`, which makes it a **truthfulness**
+violation rather than merely an unproven write -- the failure mode this product exists to prevent.
+
+**Alternatives**:
+1. *Scope authority to the columns the schema constrains.* Chosen.
+2. *Declared-only authority: a schema assembled purely from accepted inferred constraints grants
+   nothing.* Has precedent in `require_declared_fds_for_autoapply`. Rejected as both too strong and
+   too weak -- it would discard the legitimate purpose of constraint review, while still granting
+   blanket authority to any hand-written schema that happens to omit a column.
+3. *Refuse any fix on a column the schema does not mention.* Rejected: strictly larger behavioural
+   change than the defect requires, and it converts a labelling bug into a capability loss.
+
+**Decision**: (1). `authoritative_columns(schema)` returns the columns a schema actually constrains --
+declared types plus every column named in any constraint, with a functional dependency covering both
+its determinant and its dependent. `strength_for_fix` decides per fix, for that fix's own column.
+`partition_auto_apply`, `enforce_proven_only`, `_verified_fixes` and `apply_transaction` now take
+`covered_columns: frozenset[str]` in place of the boolean, so the type no longer *permits* the table-level
+mistake. `PatchPlan` carries `authoritative_columns` so the warehouse primitive makes the same
+per-column decision from the plan alone.
+
+**Reasoning**: the boolean was not a bad value, it was the wrong *type* -- a summary that discarded
+exactly the distinction the decision needed. Replacing it with the set makes the correct decision the
+only expressible one, which is the same move as putting the gate inside the primitives rather than at
+each caller.
+
+**Verification**: `tests/unit/test_column_scoped_authority.py` pins both directions -- a fix on an
+uncovered column is held, and a fix on the covered column still applies, so this is not a blanket
+refusal. Mutation-verified: restoring table-level authority makes the test fail by writing garbage to
+`city`. Full suite 1621 passed; hospital F1 unchanged.
+
+**Reversal criteria**: if per-column scoping proves too strict in practice -- users with legitimate
+declared schemas that intentionally omit columns -- the fix is NOT to restore the boolean but to let
+those users opt in explicitly per column, or to use `allow_unproven_autoapply` which already records
+the choice truthfully.
+
+**Residual gap, stated**: covering a column is not the same as constraining its value. `city: str`
+covers `city`, so a string there is "proven" against a constraint almost nothing can violate. Column
+scoping removes blanket authority; it does not make a weak constraint strong. See
+`docs/trust/authority-is-mutable.md`.
+
+---
+
+## 2026-08-09 - Enforce proven-only inside the mutation primitives: the 2026-07-11 invariant held on 2 of 4 write surfaces
+
+**Context**: `DECISIONS.md` 2026-07-11 declared proven-only auto-apply an enforced invariant and
+justified it as making "the gaps stay latent" true **under any policy**. Enforcement was implemented
+as a call to `_partition_auto_apply` inside `engine/repair.py`. That function had exactly two callers
+-- `run_repair_pipeline` and `verify_and_apply`. Two other surfaces reached a mutation primitive
+directly and were never gated:
+
+* `agent/controller.py:380` called `apply_transaction(source_path, all_fixes, source_bytes)` with no
+  partition. Compounding it, `agent/executor.py:212` called `SMTVerifier.verify(df, [fix], schema)`
+  with three positional arguments, omitting `verification_schema`, so with `schema=None` the verifier
+  short-circuits to a vacuous ACCEPT (row in bounds, column exists). A schema-less `llm_live` value
+  was therefore written to a user's CSV having had *nothing* examine the value.
+* `stores/repair.py` fed `propose_repairs` output straight into `store.apply_patch_plan`, which for
+  DuckDB is a raw SQL `UPDATE` -- a second mutation primitive that the static `apply_transaction`
+  caller allowlist in `test_surface_uniformity.py` structurally cannot see.
+
+Three shipped claims were false as a consequence: `agent/controller.py` ("nothing unverified ever
+reaches disk -- regardless of how weak or adversarial the policy is"), `docs/concepts/agent-loop.md`
+(the same sentence, plus "cannot bypass the gate"), and the MCP `dataforge_agent_repair` docstring
+("the agent can only add proven-safe fixes"). On MCP the *flag defaults* were the unsafe ones:
+`confirm_escalations` defaulted to `True` there while every other surface defaulted `False`, and
+`schema=None` was hardcoded, so a proven agent fix was not even reachable.
+
+**CORRECTION (2026-08-09, same day).** The paragraph above originally read "On MCP the unsafe path
+was the *default*". That overstated reachability and is corrected in place. All three MCP apply tools
+are behind `_apply_is_enabled()` (`dataforge-mcp/dataforge_mcp/tools.py:394, 492, 640`), which
+requires `--enable-apply` or `DATAFORGE_MCP_ENABLE_APPLY=1`. The *capability* was therefore off by
+default; only the flag defaults within it were unsafe. The distinction matters because it is the
+difference between "any MCP client could trigger this" and "an operator who had already opted into
+apply could trigger this", and I asserted the stronger version without checking. Recorded rather
+than edited away, because asserting severity without measuring it is the failure mode, not the
+wording.
+
+Round 3 had stamped `verification_strength` truthfully onto the agent receipt, so the certificate was
+honest while the write had already landed -- an honest label on an unsafe action.
+
+**Why the suite was green**: `test_no_corruption_invariant.py` claimed to prove the guarantee "for ANY
+configuration" but varied only the *corrector policy* on one surface. `test_surface_uniformity.py`
+delegated "nothing unverified is auto-applied" to that file. Each guard assumed the other covered the
+agent and table-store surfaces; neither did.
+
+**Alternatives**:
+1. *Add the partition call to the two missing surfaces.* Smallest diff. Rejected: it re-creates the
+   exact failure mode -- safety by convention, where a fifth surface is one forgotten call from the
+   same bug.
+2. *Document the agent surface as exempt.* Cheapest. Rejected: it contradicts the 2026-07-11 decision
+   and would require writing down that the default MCP path may write unproven LLM values, which is a
+   product regression in claim strength, not a clarification.
+3. *Enforce inside the mutation primitives.* Chosen.
+4. *Remove `apply_transaction`/`apply_fixes_to_csv` from the public `engine.__all__`.* Rejected as
+   unnecessary once (3) landed, on the grounds that "the raw primitives are now safe by default".
+
+   **CORRECTION (2026-08-09, same day): that rejection was wrong on the facts, and it was the most
+   consequential error in this entry.** (3) made `apply_transaction` safe. It did NOT make
+   `apply_fixes_to_csv` safe. That function takes `list[CellFix]`, which carries no `provenance`, so
+   strength is not merely unchecked there but *undecidable* -- and it writes a user's CSV with no
+   journal, no snapshot and no source lock, so a write through it is **irreversible**. Reversibility
+   is a stronger invariant in `PRODUCT.md` than the proven-only one this entry closed, and I rejected
+   the alternative that would have protected it using a claim I had not verified. `apply_fixes_to_csv`
+   is privatized to `_apply_fixes_to_csv` in the follow-up work; see the 2026-08-09 entry on the
+   write-primitive registry.
+
+**Decision**: (3). `enforce_proven_only` is called at the top of `apply_transaction`, and
+`enforce_plan_proven_only` at the top of `DuckDBStore.apply_patch_plan`. Both default to the safe
+behaviour, so a caller that passes neither keyword gets proven-only rather than a silent unproven
+write. `PatchPlan` gained `authoritative_schema_present` so the SQL primitive can make the decision
+from the plan alone instead of trusting its caller; plans persisted before the field existed
+deserialize to the safe `False`. Strength is **computed** from `provenance` in both, never read from
+`ProposedFix.verification_strength`, which is stamped late and would make the gate spoofable.
+`_verification_strength` and `_partition_auto_apply` were promoted to public names, since a private
+name was already being imported across modules.
+
+`AgentRepairRequest` gained `allow_unproven_autoapply` (default `False`), wired to the *already
+existing* `--allow-unproven-autoapply` CLI flag and to MCP; held fixes are reported in `held_fixes`
+rather than silently dropped. MCP `dataforge_agent_repair` gained `schema_path` and flipped
+`confirm_escalations` to `False`.
+
+**Deliberate narrowing**: the agent enforces only the *strength* dimension, not the
+calibration-confidence dimension `partition_auto_apply` also applies. Those are separable -- a proven
+fix is correct by construction or schema-verified, whereas the per-class thresholds are a
+disabled-by-default policy (every committed threshold is the `1.01` sentinel). Routing the agent
+through the full partition held *every* LLM fix even with an authoritative schema, which is a much
+larger behavioural change than closing the soundness hole. `run_table_store_repair` does use the full
+partition, because it is the warehouse analogue of `run_repair_pipeline` and should match it.
+
+**Reasoning**: the primitives are the only chokepoint every surface must pass through, so enforcement
+there converts a convention into a structural property: a future surface inherits the gate, and one
+that tries to bypass it raises instead of writing. Mutation-tested, not assumed -- neutering the
+primitive gate fails `test_write_primitive_refuses_any_unproven_value`; neutering the controller's
+strength filter fails `test_agent_surface_holds` **via the primitive raising**, which demonstrates the
+two layers are independently effective rather than one being decorative; neutering
+`enforce_plan_proven_only` fails two table-store tests.
+
+**Blast radius**: two existing tests depended on the old behaviour, both incidentally --
+`test_apply_then_revert_restores_bytes` (about reversibility) and
+`test_custom_policy_runs_through_the_gate` (about policy plumbing). Both now supply the schema that
+makes their write legitimate. No test anywhere asserted that an unproven fix *must* reach disk.
+Hospital F1 held at 0.7926: deterministic fixes are `proven`, so the gate does not touch them.
+
+**Measured severity (added 2026-08-09, replacing an asserted one)**: I originally justified this
+work's priority from reachability-in-principle and never measured realized exposure. Measuring it
+deflates the claim, so the claim is rewritten rather than defended.
+
+Committed evidence: `eval/results/agent_gpt56sol_hospital.json` -- the verified agent driven by a 2026
+frontier model (gpt-5.6-sol, Azure) over the first 150 rows of RAHA hospital dirty.csv,
+`authoritative_schema_present: false`, i.e. exactly the configuration in which the bug was reachable:
+
+| Quantity | Value |
+| --- | --- |
+| `agent_fix_count` | **0** |
+| `agent_proven` / `agent_held` | 0 / 0 |
+| agent FIX attempts | 2, both `accepted=false` |
+| `applied_fix_provenance` | `{deterministic: 6}` |
+
+So on the only committed real-data agent measurement, **the number of unproven writes the bug could
+have produced was zero.** Exposure on the agent surface equals the agent's staged-fix count 1:1 (with
+no schema, 100% of agent fixes are `plausibility_only` by definition), and that count was 0 because
+the frontier model's residual proposals were refused by the safety/verifier gate before staging.
+
+Two further conditions bound it. An unproven agent write additionally required
+`--confirm-escalations`, because `NO_UNCONFIRMED_LLM_WRITE` (`safety/constitution.py:109-115`) covers
+`llm_live`; and on MCP it required `--enable-apply`. The reproduction command recorded in that
+artifact passes neither.
+
+**Honest limits of this measurement**: n=1 run, 150 rows, one dataset, one model, `dry_run` mode. It
+bounds realized exposure at zero *for that configuration*; it does not prove exposure was zero for
+every user, and no telemetry exists that could.
+
+**Revised characterization**: a real defect of a serious class -- a reachable path by which an
+unproven value could be written -- with **no measured realized harm**. The value of this change is
+preventing the class, and making three false claims true, not stopping an ongoing corruption. The
+original framing ("live, reachable by default", ranked above everything in the trust register) was
+not supported by evidence I had, and asserting severity without measuring it is the same error as
+asserting scope without checking it.
+
+**Reviewed with**: nobody; found by auditing write surfaces against the 2026-07-11 claim rather than
+trusting it. Noting for the record that I then trusted a subagent's *enumeration* of those surfaces,
+which turned out to be incomplete -- it missed `_apply_fixes_to_csv`, `revert_transaction` and the
+constraints-artifact rewrite. The lesson is symmetrical: do not trust a claim about scope, including
+one produced by your own tooling.
+
+**Reversal criteria**: if the proven-only invariant is ever intentionally relaxed for a surface, that
+surface must gain an explicit opt-in field and the relaxation must be recorded here -- not achieved by
+skipping the gate. If `enforce_proven_only` shows up as a measurable cost on large batches, cache the
+strength verdict per provenance rather than removing the check.
+
+---
+
 ## 2026-08-05 - Paired cross-dataset run: the triager does not generalise (confirmed on a 2nd model), and feeding it detector evidence is MEASURED HARMFUL
 
 **Context**: Two things were outstanding. (a) The retracted redundancy claim needed replacing with paired
