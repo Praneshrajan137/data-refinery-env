@@ -53,6 +53,11 @@ from dataforge import (
 from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.agent.policy import PolicyUnavailableError
 from dataforge.certificate import verify_certificate
+
+# The severity ENUM is exported from dataforge; this is the string form the HTTP
+# contract speaks. Aliased so the two cannot be confused at a call site.
+from dataforge.domain.vocabulary import ReviewReason
+from dataforge.domain.vocabulary import Severity as SeverityName
 from dataforge.http.problem import problem_exception_handler, problem_response
 from dataforge.observability import configure_fastapi_observability
 from dataforge.schema_inference import (
@@ -292,7 +297,7 @@ class IssueView(BaseModel):
 
     column: str
     issue_type: str
-    severity: Literal["safe", "review", "unsafe"]
+    severity: SeverityName
     row_indices: list[int]
     row_indices_truncated: bool = False
     count: int
@@ -316,7 +321,7 @@ class FlaggedCellView(BaseModel):
     row: int
     column: str
     issue_type: str
-    severity: Literal["safe", "review", "unsafe"]
+    severity: SeverityName
     confidence: float
     actual: str
     expected: str | None = None
@@ -433,7 +438,7 @@ class RiskSummary(BaseModel):
 
     dataset_level: RiskLevel
     repair_readiness: RepairReadiness
-    severity_counts: dict[Literal["safe", "review", "unsafe"], int]
+    severity_counts: dict[SeverityName, int]
     pending_repair_supported_constraints: int
     reasons: list[str]
 
@@ -451,7 +456,7 @@ class VerifiedFixView(BaseModel):
     provenance: str
     verifier_reason: str | None = None
     verification_strength: str | None = None
-    review_reason: str | None = None
+    review_reason: ReviewReason | None = None
 
 
 class RepairFailureView(BaseModel):
@@ -491,7 +496,7 @@ class CandidateRepairView(BaseModel):
     provenance: str
     verifier_reason: str
     verification_strength: str | None = None
-    review_reason: str | None = None
+    review_reason: ReviewReason | None = None
 
 
 class ProofObligationView(BaseModel):
@@ -1242,8 +1247,12 @@ def _enforce_dataframe_limits(df: pd.DataFrame) -> None:
         )
 
 
-def _severity_to_str(severity: Severity) -> str:
-    """Convert a Severity enum into the JSON response value."""
+def _severity_to_str(severity: Severity) -> SeverityName:
+    """Convert a Severity enum into the JSON response value.
+
+    Returns the closed string vocabulary rather than a bare ``str``, so a caller cannot
+    put an arbitrary severity into the HTTP contract.
+    """
     return severity.value
 
 
@@ -1263,7 +1272,7 @@ def _issue_views(issues: list[Issue]) -> list[IssueView]:
             IssueView(
                 column=column,
                 issue_type=issue_type,
-                severity=cast(Literal["safe", "review", "unsafe"], severity),
+                severity=cast(SeverityName, severity),
                 row_indices=displayed_rows,
                 row_indices_truncated=len(unique_rows) > len(displayed_rows),
                 count=len(unique_rows),
@@ -1373,9 +1382,7 @@ def _flagged_cells_view(issues: list[Issue], column_names: list[str]) -> Flagged
                 row=issue.row,
                 column=issue.column,
                 issue_type=issue.issue_type,
-                severity=cast(
-                    Literal["safe", "review", "unsafe"], _severity_to_str(issue.severity)
-                ),
+                severity=_severity_to_str(issue.severity),
                 confidence=issue.confidence,
                 actual=issue.actual,
                 expected=issue.expected,
@@ -1683,7 +1690,7 @@ def _risk_summary(
     candidate_views: list[ConstraintCandidateView],
 ) -> RiskSummary:
     """Build a categorical risk summary without calibrated accuracy claims."""
-    severity_counts: dict[Literal["safe", "review", "unsafe"], int] = {
+    severity_counts: dict[SeverityName, int] = {
         "safe": 0,
         "review": 0,
         "unsafe": 0,

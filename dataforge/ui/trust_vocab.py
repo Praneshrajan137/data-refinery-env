@@ -3,8 +3,11 @@
 This module is the single source of truth for how DataForge's trust vocabulary
 reads as *text*, so the CLI, the MCP tools, and (where useful) the playground API
 all speak the same language a screen reader or a ``NO_COLOR`` terminal can follow.
-It mirrors the browser humanizer in ``playground/web/src/observatory.ts`` and the
-epistemic ladder in ``docs/design/perceptual-language.md``.
+
+The TOKENS and their phrasing come from ``dataforge.domain.vocabulary``; this module
+owns only presentation (glyphs, labels, disposition wording). It used to re-list all 13
+review reasons and their sentences by hand, which is how one reason went missing and
+rendered to a user as a raw machine token.
 
 Rendering only -- no business logic. Pure Python (no ``rich``) so every surface,
 including the rich-free MCP package, can import it.
@@ -16,27 +19,17 @@ import os
 import sys
 from typing import IO
 
-# Humanized review reasons. Keys are the engine's ``ReviewReason`` literal
-# (dataforge/engine/repair.py). Phrasing is kept in sync with observatory.ts
-# REVIEW_REASON_COPY so the browser and the terminal never disagree.
-REVIEW_REASON_HUMAN: dict[str, str] = {
-    "failed_conformal_threshold": "Confidence did not clear the distribution-free auto-apply threshold.",
-    "safety_escalation": "The safety constitution escalated this for human confirmation.",
-    "safety_denied": "The safety constitution denied this change.",
-    "not_inferable_from_data": "The correct value is not derivable from the data in the table.",
-    "verifier_rejected": "The independent verifier rejected this proposal.",
-    "floor_cannot_verify": "The deterministic verifier could not prove this change safe.",
-    "ambiguous_fd": "The functional dependency was ambiguous, so no single correct value could be derived.",
-    "out_of_inferred_domain": "The proposed value falls outside the values inferred from the column.",
-    "inferred_fd_not_declared": "The supporting dependency was inferred, not declared, so it is not auto-applied.",
-    "unverified_transposition": "A transposition was proposed but could not be proven.",
-    "unverified_entity_consensus": (
-        "Sibling rows for this entity agree on a different value, but agreement is "
-        "evidence, not proof, so it is suggested rather than applied."
-    ),
-    "stale_precondition": "The row changed after the proposal, so it was not applied.",
-    "invalid_target": "The proposed value failed the target's constraints.",
-}
+from dataforge.domain.vocabulary import REVIEW_REASON_HUMAN
+
+__all__ = [
+    "REVIEW_REASON_HUMAN",
+    "SEVERITY_GLYPH",
+    "disposition_label",
+    "humanize_review_reason",
+    "independent_verification_label",
+    "severity_glyph",
+    "verification_strength_label",
+]
 
 
 def humanize_review_reason(reason: str | None) -> str:

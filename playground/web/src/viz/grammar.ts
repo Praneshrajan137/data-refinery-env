@@ -9,17 +9,19 @@ import quantitativeTokens from "../design/quantitative-tokens.json";
  * hand-syncing its durations: a constant in two places is a constant that will
  * disagree.
  *
+ * `Rung` obeys that rule now. It used to be a hand-written seven-member union
+ * immediately below this comment -- a duplicate of the `rungs` keys in the JSON, in the
+ * very file forbidding duplicates, and invisible to the audit because the audit only
+ * compared `rungOrder` against `rungs` INSIDE the JSON. The ladder is now generated
+ * from dataforge/domain/vocabulary.py, so the engine's strengths and the presentation
+ * ladder cannot drift apart either.
+ *
  * See docs/design/quantitative-grammar.md.
  */
 
-export type Rung =
-  | "corroborated"
-  | "proven"
-  | "held"
-  | "downgraded"
-  | "plausibility_only"
-  | "rejected"
-  | "idle";
+import type { Rung } from "../domain/vocabulary.generated";
+
+export type { Rung };
 
 export type AbsenceState = "zero" | "not_measured" | "truncated";
 export type GroundContact = "contact" | "weakening" | "none";

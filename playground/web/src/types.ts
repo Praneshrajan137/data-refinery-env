@@ -1,4 +1,16 @@
-export type Severity = "safe" | "review" | "unsafe";
+// The trust vocabularies are GENERATED from dataforge/domain/vocabulary.py. Re-exported
+// here so existing imports keep working, but never re-declared: `Severity` and
+// `VerificationStrength` used to be spelled out in this file AND in the engine AND in
+// six inline Literals in the HTTP models, which is how they drifted.
+import type {
+  Provenance,
+  ReviewReason,
+  Severity,
+  VerificationStrength,
+} from "./domain/vocabulary.generated";
+
+export type { Provenance, ReviewReason, Severity, VerificationStrength };
+
 export type RiskLevel = "none" | "low" | "medium" | "high";
 export type RepairReadiness = "no_action" | "verified" | "partial" | "blocked";
 export type ConstraintDecision = "pending" | "accepted" | "rejected";
@@ -6,9 +18,9 @@ export type RepairMode = "deterministic" | "agent";
 
 // A fix is `proven` when it is deterministic or verified against an
 // authoritative schema; `plausibility_only` when it was only checked by the
-// advisory inferred guard (an LLM value with no authoritative schema). The
-// distinction is the product's core guarantee and must never be blurred.
-export type VerificationStrength = "proven" | "plausibility_only";
+// advisory inferred guard (an untrusted value with no authoritative schema for its
+// column). The distinction is the product's core guarantee and must never be blurred,
+// which is exactly why the type is generated rather than typed here twice.
 export type IndependentVerification = "agreed" | "not_run";
 
 export interface BackendCapability {
@@ -197,10 +209,10 @@ export interface VerifiedFix {
   detector_id: string;
   reason: string;
   confidence: number;
-  provenance: string;
+  provenance: Provenance;
   verifier_reason?: string;
   verification_strength?: VerificationStrength | null;
-  review_reason?: string | null;
+  review_reason?: ReviewReason | null;
 }
 
 export interface RepairFailure {
@@ -231,10 +243,10 @@ export interface CandidateRepair {
   operation: string;
   reason: string;
   confidence: number;
-  provenance: string;
+  provenance: Provenance;
   verifier_reason: string;
   verification_strength?: VerificationStrength | null;
-  review_reason?: string | null;
+  review_reason?: ReviewReason | null;
 }
 
 export interface ProofObligation {
@@ -271,7 +283,7 @@ export interface RepairReceipt {
   independent_verification?: IndependentVerification;
   issues_count: number;
   fixes_count: number;
-  candidate_provenance: string[];
+  candidate_provenance: Provenance[];
   root_causes: RootCause[];
   candidate_repairs: CandidateRepair[];
   applied_fixes?: VerifiedFix[];

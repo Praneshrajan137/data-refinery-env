@@ -70,7 +70,7 @@ function analysisFixture(): AnalyzeResponse {
         detector_id: "decimal_shift",
         reason: "Tenfold outlier.",
         confidence: 0.91,
-        provenance: "heuristic",
+        provenance: "deterministic",
         verifier_reason: "accepted",
       },
     ],
@@ -132,7 +132,7 @@ function analysisFixture(): AnalyzeResponse {
       verifier_verdict: "accept",
       issues_count: 2,
       fixes_count: 1,
-      candidate_provenance: ["heuristic"],
+      candidate_provenance: ["deterministic"],
       root_causes: [],
       candidate_repairs: [],
       proof_obligations: [

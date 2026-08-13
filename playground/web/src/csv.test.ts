@@ -85,7 +85,7 @@ describe("result shaping", () => {
           detector_id: "decimal_shift",
           reason: "Value 45 in column rating appears to be ~10x the typical value.",
           confidence: 0.94,
-          provenance: "heuristic",
+          provenance: "deterministic",
           verifier_reason: "All proposed fixes passed structural verification.",
         },
       ],

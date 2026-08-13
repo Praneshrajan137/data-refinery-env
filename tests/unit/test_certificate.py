@@ -90,6 +90,205 @@ def test_llm_applied_is_flagged_not_proven() -> None:
     )
 
 
+def test_entity_consensus_applied_is_flagged_not_proven() -> None:
+    """``entity_consensus`` is untrusted, so a certificate must not call it proven.
+
+    Sibling-row agreement is evidence, not proof: a majority can be wrong. The engine
+    lists it in ``_UNTRUSTED_PROVENANCE`` for exactly that reason. This certificate
+    check is the artifact a third party reads, so if it omits the provenance the
+    certificate says "proven" about a value nothing proved -- a truthfulness
+    violation, which is the product claim itself.
+
+    This is the same drift class that already shipped twice: once in the browser's
+    ``LLM_PROVENANCE`` and once in ``REVIEW_REASON_COPY``. A hand-maintained copy of a
+    closed vocabulary is a copy that will disagree.
+    """
+    receipt = {
+        "schema_version": "repair_receipt_v1",
+        "applied": True,
+        "reversible": True,
+        "source_sha256": "a" * 64,
+        "post_sha256": "b" * 64,
+        "txn_id": "txn-x",
+        "revert_command": "dataforge revert txn-x",
+        "verifier_verdict": "accept",
+        "safety_verdict": "allow",
+        "candidate_provenance": ["entity_consensus"],
+    }
+    verification = verify_certificate(receipt)
+    assert verification.ok is False, (
+        "entity_consensus was accepted as proven-deterministic; the certificate "
+        "overstates proof for an untrusted provenance"
+    )
+    assert any(
+        c.name == "auto_apply_is_proven_deterministic" and not c.ok for c in verification.checks
+    )
+
+
+def test_unknown_provenance_fails_closed() -> None:
+    """An unrecognised provenance must be treated as untrusted, not as trusted.
+
+    Membership-testing against a hardcoded set of *untrusted* names fails OPEN: any
+    provenance nobody thought of reads as deterministic. A trust artifact must fail
+    closed, so the check is written against the known-trusted set instead.
+    """
+    receipt = {
+        "schema_version": "repair_receipt_v1",
+        "applied": True,
+        "reversible": True,
+        "source_sha256": "a" * 64,
+        "post_sha256": "b" * 64,
+        "txn_id": "txn-x",
+        "revert_command": "dataforge revert txn-x",
+        "verifier_verdict": "accept",
+        "safety_verdict": "allow",
+        "candidate_provenance": ["some_future_corrector"],
+    }
+    verification = verify_certificate(receipt)
+    assert verification.ok is False, (
+        "an unknown provenance was accepted as proven; the check fails open"
+    )
+
+
+def test_missing_verification_strength_fails_closed() -> None:
+    """A fix with an untrusted provenance and no strength must not read as proven.
+
+    ``verification_strength`` is stamped late and is frequently absent, so a check
+    that only rejects the explicit string ``plausibility_only`` treats every unstamped
+    fix as proven. Strength must be derived from provenance when it is missing --
+    the same reason ``enforce_proven_only`` computes it rather than reading it.
+    """
+    receipt = {
+        "schema_version": "repair_receipt_v1",
+        "applied": True,
+        "reversible": True,
+        "source_sha256": "a" * 64,
+        "post_sha256": "b" * 64,
+        "txn_id": "txn-x",
+        "revert_command": "dataforge revert txn-x",
+        "verifier_verdict": "accept",
+        "safety_verdict": "allow",
+        "applied_fixes": [
+            {
+                "row": 0,
+                "column": "city",
+                "old_value": "x",
+                "new_value": "y",
+                "detector_id": "entity_consensus",
+                "reason": "siblings agree",
+                "confidence": 0.9,
+                "provenance": "entity_consensus",
+                "verification_strength": None,
+            }
+        ],
+    }
+    verification = verify_certificate(receipt)
+    assert verification.ok is False, (
+        "an unstamped untrusted fix was accepted as proven; the strength check fails open"
+    )
+
+
+def test_authority_is_credited_per_column_not_per_table() -> None:
+    """An untrusted write is proven only on a column the schema actually covers.
+
+    This is the 2026-08-09 defect made checkable from the certificate alone: accepting
+    one ``column_type`` constraint on ``id`` once granted blanket authority, so an
+    ``external`` garbage value on the unrelated column ``city`` was applied AND stamped
+    ``proven``. A reader holding only the certificate could not have caught that,
+    because the certificate never recorded which columns the authority covered.
+    """
+    base = {
+        "schema_version": "repair_receipt_v1",
+        "applied": True,
+        "reversible": True,
+        "source_sha256": "a" * 64,
+        "post_sha256": "b" * 64,
+        "txn_id": "txn-x",
+        "revert_command": "dataforge revert txn-x",
+        "verifier_verdict": "accept",
+        "safety_verdict": "allow",
+        "authoritative_columns": ["id"],
+    }
+    fix = {
+        "row": 0,
+        "column": "city",
+        "old_value": "Springfield",
+        "new_value": "ZZZ_GARBAGE",
+        "detector_id": "external",
+        "reason": "agent proposed",
+        "confidence": 0.99,
+        "provenance": "external",
+        "verification_strength": "proven",
+    }
+
+    off_authority = verify_certificate({**base, "applied_fixes": [fix]})
+    assert off_authority.ok is False, (
+        "an external write to a column outside the schema's authority was accepted "
+        "as proven; authority is being read as table-level"
+    )
+    detail = next(
+        c.detail for c in off_authority.checks if c.name == "auto_apply_is_proven_deterministic"
+    )
+    assert "city" in detail
+
+    # The same fix on a covered column is genuinely proven -- the verification layer's
+    # whole purpose -- and must still verify.
+    on_authority = verify_certificate(
+        {**base, "authoritative_columns": ["id", "city"], "applied_fixes": [fix]}
+    )
+    assert on_authority.ok, [c for c in on_authority.checks if not c.ok]
+
+
+def test_an_honest_downgrade_in_the_receipt_is_respected() -> None:
+    """A receipt that records ``plausibility_only`` must be believed, even over authority.
+
+    Derivation is used to catch a receipt claiming MORE than it earned. It must never be
+    used to upgrade a receipt that honestly claims LESS. The engine downgrades to
+    plausibility_only for reasons a certificate reader cannot see -- a drift monitor
+    firing, a policy withdrawal, a scope check refusing a calibration artifact -- and
+    each of those is recorded rather than printed precisely so it travels with the data.
+
+    Found by mutation: disabling the ``recorded == "plausibility_only"`` branch left
+    every other test green, because in those fixtures derivation independently reached
+    the same verdict. Here it does not: the column IS covered, so derivation alone would
+    say ``proven``.
+    """
+    receipt = {
+        "schema_version": "repair_receipt_v1",
+        "applied": True,
+        "reversible": True,
+        "source_sha256": "a" * 64,
+        "post_sha256": "b" * 64,
+        "txn_id": "txn-x",
+        "revert_command": "dataforge revert txn-x",
+        "verifier_verdict": "accept",
+        "safety_verdict": "allow",
+        "authoritative_columns": ["city"],
+        "applied_fixes": [
+            {
+                "row": 0,
+                "column": "city",
+                "old_value": "x",
+                "new_value": "y",
+                "detector_id": "corrector",
+                "reason": "llm proposed",
+                "confidence": 0.9,
+                "provenance": "llm_live",
+                "verification_strength": "plausibility_only",
+            }
+        ],
+    }
+    verification = verify_certificate(receipt)
+    assert verification.ok is False, (
+        "a receipt honestly recording plausibility_only was upgraded to proven by "
+        "derivation; the certificate must never claim more than the receipt"
+    )
+    detail = next(
+        c.detail for c in verification.checks if c.name == "auto_apply_is_proven_deterministic"
+    )
+    assert "plausibility_only" in detail
+
+
 # --- Deep re-verification (reverify_certificate) ------------------------------
 
 

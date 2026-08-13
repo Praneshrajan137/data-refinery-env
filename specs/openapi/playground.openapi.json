@@ -415,6 +415,21 @@
           "review_reason": {
             "anyOf": [
               {
+                "enum": [
+                  "failed_conformal_threshold",
+                  "safety_escalation",
+                  "safety_denied",
+                  "not_inferable_from_data",
+                  "verifier_rejected",
+                  "floor_cannot_verify",
+                  "ambiguous_fd",
+                  "out_of_inferred_domain",
+                  "inferred_fd_not_declared",
+                  "unverified_transposition",
+                  "unverified_entity_consensus",
+                  "stale_precondition",
+                  "invalid_target"
+                ],
                 "type": "string"
               },
               {
@@ -1957,6 +1972,21 @@
           "review_reason": {
             "anyOf": [
               {
+                "enum": [
+                  "failed_conformal_threshold",
+                  "safety_escalation",
+                  "safety_denied",
+                  "not_inferable_from_data",
+                  "verifier_rejected",
+                  "floor_cannot_verify",
+                  "ambiguous_fd",
+                  "out_of_inferred_domain",
+                  "inferred_fd_not_declared",
+                  "unverified_transposition",
+                  "unverified_entity_consensus",
+                  "stale_precondition",
+                  "invalid_target"
+                ],
                 "type": "string"
               },
               {

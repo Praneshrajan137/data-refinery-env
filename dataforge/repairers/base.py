@@ -7,12 +7,14 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 from dataforge.detectors.base import Issue, Schema
+from dataforge.domain.vocabulary import Provenance
 from dataforge.table import TableLike
 from dataforge.transactions.txn import CellFix
 
-ProvenanceLiteral = Literal[
-    "deterministic", "llm_cache", "llm_live", "external", "entity_consensus"
-]
+# Alias, not a redefinition: the closed set lives in dataforge.domain.vocabulary so the
+# engine's trusted/untrusted partitions are derived from the same list a repairer is
+# allowed to emit. Declaring it twice let the partitions and the literal drift.
+ProvenanceLiteral = Provenance
 AttemptStatusLiteral = Literal[
     "accepted",
     "denied",

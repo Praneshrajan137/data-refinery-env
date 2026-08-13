@@ -325,20 +325,26 @@ function failureToReviewItem(failure: RepairFailure): ReviewItem {
 // nothing incorrect is silently written — and you can re-verify that yourself."
 // This view model makes that promise the primary, honest object in the UI.
 
-// Provenances the engine does NOT trust to write on their own. This must stay a
-// superset-parity mirror of _UNTRUSTED_PROVENANCE in dataforge/engine/repair.py.
-// `entity_consensus` belongs here: sibling-row agreement is evidence, not proof.
-// Omitting it made strengthOf() return "proven" for an untrusted value whenever
-// verification_strength was absent -- the overtrust lie, in the one function every
-// trust surface routes through.
-const LLM_PROVENANCE = new Set(["llm_live", "llm_cache", "external", "entity_consensus"]);
+// The trust vocabulary is GENERATED from dataforge/domain/vocabulary.py and verified
+// byte-for-byte by `python scripts/ci/generate_domain_vocabulary.py --check`. It is not
+// transcribed here, because transcription is what produced the overtrust bug:
+// `entity_consensus` was once missing from this set, so strengthOf() returned "proven"
+// for an untrusted value whenever verification_strength was absent -- in the one
+// function every trust surface routes through.
+//
+// Note the rename: the old local constant was called LLM_PROVENANCE but actually held
+// the engine's UNTRUSTED set (a superset that includes `external` and
+// `entity_consensus`). Two different sets sharing one name is how the drift hid.
+import {
+  REVIEW_REASON_HUMAN,
+  verificationStrengthFor,
+} from "./domain/vocabulary.generated";
 
-/**
- * Exported so downstream guards can re-derive expected strength from provenance
- * INDEPENDENTLY of whatever rung an encoder assigned. A guard that reads only the
- * assigned rung is tautological.
- */
-export const UNTRUSTED_PROVENANCE: ReadonlySet<string> = LLM_PROVENANCE;
+export {
+  CALIBRATED_PROVENANCE,
+  TRUSTED_PROVENANCE,
+  UNTRUSTED_PROVENANCE,
+} from "./domain/vocabulary.generated";
 
 export type TrustLevel = "pending" | "clear" | "proven" | "held" | "mixed";
 
@@ -360,10 +366,9 @@ export interface TrustVerdict {
  * Classify a fix's verification strength honestly.
  *
  * Prefers the engine's per-fix `verification_strength`. When it is absent
- * (legacy payloads), it falls back to provenance: an LLM/external value is
- * plausibility-only, everything else is deterministic and therefore proven.
- * This mirrors the server-side certificate logic so the UI never overstates
- * proof.
+ * (legacy payloads), it derives strength from provenance using the generated domain
+ * predicate, which reads the TRUSTED allowlist rather than an untrusted denylist -- so
+ * an unrecognised provenance is treated as unproven instead of trusted.
  */
 export function strengthOf(fix: VerifiedFix | CandidateRepair): VerificationStrength {
   if (fix.verification_strength === "plausibility_only") {
@@ -372,30 +377,13 @@ export function strengthOf(fix: VerifiedFix | CandidateRepair): VerificationStre
   if (fix.verification_strength === "proven") {
     return "proven";
   }
-  return LLM_PROVENANCE.has(fix.provenance) ? "plausibility_only" : "proven";
+  return verificationStrengthFor(fix.provenance, { authoritativeSchemaPresent: false });
 }
 
-const REVIEW_REASON_COPY: Record<string, string> = {
-  failed_conformal_threshold:
-    "Confidence did not clear the distribution-free auto-apply threshold.",
-  safety_escalation: "The safety constitution escalated this for human confirmation.",
-  safety_denied: "The safety constitution denied this change.",
-  not_inferable_from_data: "The correct value is not derivable from the data in the table.",
-  verifier_rejected: "The independent verifier rejected this proposal.",
-  floor_cannot_verify: "The deterministic verifier could not prove this change safe.",
-  inferred_fd_not_declared:
-    "The supporting dependency was inferred, not declared, so it is not auto-applied.",
-  ambiguous_fd:
-    "The functional dependency was ambiguous, so no single correct value could be derived.",
-  out_of_inferred_domain:
-    "The proposed value falls outside the values inferred from the column.",
-  unverified_transposition: "A transposition was proposed but could not be proven.",
-  unverified_entity_consensus:
-    "Sibling rows for this entity agree on a different value, but agreement is " +
-    "evidence, not proof, so it is suggested rather than applied.",
-  stale_precondition: "The row changed after the proposal, so it was not applied.",
-  invalid_target: "The proposed value failed the target's constraints.",
-};
+// The phrasing is GENERATED from dataforge/domain/vocabulary.py, so the browser and the
+// terminal cannot disagree. This block previously carried 12 of the engine's 13 reasons
+// by hand, and the missing one rendered to a user as a raw machine token.
+const REVIEW_REASON_COPY: Record<string, string> = REVIEW_REASON_HUMAN;
 
 export function humanizeReviewReason(reason: string | null | undefined): string {
   if (!reason) {

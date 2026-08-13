@@ -21,14 +21,14 @@ from typing import cast
 
 from pydantic import BaseModel
 
+from dataforge.domain.vocabulary import is_trusted_provenance, verification_strength_for
+
 __all__ = [
     "CertificateCheck",
     "CertificateVerification",
     "reverify_certificate",
     "verify_certificate",
 ]
-
-_LLM_PROVENANCE = frozenset({"llm_live", "llm_cache", "external"})
 
 
 class CertificateCheck(BaseModel):
@@ -56,6 +56,24 @@ def _sha256(payload: bytes) -> str:
 
 def _check(name: str, ok: bool, detail: str) -> CertificateCheck:  # noqa: FBT001
     return CertificateCheck(name=name, ok=ok, detail=detail)
+
+
+def _authoritative_columns(receipt: Mapping[str, object]) -> frozenset[str]:
+    """Columns the receipt says an authoritative schema constrained.
+
+    Authority is per COLUMN, never per table. A table-level boolean was a verified
+    defect: accepting one inferred ``column_type`` on ``id`` granted blanket authority
+    and let a garbage ``external`` write to the unrelated column ``city`` be applied
+    and stamped ``proven``. So an untrusted value is credited as proven only on a
+    column the schema actually spoke about.
+
+    Absent (older receipts) reads as no authority, which under-claims rather than
+    over-claims.
+    """
+    columns = receipt.get("authoritative_columns")
+    if isinstance(columns, Sequence) and not isinstance(columns, str | bytes):
+        return frozenset(str(column) for column in columns)
+    return frozenset()
 
 
 def verify_certificate(
@@ -133,9 +151,23 @@ def verify_certificate(
 
     # Proof honesty: is the auto-applied set PROVEN (deterministic OR verified
     # against an authoritative schema), or did a policy permit a plausibility-only
-    # (not proven) write? Prefer the per-fix ``verification_strength`` when present
-    # (authoritative: a schema-verified external/LLM value is genuinely proven),
-    # falling back to raw provenance for legacy/hand-built receipts without it.
+    # (not proven) write?
+    #
+    # Both branches below derive strength from PROVENANCE rather than trusting a
+    # recorded label, and both read the TRUSTED allowlist rather than an untrusted
+    # denylist. Two failure modes made that necessary, and both had shipped:
+    #
+    #   * This module carried its own three-member untrusted set while the engine's
+    #     had four, so an ``entity_consensus`` write verified as "proven" here. The
+    #     certificate is what a third party reads to decide whether to trust a write,
+    #     so a stale copy in this file is the overtrust lie in its purest form.
+    #   * ``verification_strength`` is stamped late and is frequently absent, so a
+    #     check that only rejects the literal string ``plausibility_only`` treated
+    #     every unstamped fix as proven.
+    #
+    # A recorded ``proven`` is therefore believed only when provenance independently
+    # supports it; otherwise the recorded label is treated as the claim under test,
+    # not as the answer.
     applied_fixes_raw = receipt.get("applied_fixes")
     applied_fixes = (
         [f for f in applied_fixes_raw if isinstance(f, Mapping)]
@@ -144,9 +176,26 @@ def verify_certificate(
         else []
     )
     if applied_fixes:
-        unproven_applied = applied and any(
-            fix.get("verification_strength") == "plausibility_only" for fix in applied_fixes
-        )
+        authoritative = _authoritative_columns(receipt)
+        unproven: list[str] = []
+        for fix in applied_fixes:
+            provenance = fix.get("provenance")
+            provenance_text = str(provenance) if provenance is not None else "<absent>"
+            column = str(fix.get("column", "<absent>"))
+            recorded = fix.get("verification_strength")
+            if recorded == "plausibility_only":
+                unproven.append(f"{column}:{provenance_text} (recorded plausibility_only)")
+                continue
+            # Derive strength independently, crediting an authoritative schema only on
+            # the columns the receipt says it covers. A recorded label is the claim
+            # under test, never the answer.
+            derived = verification_strength_for(
+                provenance_text if provenance is not None else None,
+                authoritative_schema_present=column in authoritative,
+            )
+            if derived != "proven":
+                unproven.append(f"{column}:{provenance_text} (strength={recorded!r})")
+        unproven_applied = applied and bool(unproven)
         checks.append(
             _check(
                 "auto_apply_is_proven_deterministic",
@@ -154,15 +203,16 @@ def verify_certificate(
                 (
                     "auto-applied set is proven (deterministic or authoritative-schema-verified)"
                     if not unproven_applied
-                    else "auto-applied set includes a policy-permitted plausibility-only (unproven) write"
+                    else f"auto-applied set includes unproven writes: {unproven}"
                 ),
             )
         )
     else:
-        provenance = receipt.get("candidate_provenance")
-        if isinstance(provenance, Sequence) and not isinstance(provenance, str | bytes):
-            provenances = [str(p) for p in provenance]
-            untrusted_applied = applied and any(p in _LLM_PROVENANCE for p in provenances)
+        provenance_raw = receipt.get("candidate_provenance")
+        if isinstance(provenance_raw, Sequence) and not isinstance(provenance_raw, str | bytes):
+            provenances = [str(p) for p in provenance_raw]
+            untrusted = [p for p in provenances if not is_trusted_provenance(p)]
+            untrusted_applied = applied and bool(untrusted)
             checks.append(
                 _check(
                     "auto_apply_is_proven_deterministic",
@@ -170,7 +220,7 @@ def verify_certificate(
                     (
                         "auto-applied set is deterministic (proven)"
                         if not untrusted_applied
-                        else f"auto-applied set includes policy-permitted LLM/external writes: {provenances}"
+                        else f"auto-applied set includes non-deterministic writes: {untrusted}"
                     ),
                 )
             )
@@ -269,7 +319,9 @@ def reverify_certificate(
             old_value = str(fix.get("old_value", ""))
             provenance = str(fix.get("provenance", "deterministic"))
             strength = fix.get("verification_strength")
-            is_llm = provenance in _LLM_PROVENANCE
+            # Untrusted by default: an unrecognised provenance gets the advisory guard
+            # rather than skipping it, which is the safe direction for a check.
+            is_llm = not is_trusted_provenance(provenance)
 
             # Re-run the real verifier on the repaired cell value, selecting the
             # same guard the engine used: the advisory inferred guard applies only

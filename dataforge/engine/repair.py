@@ -31,6 +31,15 @@ from dataforge.calibration import (
 from dataforge.calibration_map import CalibrationMap
 from dataforge.detectors import run_all_detectors
 from dataforge.detectors.base import Issue, Schema
+from dataforge.domain.vocabulary import (
+    CALIBRATED_PROVENANCE,
+    UNTRUSTED_PROVENANCE,
+    ReviewReason,
+    VerificationStrength,
+)
+from dataforge.domain.vocabulary import (
+    verification_strength_for as _domain_verification_strength_for,
+)
 from dataforge.observability import repair_stage_span
 from dataforge.repair_contract import CONTRACT_VERSION
 from dataforge.repairers import build_repairers
@@ -170,33 +179,22 @@ RootCauseCategory = Literal[
     "unknown",
 ]
 
-# Machine-parseable, honest reason a proposed fix was NOT auto-applied. This is
-# the "honestly flags the rest" half of the trust promise: every held fix says
-# WHY, so a human (or downstream automation) can triage without guessing.
-ReviewReason = Literal[
-    "failed_conformal_threshold",
-    "safety_escalation",
-    "not_inferable_from_data",
-    "floor_cannot_verify",
-    "ambiguous_fd",
-    "out_of_inferred_domain",
-    "unverified_transposition",
-    "unverified_entity_consensus",
-    "inferred_fd_not_declared",
-    "stale_precondition",
-    "invalid_target",
-    "safety_denied",
-    "verifier_rejected",
-]
-
-# How strongly a fix was verified, which decides whether it may auto-apply.
-# "proven"  -> deterministic (correct by construction) OR verified against an
-#              authoritative declared/reviewed schema (real SMT constraints).
-# "plausibility_only" -> no authoritative schema AND an LLM-origin value, so it
-#              was only checked by the advisory inferred guard (where the known
-#              verifier-floor gaps live). Never auto-applied unless explicitly
-#              opted in, and then recorded truthfully as unproven.
-VerificationStrength = Literal["proven", "plausibility_only"]
+# ``ReviewReason`` (the machine-parseable, honest reason a proposed fix was NOT
+# auto-applied) and ``VerificationStrength`` (how strongly a fix was verified, which
+# decides whether it may auto-apply) are DEFINED in dataforge/domain/vocabulary.py and
+# imported above. They are re-exported here because every caller in the codebase, the
+# HTTP contract, and the tests refer to them by these names.
+#
+# They used to be declared here and re-listed by hand in the terminal humanizer, the
+# HTTP models, and the browser. Each hand copy drifted: the humanizer once carried 12
+# of 13 reasons, so a held fix rendered as a raw machine token to a user.
+#
+#   proven            -> deterministic (correct by construction) OR verified against an
+#                        authoritative declared/reviewed schema (real SMT constraints).
+#   plausibility_only -> no authoritative schema for that column AND an untrusted
+#                        value, so it was only checked by the advisory inferred guard,
+#                        where the known verifier-floor gaps live. Never auto-applied
+#                        unless explicitly opted in, and then recorded as unproven.
 
 
 class RootCause(BaseModel):
@@ -306,6 +304,16 @@ class RepairReceipt(BaseModel):
     post_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     txn_id: str | None = None
     allowed_columns: list[str] = Field(default_factory=list)
+    authoritative_columns: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Columns an authoritative schema actually constrains, so a reader can tell "
+            "WHICH column a 'proven' label was earned on. Empty means no authority was "
+            "present, in which case only a deterministic fix can honestly be proven. "
+            "Recorded because a certificate that claims 'proven' without naming the "
+            "authority cannot be checked by anyone but the tool that wrote it."
+        ),
+    )
     valid_rows: list[int] = Field(default_factory=list)
     safety_verdict: str = Field(default="allow", min_length=1)
     verifier_verdict: str = Field(default="not_run", min_length=1)
@@ -832,7 +840,13 @@ def propose_repairs(
     return accepted_fixes, attempt_groups
 
 
-_LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
+_LLM_PROVENANCE_HISTORICAL_NOTE = (
+    # The calibration-specific paths (_calibrated_confidence, drift guard, LLM
+    # escalation, the partition's "needs a calibrated threshold" branch) use the
+    # narrower calibrated set, because an external fix proven against an authoritative
+    # schema auto-applies directly and carries no LLM calibration map.
+    "see dataforge.domain.vocabulary.CALIBRATED_PROVENANCE"
+)
 
 # Untrusted provenance = an LLM-origin value, an externally-proposed value
 # (verify_and_apply), OR a cross-row entity-consensus value. Untrusted fixes are
@@ -846,7 +860,22 @@ _LLM_PROVENANCE = frozenset({"llm_live", "llm_cache"})
 # "needs a calibrated threshold" branch) keep _LLM_PROVENANCE, because an external
 # fix proven against an authoritative schema auto-applies directly and does not
 # carry an LLM calibration map.
-_UNTRUSTED_PROVENANCE = frozenset({"llm_live", "llm_cache", "external", "entity_consensus"})
+# Untrusted provenance = an LLM-origin value, an externally-proposed value
+# (verify_and_apply), OR a cross-row entity-consensus value. Untrusted fixes are
+# ``plausibility_only`` unless verified against an authoritative schema. Entity
+# consensus is evidence-strong (the value already exists in sibling rows) but NOT
+# proof -- a wrong majority yields a wrong consensus -- so by the proven-only
+# invariant it is held by default and auto-applies only under the explicit
+# ``allow_unproven_autoapply`` opt-in (or when a declared schema proves it).
+#
+# Both sets are now DEFINED in dataforge/domain/vocabulary.py and re-exported here
+# under their historical private names. They were previously written out by hand in
+# this module, in the certificate verifier, and in the browser -- and the copies
+# disagreed three times, once in the certificate a third party reads to decide whether
+# to trust a write. `_UNTRUSTED_PROVENANCE` remains a strict superset of
+# `_LLM_PROVENANCE`; the vocabulary module asserts that relationship at import.
+_LLM_PROVENANCE = CALIBRATED_PROVENANCE
+_UNTRUSTED_PROVENANCE = UNTRUSTED_PROVENANCE
 
 # How many offending cells an ``UnprovenWriteError`` names before truncating. A
 # batch can be thousands of cells wide; the message exists to identify the class of
@@ -1164,10 +1193,16 @@ def verification_strength_for(
     ``authoritative_schema_present`` must be decided FOR THE FIX'S OWN COLUMN -- use
     :func:`strength_for_fix`, which does that. Passing a table-level boolean here grants
     authority over columns the schema never mentions; see :func:`authoritative_columns`.
+
+    Delegates to the domain vocabulary so the engine, the certificate verifier, and the
+    generated browser code cannot disagree about what "proven" means. The domain
+    predicate also fails CLOSED: an unrecognised provenance is untrusted, where the
+    previous ``not in _UNTRUSTED_PROVENANCE`` test read it as trustworthy.
     """
-    if provenance not in _UNTRUSTED_PROVENANCE or authoritative_schema_present:
-        return "proven"
-    return "plausibility_only"
+    return _domain_verification_strength_for(
+        provenance,
+        authoritative_schema_present=authoritative_schema_present,
+    )
 
 
 def strength_for_fix(fix: ProposedFix, covered_columns: frozenset[str]) -> VerificationStrength:
@@ -1719,6 +1754,7 @@ def run_repair_pipeline(
             post_sha256=post_sha256,
             txn_id=txn_id,
             allowed_columns=column_names(df),
+            authoritative_columns=sorted(covered_columns),
             valid_rows=list(range(row_count(df))),
             safety_verdict=batch_safety.verdict.value,
             verifier_verdict=_receipt_verifier_verdict(accepted_fixes, failures),
@@ -2000,6 +2036,7 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
         post_sha256=post_sha256,
         txn_id=txn_id,
         allowed_columns=column_names(df),
+        authoritative_columns=sorted(covered_columns),
         valid_rows=list(range(total_rows)),
         safety_verdict=batch_safety.verdict.value,
         verifier_verdict="accept" if auto else "not_run",
