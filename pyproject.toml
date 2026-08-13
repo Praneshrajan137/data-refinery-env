@@ -21,6 +21,13 @@ dependencies = [
     "textual>=8.2,<9",
     "z3-solver>=4.13",
     "pyyaml>=6.0",
+    # numpy is pandas' engine (transitive) and is imported directly by
+    # dataforge/causal/pc.py. Cap it below 2.5 because numpy 2.5.0 raised its floor to
+    # Python >=3.12, while this project supports >=3.11: without the cap the resolver is
+    # free to install a numpy that contradicts our own requires-python. It broke CI on
+    # 2026-08-13 as a type error rather than an install error, because numpy 2.5 stubs use
+    # PEP 695 `type` statements that mypy cannot parse under python_version = 3.11.
+    "numpy>=1.26,<2.5",
     "pandas>=2.2",
     "httpx>=0.27",
     "python-dotenv>=1.0",
@@ -41,7 +48,7 @@ bench = [
 ]
 causal = [
     "pandas>=2.2",
-    "numpy>=1.26",
+    "numpy>=1.26,<2.5",
     "networkx>=3.3",
     "causal-learn>=0.1.4",
     "hyppo>=0.5.2",
