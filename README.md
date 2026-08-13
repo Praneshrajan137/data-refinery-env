@@ -1,16 +1,24 @@
 # DataForge
 
-DataForge is a CLI-first data-quality repair toolkit for tabular data. It
-detects common CSV issues, proposes deterministic repairs, checks proposed
-changes through safety and verification gates, and records applied changes in a
-reversible transaction log.
+DataForge is a CLI-first verification layer for changes to tabular data, with a
+deterministic repair engine behind it. It detects common CSV issues, proposes
+deterministic repairs, proves or refuses every proposed change through safety and
+verification gates, and records applied changes in a reversible transaction log.
 
 What makes it different: **every auto-applied fix is formally verified (SMT),
-constitution-checked, and byte-for-byte reversible, and coverage is reported
-honestly per error class.** DataForge auto-applies only what it can prove
-correct; everything else it detects and flags for review, never silently
+constitution-checked, byte-for-byte reversible, and emits a portable attestation a
+third party can verify without running DataForge.** It auto-applies only what it can
+prove correct; everything else it detects and flags for review, never silently
 changing it. Detection and correction are measured separately (see Coverage),
 so the tool's real limits are visible, not hidden behind an aggregate score.
+
+The attestation is the part worth reading first. `dataforge attest verify` checks a
+change against the constraints it was proven under, using nothing but the attestation
+and the data -- no solver, no schema passed on the side, and no need to trust the tool
+that produced it. The format is specified in
+[specs/SPEC_repair_attestation.md](specs/SPEC_repair_attestation.md) and has two
+independent implementations (Python and TypeScript) that agree on a committed suite of
+conformance vectors, including every rejection case.
 
 The final public product name is DataForge. The PyPI/TestPyPI distribution
 family is `dataforge_07*` because the unqualified `dataforge` project name is
@@ -164,14 +172,16 @@ reproduce with `dataforge bench --quick`):
 
 | Dataset  | Correction F1 | Detection coverage (recall by class)                                   |
 | -------- | ------------- | ---------------------------------------------------------------------- |
-| hospital | 0.79          | value_format 1.00, text_normalization 0.87, other 1.00                 |
-| flights  | 0.00          | missing_value 1.00 (2370 cells)                                        |
+| hospital | 0.7926        | value_format 1.00, text_normalization 0.87, other 1.00                 |
+| flights  | 0.0000        | missing_value 1.00 (2370 cells)                                        |
 
 How to read this honestly:
 
-- DataForge **detects** a large share of errors across all three datasets,
+- DataForge **detects** a large share of errors on both datasets in the table above,
   including classes (missing values, format/normalization variants, outliers,
-  duplicate rows) it deliberately does not auto-correct.
+  duplicate rows) it deliberately does not auto-correct. `rayyan` and `tax` are measured
+  too, but neither is an auto-apply target, so their results are reported in
+  [docs/trust/accuracy-frontier.md](docs/trust/accuracy-frontier.md) rather than here.
 - It only **auto-corrects** where a value is derivable and provable
   (decimal-shift inverse, FD majority/lookup), which is why correction F1 is
   high on hospital (FD/typo-dominated) and low on flights (dominated by

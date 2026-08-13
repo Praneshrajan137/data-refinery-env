@@ -15,13 +15,57 @@ which are the authoritative sources for anything with a number in it.
 
 ## 1. The thesis (one sentence)
 
-**DataForge is the data-repair system that fixes only what it can prove correct,
-honestly flags everything it cannot, never corrupts data, and proves all three
-with reproducible numbers and a reversible, self-verifying certificate.**
+**DataForge is the reference implementation of a verifiable data-mutation protocol: it
+changes only what it can prove correct, honestly flags everything it cannot, never
+silently corrupts data, and emits a portable attestation that a third party can verify
+without trusting DataForge.**
 
 Every subsystem — detectors, repairers, the optional LLM corrector, the verified
 agent loop, calibration, the playground, the model family — exists only in
 service of that sentence.
+
+### 1.1 Why the sentence changed (2026-08-13)
+
+It previously read "the data-repair system that fixes only what it can prove correct
+... and proves all three with reproducible numbers and a reversible, self-verifying
+certificate." Two things were wrong with that, and both were wrong in the same
+direction: they claimed more than the artifact delivered.
+
+**"Self-verifying" was not true of anything a third party could hold.** The certificate
+was printed to stdout, reprojected lossily over HTTP, wrapped a third way by the
+browser, carried no tool version or timestamp, embedded none of the constraints it was
+verified against, referred to the transaction journal by a bare string, was unsigned,
+and had no CLI command that could check it. `docs/STRATEGY.md` names the consequence:
+*"A certificate with a named consumer is a product; one without is a log line."*
+
+**Leading with "repair" put the weakest axis first.** Measured deterministic correction
+is one dataset at F1 0.7926, one at 0.0000, one sampled at 0.0000 with 696 false
+positives, and no LLM error class has earned auto-apply at any tested error budget. The
+verification machinery is what holds: on an adversarial corpus, 0 of 14
+constraint-violating proposals were written under a properly constrained schema. Leading
+with repair invited a comparison the product does not win and does not need to.
+
+The new sentence is narrower and checkable. "Verifiable" now means something specific:
+a published format, two independent implementations, and committed conformance vectors
+covering every rejection case.
+
+### 1.2 What the protocol does NOT claim
+
+Stated here because a protocol that implies guarantees it lacks is worse than no
+protocol.
+
+- **Not that a written value is true.** It says a change was proven against *stated
+  constraints* and is reversible. A value that satisfies every declared constraint and
+  is nonetheless false will be written. Measured: 3 of 3 such proposals in the
+  adversarial corpus. The guarantee covering them is reversibility, not correctness.
+- **Not that a schema makes a proof strong.** A schema declaring every column `str`
+  covers every column, so the gate labels its writes `proven` — and admits 10 of 14
+  constraint-violating proposals that a typed, bounded, patterned schema refuses. The
+  strength of a proof is the strength of its premise, and that gap is now measured in
+  `eval/results/trust_ledger_adversarial.json` rather than described in prose.
+- **Not authenticity without a key.** Signing is optional and proves a keyholder
+  produced the payload. Key distribution and trust roots are deployment policy and out
+  of scope; an unsigned attestation is reported `unsigned`, never `verified`.
 
 ---
 

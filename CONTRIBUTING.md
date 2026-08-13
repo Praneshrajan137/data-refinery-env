@@ -1,6 +1,6 @@
-# Contributing To DataForge15
+# Contributing To DataForge
 
-Thank you for considering a contribution to DataForge15. This document explains
+Thank you for considering a contribution to DataForge. This document explains
 the process and standards for the current alpha repository.
 
 ## Before You Start

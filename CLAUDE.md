@@ -17,7 +17,10 @@ the date.
   canonical suite of equal provenance that differ by ERROR PROFILE, not quality.
   Choose datasets by the CAPABILITY a given change is meant to prove:
   `hospital` is the flagship and hard regression anchor (its heuristic F1 must
-  never drop below 0.7926 — it is the one measured SOTA win); `tax` for provable
+  never drop below 0.7926 — it is the one measured deterministic correction result,
+  and per PRODUCT.md it must be described as *competitive with / in the range of* the
+  Raha+Baran baseline under our scoring, never as a SOTA win: the two numbers are not
+  measured under an identical protocol); `tax` for provable
   FD/rule-violation repair at scale; `rayyan` for datetime/format canonicalization;
   `flights` for the not-inferable-in-table frontier. Never prioritize `tax` or
   `rayyan` for accuracy work on an UNMEASURED baseline — measure first (`tax` needs

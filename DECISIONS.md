@@ -12,6 +12,161 @@ Format for every entry:
 
 ---
 
+## 2026-08-13 - The proof was not consumable, so the thesis was not checkable
+
+**Context**: asked to elevate the project's purpose, I looked for the gap between what
+`PRODUCT.md` promises and what a third party can actually verify. The promise is that trust
+is mechanical. That only holds if the proof is consumable, and it was not: the certificate
+went to stdout, was reprojected lossily over HTTP, wrapped a third way by the browser,
+carried no tool version or timestamp, embedded none of the constraints it was verified
+against, referred to the journal by a bare string, was unsigned, and had **no CLI command
+that could check it**. `docs/STRATEGY.md` already named the consequence: *"A certificate
+with a named consumer is a product; one without is a log line."*
+
+The supporting evidence was worse than absent. The flagship guardrail run recorded
+`agent_fix_count: 0` -- zero proposals reached the gate -- so "zero corruptions" was a
+statement about an empty set.
+
+**Decision**: build the missing half. Specified `dataforge.repair.attestation/v1` as an
+in-toto Statement wrapped in a DSSE envelope, with the constraints embedded rather than
+referenced; implemented it twice, independently; and gave the guardrail claim a real
+denominator.
+
+**Reasoning**: a format with one implementation is a program. Two implementations that
+agree on committed vectors -- including which check rejects each one -- is a specification.
+DSSE was chosen over canonical JSON because it signs payload BYTES: the journal already
+demonstrates the alternative failing, hashing a compact-separator preimage while writing
+the line with default separators, so a reimplementation must rediscover that by experiment.
+
+### What was measured, and what it revealed
+
+**The corpus disagreed with my own test, and the test was wrong.** The first version
+asserted zero corruptions across all 17 adversarial proposals and failed on three. Those
+three satisfy every declared constraint and are merely FALSE: `chicago` is a legal city,
+`77.0` is inside the declared bound, and `chicago` replacing rare-but-correct `peoria` is
+itself a declared category. No verifier can reject them without ground truth it does not
+have. The assertion encoded a guarantee the product explicitly refuses to make. The corpus
+now splits on `discriminable`, and the two halves carry different promises: constraint
+violations must be blocked; constraint-satisfying falsehoods are written, labelled, and
+reversible.
+
+**The premise matters more than the gate.** Both schemas below cover every column, so the
+gate labels every write `proven` under both:
+
+| Premise | Constraint-violating attacks written |
+| --- | --- |
+| typed, bounded, patterned, enumerated | **0 of 14** |
+| every column declared `str` | **10 of 14** |
+
+The ten include a Cyrillic homoglyph, a zero-width space, CSV newline and quote injection,
+a type violation, and an out-of-bounds value. `docs/trust/authority-is-mutable.md` predicted
+this in prose -- *"Covering a column is not the same as constraining the value"* -- and it is
+now a committed measurement in `eval/results/trust_ledger_adversarial.json`.
+
+**Mutation testing found that the corpus tested the wrong layer.** All four mutants survived
+the first run: because the corpus always supplied a schema, every attack was stopped by
+constraint checking and `enforce_proven_only` was never reached. It was measuring the SMT
+verifier while claiming to measure the trust guarantee. Two runs were added -- one with no
+schema, one with authority over a different column -- and the property test that calls the
+write primitive directly was pulled into the same harness. 4/4 now die.
+
+### The vocabulary, and a third drift
+
+`dataforge/domain/vocabulary.py` is now the single source for all six closed vocabularies,
+generated into TypeScript and verified byte-for-byte. Extracting it found the third instance
+of a drift this repo had already fixed twice -- this time in `dataforge/certificate.py:31`,
+which carried a three-member untrusted-provenance set against the engine's four. That is the
+artifact a third party reads to decide whether to trust a write, and it said `proven` about
+an `entity_consensus` value. Recorded separately above.
+
+Closing the vocabulary at the API and browser boundaries also found `provenance: "heuristic"`
+in seven fixture sites -- a value the engine cannot emit, which under the old denylist logic
+read as `proven`. Those tests were exercising a fail-open path that cannot occur in
+production while the real risk went untested.
+
+### Purpose
+
+`PRODUCT.md` now leads with the protocol rather than with repair, and section 1.2 enumerates
+what the attestation does NOT prove. Leading with repair put the weakest measured axis first
+and invited a comparison the product does not win and does not need to.
+
+Also corrected, each a defect in a project whose product is truth: `CLAUDE.md` called 0.7926
+"the one measured SOTA win" while `PRODUCT.md` forbids exactly that phrasing; `README.md`
+said "all three datasets" above a two-row table and published `0.79` against a `0.7926`
+floor; `CONTRIBUTING.md` still said "DataForge15"; and a trust doc cited a file that does not
+exist.
+
+**Alternatives considered**: patch the stale set and move on (guarantees a fourth drift);
+import the engine's set into the certificate (destroys the stdlib purity that lets the
+normative verifier be reimplemented); build the attestation without a second implementation
+(leaves a program calling itself a spec).
+
+**Reviewed with**: nobody yet.
+
+**Reversal criteria**: if the two implementations ever need to share code to agree, the
+format is under-specified and the spec -- not the code -- is what should change. If embedding
+constraints makes the attestation too large for a real table, the format needs a
+content-addressed constraint bundle rather than an inline object; measure before assuming.
+
+---
+
+## 2026-08-13 - The certificate itself carried a stale copy of the trust vocabulary
+
+**Context**: hunting for the highest-value elevation of the product's purpose, I checked whether the
+trust vocabulary had a single source. It does not, and the third drift had already shipped -- this
+time inside `dataforge/certificate.py`, the artifact a third party reads to decide whether to trust a
+write. `certificate.py:31` defined `_LLM_PROVENANCE` with three members against the engine's four in
+`repair.py:_UNTRUSTED_PROVENANCE`. The missing one was `entity_consensus`.
+
+Confirmed by three tests written to fail first, all of which did:
+
+| Case | Before |
+|---|---|
+| `candidate_provenance: ["entity_consensus"]`, applied | verified `ok=True`, reported "proven" |
+| `candidate_provenance: ["some_future_corrector"]` | verified `ok=True` -- membership of a *denylist* fails open |
+| applied fix, untrusted provenance, `verification_strength: None` | verified `ok=True` -- the label is stamped late and often absent |
+
+This is the same class as the two drifts already fixed this month (the browser's `LLM_PROVENANCE`
+missing `entity_consensus`; `REVIEW_REASON_COPY` carrying 12 of 13 reasons), and the worst instance of
+it: the other two mislabelled a UI, this one mislabelled the portable proof.
+
+**Alternatives**:
+1. Patch the three-member set to four. Cheapest, and guarantees a fourth drift later.
+2. Import `_UNTRUSTED_PROVENANCE` from the engine. Removes the copy but destroys the property that
+   makes this module the normative verifier: it is pure stdlib, so a second implementation can be
+   written from it. Importing the engine drags in pydantic, z3, pandas.
+3. Extract the vocabulary into a stdlib-only leaf module both sides import.
+
+**Decision**: (3). `dataforge/domain/vocabulary.py` now defines all six closed vocabularies --
+verification strength, provenance, review reasons, severity, verdicts, and the rung ladder -- and
+imports nothing but `typing`. Both the engine and the certificate consume it.
+
+Three semantic changes came with it, each a tightening:
+
+- **Predicates read the TRUSTED allowlist, never an untrusted denylist.** `is_trusted_provenance`
+  returns True only for `deterministic`. An unrecognised provenance, or `None`, is untrusted. Failing
+  open here means any provenance nobody thought of is silently believed.
+- **Strength is derived, never trusted.** The certificate now recomputes strength from provenance and
+  treats the recorded `verification_strength` as the claim under test. It was previously the answer.
+- **Authority is credited per column.** `RepairReceipt` gained `authoritative_columns`, populated
+  from the `authoritative_columns(schema)` the engine already computes for `enforce_proven_only`.
+  Without it the certificate could not distinguish a genuinely schema-proven `external` fix from an
+  unproven one -- the first attempt used `accepted_constraint_ids`, which is empty on the `--schema`
+  path and broke `test_schema_proven_external_fix_applies_and_certifies`. That failure was the useful
+  signal: the certificate had no record of the authority under which anything was proven, so the
+  2026-08-09 blanket-authority defect was undetectable by a certificate reader. It now is, and a test
+  pins it: an `external` write to `city` with authority only over `id` is rejected.
+
+**Reasoning**: the product's claim is truthfulness, so a vocabulary drift is not a style problem, it
+is the failure mode. A trust artifact must also fail closed; a denylist cannot, by construction.
+
+**Reviewed with**: nobody yet.
+
+**Reversal criteria**: if the leaf module ever needs a non-stdlib import, the purity argument for
+sharing it with the certificate collapses and the copy would have to return -- with a parity gate.
+
+---
+
 ## 2026-08-11 - The perceptual language had no grammar for quantity, so the product drew nothing
 
 **Context**: asked for 3D visualization, I found the more basic defect first. The frontend renders

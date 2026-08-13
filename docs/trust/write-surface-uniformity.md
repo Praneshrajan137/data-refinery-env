@@ -176,7 +176,8 @@ Being registered proves somebody classified it, not that it is safe.
 
 ## The generalisable failure mode: guard delegation without scope
 
-This is the same failure `claim-scope-discipline.md` records: a claim correct about its sample and
+This is the same failure the claim-scope corrections in [DECISIONS.md](../../DECISIONS.md)
+record (2026-08-05): a claim correct about its sample and
 false about the world. The three prior instances were prose numbers, remediated by binding prose to
 artifacts in CI. This one was a *safety* claim, and no artifact bound it — the test that would have
 caught it asserted a scope it did not have.
