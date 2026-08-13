@@ -1,0 +1,1215 @@
+{
+  "format": "dataforge.repair.attestation/v1",
+  "note": "Conformance vectors. Every implementation must reach the recorded verdict for every vector. Signed vectors use the fixed test key below, which is a test fixture and not a trust root.",
+  "test_public_key_hex": "03a107bff3ce10be1d70dd18e74bc09967e4d6309ba50d5f1ddc8664125531b8",
+  "vectors": {
+    "reject-applied-without-revert-command": {
+      "description": "reject applied without revert command",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": null,
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "reversibility_complete"
+      ],
+      "expect_ok": false
+    },
+    "reject-entity-consensus-claimed-proven": {
+      "description": "reject entity consensus claimed proven",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "city",
+              "detector_id": "entity_consensus",
+              "provenance": "entity_consensus",
+              "row": 0,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "strength_is_earned"
+      ],
+      "expect_ok": false
+    },
+    "reject-external-off-authority": {
+      "description": "reject external off authority",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [
+              "amount-int"
+            ],
+            "authoritative_columns": [
+              "id"
+            ],
+            "constraints": {
+              "columns": {
+                "amount": "int"
+              }
+            },
+            "constraints_digest": {
+              "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            }
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "external",
+              "provenance": "external",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "strength_is_earned"
+      ],
+      "expect_ok": false
+    },
+    "reject-honest-downgrade-must-not-be-upgraded": {
+      "description": "reject honest downgrade must not be upgraded",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [
+              "amount-int"
+            ],
+            "authoritative_columns": [
+              "amount"
+            ],
+            "constraints": {
+              "columns": {
+                "amount": "int"
+              }
+            },
+            "constraints_digest": {
+              "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            }
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "external",
+              "provenance": "llm_live",
+              "row": 7,
+              "verification_strength": "plausibility_only"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "strength_is_earned"
+      ],
+      "expect_ok": false
+    },
+    "reject-missing-tool-version": {
+      "description": "reject missing tool version",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "schema_complete"
+      ],
+      "expect_ok": false
+    },
+    "reject-missing-verification-strength": {
+      "description": "reject missing verification strength",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": null
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "vocabulary_closed"
+      ],
+      "expect_ok": false
+    },
+    "reject-schema-proven-without-embedded-constraints": {
+      "description": "reject schema proven without embedded constraints",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [
+              "amount-int"
+            ],
+            "authoritative_columns": [
+              "amount"
+            ],
+            "constraints": null,
+            "constraints_digest": {
+              "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            }
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "external",
+              "provenance": "external",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "constraints_present"
+      ],
+      "expect_ok": false
+    },
+    "reject-subject-digest-mismatch": {
+      "description": "reject subject digest mismatch",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "subject_matches_post_state"
+      ],
+      "expect_ok": false
+    },
+    "reject-tampered-signed-payload": {
+      "description": "reject tampered signed payload",
+      "document": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXBwbGllZCI6ZmFsc2UsImF0dGVzdGF0aW9uX3ZlcnNpb24iOiIxIiwiYXV0aG9yaXR5Ijp7ImFjY2VwdGVkX2NvbnN0cmFpbnRfaWRzIjpbXSwiYXV0aG9yaXRhdGl2ZV9jb2x1bW5zIjpbXSwiY29uc3RyYWludHMiOm51bGwsImNvbnN0cmFpbnRzX2RpZ2VzdCI6bnVsbH0sImZpeGVzIjpbeyJjb2x1bW4iOiJhbW91bnQiLCJkZXRlY3Rvcl9pZCI6ImRlY2ltYWxfc2hpZnQiLCJwcm92ZW5hbmNlIjoiZGV0ZXJtaW5pc3RpYyIsInJvdyI6NywidmVyaWZpY2F0aW9uX3N0cmVuZ3RoIjoicHJvdmVuIn1dLCJoZWxkIjpbXSwiam91cm5hbCI6eyJoZWFkX3NoYTI1NiI6ImNjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2MiLCJ0eG5faWQiOiJ0eG4tMjAyNi0wOC0xMy12ZWN0b3IifSwibGltaXRhdGlvbnMiOltdLCJtb2RlIjoiYXBwbHkiLCJtb2RlbCI6bnVsbCwicG9zdCI6eyJkaWdlc3QiOnsic2hhMjU2IjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiJ9fSwicHJvZHVjZWRfYXQiOiIyMDI2LTA4LTEzVDAwOjAwOjAwWiIsInJldmVyc2libGUiOnRydWUsInJldmVydF9jb21tYW5kIjoiZGF0YWZvcmdlIHJldmVydCB0eG4tMjAyNi0wOC0xMy12ZWN0b3IiLCJzb3VyY2UiOnsiZGlnZXN0Ijp7InNoYTI1NiI6ImFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWEifX0sInRvb2wiOnsiY29udHJhY3RfdmVyc2lvbiI6InJlcGFpcl9jb250cmFjdF92MiIsIm5hbWUiOiJkYXRhZm9yZ2UiLCJ2ZXJzaW9uIjoiMC4xLjAifSwidmVyZGljdHMiOnsiaW5kZXBlbmRlbnRfdmVyaWZpY2F0aW9uIjoibm90X3J1biIsInNhZmV0eSI6ImFsbG93IiwidmVyaWZpZXIiOiJhY2NlcHQifSwidmVyaWZpY2F0aW9uIjp7ImNoZWNrc19hdmFpbGFibGUiOltdfX0sInByZWRpY2F0ZVR5cGUiOiJodHRwczovL2RhdGFmb3JnZS5kZXYvUmVwYWlyQXR0ZXN0YXRpb24vdjEiLCJzdWJqZWN0IjpbeyJkaWdlc3QiOnsic2hhMjU2IjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiJ9LCJuYW1lIjoiZGF0YS5jc3YifV19",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "56475aa75463474c",
+            "sig": "Q3DP0JiHbY/QopqkkyOIoMG0rfuKO9iS2LPoInmhn9iEC2fYxDXXrgmyRHIsEsJ7lXA4viAxziZcyLu0r0Q5CA=="
+          }
+        ]
+      },
+      "expect_failures": [
+        "signature"
+      ],
+      "expect_ok": false
+    },
+    "reject-unknown-provenance": {
+      "description": "reject unknown provenance",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "some_future_corrector",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "strength_is_earned",
+        "vocabulary_closed"
+      ],
+      "expect_ok": false
+    },
+    "reject-unknown-review-reason": {
+      "description": "reject unknown review reason",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [
+            {
+              "column": "amount",
+              "review_reason": "because_i_said_so",
+              "row": 1
+            }
+          ],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "vocabulary_closed"
+      ],
+      "expect_ok": false
+    },
+    "reject-unrecognised-predicate-type": {
+      "description": "reject unrecognised predicate type",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://example.com/SomethingElse/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "envelope_recognised"
+      ],
+      "expect_ok": false
+    },
+    "reject-unrecognised-version": {
+      "description": "reject unrecognised version",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "2",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "version_recognised"
+      ],
+      "expect_ok": false
+    },
+    "reject-verifier-rejected": {
+      "description": "reject verifier rejected",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "reject"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [
+        "verdicts_accepting"
+      ],
+      "expect_ok": false
+    },
+    "valid-deterministic-applied": {
+      "description": "valid deterministic applied",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "decimal_shift",
+              "provenance": "deterministic",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [],
+      "expect_ok": true
+    },
+    "valid-dry-run": {
+      "description": "valid dry run",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": false,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [],
+            "authoritative_columns": [],
+            "constraints": null,
+            "constraints_digest": null
+          },
+          "fixes": [],
+          "held": [],
+          "journal": {
+            "head_sha256": null,
+            "txn_id": null
+          },
+          "limitations": [],
+          "mode": "dry_run",
+          "model": null,
+          "post": null,
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": null,
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "not_run"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [],
+      "expect_ok": true
+    },
+    "valid-external-on-covered-column": {
+      "description": "valid external on covered column",
+      "document": {
+        "_type": "https://in-toto.io/Statement/v1",
+        "predicate": {
+          "applied": true,
+          "attestation_version": "1",
+          "authority": {
+            "accepted_constraint_ids": [
+              "amount-int"
+            ],
+            "authoritative_columns": [
+              "amount"
+            ],
+            "constraints": {
+              "columns": {
+                "amount": "int"
+              }
+            },
+            "constraints_digest": {
+              "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            }
+          },
+          "fixes": [
+            {
+              "column": "amount",
+              "detector_id": "external",
+              "provenance": "external",
+              "row": 7,
+              "verification_strength": "proven"
+            }
+          ],
+          "held": [],
+          "journal": {
+            "head_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "txn_id": "txn-2026-08-13-vector"
+          },
+          "limitations": [],
+          "mode": "apply",
+          "model": null,
+          "post": {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "produced_at": "2026-08-13T00:00:00Z",
+          "reversible": true,
+          "revert_command": "dataforge revert txn-2026-08-13-vector",
+          "source": {
+            "digest": {
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "tool": {
+            "contract_version": "repair_contract_v2",
+            "name": "dataforge",
+            "version": "0.1.0"
+          },
+          "verdicts": {
+            "independent_verification": "not_run",
+            "safety": "allow",
+            "verifier": "accept"
+          },
+          "verification": {
+            "checks_available": []
+          }
+        },
+        "predicateType": "https://dataforge.dev/RepairAttestation/v1",
+        "subject": [
+          {
+            "digest": {
+              "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "name": "data.csv"
+          }
+        ]
+      },
+      "expect_failures": [],
+      "expect_ok": true
+    },
+    "valid-signed": {
+      "description": "valid signed",
+      "document": {
+        "payload": "eyJfdHlwZSI6Imh0dHBzOi8vaW4tdG90by5pby9TdGF0ZW1lbnQvdjEiLCJwcmVkaWNhdGUiOnsiYXBwbGllZCI6dHJ1ZSwiYXR0ZXN0YXRpb25fdmVyc2lvbiI6IjEiLCJhdXRob3JpdHkiOnsiYWNjZXB0ZWRfY29uc3RyYWludF9pZHMiOltdLCJhdXRob3JpdGF0aXZlX2NvbHVtbnMiOltdLCJjb25zdHJhaW50cyI6bnVsbCwiY29uc3RyYWludHNfZGlnZXN0IjpudWxsfSwiZml4ZXMiOlt7ImNvbHVtbiI6ImFtb3VudCIsImRldGVjdG9yX2lkIjoiZGVjaW1hbF9zaGlmdCIsInByb3ZlbmFuY2UiOiJkZXRlcm1pbmlzdGljIiwicm93Ijo3LCJ2ZXJpZmljYXRpb25fc3RyZW5ndGgiOiJwcm92ZW4ifV0sImhlbGQiOltdLCJqb3VybmFsIjp7ImhlYWRfc2hhMjU2IjoiY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjYyIsInR4bl9pZCI6InR4bi0yMDI2LTA4LTEzLXZlY3RvciJ9LCJsaW1pdGF0aW9ucyI6W10sIm1vZGUiOiJhcHBseSIsIm1vZGVsIjpudWxsLCJwb3N0Ijp7ImRpZ2VzdCI6eyJzaGEyNTYiOiJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIn19LCJwcm9kdWNlZF9hdCI6IjIwMjYtMDgtMTNUMDA6MDA6MDBaIiwicmV2ZXJzaWJsZSI6dHJ1ZSwicmV2ZXJ0X2NvbW1hbmQiOiJkYXRhZm9yZ2UgcmV2ZXJ0IHR4bi0yMDI2LTA4LTEzLXZlY3RvciIsInNvdXJjZSI6eyJkaWdlc3QiOnsic2hhMjU2IjoiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9fSwidG9vbCI6eyJjb250cmFjdF92ZXJzaW9uIjoicmVwYWlyX2NvbnRyYWN0X3YyIiwibmFtZSI6ImRhdGFmb3JnZSIsInZlcnNpb24iOiIwLjEuMCJ9LCJ2ZXJkaWN0cyI6eyJpbmRlcGVuZGVudF92ZXJpZmljYXRpb24iOiJub3RfcnVuIiwic2FmZXR5IjoiYWxsb3ciLCJ2ZXJpZmllciI6ImFjY2VwdCJ9LCJ2ZXJpZmljYXRpb24iOnsiY2hlY2tzX2F2YWlsYWJsZSI6W119fSwicHJlZGljYXRlVHlwZSI6Imh0dHBzOi8vZGF0YWZvcmdlLmRldi9SZXBhaXJBdHRlc3RhdGlvbi92MSIsInN1YmplY3QiOlt7ImRpZ2VzdCI6eyJzaGEyNTYiOiJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIn0sIm5hbWUiOiJkYXRhLmNzdiJ9XX0=",
+        "payloadType": "application/vnd.in-toto+json",
+        "signatures": [
+          {
+            "keyid": "56475aa75463474c",
+            "sig": "Q3DP0JiHbY/QopqkkyOIoMG0rfuKO9iS2LPoInmhn9iEC2fYxDXXrgmyRHIsEsJ7lXA4viAxziZcyLu0r0Q5CA=="
+          }
+        ]
+      },
+      "expect_failures": [],
+      "expect_ok": true
+    }
+  }
+}
