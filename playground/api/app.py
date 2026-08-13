@@ -169,6 +169,7 @@ MAX_UPLOAD_CELLS = _positive_int_env("DATAFORGE_PLAYGROUND_MAX_CELLS", 200_000)
 REQUEST_TIMEOUT_SECONDS = _positive_int_env("DATAFORGE_PLAYGROUND_TIMEOUT_SECONDS", 20)
 AGENT_REQUEST_TIMEOUT_SECONDS = _positive_int_env("DATAFORGE_PLAYGROUND_AGENT_TIMEOUT_SECONDS", 120)
 PLAYGROUND_AGENT_MAX_STEPS = _positive_int_env("DATAFORGE_PLAYGROUND_AGENT_MAX_STEPS", 8)
+FLAGGED_CELL_DETAIL_LIMIT = _positive_int_env("DATAFORGE_PLAYGROUND_FLAGGED_CELL_DETAIL_LIMIT", 500)
 ISSUE_ROW_DISPLAY_LIMIT = _positive_int_env("DATAFORGE_PLAYGROUND_ISSUE_ROW_DISPLAY_LIMIT", 50)
 MAX_EXTERNAL_FIXES = _positive_int_env("DATAFORGE_PLAYGROUND_MAX_EXTERNAL_FIXES", 200)
 SAMPLES_DIR = Path(__file__).resolve().parent / "samples"
@@ -295,6 +296,110 @@ class IssueView(BaseModel):
     row_indices: list[int]
     row_indices_truncated: bool = False
     count: int
+
+
+class FlaggedCellView(BaseModel):
+    """One flagged cell, individually addressable.
+
+    ``IssueView`` groups by (column, issue_type, severity) and caps ``row_indices``
+    at ``ISSUE_ROW_DISPLAY_LIMIT``, which destroys the per-cell record: on the
+    measured hospital queue with inferred functional dependencies a single group
+    holds roughly a thousand rows, so a client rebuilding cells from
+    ``row_indices`` would show about fifty of them and look complete.
+
+    It also discarded ``Issue.confidence`` (the only per-cell detector strength for
+    cells with no proposed fix), ``Issue.actual``/``expected``, and
+    ``Issue.reason`` -- which is where the detector's own numbers live, such as the
+    modified z-score, the column median, and the populated fraction.
+    """
+
+    row: int
+    column: str
+    issue_type: str
+    severity: Literal["safe", "review", "unsafe"]
+    confidence: float
+    actual: str
+    expected: str | None = None
+    reason: str
+
+
+class FlaggedCellIndexView(BaseModel):
+    """Every flagged cell's POSITION, in a columnar form.
+
+    The map needs only coordinates: which column, which row. Sending full records
+    for that is roughly twenty times larger than necessary -- at ~350 bytes per
+    record, the measured 10,373-cell hospital queue is about 3.6 MB of JSON from a
+    1 MiB upload. Two parallel integer arrays carry the same information for the
+    map in ~15 bytes per cell.
+
+    Rung is deliberately absent: an aggregated band may not carry one, and the
+    outcome lists (repairs, suggested_fixes, failures) are small and already
+    complete, so a client derives per-cell strength from those instead.
+    """
+
+    column_indices: list[int]
+    rows: list[int]
+
+
+class ConfidenceBinView(BaseModel):
+    """One histogram bucket of detector confidence."""
+
+    from_value: float
+    to_value: float
+    count: int
+
+
+class ConfidenceClassView(BaseModel):
+    """Detector-confidence shape for one issue type.
+
+    Sent as a histogram rather than as thousands of floats. It also carries the mode
+    and its share, because the load-bearing fact about this signal is how degenerate
+    it is: in the measured hospital FD regime, 10,261 of 10,373 cells share one value.
+    """
+
+    issue_type: str
+    bins: list[ConfidenceBinView]
+    count: int
+    distinct_values: int
+    mode_value: float | None = None
+    mode_share: float = 0.0
+
+
+class FlaggedCellsView(BaseModel):
+    """The per-cell channel, with its coverage stated rather than implied.
+
+    Three parts, each sized to its job:
+
+    * ``index`` -- every flagged cell's position, columnar and complete.
+    * ``cells`` -- full records for a bounded, severity-ordered prefix, for the
+      detail view. Ordering is severity, then descending detector confidence, then
+      position: the detector ensemble's own ordering. It is NOT a triage score and
+      carries no claim about how likely each cell is to be a genuine error.
+    * ``confidence_histogram`` -- the confidence distribution per issue type.
+    """
+
+    index: FlaggedCellIndexView
+    cells: list[FlaggedCellView]
+    confidence_histogram: list[ConfidenceClassView] = Field(default_factory=list)
+    total: int
+    truncated: bool
+    note: str
+
+
+class ReviewRankedCellView(BaseModel):
+    """One cell of an opt-in human-review ordering.
+
+    Empty unless the caller supplied a ``review_ranker``. The playground never
+    supplies one: it is an LLM scorer, so firing it per request would spend money
+    on every analysis, and the auto-fire gate is a measured NO-GO
+    (DECISIONS.md 2026-08-04). Surfaced so a CLI or library caller that DID opt in
+    can render its ranking here.
+    """
+
+    row: int
+    column: str
+    triage_score: float
+    reason: str
 
 
 class ConstraintCandidateView(BaseModel):
@@ -439,6 +544,7 @@ class RepairReceiptView(BaseModel):
     constraints_artifact_sha256: str | None = None
     patch_plan_sha256: str | None = None
     revert_command: str | None = None
+    review_ranking: list[ReviewRankedCellView] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
     reason: str
 
@@ -549,6 +655,11 @@ class AgentSummaryView(BaseModel):
     reason: str
     agent_txn_id: str | None = None
     agent_fixes: list[VerifiedFixView] = Field(default_factory=list)
+    # Honest abstention in agent mode. The engine computes this and it was being
+    # dropped here, so the browser could see what the agent WOULD write but never
+    # what it declined to write -- exactly the asymmetry this product exists to
+    # avoid presenting.
+    held_fixes: list[VerifiedFixView] = Field(default_factory=list)
     trace: list[AgentTraceStepView] = Field(default_factory=list)
 
 
@@ -559,6 +670,7 @@ class AnalyzeResponse(BaseModel):
     schema_inference: SchemaInferenceView
     risk_summary: RiskSummary
     issues: list[IssueView]
+    flagged_cells: FlaggedCellsView
     repairs: list[VerifiedFixView]
     verification: VerificationSummary
     certificate: CertificateView
@@ -1163,6 +1275,121 @@ def _issue_views(issues: list[Issue]) -> list[IssueView]:
     return payload_issues
 
 
+def _confidence_histogram(issues: list[Issue]) -> list[ConfidenceClassView]:
+    """Summarise detector confidence per issue type as a histogram.
+
+    Sent instead of thousands of raw floats, and carrying the mode share because the
+    honest finding about this signal is how little it varies.
+    """
+    bin_count = 10
+    grouped: dict[str, list[float]] = {}
+    for issue in issues:
+        grouped.setdefault(issue.issue_type, []).append(issue.confidence)
+
+    classes: list[ConfidenceClassView] = []
+    for issue_type, values in sorted(grouped.items(), key=lambda item: (-len(item[1]), item[0])):
+        counts = [0] * bin_count
+        frequency: dict[float, int] = {}
+        for value in values:
+            clamped = min(0.999999, max(0.0, value))
+            counts[int(clamped * bin_count)] += 1
+            frequency[value] = frequency.get(value, 0) + 1
+        mode_value: float | None = None
+        mode_count = 0
+        for value, count in frequency.items():
+            if count > mode_count:
+                mode_count = count
+                mode_value = value
+        classes.append(
+            ConfidenceClassView(
+                issue_type=issue_type,
+                bins=[
+                    ConfidenceBinView(
+                        from_value=index / bin_count,
+                        to_value=(index + 1) / bin_count,
+                        count=counts[index],
+                    )
+                    for index in range(bin_count)
+                ],
+                count=len(values),
+                distinct_values=len(frequency),
+                mode_value=mode_value,
+                mode_share=(mode_count / len(values)) if values else 0.0,
+            )
+        )
+    return classes
+
+
+def _flagged_cells_view(issues: list[Issue], column_names: list[str]) -> FlaggedCellsView:
+    """Build the per-cell channel, stating its own coverage.
+
+    One record per detected cell, deduped on (row, column) because the detector
+    ensemble already resolves one issue per cell. Positions travel in a columnar
+    index so the map is complete without a multi-megabyte payload; full records
+    travel only for a bounded, severity-ordered prefix.
+    """
+    severity_order = {"unsafe": 0, "review": 1, "safe": 2}
+    by_cell: dict[tuple[int, str], Issue] = {}
+    for issue in issues:
+        by_cell.setdefault((issue.row, issue.column), issue)
+
+    ordered = sorted(
+        by_cell.values(),
+        key=lambda issue: (
+            severity_order[_severity_to_str(issue.severity)],
+            -issue.confidence,
+            issue.row,
+            issue.column,
+        ),
+    )
+    total = len(ordered)
+    detail = ordered[:FLAGGED_CELL_DETAIL_LIMIT]
+    truncated = total > len(detail)
+
+    column_position = {name: index for index, name in enumerate(column_names)}
+    index_columns: list[int] = []
+    index_rows: list[int] = []
+    for issue in ordered:
+        position = column_position.get(issue.column)
+        if position is None:
+            continue
+        index_columns.append(position)
+        index_rows.append(issue.row)
+
+    if total == 0:
+        note = "No cells were flagged. This is a measured result, not a missing one."
+    elif truncated:
+        note = (
+            f"All {total} flagged cells are located on the map. Full details are listed for "
+            f"the first {len(detail)}, ordered by severity then detector confidence."
+        )
+    else:
+        note = f"All {total} flagged cells are located and individually listed."
+
+    return FlaggedCellsView(
+        index=FlaggedCellIndexView(column_indices=index_columns, rows=index_rows),
+        cells=[
+            FlaggedCellView(
+                row=issue.row,
+                column=issue.column,
+                issue_type=issue.issue_type,
+                severity=cast(
+                    Literal["safe", "review", "unsafe"], _severity_to_str(issue.severity)
+                ),
+                confidence=issue.confidence,
+                actual=issue.actual,
+                expected=issue.expected,
+                reason=issue.reason,
+            )
+            for issue in detail
+        ],
+        confidence_histogram=_confidence_histogram(list(by_cell.values())),
+        total=total,
+        truncated=truncated,
+        note=note,
+    )
+
+
 def _profile_response(
     issues: list[Issue],
     df: pd.DataFrame,
@@ -1278,6 +1505,15 @@ def _receipt_view(receipt: Any) -> RepairReceiptView:
         constraints_artifact_sha256=receipt.constraints_artifact_sha256,
         patch_plan_sha256=receipt.patch_plan_sha256,
         revert_command=receipt.revert_command,
+        review_ranking=[
+            ReviewRankedCellView(
+                row=cell.row,
+                column=cell.column,
+                triage_score=cell.triage_score,
+                reason=cell.reason,
+            )
+            for cell in getattr(receipt, "review_ranking", [])
+        ],
         limitations=list(receipt.limitations),
         reason=receipt.reason,
     )
@@ -1635,6 +1871,7 @@ def _analyze_upload(
             candidate_views=candidates,
         ),
         issues=_issue_views(result.issues),
+        flagged_cells=_flagged_cells_view(result.issues, list(df.columns)),
         repairs=repairs,
         verification=VerificationSummary(
             safety_verdict=receipt.safety_verdict,
@@ -1714,6 +1951,7 @@ def _agent_analyze_upload(
         reason=result.reason,
         agent_txn_id=result.txn_id,
         agent_fixes=_fix_views(agent_only_fixes),
+        held_fixes=_fix_views(list(getattr(result, "held_fixes", []))),
         trace=[
             AgentTraceStepView(
                 step=record.step,

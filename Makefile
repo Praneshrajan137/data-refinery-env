@@ -43,15 +43,15 @@ setup-all:
 	$(PYTHON) -m pip install -e ".[all]"
 
 lint:
-	$(PYTHON) -m ruff check dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py playground/api/app.py
-	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py playground/api/app.py
+	$(PYTHON) -m ruff check dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
+	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
 
 format:
-	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py playground/api/app.py
-	$(PYTHON) -m ruff check --fix dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py playground/api/app.py
+	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
+	$(PYTHON) -m ruff check --fix dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
 
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/measure_payload_split.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
 
 test:
 	$(PYTHON) -m pytest tests/ -x -v

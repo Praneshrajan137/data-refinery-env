@@ -46,6 +46,8 @@ import {
   formatLabel,
   formatPercent,
   humanizeReviewReason,
+  parseUnsatCore,
+  PROOF_ATTRIBUTION_ASYMMETRY,
   shortHash,
   strengthOf,
   type GuardrailVerdict,
@@ -104,6 +106,10 @@ import {
   workflowReducer,
   type WorkflowStageView,
 } from "./workflow";
+import { EvidenceOverview, type OverviewSelection } from "./viz/EvidenceOverview";
+import { ClaimDetail } from "./viz/ClaimDetail";
+import { ConfidenceDistribution } from "./viz/ConfidenceDistribution";
+import { DependencyGraph } from "./viz/DependencyGraph";
 
 const SAMPLE_OPTIONS = [
   { value: "hospital_10rows", label: "Hospital", detail: "Rating 45.0 -> 4.5" },
@@ -804,11 +810,18 @@ function EvidencePage({
   onSelect: (selection: SelectedEvidence) => void;
   onNavigate: (routeId: ProductRouteId) => void;
 }) {
+  // Overview -> zoom -> details on demand. The selection lives here so the overview
+  // stays stateless and the detail view is bounded by construction.
+  const [zoom, setZoom] = useState<OverviewSelection | null>(null);
   return (
     <main className="route-page split-page">
       <section className="workbench-plane">
         {problem ? <ProblemBanner problem={problem} /> : null}
         <OverviewLens dataset={dataset} preview={preview} analysis={analysis} observatory={observatory} onSelect={onSelect} />
+        <EvidenceOverview analysis={analysis} onZoom={setZoom} />
+        <ClaimDetail analysis={analysis} selection={zoom} onClear={() => setZoom(null)} />
+        <ConfidenceDistribution analysis={analysis} />
+        <DependencyGraph analysis={analysis} />
         <RiskLens
           state={state}
           analysis={analysis}
@@ -2335,6 +2348,7 @@ function OverviewLens({
           datasetLevel={analysis.risk_summary.dataset_level}
           readiness={analysis.risk_summary.repair_readiness}
           reasons={analysis.risk_summary.reasons}
+          label="Run risk overview"
         />
       ) : null}
     </div>
@@ -2751,7 +2765,13 @@ function resolveDockContent(
         tone: obligation.status === "accepted" ? "verified" : "review",
         rows: [
           { label: "Verifier", value: obligation.verifier },
-          { label: "Unsat core", value: obligation.unsat_core.join(", ") || "none" },
+          {
+            label: "Blocked by",
+            value:
+              parseUnsatCore(obligation.unsat_core)
+                .map((attribution) => attribution.kindLabel)
+                .join(", ") || "nothing (no constraint was violated)",
+          },
         ],
       };
     }
@@ -2844,13 +2864,18 @@ function RiskSummaryPanel({
   datasetLevel,
   readiness,
   reasons,
+  label = "Risk reasons",
 }: {
   datasetLevel: RiskLevel;
   readiness: RepairReadiness;
   reasons: string[];
+  // Two RiskSummaryPanels render on /evidence (one from the overview, one from
+  // the risk lens). Identical landmark labels are indistinguishable to a screen
+  // reader, so callers that share a page must disambiguate.
+  label?: string;
 }) {
   return (
-    <section className="risk-panel" aria-label="Risk reasons">
+    <section className="risk-panel" aria-label={label}>
       <div className="risk-badge-row">
         <RiskBadge label="Dataset risk" value={datasetLevel} />
         <RiskBadge label="Repair readiness" value={readiness} />
@@ -3074,6 +3099,30 @@ function CandidateRepairList({ candidates }: { candidates: CandidateRepair[] }) 
   );
 }
 
+function ProofAttribution({ labels }: { labels: string[] }) {
+  const attributions = parseUnsatCore(labels);
+  if (attributions.length === 0) {
+    // No core means no constraint was violated. Saying so is an L3 absence state,
+    // not an empty element.
+    return labels.length > 0 ? (
+      <p className="proof-attribution proof-attribution--opaque">
+        The verifier reported a reason this build cannot decode. Raw core:{" "}
+        <code>{labels.join(", ")}</code>
+      </p>
+    ) : null;
+  }
+  return (
+    <ul className="proof-attribution">
+      {attributions.map((attribution) => (
+        <li key={attribution.raw}>
+          <span className="proof-attribution__kind">{attribution.kindLabel}</span>
+          <span className="proof-attribution__sentence">{attribution.sentence}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function FailureList({
   failures,
   onSelect,
@@ -3095,6 +3144,7 @@ function FailureList({
         </div>
         <span className="quiet-chip">{failures.length} failures</span>
       </div>
+      <p className="proof-asymmetry">{PROOF_ATTRIBUTION_ASYMMETRY}</p>
       {failures.map((failure) => (
         <article className="failure-row" key={failureKey(failure)}>
           <button type="button" onClick={() => onSelect({ kind: "failure", id: failureKey(failure) })}>
@@ -3104,7 +3154,7 @@ function FailureList({
             <span>{failure.issue_type} - {failure.status} - attempts {failure.attempt_count}</span>
           </button>
           <p>{failure.reason}</p>
-          {failure.unsat_core.length > 0 ? <code>{failure.unsat_core.join(", ")}</code> : null}
+          <ProofAttribution labels={failure.unsat_core} />
         </article>
       ))}
     </section>

@@ -1,0 +1,155 @@
+{
+  "$comment": "Single source of truth for the quantitative grammar. See docs/design/quantitative-grammar.md. viz/grammar.ts DERIVES its typed constants from this file and audit_quantitative.mjs enforces it, so the TS and the gate can never drift. Do not hand-duplicate these values anywhere.",
+  "rungOrder": [
+    "idle",
+    "rejected",
+    "plausibility_only",
+    "downgraded",
+    "held",
+    "proven",
+    "corroborated"
+  ],
+  "$rungOrderNote": "Ordered weakest to strongest by WARRANT TO WRITE. `downgraded` sits below `held` deliberately: a proof that drift withdrew is a proof that did not hold, so it warrants more scrutiny than a cell merely awaiting review, and under never-overstate the lower rank is the safe direction. `idle` is rank 0 and is never drawn -- only flagged cells emit marks.",
+  "salienceWeights": {
+    "$comment": "Weights for the MEASURED salience used to assert ladder monotonicity. fill/stroke are fractions of a mark covered in ink; contact and glow are the earned-salience channels. Total must be strictly increasing in rung strength.",
+    "fill": { "filled": 1.0, "unfilled": 0.0 },
+    "stroke": { "solid": 1.0, "dashed": 0.5, "struck": 0.25, "none": 0.0 },
+    "contact": { "contact": 1.0, "weakening": 0.25, "none": 0.0 },
+    "glow": { "true": 1.0, "false": 0.0 },
+    "accent": { "true": 0.5, "false": 0.0 }
+  },
+  "rungs": {
+    "corroborated": {
+      "strength": 6,
+      "depthPx": 0,
+      "groundContact": "contact",
+      "fill": "filled",
+      "stroke": "solid",
+      "glowEligible": true,
+      "witnessAccent": true,
+      "tokenFamily": "corroborated",
+      "text": "Proven - independently verified"
+    },
+    "proven": {
+      "strength": 5,
+      "depthPx": 0,
+      "groundContact": "contact",
+      "fill": "filled",
+      "stroke": "solid",
+      "glowEligible": true,
+      "witnessAccent": false,
+      "tokenFamily": "proven",
+      "text": "Proven - would apply, reversible"
+    },
+    "held": {
+      "strength": 4,
+      "depthPx": 0,
+      "groundContact": "none",
+      "fill": "filled",
+      "stroke": "solid",
+      "glowEligible": false,
+      "witnessAccent": false,
+      "tokenFamily": "held",
+      "text": "Held for review"
+    },
+    "downgraded": {
+      "strength": 3,
+      "depthPx": 3,
+      "groundContact": "weakening",
+      "fill": "filled",
+      "stroke": "dashed",
+      "glowEligible": false,
+      "witnessAccent": false,
+      "tokenFamily": "downgraded",
+      "text": "Downgraded by drift - now review"
+    },
+    "plausibility_only": {
+      "strength": 2,
+      "depthPx": 6,
+      "groundContact": "none",
+      "fill": "unfilled",
+      "stroke": "dashed",
+      "glowEligible": false,
+      "witnessAccent": false,
+      "tokenFamily": "plausibility",
+      "text": "Plausibility-only - not written"
+    },
+    "rejected": {
+      "strength": 1,
+      "depthPx": -4,
+      "groundContact": "none",
+      "fill": "unfilled",
+      "stroke": "struck",
+      "glowEligible": false,
+      "witnessAccent": false,
+      "tokenFamily": "status-danger",
+      "text": "Rejected - not proven safe"
+    },
+    "idle": {
+      "strength": 0,
+      "depthPx": 0,
+      "groundContact": "none",
+      "fill": "unfilled",
+      "stroke": "none",
+      "glowEligible": false,
+      "witnessAccent": false,
+      "tokenFamily": "confidence-low",
+      "text": "Idle - no claim"
+    }
+  },
+  "maxDepthPx": 6,
+  "addressableMinHeightPx": 16,
+  "$addressableNote": "A mark may carry a rung ONLY if it represents exactly one claim and is at least this tall (L2, the addressability law). The previous design used depthLegibleMinPx=8 to suppress depth on tiny aggregated marks, which made depth unreachable on every real dataset: 1000 rows into a 420px surface gives 3.0px marks. Suppression was the wrong fix; the right one is not to put rungs on aggregates at all.",
+  "undrawableRungs": ["idle"],
+  "aggregation": {
+    "$comment": "There is no rung-aggregation rule, deliberately. Aggregated marks carry no rung at all (L2), so there is nothing to aggregate. Minimum-rung and maximum-rung were both tried and both rejected; see quantitative-grammar.md section 3.2.",
+    "rungOnAggregatedMarks": false,
+    "neutralDensityChannel": "count",
+    "forbiddenBlendModes": ["additive", "lighten", "screen", "color-dodge"]
+  },
+  "absenceStates": ["zero", "not_measured", "truncated"],
+  "magnitudeChannels": ["position", "length", "neutral_count"],
+  "forbiddenMagnitudeChannels": ["volume", "area", "hue", "saturation", "angle"],
+  "minMarkHeightPx": 3,
+  "components": {
+    "evidence-overview": {
+      "purpose": "Neutral density map of where cells are flagged. Carries NO rung: marks are aggregated row-bands and are not individually addressable.",
+      "magnitudeChannel": "neutral_count",
+      "absenceStates": ["zero", "not_measured", "truncated"],
+      "loopingPrimitives": 0,
+      "addressable": false,
+      "renderer": "canvas2d",
+      "encoder": "density.ts"
+    },
+    "claim-detail": {
+      "purpose": "Individually addressable claims: one DOM object per claim, carrying rung by hue, form, text and earned depth.",
+      "magnitudeChannel": "position",
+      "absenceStates": ["zero", "not_measured"],
+      "loopingPrimitives": 0,
+      "addressable": true,
+      "renderer": "dom",
+      "encoder": "claims.ts"
+    },
+    "dependency-graph": {
+      "purpose": "Functional-dependency edges between columns, deterministic layered layout.",
+      "magnitudeChannel": "position",
+      "absenceStates": ["zero", "not_measured"],
+      "loopingPrimitives": 0,
+      "addressable": true,
+      "renderer": "svg",
+      "encoder": "DependencyGraph.tsx"
+    },
+    "confidence-distribution": {
+      "purpose": "Per-issue-type detector confidence histogram. States that confidence is near-degenerate and is not a ranking signal; draws NO threshold line, because _DEFAULT_THRESHOLDS gates the corrector path, not deterministic auto-apply.",
+      "magnitudeChannel": "length",
+      "absenceStates": ["zero", "not_measured"],
+      "loopingPrimitives": 0,
+      "addressable": true,
+      "renderer": "dom",
+      "encoder": "confidence.ts"
+    }
+  },
+  "$notBuilt": {
+    "calibration-plot": "NOT REGISTERED because it is not buildable here, and a registry entry for a component that does not exist is exactly the vacuity this gate exists to catch. No calibration, conformal, reliability or ECE data appears anywhere in the playground API response: those artifacts come from a calibration session over labelled samples, not from a single stateless analyse call. Plotting the committed eval artifact instead would present one dataset's measurement as if it described the user's run. Recorded as an open unknown in docs/design/quantitative-grammar.md rather than fabricated."
+  }
+}

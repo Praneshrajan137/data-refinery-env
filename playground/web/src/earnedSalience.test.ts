@@ -11,6 +11,7 @@ const REVIEW_REASONS = [
   "ambiguous_fd",
   "out_of_inferred_domain",
   "unverified_transposition",
+  "unverified_entity_consensus",
   "inferred_fd_not_declared",
   "stale_precondition",
   "invalid_target",
@@ -40,6 +41,9 @@ describe("earned salience: overtrust is unrenderable", () => {
     expect(strengthOf(candidate({ provenance: "llm_live" }))).toBe("plausibility_only");
     expect(strengthOf(candidate({ provenance: "llm_cache" }))).toBe("plausibility_only");
     expect(strengthOf(candidate({ provenance: "external" }))).toBe("plausibility_only");
+    // entity_consensus is in the engine's _UNTRUSTED_PROVENANCE (repair.py:848):
+    // sibling-row agreement is evidence, not proof.
+    expect(strengthOf(candidate({ provenance: "entity_consensus" }))).toBe("plausibility_only");
   });
 
   it("only labels deterministic / explicitly-proven values as proven", () => {
@@ -60,5 +64,14 @@ describe("review-reason humanizer (text twin)", () => {
   it("still renders an unknown reason readably and an empty reason honestly", () => {
     expect(humanizeReviewReason("brand_new_reason")).not.toContain("_");
     expect(humanizeReviewReason(null).toLowerCase()).toContain("review");
+  });
+
+  // Perceptual language section 9: the browser and the terminal must deliver the
+  // IDENTICAL claim. dataforge/ui/trust_vocab.py is the other half of this twin,
+  // and a reason present there but absent here degrades silently to formatLabel().
+  it("carries real copy for entity consensus, matching the Python twin", () => {
+    const rendered = humanizeReviewReason("unverified_entity_consensus");
+    expect(rendered).toContain("evidence, not proof");
+    expect(rendered).not.toBe("Unverified entity consensus");
   });
 });

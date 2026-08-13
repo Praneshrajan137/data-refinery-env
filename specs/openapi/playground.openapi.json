@@ -30,6 +30,13 @@
             "title": "Floor Fix Count",
             "type": "integer"
           },
+          "held_fixes": {
+            "items": {
+              "$ref": "#/components/schemas/VerifiedFixView"
+            },
+            "title": "Held Fixes",
+            "type": "array"
+          },
           "max_steps": {
             "title": "Max Steps",
             "type": "integer"
@@ -124,6 +131,9 @@
           "certificate": {
             "$ref": "#/components/schemas/CertificateView"
           },
+          "flagged_cells": {
+            "$ref": "#/components/schemas/FlaggedCellsView"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/IssueView"
@@ -172,6 +182,7 @@
           "schema_inference",
           "risk_summary",
           "issues",
+          "flagged_cells",
           "repairs",
           "verification",
           "certificate",
@@ -492,6 +503,78 @@
         "title": "CertificateView",
         "type": "object"
       },
+      "ConfidenceBinView": {
+        "description": "One histogram bucket of detector confidence.",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "from_value": {
+            "title": "From Value",
+            "type": "number"
+          },
+          "to_value": {
+            "title": "To Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "from_value",
+          "to_value",
+          "count"
+        ],
+        "title": "ConfidenceBinView",
+        "type": "object"
+      },
+      "ConfidenceClassView": {
+        "description": "Detector-confidence shape for one issue type.\n\nSent as a histogram rather than as thousands of floats. It also carries the mode\nand its share, because the load-bearing fact about this signal is how degenerate\nit is: in the measured hospital FD regime, 10,261 of 10,373 cells share one value.",
+        "properties": {
+          "bins": {
+            "items": {
+              "$ref": "#/components/schemas/ConfidenceBinView"
+            },
+            "title": "Bins",
+            "type": "array"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "distinct_values": {
+            "title": "Distinct Values",
+            "type": "integer"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "mode_share": {
+            "default": 0.0,
+            "title": "Mode Share",
+            "type": "number"
+          },
+          "mode_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mode Value"
+          }
+        },
+        "required": [
+          "issue_type",
+          "bins",
+          "count",
+          "distinct_values"
+        ],
+        "title": "ConfidenceClassView",
+        "type": "object"
+      },
       "ConstraintCandidateView": {
         "description": "Reviewable inferred constraint shown in the proof loop.",
         "properties": {
@@ -634,6 +717,134 @@
           "new_value"
         ],
         "title": "ExternalFixInput",
+        "type": "object"
+      },
+      "FlaggedCellIndexView": {
+        "description": "Every flagged cell's POSITION, in a columnar form.\n\nThe map needs only coordinates: which column, which row. Sending full records\nfor that is roughly twenty times larger than necessary -- at ~350 bytes per\nrecord, the measured 10,373-cell hospital queue is about 3.6 MB of JSON from a\n1 MiB upload. Two parallel integer arrays carry the same information for the\nmap in ~15 bytes per cell.\n\nRung is deliberately absent: an aggregated band may not carry one, and the\noutcome lists (repairs, suggested_fixes, failures) are small and already\ncomplete, so a client derives per-cell strength from those instead.",
+        "properties": {
+          "column_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Column Indices",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "column_indices",
+          "rows"
+        ],
+        "title": "FlaggedCellIndexView",
+        "type": "object"
+      },
+      "FlaggedCellView": {
+        "description": "One flagged cell, individually addressable.\n\n``IssueView`` groups by (column, issue_type, severity) and caps ``row_indices``\nat ``ISSUE_ROW_DISPLAY_LIMIT``, which destroys the per-cell record: on the\nmeasured hospital queue with inferred functional dependencies a single group\nholds roughly a thousand rows, so a client rebuilding cells from\n``row_indices`` would show about fifty of them and look complete.\n\nIt also discarded ``Issue.confidence`` (the only per-cell detector strength for\ncells with no proposed fix), ``Issue.actual``/``expected``, and\n``Issue.reason`` -- which is where the detector's own numbers live, such as the\nmodified z-score, the column median, and the populated fraction.",
+        "properties": {
+          "actual": {
+            "title": "Actual",
+            "type": "string"
+          },
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "confidence": {
+            "title": "Confidence",
+            "type": "number"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "issue_type": {
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "severity": {
+            "enum": [
+              "safe",
+              "review",
+              "unsafe"
+            ],
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "issue_type",
+          "severity",
+          "confidence",
+          "actual",
+          "reason"
+        ],
+        "title": "FlaggedCellView",
+        "type": "object"
+      },
+      "FlaggedCellsView": {
+        "description": "The per-cell channel, with its coverage stated rather than implied.\n\nThree parts, each sized to its job:\n\n* ``index`` -- every flagged cell's position, columnar and complete.\n* ``cells`` -- full records for a bounded, severity-ordered prefix, for the\n  detail view. Ordering is severity, then descending detector confidence, then\n  position: the detector ensemble's own ordering. It is NOT a triage score and\n  carries no claim about how likely each cell is to be a genuine error.\n* ``confidence_histogram`` -- the confidence distribution per issue type.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/FlaggedCellView"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "confidence_histogram": {
+            "items": {
+              "$ref": "#/components/schemas/ConfidenceClassView"
+            },
+            "title": "Confidence Histogram",
+            "type": "array"
+          },
+          "index": {
+            "$ref": "#/components/schemas/FlaggedCellIndexView"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "index",
+          "cells",
+          "total",
+          "truncated",
+          "note"
+        ],
+        "title": "FlaggedCellsView",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1253,6 +1464,13 @@
             ],
             "title": "Revert Command"
           },
+          "review_ranking": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewRankedCellView"
+            },
+            "title": "Review Ranking",
+            "type": "array"
+          },
           "root_causes": {
             "items": {
               "$ref": "#/components/schemas/RootCauseView"
@@ -1368,6 +1586,35 @@
           "contract_version"
         ],
         "title": "ResponseMeta",
+        "type": "object"
+      },
+      "ReviewRankedCellView": {
+        "description": "One cell of an opt-in human-review ordering.\n\nEmpty unless the caller supplied a ``review_ranker``. The playground never\nsupplies one: it is an LLM scorer, so firing it per request would spend money\non every analysis, and the auto-fire gate is a measured NO-GO\n(DECISIONS.md 2026-08-04). Surfaced so a CLI or library caller that DID opt in\ncan render its ranking here.",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "row": {
+            "title": "Row",
+            "type": "integer"
+          },
+          "triage_score": {
+            "title": "Triage Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "row",
+          "column",
+          "triage_score",
+          "reason"
+        ],
+        "title": "ReviewRankedCellView",
         "type": "object"
       },
       "RiskSummary": {

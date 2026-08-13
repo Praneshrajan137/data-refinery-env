@@ -77,6 +77,66 @@ export interface IssueGroup extends Issue {
   key: string;
 }
 
+/**
+ * One individually addressable flagged cell.
+ *
+ * `Issue` groups by (column, issue_type, severity) and caps `row_indices`, so a
+ * cell map rebuilt from that would silently show a subset and look complete.
+ * This is the untruncated channel, and it restores `confidence`, `actual`,
+ * `expected` and `reason` -- which the grouping destroyed.
+ */
+export interface FlaggedCell {
+  row: number;
+  column: string;
+  issue_type: string;
+  severity: Severity;
+  confidence: number;
+  actual: string;
+  expected?: string | null;
+  reason: string;
+}
+
+/** Every flagged cell's position, columnar. Complete even when `cells` is bounded. */
+export interface FlaggedCellIndex {
+  column_indices: number[];
+  rows: number[];
+}
+
+export interface ConfidenceBinPayload {
+  from_value: number;
+  to_value: number;
+  count: number;
+}
+
+export interface ConfidenceClassPayload {
+  issue_type: string;
+  bins: ConfidenceBinPayload[];
+  count: number;
+  distinct_values: number;
+  mode_value?: number | null;
+  mode_share: number;
+}
+
+export interface FlaggedCells {
+  index: FlaggedCellIndex;
+  cells: FlaggedCell[];
+  confidence_histogram: ConfidenceClassPayload[];
+  total: number;
+  truncated: boolean;
+  note: string;
+}
+
+/**
+ * One cell of an opt-in human-review ordering. Empty unless a caller supplied a
+ * review ranker; the playground never does.
+ */
+export interface ReviewRankedCell {
+  row: number;
+  column: string;
+  triage_score: number;
+  reason: string;
+}
+
 export interface ProfileResponse {
   issues: Issue[];
   meta: {
@@ -221,6 +281,7 @@ export interface RepairReceipt {
   constraints_artifact_sha256?: string | null;
   patch_plan_sha256?: string | null;
   revert_command?: string | null;
+  review_ranking?: ReviewRankedCell[];
   limitations: string[];
   reason: string;
 }
@@ -270,6 +331,7 @@ export interface AnalyzeResponse {
   schema_inference: SchemaInference;
   risk_summary: RiskSummary;
   issues: Issue[];
+  flagged_cells: FlaggedCells;
   repairs: VerifiedFix[];
   verification: VerificationSummary;
   certificate: Certificate;
@@ -301,6 +363,7 @@ export interface AgentSummary {
   reason: string;
   agent_txn_id?: string | null;
   agent_fixes: VerifiedFix[];
+  held_fixes?: VerifiedFix[];
   trace: AgentTraceStep[];
 }
 

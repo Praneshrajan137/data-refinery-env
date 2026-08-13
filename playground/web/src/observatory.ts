@@ -325,7 +325,20 @@ function failureToReviewItem(failure: RepairFailure): ReviewItem {
 // nothing incorrect is silently written — and you can re-verify that yourself."
 // This view model makes that promise the primary, honest object in the UI.
 
-const LLM_PROVENANCE = new Set(["llm_live", "llm_cache", "external"]);
+// Provenances the engine does NOT trust to write on their own. This must stay a
+// superset-parity mirror of _UNTRUSTED_PROVENANCE in dataforge/engine/repair.py.
+// `entity_consensus` belongs here: sibling-row agreement is evidence, not proof.
+// Omitting it made strengthOf() return "proven" for an untrusted value whenever
+// verification_strength was absent -- the overtrust lie, in the one function every
+// trust surface routes through.
+const LLM_PROVENANCE = new Set(["llm_live", "llm_cache", "external", "entity_consensus"]);
+
+/**
+ * Exported so downstream guards can re-derive expected strength from provenance
+ * INDEPENDENTLY of whatever rung an encoder assigned. A guard that reads only the
+ * assigned rung is tautological.
+ */
+export const UNTRUSTED_PROVENANCE: ReadonlySet<string> = LLM_PROVENANCE;
 
 export type TrustLevel = "pending" | "clear" | "proven" | "held" | "mixed";
 
@@ -377,6 +390,9 @@ const REVIEW_REASON_COPY: Record<string, string> = {
   out_of_inferred_domain:
     "The proposed value falls outside the values inferred from the column.",
   unverified_transposition: "A transposition was proposed but could not be proven.",
+  unverified_entity_consensus:
+    "Sibling rows for this entity agree on a different value, but agreement is " +
+    "evidence, not proof, so it is suggested rather than applied.",
   stale_precondition: "The row changed after the proposal, so it was not applied.",
   invalid_target: "The proposed value failed the target's constraints.",
 };
@@ -387,6 +403,164 @@ export function humanizeReviewReason(reason: string | null | undefined): string 
   }
   return REVIEW_REASON_COPY[reason] ?? formatLabel(reason);
 }
+
+// --- Proof attribution -------------------------------------------------------
+// The SMT verifier tracks every constraint it asserts with a structured label, so
+// an unsatisfiable core names exactly which constraint, on which column, at which
+// row, blocked a proposed fix. Those labels already reach the browser on
+// RepairFailure.unsat_core and ProofObligation.unsat_core, where they were being
+// rendered as raw strings inside a <pre>. Decoding them is the difference between
+// showing a proof and showing a hash.
+//
+// Label shapes emitted by SchemaToSMT (dataforge/verifier/smt.py):
+//   domain::{column}::{min|max}::row::{row}
+//   not_null::{column}::row::{row}
+//   primary_key_not_null::{column}::row::{row}
+//   unique::{column}::row::{row}
+//   primary_key_unique::{column}::row::{row}
+//   accepted_values::{column}::row::{row}
+//   regex::{column}::row::{row}
+//   fd::{det1+det2+...}::{dependent}::row::{row}
+
+export interface ConstraintAttribution {
+  kind: string;
+  kindLabel: string;
+  columns: string[];
+  dependent: string | null;
+  bound: "min" | "max" | null;
+  row: number | null;
+  /** A complete sentence naming what blocked the change. */
+  sentence: string;
+  raw: string;
+}
+
+const CONSTRAINT_KIND_LABEL: Record<string, string> = {
+  domain: "Numeric range",
+  not_null: "Required value",
+  primary_key_not_null: "Primary key",
+  unique: "Uniqueness",
+  primary_key_unique: "Primary key uniqueness",
+  accepted_values: "Allowed values",
+  regex: "Format pattern",
+  fd: "Functional dependency",
+};
+
+function parseRowSuffix(parts: string[]): { row: number | null; rest: string[] } {
+  const rowIndex = parts.lastIndexOf("row");
+  if (rowIndex === -1 || rowIndex !== parts.length - 2) {
+    return { row: null, rest: parts };
+  }
+  const parsed = Number.parseInt(parts[parts.length - 1], 10);
+  return {
+    row: Number.isNaN(parsed) ? null : parsed,
+    rest: parts.slice(0, rowIndex),
+  };
+}
+
+export function parseUnsatCoreLabel(label: string): ConstraintAttribution | null {
+  const parts = label.split("::");
+  if (parts.length < 2) {
+    return null;
+  }
+  const kind = parts[0];
+  const kindLabel = CONSTRAINT_KIND_LABEL[kind];
+  if (kindLabel === undefined) {
+    return null;
+  }
+  const { row, rest } = parseRowSuffix(parts);
+  const rowPhrase = row === null ? "" : ` at row ${row}`;
+
+  if (kind === "fd" && rest.length >= 3) {
+    const determinant = rest[1].split("+").filter((part) => part.length > 0);
+    const dependent = rest[2];
+    return {
+      kind,
+      kindLabel,
+      columns: determinant,
+      dependent,
+      bound: null,
+      row,
+      sentence:
+        `The ${determinant.join(" + ")} \u2192 ${dependent} dependency blocked this change` +
+        `${rowPhrase}: the proposed value disagrees with the value those columns already determine.`,
+      raw: label,
+    };
+  }
+
+  if (kind === "domain" && rest.length >= 3) {
+    const column = rest[1];
+    const bound = rest[2] === "min" || rest[2] === "max" ? (rest[2] as "min" | "max") : null;
+    return {
+      kind,
+      kindLabel,
+      columns: [column],
+      dependent: null,
+      bound,
+      row,
+      sentence:
+        `The proposed value for ${column} fell outside its ${
+          bound === "min" ? "lower" : bound === "max" ? "upper" : ""
+        } bound${rowPhrase}.`.replace("  ", " "),
+      raw: label,
+    };
+  }
+
+  if (rest.length >= 2) {
+    const column = rest[1];
+    const detail: Record<string, string> = {
+      not_null: `${column} may not be empty`,
+      primary_key_not_null: `${column} is part of the primary key and may not be empty`,
+      unique: `${column} must stay unique, and the proposed value already exists`,
+      primary_key_unique: `${column} is a primary key and the proposed value already exists`,
+      accepted_values: `the proposed value is not among the allowed values for ${column}`,
+      regex: `the proposed value does not match the required format for ${column}`,
+    };
+    return {
+      kind,
+      kindLabel,
+      columns: [column],
+      dependent: null,
+      bound: null,
+      row,
+      sentence: `Blocked${rowPhrase}: ${detail[kind] ?? `${kindLabel} on ${column}`}.`,
+      raw: label,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Decode an unsatisfiable core into constraint attributions, dropping labels that
+ * do not parse rather than rendering a guess.
+ */
+export function parseUnsatCore(labels: string[] | undefined | null): ConstraintAttribution[] {
+  const parsed: ConstraintAttribution[] = [];
+  for (const label of labels ?? []) {
+    const attribution = parseUnsatCoreLabel(label);
+    if (attribution !== null) {
+      parsed.push(attribution);
+    }
+  }
+  return parsed;
+}
+
+/**
+ * The honest asymmetry: cores exist only for REJECTIONS.
+ *
+ * z3 returns an unsatisfiable core when a proposal violates a constraint, so a
+ * blocked cell can be explained precisely. An ACCEPTED cell produces a proof
+ * obligation with status "accepted" and no core, because nothing was violated --
+ * there is no positive list of the constraints that held. Stating that is more
+ * trustworthy than rendering a symmetric-looking display, and it is an L3 absence
+ * state rather than an empty panel.
+ */
+export const PROOF_ATTRIBUTION_ASYMMETRY =
+  "Rejections carry a machine-checkable reason: the verifier records exactly which " +
+  "constraint blocked them. Accepted changes do not carry a positive proof trace — " +
+  "the verifier reports that nothing was violated, not a list of what held. " +
+  "Re-verify the certificate to confirm an acceptance independently.";
+
 
 export function buildTrustVerdict(analysis: AnalyzeResponse | null): TrustVerdict {
   if (!analysis) {

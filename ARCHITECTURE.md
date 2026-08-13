@@ -237,6 +237,23 @@ Optional extras and scoped dependencies:
   `dataforge_07_mcp` PyPI distribution with MCP dependencies.
 - `playground-model/`: Gradio and model-demo dependencies only.
 
+Frontend runtime dependencies in `playground/web/package.json` (five, deliberately
+few): `react`, `react-dom`, `motion`, `papaparse`, `lucide-react`. The quantitative
+visualisation layer adds **none**.
+
+- The density overview renders with a plain 2D canvas. A WebGL library (`ogl`) was
+  added on 2026-08-11 and removed on 2026-08-12 once the requirement that justified
+  it was re-derived: row binning bounds the mark count at
+  `bandCount x columns <= 140 x 128 = 17,920`, drawn once and never animated.
+  Measured worst case in `e2e/density-throughput.spec.ts`: **5.60 ms median,
+  6.70 ms worst**, inside a single 16 ms frame. A GPU path bought nothing, and
+  because WebGL cannot be read back without `preserveDrawingBuffer`, it was also the
+  only option that could not be pixel-verified.
+- The detail view renders claims as DOM elements, not canvas marks. This follows the
+  addressability law: a mark with individual identity is an object, so it is a
+  focusable, labelled button, and its earned depth is a CSS `box-shadow` rather than
+  a shader. Accessibility is satisfied by the markup instead of by a parallel table.
+
 ## Release Boundaries
 
 - `dataforge_07` is the final PyPI/TestPyPI core CLI/library distribution. It is

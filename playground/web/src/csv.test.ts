@@ -74,6 +74,7 @@ describe("result shaping", () => {
         pending_repair_supported_constraints: 0,
         reasons: ["No current detector findings were reported for this CSV."],
       },
+      flagged_cells: { index: { column_indices: [], rows: [] }, confidence_histogram: [], cells: [], total: 0, truncated: false, note: "No cells were flagged. This is a measured result, not a missing one." },
       issues: [],
       repairs: [
         {

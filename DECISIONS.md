@@ -12,6 +12,220 @@ Format for every entry:
 
 ---
 
+## 2026-08-11 - The perceptual language had no grammar for quantity, so the product drew nothing
+
+**Context**: asked for 3D visualization, I found the more basic defect first. The frontend renders
+**no quantity graphically at all**: no chart library, no canvas, no SVG data graphics, no `style={{}}`
+anywhere in the 3,687-line `App.tsx`, and not one CSS custom property ever set from JS. Every number
+is text. The three graphics that exist are a CSS `scaleX` rail sweep, a fixed-42%-width loading
+sweep, and categorical border styles. The `--df-{data,action,proof}-glow` tokens have zero consumers.
+
+That is not missing craft. `docs/design/perceptual-language.md` is a complete grammar for the *rung*
+of a claim and has **no vocabulary for magnitude** — no scale, axis, comparison, distribution, or
+aggregation — and its one magnitude token, `confidence`, is deliberately neutralised. A designer
+working honestly under it has no sanctioned way to draw a quantity, so the safe move is to draw
+nothing. The absence of a law produced the absence of the feature.
+
+Worse, the law it does have is **incomplete under superposition**. Drawing the measured
+hospital-with-inferred-FD queue (10,373 flagged cells, 52% of 20,000, per
+`eval/results/detector_queue_composition.json`) into an 800x400 region means more marks than pixels.
+Under additive blending forty stacked plausibility cells out-glow one proven cell: overplotting
+converts density into intensity, and intensity is legally bound to epistemic strength. Nobody writes
+a lie; the renderer manufactures one out of arithmetic. A constitution that governs single signals
+but not their superposition is enforceable only on an empty screen.
+
+**Alternatives**:
+1. *Add a quantitative grammar (L1-L5) as a companion constitution, with a build gate.* Chosen.
+2. *Add charts under the existing language, case by case.* Rejected: it is what produced zero charts.
+   Each component would re-derive the magnitude question privately and the overplot hole would stay
+   open, because it is invisible until someone draws 10,000 marks.
+3. *Extend `perceptual-language.md` in place.* Rejected: that document's authority comes from being
+   about one thing — is this signal's claim true. Quantity, aggregation, absence and attention cost
+   are a second subject with its own falsifiers, and mixing them would dilute both.
+4. *Decorative 3D as requested.* Rejected on measurement, not taste. Cleveland & McGill (1984, JASA
+   79(387):531-544) rank volume 6th of 7 magnitude channels and position 1st; a 3D chart recruits
+   the worst channel and adds foreshortening. Orbit and parallax are independently forbidden three
+   times over: WCAG 2.3.3 (AAA) names parallax a vestibular trigger, `audit_motion.mjs` permits
+   `infinite` only on `hover`/`resolve`, and camera state cannot be persisted because
+   `localStorage` is grep-banned across the playground.
+
+**Decision**: (1). New `docs/design/quantitative-grammar.md` under the perceptual language's
+authority, with `src/design/quantitative-tokens.json` as single source and
+`scripts/audit_quantitative.mjs` as a build gate. Five laws: **L1** magnitude is position or length
+only; **L2** collided marks aggregate by **minimum** rung and may never overstate; **L3** zero,
+not-measured and truncated are three different claims and must render differently; **L4** attention
+is budgeted (at most one looping progress indicator per view, no physics layouts); **L5** depth
+encodes ordinal epistemic strength only — ground contact is the proven cue, orthographic, <=6px,
+no camera.
+
+**Reasoning**: the grammar makes drawing quantity legal, bounded and falsifiable, and it makes the
+overplot lie *unrepresentable* rather than discouraged: aggregation happens in a pure CPU function
+that emits non-overlapping marks, so the GPU never receives two rung-bearing marks in one place.
+Earned depth is admitted because it is position (channel 1) rather than volume (channel 6), because
+the ladder it encodes is already ordinal, and because it is the most detachable law here — if it
+fails validation it is removed and nothing else changes.
+
+**CORRECTION (same day, before implementation)**: the first formulation of L2 took the **maximum**
+rung, on the reasoning that a bin should show the strongest claim it contains. That is backwards.
+Max-rung promotes a whole bin to its strongest member, so a region of forty unproven cells containing
+one proven fix renders with proven form, fill and glow — on the hospital queue a max-rung map would
+look dramatically more proven than the run was. That is exactly the overtrust bias L2 exists to
+prevent, so the rule contradicted its own motivation. Minimum-rung cannot overstate by construction.
+The accepted cost is that min-rung *understates* good news, which is why the `mixed` marker and the
+neutral count channel are mandatory rather than optional. Recorded rather than edited away, because
+choosing the intuitive aggregate is the failure mode, not the wording.
+
+**CORRECTION 2 (during implementation)**: the plan for this work said to wire a `review_ranker` into
+`_analyze_upload` so `review_ranking` would be populated, citing its measured ROC-AUC 0.9796. Three
+things were wrong with that. `ReviewRanker` is an **LLM scorer** with no free variant, so firing it
+would put a paid call on every playground analysis. Auto-firing it contradicts the 2026-08-04 entry
+below, which shipped the triager as an explicit opt-in and recorded the auto-fire gate as a measured
+NO-GO. And 0.9796 is an **in-sample, single-dataset** figure that the 2026-08-05 entry records as not
+generalising — presenting it as "what to look at first" for an arbitrary uploaded table is exactly
+the claim-scope error this project has already made and corrected three times.
+What shipped instead: `review_ranking` is surfaced on the receipt view so a CLI or library caller
+that DID opt in can render it, the playground supplies no ranker, and the evidence surface orders
+cells by severity then detector confidence — free, already computed, and carrying no accuracy claim.
+
+**CORRECTION 3 (during implementation)**: the plan included a calibration/reliability plot. It is not
+built, because no calibration, conformal, reliability or ECE data appears anywhere in the playground
+API response: those artifacts come from a calibration session over labelled samples, not a stateless
+analyse call. Plotting `eval/results/selective_repair_calibration.json` instead would present one
+dataset's measurement as if it described the user's run. Its registry entry was **removed** rather
+than left in place, because a registry entry for a component that does not exist is the vacuity the
+new gate exists to catch. Recorded as an open unknown in the grammar's §9.
+
+**Also fixed**: `/evidence` was never axe-scanned by any test, and had a live `landmark-unique`
+violation — two `RiskSummaryPanel` landmarks sharing the label "Risk reasons", indistinguishable to a
+screen reader. Adding the scan is what found it.
+
+**Also found and fixed while reading the rung source** (two drifts in the function every trust
+surface routes through): `strengthOf` in `observatory.ts` tested membership in
+`LLM_PROVENANCE = {llm_live, llm_cache, external}`, but the engine's `_UNTRUSTED_PROVENANCE`
+(`repair.py:848`) also contains `entity_consensus`. With `verification_strength` absent, an
+entity-consensus value was therefore labelled **proven** in the browser. And `REVIEW_REASON_COPY`
+carried 12 of the 13 `ReviewReason` values, missing `unverified_entity_consensus`, while
+`dataforge/ui/trust_vocab.py` carries all 13 — so the visual and text twins did not deliver identical
+claims, contrary to perceptual-language §9.
+
+**Reviewed with**: nobody yet; the grammar's five falsifiers and the two P1 comprehension tests in
+its §9 are the review that matters and are unrun.
+
+**Verification**: `audit_quantitative.mjs` fails closed on a vacuous registry (verified by running it
+against an empty `src/viz`), on a non-minimum collision aggregate, on a glow-eligible unproven rung,
+on out-of-bound depth, on an undeclared or unreachable absence state, on perspective/orbit/parallax
+references, and on colour literals. Encoder tests cover Appendix A cases A.1-A.4 of
+`specs/SPEC_quantitative_visualization.md`. hospital F1 unchanged at 0.7926 (this component is
+read-only over engine output and introduces no write path).
+
+**Reversal criteria**: L5 is removed if users cannot name a rung from ground contact alone with hue
+removed (grammar §9 item 1) — it is deliberately separable. L2 gains a higher-resolution composition
+channel, rather than a relaxation, if min-rung aggregation causes users to discount genuine proven
+fixes (§9 item 2). The whole grammar is reconsidered if the Evidence Surface measurably fails to
+help a user locate proven work in a flooded queue, which is the only reason it exists.
+
+**Residual gap, stated**: a per-step agent replay over the table is not buildable.
+`ActionOutcome.resolved_cell` and `.unsat_core` are discarded in `controller.py` before any view
+layer sees them. `tax` (200,000 x 15) exceeds every playground cap and has no measured issue count
+in any artifact, so its scale is unvisualisable and unmeasured rather than merely unrendered.
+
+**CORRECTION 4 (2026-08-12, after adversarial re-review of the shipped work)**: five of the six
+claims above failed verification against the code. L2 and L5 are replaced, `ogl` is removed, and the
+visualisation is split into two scales. Recorded in full because each failure is a distinct lesson.
+
+1. **L5 shipped dead.** Depth was unrenderable on every real dataset:
+   `heightPx = clamp(rows,180,420)` = 420, `binCount = min(rows, floor(420/3))` = 140, so marks are
+   **3.0px** against a `depthLegibleMinPx` of 8. Depth rendered only at **rows <= 22** — the 10-row
+   fixture the tests used. The tests passed on a configuration that never occurs in production. This
+   is the §4.1 legend-only defect one level up: a law whose channel nobody can see. **A perceptual
+   law must state the conditions under which its channel is perceivable, or it is not a law.**
+2. **L2 was still solving the wrong problem.** Min-rung cannot overstate, but it was measured to
+   *suppress* proof in the dense FD regime (~7 cells/bin, proven co-binned with held and erased),
+   while being near-identity when sparse — collisions are per-(column, band). Both min-rung and
+   max-rung tried to pick a *representative* of a set, and every representative of a set misreports
+   it. Replaced by the **addressability law**: a mark that is not individually addressable may not
+   carry a rung. Aggregated marks carry only a neutral count. This deletes the aggregation rule
+   rather than choosing a third one, and makes overtrust structurally impossible instead of
+   carefully avoided.
+3. **Root cause: the three stages were collapsed into one artifact.** Shneiderman, *"The eyes have
+   it: A task by data type taxonomy for information visualizations"* (IEEE Visual Languages, 1996)
+   prescribes overview first, zoom and filter, then details-on-demand. Forcing one mark to carry
+   density *and* rung *and* identity is what made a lie unavoidable.
+4. **`ogl` was unjustified by the design that followed it.** Marks are bounded at
+   `binCount x columns <= 140 x 128 = 17,920`, typically 2,800, one-shot and non-animated. The
+   binning that produced that bound was added *after* the dependency was justified by "instanced
+   quads at scale", and the requirement was never re-derived. Worse: WebGL cannot be read back
+   without `preserveDrawingBuffer`, so **the renderer chosen was the one that could not be
+   pixel-verified**. Removed; both triage records revert to being true.
+5. **No test verified a pixel.** 117 tests passed while jsdom yielded the `dom` tier, where `draw()`
+   returns null, and ~130 lines of GLSL were never executed by anything. A blank canvas satisfied
+   every assertion. Pixel readback via `getImageData` is now a gate — and is only possible because
+   the GPU path is gone.
+6. **The payload was ~20x oversized.** `FlaggedCellView` at ~350 B/cell x 10,373 cells is ~3.6 MB
+   from a 1 MiB upload. Split into a columnar index for the map, bounded detail records, and a
+   per-class confidence histogram.
+7. **Near-miss, recorded because it is the same error class as CORRECTION 2.** A "confidence vs
+   auto-apply threshold" plot was one step from being proposed. `partition_auto_apply`
+   (`repair.py:955`) states *"deterministic ones always auto-apply"*: `_DEFAULT_THRESHOLDS` gates
+   only `_LLM_PROVENANCE` fixes, and the playground's corrector policy is all-1.01. That plot would
+   have visualised a gate that never fires. The confidence panel that ships instead draws **no
+   threshold line** and states that confidence is near-degenerate (10,261 of 10,373 cells at exactly
+   0.95) and therefore not a ranking signal.
+
+Also corrected: the gate written for the new L2 initially globbed for filenames matching `density`
+and caught only the *painter*, which is rung-free because it consumes rung-derived fields — so it
+passed while the encoder held 23 rung references. Components now declare their encoder explicitly.
+A gate that inspects the wrong file is not a gate. And L4 is now labelled **guidance, not a gate**:
+the declared looping count is checked, but nothing measures runtime motion, so calling it a law
+overstated the implementation.
+
+**CORRECTION 5 (2026-08-12, from executing CORRECTION 4 rather than describing it)**: six further
+defects, every one found by measurement or mutation, none visible by reading the code.
+
+1. **`ogl` deleted on evidence, and the evidence disagreed with the earlier estimate.** Isolated
+   measurement of the true worst case (17,920 marks = 140 bands x 128 columns, the real bounds) is
+   **best 4.10 ms, median 5.30 ms, worst 9.70 ms** — a whole redraw inside one 16 ms frame, drawn once
+   and never animated. The GPU path bought nothing. Frontend runtime dependencies return to five and
+   the lockfile is byte-identical to the committed one (226 packages, 226 integrity, 226 resolved).
+   Bundle: 131.93 KiB baseline -> 142.59 KiB, so the entire quantitative layer costs **+10.66 KiB**
+   against +23.57 KiB with the GPU path.
+2. **The perf assertion was measuring the test runner.** The same draw reports 5.30 ms alone and
+   **22.20 ms** with six Playwright workers running. The original median-based threshold therefore
+   passed at `--workers=2` and failed at the default — a false signal in both directions. Switching to
+   best-of-N was not enough, because contention inflates every sample in the window. The measurement
+   now runs under its own `playwright.perf.config.ts` with one worker and **zero retries**: a
+   measurement that needs a retry to pass is not a measurement. It is excluded from the default suite.
+3. **The payload split helps only above its own limit, and slightly hurts below it.** Measured, not
+   asserted: at 100 flagged cells it is **0.9x** (every cell appears in both the index and the detail
+   set, plus histogram overhead); at 800 cells **1.5x**; at the 10,000-row API cap with 3,000 flagged
+   cells **764.8 KiB -> 151.9 KiB = 5.0x**, index at 6.6 B/cell. The earlier "~20x" was an
+   extrapolation from a cell count this API cannot reach on a 10-column table. Scale-dependence is now
+   stated rather than hidden behind a single flattering ratio.
+4. **The confidence histogram is a correctness fix, not an optimisation.** `flagged_cells.cells` is a
+   prefix ordered by severity then descending confidence, so computing a distribution from it is
+   biased towards the high-severity, high-confidence tail by construction. The population statistics
+   must be computed where the population exists. A unit test now pins `totalCells` to the histogram
+   population and asserts it is *not* the detail length.
+5. **The overtrust guard was tautological and could never fire.** `claimSetViolations` read only
+   `rungSpecs[claim.rung]`, so it re-derived the rung from the rung. It now carries `provenance` on
+   every claim and re-derives expected strength from `UNTRUSTED_PROVENANCE` independently — the
+   mutation that flips an `llm_live` claim to `proven` is killed only because of that independence.
+6. **Mutation testing found a hole in the new gate itself, again.** The L2 check looked for the word
+   `rung` and for rung CSS token families, so an encoder could assign a rung *name* as a bare string
+   (`"proven"`) and pass. Now every rung id is checked by name. The harness
+   (`scripts/mutate_quantitative.mjs`, wired into `npm test`) runs 13 mutants against the verifier that
+   should catch each one, and routes runtime invariants to the unit suite rather than pretending a
+   static audit can see them: **13/13 killed**.
+
+Also fixed, and pre-existing rather than new: a full-width `<canvas>` contributes its **intrinsic
+pixel width** as max-content, so an auto-sized grid track grew past the viewport and put 9 px of
+horizontal overflow on the evidence page. `min-width: 0` on the canvas cannot fix this, because
+max-content contribution is what sizes the track; `grid-template-columns: minmax(0, 1fr)` on the lens
+containers can. The latent bug existed before this work and surfaced only once the page grew tall
+enough to be measured with the claim panel open.
+
+---
+
 ## 2026-08-09 - Scope authority per column: one accepted constraint was granting blanket `proven` status
 
 **Context**: found while documenting the authority-mutation gap, and worse than the defect that

@@ -902,6 +902,12 @@ select:disabled {
 .receipt-lens,
 .raw-lens {
   display: grid;
+  /* minmax(0, 1fr) rather than an implicit auto track. An auto track sizes to its
+     items' MAX-CONTENT width, and a canvas contributes its intrinsic pixel width
+     there -- so a full-width canvas grew this track past the viewport and put 9px of
+     horizontal overflow on the page. min-width on the canvas cannot fix that, because
+     max-content contribution is what sizes the track. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
 }
@@ -1676,7 +1682,15 @@ textarea {
 
 .product-main {
   display: grid;
+  /* Explicit minmax(0, 1fr): without it a single child with a large min-content
+     width stretches the column, and every sibling section stretches with it. That
+     surfaced as 9px of horizontal page overflow once the claim table was added. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  min-width: 0;
+}
+
+.product-main > * {
   min-width: 0;
 }
 
@@ -2989,3 +3003,544 @@ textarea {
 }
 
 
+
+/* --- Evidence surface (quantitative grammar) -------------------------------- */
+/* Colours come only from the audited token system; see docs/design/quantitative-grammar.md. */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.evidence-surface__head h3 {
+  margin: 0 0 0.15rem;
+}
+
+.evidence-surface__coverage,
+.evidence-surface__twin-note,
+.evidence-surface__tier {
+  margin: 0.15rem 0 0;
+  color: var(--df-text-2);
+  font-size: 0.78rem;
+}
+
+.evidence-surface__absence {
+  margin: 0.6rem 0 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px dashed var(--df-line);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-2);
+  color: var(--df-text-2);
+  font-size: 0.82rem;
+}
+
+.evidence-surface__absence--not_measured {
+  border-style: dotted;
+  border-left: 3px solid var(--df-held-line);
+}
+
+.evidence-surface__absence--zero {
+  border-style: solid;
+  border-left: 3px solid var(--df-proven-line);
+}
+
+.evidence-surface__frame {
+  margin-top: 0.6rem;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-2);
+  overflow: hidden;
+}
+
+.evidence-surface__canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.evidence-surface__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0;
+  color: var(--df-text-2);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.evidence-surface__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rung-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.12rem 0.42rem;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-tight);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.rung-chip__count {
+  color: var(--df-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Form carries the rung, not hue alone: proven is filled and solid, plausibility
+   is unfilled and dashed, rejected is struck. Survives grayscale. */
+.rung-chip--proven,
+.rung-chip--corroborated {
+  border-style: solid;
+  border-color: var(--df-proven-line);
+  background: var(--df-proven-bg);
+  color: var(--df-proven-text);
+}
+
+.rung-chip--corroborated {
+  border-left-width: 3px;
+  border-left-color: var(--df-corroborated-line);
+  color: var(--df-corroborated-text);
+}
+
+.rung-chip--held {
+  border-style: solid;
+  border-color: var(--df-held-line);
+  background: var(--df-held-bg);
+  color: var(--df-held-text);
+}
+
+.rung-chip--downgraded {
+  border-style: dashed;
+  border-color: var(--df-downgraded-line);
+  background: var(--df-downgraded-bg);
+  color: var(--df-downgraded-text);
+}
+
+.rung-chip--plausibility_only {
+  border-style: dashed;
+  border-color: var(--df-plausibility-line);
+  background: transparent;
+  color: var(--df-plausibility-text);
+}
+
+.rung-chip--rejected {
+  border-style: solid;
+  border-color: var(--df-status-danger-text);
+  background: transparent;
+  color: var(--df-status-danger-text);
+  text-decoration: line-through;
+}
+
+.rung-chip--idle {
+  border-color: var(--df-line-subtle);
+  color: var(--df-text-2);
+}
+
+.evidence-surface__twin {
+  margin-top: 0.7rem;
+}
+
+.evidence-surface__twin > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--df-text-2);
+}
+
+.evidence-surface__jump {
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-1);
+  color: var(--df-text-1);
+  padding: 0.1rem 0.4rem;
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+}
+
+.evidence-surface__jump:hover {
+  background: var(--df-hover-bg);
+}
+
+@media (max-width: 720px) {
+  .evidence-surface__axis {
+    flex-wrap: wrap;
+  }
+}
+.evidence-surface__absence--withheld {
+  border-style: solid;
+  border-left: 3px solid var(--df-status-danger-text);
+  color: var(--df-status-danger-text);
+}
+.proof-attribution {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.proof-attribution > li {
+  display: grid;
+  grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem;
+  border-left: 2px solid var(--df-proof-line);
+  background: var(--df-surface-2);
+  border-radius: var(--df-radius-tight);
+  font-size: 0.78rem;
+}
+
+.proof-attribution__kind {
+  color: var(--df-proof-text);
+  font-weight: 600;
+}
+
+.proof-attribution__sentence {
+  color: var(--df-text-1);
+}
+
+.proof-attribution--opaque {
+  font-size: 0.76rem;
+  color: var(--df-text-2);
+}
+
+.proof-asymmetry {
+  margin: 0 0 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px dashed var(--df-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-2);
+  color: var(--df-text-2);
+  font-size: 0.76rem;
+}
+
+@media (max-width: 720px) {
+  .proof-attribution > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.dependency-graph__note {
+  margin: 0.15rem 0 0;
+  color: var(--df-text-2);
+  font-size: 0.78rem;
+}
+
+.dependency-graph__frame {
+  margin-top: 0.6rem;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-2);
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.dependency-graph__svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.dependency-graph__node {
+  fill: var(--df-surface-1);
+  stroke: var(--df-line);
+  stroke-width: 1;
+}
+
+.dependency-graph__nodes text {
+  fill: var(--df-text-1);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+/* Decision carries meaning by DASH PATTERN as well as colour, so it survives
+   grayscale: pending is provisional, accepted is committed authority. */
+.dependency-graph__edge {
+  stroke: var(--df-line);
+  stroke-width: 1.25;
+}
+
+.dependency-graph__edge--pending {
+  stroke: var(--df-held-line);
+  stroke-dasharray: 3 3;
+}
+
+.dependency-graph__edge--accepted {
+  stroke: var(--df-proven-line);
+  stroke-width: 1.75;
+}
+
+.dependency-graph__edge--rejected {
+  stroke: var(--df-line-subtle);
+  stroke-dasharray: 1 4;
+}
+
+/* --- Overview: neutral density, no rung ------------------------------------- */
+
+.evidence-overview__scope,
+.evidence-overview__coverage,
+.claim-detail__scope,
+.claim-detail__truncated,
+.confidence-distribution__note,
+.confidence-distribution__finding,
+.confidence-distribution__scope {
+  margin: 0.15rem 0 0;
+  color: var(--df-text-2);
+  font-size: 0.78rem;
+}
+
+.evidence-overview__frame {
+  margin-top: 0.6rem;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-2);
+  overflow: hidden;
+}
+
+/* Tables carry the exact counts, so they must stay readable rather than be clipped:
+   scroll the table, never the page. `.table-frame` already does this repo-wide. */
+
+.evidence-overview__canvas {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  /* A canvas is a replaced element, so its MIN-CONTENT width is its intrinsic pixel
+     width. Inside a grid track that is auto-sized, that intrinsic width sizes the
+     track, the container grows, the next measurement makes the canvas wider still,
+     and the page acquires horizontal overflow. min-width: 0 is what allows a replaced
+     element to shrink below its intrinsic size and breaks the loop. */
+  min-width: 0;
+}
+
+.evidence-overview__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0.6rem;
+  color: var(--df-text-2);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Claim detail: addressable objects, earned depth ------------------------ */
+
+.claim-detail__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.claim-list {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  min-width: 0;
+  list-style: none;
+}
+
+.claim {
+  min-width: 0;
+}
+
+.claim__button {
+  display: grid;
+  /* Fractional, not fixed rem: a fixed min-content width cannot fit a narrow
+     container and shows up as horizontal page overflow, which is a hard failure on
+     the Pixel 7 viewport. */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-1);
+  color: var(--df-text-1);
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.claim__button > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.claim__verdict {
+  font-weight: 600;
+}
+
+.claim__type {
+  color: var(--df-text-2);
+  font-size: 0.74rem;
+}
+
+/* Earned depth, finally on a mark tall enough to have a ground.
+   Proven is IN CONTACT with the plane and casts a tight shadow; plausibility is
+   detached and casts none. box-shadow and transform are static properties, so no
+   keyframe is involved. */
+.claim[data-rung="proven"] > .claim__button,
+.claim[data-rung="corroborated"] > .claim__button {
+  border-color: var(--df-proven-line);
+  background: var(--df-proven-bg);
+  color: var(--df-proven-text);
+  border-style: solid;
+  box-shadow: 0 1px 0 0 var(--df-proven-line), 0 2px 3px -2px var(--df-proven-line);
+}
+
+.claim[data-rung="corroborated"] > .claim__button {
+  border-left-width: 3px;
+  border-left-color: var(--df-corroborated-line);
+}
+
+.claim[data-rung="held"] > .claim__button {
+  border-color: var(--df-held-line);
+  background: var(--df-held-bg);
+  color: var(--df-held-text);
+}
+
+.claim[data-rung="downgraded"] > .claim__button {
+  border-style: dashed;
+  border-color: var(--df-downgraded-line);
+  background: var(--df-downgraded-bg);
+  color: var(--df-downgraded-text);
+  transform: translateY(-3px);
+}
+
+/* Detached: floats above the plane, unfilled, dashed, NO contact shadow. The
+   absence of the shadow is the signal. */
+.claim[data-rung="plausibility_only"] > .claim__button {
+  border-style: dashed;
+  border-color: var(--df-plausibility-line);
+  background: transparent;
+  color: var(--df-plausibility-text);
+  transform: translateY(-6px);
+  box-shadow: none;
+}
+
+.claim[data-rung="rejected"] > .claim__button {
+  border-color: var(--df-status-danger-text);
+  background: transparent;
+  color: var(--df-status-danger-text);
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.claim[data-rung="rejected"] .claim__verdict {
+  text-decoration: line-through;
+}
+
+/* Reduced motion and flat twins must not upgrade a rung: the offsets go, the hue,
+   form and text stay. */
+@media (prefers-reduced-motion: reduce) {
+  .claim[data-rung="downgraded"] > .claim__button,
+  .claim[data-rung="plausibility_only"] > .claim__button,
+  .claim[data-rung="rejected"] > .claim__button {
+    transform: none;
+  }
+}
+
+.claim__body {
+  padding: 0.4rem 0.6rem 0.5rem;
+  min-width: 0;
+  border: 1px solid var(--df-line-subtle);
+  border-top: 0;
+  border-radius: 0 0 var(--df-radius-tight) var(--df-radius-tight);
+  background: var(--df-surface-2);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.claim__change,
+.claim__detail,
+.claim__reason {
+  margin: 0.2rem 0 0;
+}
+
+.claim__reason {
+  color: var(--df-text-2);
+}
+
+/* --- Confidence distribution ------------------------------------------------ */
+
+.confidence-classes {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.confidence-class__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.confidence-class__name {
+  font-weight: 600;
+}
+
+.confidence-class__meta,
+.confidence-class__verdict {
+  color: var(--df-text-2);
+  font-size: 0.74rem;
+}
+
+.confidence-class__verdict {
+  margin: 0.15rem 0 0;
+}
+
+/* Count by LENGTH (L1 channel 3). Not area, not intensity. */
+.confidence-histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 40px;
+  margin-top: 0.25rem;
+  padding: 2px;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius-tight);
+  background: var(--df-surface-2);
+}
+
+.confidence-bin {
+  flex: 1 1 0;
+  min-height: 1px;
+  background: var(--df-confidence-medium-text);
+  border-radius: 1px;
+}
+
+@media (max-width: 720px) {
+  .claim__button {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.15rem;
+  }
+
+  .evidence-overview__axis {
+    flex-wrap: wrap;
+  }
+}

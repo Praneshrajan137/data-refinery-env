@@ -51,6 +51,7 @@ function analysisFixture(): AnalyzeResponse {
       pending_repair_supported_constraints: 1,
       reasons: ["Unsafe issue requires review."],
     },
+    flagged_cells: { index: { column_indices: [], rows: [] }, confidence_histogram: [], cells: [], total: 0, truncated: false, note: "No cells were flagged. This is a measured result, not a missing one." },
     issues: [
       {
         column: "state",

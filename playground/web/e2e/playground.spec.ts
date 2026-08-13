@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const sampleCsv = [
   "provider_number,hospital_name,city,state,zip_code,phone_number,rating,mortality_rate,readmission_rate,er_wait_time",
@@ -117,6 +117,42 @@ function analyzePayload(accepted = false) {
         count: 1,
       },
     ],
+    // The untruncated per-cell channel the evidence surface is built from. Kept in
+    // lockstep with `issues` above: the same cell, with the fields the grouping
+    // destroys (confidence, actual, expected, reason).
+    flagged_cells: {
+      // rating is column index 4 in the hospital sample header.
+      index: { column_indices: [4], rows: [5] },
+      confidence_histogram: [
+        {
+          issue_type: "decimal_shift",
+          bins: Array.from({ length: 10 }, (_, index) => ({
+            from_value: index / 10,
+            to_value: (index + 1) / 10,
+            count: index === 8 ? 1 : 0,
+          })),
+          count: 1,
+          distinct_values: 1,
+          mode_value: 0.86,
+          mode_share: 1,
+        },
+      ],
+      cells: [
+        {
+          row: 5,
+          column: "rating",
+          issue_type: "decimal_shift",
+          severity: "review",
+          confidence: 0.86,
+          actual: "45.0",
+          expected: "4.5",
+          reason: "Value 45 in column rating appears to be ~10x the typical value.",
+        },
+      ],
+      total: 1,
+      truncated: false,
+      note: "All 1 flagged cells are individually listed.",
+    },
     repairs: [
       {
         row: 5,
@@ -554,7 +590,47 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   await page.locator('.product-nav a[href="/playground/evidence"]').click();
   await expect(page).toHaveURL(/\/playground\/evidence$/);
   await expect(page.getByRole("heading", { name: "Constraint review" })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "accepted" })).toBeVisible();
+  await expect(page.locator(".risk-lens").getByRole("cell", { name: "accepted" })).toBeVisible();
+
+  // The overview: aggregated bands carry no rung, so its accessible name must state
+  // what it does NOT claim. The per-column table beside it carries the exact counts,
+  // which is the channel allowed to carry magnitude.
+  const overview = page.getByRole("region", { name: "Flagged cell overview" });
+  await expect(overview.getByRole("heading", { name: "Where cells are flagged" })).toBeVisible();
+  await expect(overview.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /Flagged cell overview: \d+ rows by \d+ columns/,
+  );
+  await expect(overview.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /where cells are flagged, not what was proven/,
+  );
+  await expect(overview).toContainText("It does not show what was proven");
+  await expect(overview).toContainText(/flagged cells are located|Showing \d+ of \d+|measured result/);
+  await expect(overview.getByRole("columnheader", { name: "Flagged cells" })).toBeVisible();
+  await expect(overview.getByRole("columnheader", { name: "Bands affected" })).toBeVisible();
+
+  // The confidence panel must state what the signal cannot do, and must NOT draw a
+  // threshold: those thresholds gate the corrector path, not deterministic auto-apply.
+  const confidence = page.getByRole("region", { name: "Detector confidence" });
+  await expect(
+    confidence.getByRole("heading", { name: "What detector confidence can tell you" }),
+  ).toBeVisible();
+  await expect(confidence).toContainText("gate that never fires on this run");
+
+  // The dependency graph: 2D and deterministic. Its accessible name and edge table
+  // are the contract, since an SVG diagram alone conveys nothing to a screen reader.
+  const graph = page.getByRole("region", { name: "Column dependency graph" });
+  await expect(graph.getByRole("heading", { name: "What determines what" })).toBeVisible();
+  await expect(graph.getByRole("img")).toHaveAttribute(
+    "aria-label",
+    /Column dependency graph: \d+ columns, \d+ inferred dependencies/,
+  );
+  await expect(graph.getByRole("columnheader", { name: "Dependent" })).toBeVisible();
+
+  // /evidence was previously never axe-scanned; the surface lives here.
+  const evidenceScan = await new AxeBuilder({ page }).analyze();
+  expect(evidenceScan.violations).toEqual([]);
 
   await page.locator('.product-nav a[href="/playground/repairs"]').click();
   const repairsPanel = page.locator(".repairs-lens");
@@ -708,6 +784,42 @@ test("reduced motion keeps route and workflow state visible without overflow", a
   await expect(page.locator("[data-agent-motion]").first()).toBeVisible();
   await expect(page.locator("[data-workflow-status='completed']").first()).toBeVisible();
 
+  // The reduced-motion twin must remove the depth OFFSETS without upgrading any rung:
+  // the hue, the form and the written verdict all have to survive, because removing
+  // an offset must never make a weaker claim look stronger. Checked on the real marks
+  // rather than asserted in prose.
+  await page.locator('.product-nav a[href="/playground/evidence"]').click();
+  const overview = page.getByRole("region", { name: "Flagged cell overview" });
+  const inspect = overview.getByRole("button", { name: /^Inspect / }).first();
+  await inspect.scrollIntoViewIfNeeded();
+  await inspect.focus();
+  await page.keyboard.press("Enter");
+
+  const claims = page.getByRole("region", { name: "Individual claims" }).locator(".claim");
+  await expect(claims.first()).toBeVisible();
+  const marks = await claims.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const button = node.querySelector(".claim__button")!;
+      const style = getComputedStyle(button);
+      return {
+        rung: node.getAttribute("data-rung"),
+        transform: style.transform,
+        text: (button.textContent ?? "").trim(),
+      };
+    }),
+  );
+  expect(marks.length).toBeGreaterThan(0);
+  for (const mark of marks) {
+    // No translation survives reduced motion, whatever the rung.
+    expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(mark.transform);
+    // The verdict is still written out, so the rung is not carried by depth alone.
+    expect(mark.text).toMatch(/Proven|Held|Plausibility|Rejected|Downgraded|Corroborated/);
+  }
+
+  // Horizontal overflow is a hard failure, not a cosmetic one: it makes content
+  // unreachable on a phone. Measured against innerWidth on every route this test
+  // visits, including the claim detail, whose canvas sibling previously grew an
+  // auto-sized grid track past the viewport.
   const layout = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
     innerWidth: window.innerWidth,
@@ -777,3 +889,185 @@ for (const colorScheme of ["light", "dark"] as const) {
     expect(scan.violations).toEqual([]);
   });
 }
+
+// --- Pixel verification -------------------------------------------------------
+// Every test in the first iteration of the visualisation work passed while the
+// canvas could have been entirely blank: jsdom yields no drawing context, so unit
+// tests exercised the encoder and never the painter, and the WebGL path could not be
+// read back without preserveDrawingBuffer. getImageData on a 2D canvas closes that
+// gap, and is the reason the 2D painter is preferable rather than merely adequate.
+
+async function useJsonAnalyze(page: Page): Promise<void> {
+  // The default mocks stream, and workflowStreamBody builds its own payload
+  // internally, so a route override on /api/analyze alone never fires. Reporting no
+  // streaming support makes the client use the JSON endpoint these tests override.
+  await page.route("**/api/health", async (route) => {
+    await route.fulfill({
+      json: {
+        status: "ok",
+        advanced_available: false,
+        verify_available: true,
+        streaming_available: false,
+        max_upload_bytes: 1_048_576,
+      },
+    });
+  });
+}
+
+async function countInk(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>(".evidence-overview__canvas");
+    if (canvas === null) {
+      return -1;
+    }
+    const ctx = canvas.getContext("2d");
+    if (ctx === null) {
+      return -2;
+    }
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let opaque = 0;
+    for (let index = 3; index < data.length; index += 4) {
+      if (data[index] > 0) {
+        opaque += 1;
+      }
+    }
+    return opaque;
+  });
+}
+
+test("the density map draws real ink and says nothing about proof", async ({ page }) => {
+  await useJsonAnalyze(page);
+  await page.route("**/api/analyze", async (route) => {
+    const payload = analyzePayload(false);
+    payload.source.rows = 400;
+    // The index is what the map reads, so it is what this test must populate.
+    // rating is column 4 and state is column 6 in the hospital sample header.
+    payload.flagged_cells = {
+      index: {
+        column_indices: Array.from({ length: 120 }, (_, index) => (index % 2 === 0 ? 4 : 6)),
+        rows: Array.from({ length: 120 }, (_, index) => index * 3),
+      },
+      confidence_histogram: [
+        {
+          issue_type: "fd_violation",
+          bins: Array.from({ length: 10 }, (_, index) => ({
+            from_value: index / 10,
+            to_value: (index + 1) / 10,
+            count: index === 9 ? 120 : 0,
+          })),
+          count: 120,
+          distinct_values: 1,
+          mode_value: 0.95,
+          mode_share: 1,
+        },
+      ],
+      cells: Array.from({ length: 120 }, (_, index) => ({
+        row: index * 3,
+        column: index % 2 === 0 ? "rating" : "state",
+        issue_type: "fd_violation",
+        severity: "unsafe",
+        confidence: 0.95,
+        actual: "x",
+        expected: null,
+        reason: "violates dependency",
+      })),
+      total: 120,
+      truncated: false,
+      note: "All 120 flagged cells are located and individually listed.",
+    };
+    await route.fulfill({ json: payload });
+  });
+
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+  await expect(page.getByRole("heading", { name: "1 issue group(s)" })).toBeVisible();
+
+  await page.locator('.product-nav a[href="/playground/evidence"]').click();
+  const overview = page.getByRole("region", { name: "Flagged cell overview" });
+  const map = overview.getByRole("img");
+  await expect(map).toBeVisible();
+
+  // The decisive assertion, absent from the previous work entirely.
+  expect(await countInk(page)).toBeGreaterThan(0);
+
+  const label = await map.getAttribute("aria-label");
+  expect(label).toMatch(/Flagged cell overview: 400 rows by \d+ columns/);
+  expect(label).toContain("where cells are flagged, not what was proven");
+
+  // Exact counts live in text, which is the channel allowed to carry magnitude.
+  await expect(overview.getByRole("columnheader", { name: "Flagged cells" })).toBeVisible();
+});
+
+test("an empty run renders a stated absence, not a blank canvas", async ({ page }) => {
+  await useJsonAnalyze(page);
+  await page.route("**/api/analyze", async (route) => {
+    const payload = analyzePayload(false);
+    payload.issues = [];
+    payload.repairs = [];
+    payload.verification.failures = [];
+    payload.receipt.root_causes = [];
+    payload.receipt.suggested_fixes = [];
+    payload.receipt.issues_count = 0;
+    payload.flagged_cells = { index: { column_indices: [], rows: [] }, confidence_histogram: [], cells: [], total: 0, truncated: false, note: "none" };
+    await route.fulfill({ json: payload });
+  });
+
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+
+  await page.locator('.product-nav a[href="/playground/evidence"]').click();
+  const overview = page.getByRole("region", { name: "Flagged cell overview" });
+
+  // Zero is a measured result, not silence (L3), and no canvas pretends otherwise.
+  await expect(overview).toContainText("measured result");
+  await expect(overview.getByRole("img")).toHaveCount(0);
+});
+
+test("selecting a column reveals addressable claims with earned depth", async ({ page }) => {
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+  await page.locator('.product-nav a[href="/playground/evidence"]').click();
+
+  const overview = page.getByRole("region", { name: "Flagged cell overview" });
+  const inspect = overview.getByRole("button", { name: /^Inspect / }).first();
+  await inspect.scrollIntoViewIfNeeded();
+  await inspect.focus();
+  await page.keyboard.press("Enter");
+
+  const detail = page.getByRole("region", { name: "Individual claims" });
+  await expect(detail).toBeVisible();
+
+  const claim = detail.locator(".claim").first();
+  await expect(claim).toBeVisible();
+
+  // Depth is only lawful on an addressable mark, so the mark must actually be tall
+  // enough to have a ground. This is the check whose absence let depth ship dead.
+  const box = await claim.locator(".claim__button").first().boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.height).toBeGreaterThanOrEqual(16);
+
+  // Ground contact is reserved for proof. Assert it where a proven claim exists, and
+  // assert its ABSENCE on unproven claims -- the absence is the signal. Guarded by
+  // count so a payload without a given rung does not hang on a locator wait.
+  const provenButtons = detail.locator('.claim[data-rung="proven"] .claim__button');
+  if ((await provenButtons.count()) > 0) {
+    const shadow = await provenButtons.first().evaluate((el) => getComputedStyle(el).boxShadow);
+    expect(shadow).not.toBe("none");
+  }
+  const plausibleButtons = detail.locator('.claim[data-rung="plausibility_only"] .claim__button');
+  if ((await plausibleButtons.count()) > 0) {
+    const shadow = await plausibleButtons
+      .first()
+      .evaluate((el) => getComputedStyle(el).boxShadow);
+    expect(shadow).toBe("none");
+  }
+
+  // The rung survives the removal of colour and depth: it is written out.
+  await expect(claim).toContainText(/Proven|Held|Plausibility|Rejected|Downgraded/);
+
+  const scan = await new AxeBuilder({ page }).analyze();
+  expect(scan.violations).toEqual([]);
+});
