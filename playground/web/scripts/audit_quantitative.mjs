@@ -336,6 +336,80 @@ function auditDepthLaw() {
 }
 
 // Colour discipline: the renderer is a token consumer, never a colour author.
+/**
+ * L1a, the common-scale corollary, and L6, the interval law.
+ *
+ * L1 justifies itself with Cleveland and McGill's accuracy ranking, whose rank 1 is "position
+ * along a COMMON scale" and whose rank 2 is the same channel on identical NON-ALIGNED scales.
+ * The difference between the two is precisely whether the scale is shared and drawn -- and
+ * none of the four components drew an axis, tick or label. Worse, the confidence histogram
+ * normalised every class to its own peak, so its bar heights were not comparable across
+ * classes at all. A length with no scale is a shape.
+ *
+ * L6 exists because the frontend rendered no uncertainty of any kind while the backend's
+ * `TrustLedger.as_dict()` had begun emitting a Clopper-Pearson bound and a scope caveat by
+ * construction, specifically so a consumer could not read a point estimate alone. The
+ * frontend was a consumer that could only read point estimates.
+ */
+function auditScaleAndIntervalLaws() {
+  const scaleBearing = new Set(tokens.scaleBearingChannels ?? []);
+  if (scaleBearing.size === 0) {
+    fail("No scaleBearingChannels declared; L1a cannot be checked (L1a).");
+    return;
+  }
+  for (const channel of scaleBearing) {
+    if (!tokens.magnitudeChannels.includes(channel)) {
+      fail(`Channel '${channel}' bears a scale but is not a permitted magnitude channel (L1a).`);
+    }
+  }
+
+  for (const [id, spec] of Object.entries(tokens.components)) {
+    if (spec.rendersScale === undefined) {
+      fail(`Component '${id}' must declare rendersScale; a length with no scale is a shape (L1a).`);
+      continue;
+    }
+    if (scaleBearing.has(spec.magnitudeChannel) && spec.rendersScale !== true) {
+      fail(
+        `Component '${id}' encodes magnitude by '${spec.magnitudeChannel}' but declares no ` +
+          "scale. Cleveland and McGill's rank 1 is position along a COMMON scale; without one " +
+          "the mark is at best rank 2 and at worst unreadable (L1a).",
+      );
+    }
+
+    if (spec.rendersInterval === undefined) {
+      fail(`Component '${id}' must declare rendersInterval (L6).`);
+      continue;
+    }
+    // A component that does not render an interval must say why, in writing. Silence here is
+    // how a point estimate ships as though it were exact.
+    if (spec.rendersInterval !== true && spec.$intervalExemption === undefined) {
+      fail(
+        `Component '${id}' renders no interval and gives no exemption. An aggregate ` +
+          "proportion drawn as a point claims a precision the data does not have; if this " +
+          "component has no denominator, say so (L6).",
+      );
+    }
+  }
+
+  // The interval must be computed by the shared implementation, not re-derived per component.
+  const intervalSource = readFileSync(resolve(srcRoot, "viz", "interval.ts"), "utf8");
+  if (!/export function proportionInterval/.test(intervalSource)) {
+    fail("viz/interval.ts must export proportionInterval; L6 needs one interval definition.");
+  }
+  for (const [id, spec] of Object.entries(tokens.components)) {
+    if (spec.rendersInterval !== true) {
+      continue;
+    }
+    const encoder = readFileSync(resolve(srcRoot, "viz", spec.encoder), "utf8");
+    if (!/proportionInterval|from "\.\/interval"/.test(encoder)) {
+      fail(
+        `Component '${id}' declares rendersInterval but its encoder ${spec.encoder} does not ` +
+          "use the shared interval implementation (L6).",
+      );
+    }
+  }
+}
+
 function auditNoAuthoredColour() {
   for (const { file, body } of vizSources) {
     if (/#[0-9a-fA-F]{3,8}\b/.test(body)) {
@@ -353,6 +427,7 @@ auditAddressabilityLaw();
 auditAbsenceLaw();
 auditAttentionBudget();
 auditDepthLaw();
+auditScaleAndIntervalLaws();
 auditNoAuthoredColour();
 
 console.log(

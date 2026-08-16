@@ -336,6 +336,74 @@ perceivable, or it is not a law.**
 
 ---
 
+## 6a. L1a — The common-scale corollary
+
+> **A mark encoding magnitude by position or length must render a scale.**
+
+L1 justifies itself with Cleveland and McGill, whose **rank 1 is "position along a
+common scale"** and whose rank 2 is the same channel on *identical, non-aligned*
+scales. The difference between the top two ranks in the ranking this document
+cites is precisely whether the scale is shared and drawn.
+
+None of the four components drew an axis, a tick, or a label. The confidence
+histogram was worse than unlabelled: it normalised every class to **its own peak**
+(`Math.max(...entry.bins.map((bin) => bin.count), 1)`), so bar heights were not
+comparable across classes even in principle. The document was claiming rank 1 for
+marks that were at best rank 2, and in one case not on the ranking at all — a
+length with no scale is a shape.
+
+`neutral_count` is exempt because the density field encodes binary presence, not a
+magnitude: there is nothing to place on a scale, and `PRESENCE_ALPHA` is a constant
+for exactly that reason.
+
+The confidence histogram now encodes each bin as a **share of its class on a common
+0–100% axis with quarter-step ticks**, and states the class size as text. Share is
+the quantity that is comparable across classes of wildly different sizes; a shared
+count axis would have rendered a 5-cell class invisible beside a 10,261-cell one.
+
+## 6b. L6 — The interval law
+
+> **No aggregate proportion may be rendered as a point when its denominator is
+> known. The interval is the mark; the point estimate is subordinate to it.**
+
+The frontend rendered no uncertainty at all. Searching `src/` for `interval`,
+`error bar`, `quantile`, `variance`, `stderr` and `percentile` returned nothing;
+the only carrier of uncertainty was an optional free-text string on a workflow
+stage, rendered as a table row.
+
+That became a contradiction when the backend's `TrustLedger.as_dict()` began
+emitting a Clopper-Pearson bound and a scope caveat **by construction**, precisely
+so a consumer could not read the point estimate alone. The frontend was a consumer
+that could only read point estimates.
+
+Every bin of the confidence histogram is a count out of a known class total, so it
+is a binomial proportion with a computable interval, and there is no missing-data
+excuse of the kind that legitimately blocks the calibration plot (§9).
+
+Three implementation constraints, each load-bearing:
+
+- **One definition of "interval" for the product.** `viz/interval.ts` implements
+  Clopper-Pearson, the same method as `dataforge/metrics/trust_ledger.py`, and is
+  verified against the same numeric goldens rather than against the Python code.
+  Two independent implementations agreeing on shared values is the pattern
+  established for the attestation verifier.
+- **Log space, not binomial coefficients.** The Python version multiplies
+  `math.comb(n, k)` directly, which is fine at n = 17 but not at the measured
+  n = 10,373: the coefficient overflows a double long before the powers underflow
+  to compensate. `viz/interval.ts` sums in log space via Lanczos log-gamma.
+- **Not error bars.** Error bars are systematically misread, including a
+  "within-the-bar" bias in which values inside a bar read as more likely than
+  values outside it (Correll & Gleicher, *Error Bars Considered Harmful*, IEEE
+  TVCG 20(12):2142–2151, 2014). The band is the estimate's extent, and the point
+  estimate is a 2px line inside it rather than a filled area, so it cannot read as
+  the whole claim.
+
+A component that renders no interval must declare an exemption in writing.
+Silence is how a point estimate ships as though it were exact; the three exempt
+components each say why they have no denominator.
+
+---
+
 ## 7. Verification and falsification
 
 Each law is a claim, and each is falsifiable.

@@ -1,4 +1,5 @@
 import type { FlaggedCells } from "../types";
+import { proportionInterval } from "./interval";
 
 /**
  * The confidence encoder: what the detector confidence signal can and cannot do.
@@ -28,6 +29,11 @@ export interface ConfidenceBin {
   /** Upper edge, exclusive except for the final bin. */
   to: number;
   count: number;
+  /** count / class count. The comparable quantity, and what the bar encodes. */
+  proportion: number;
+  /** Clopper-Pearson bounds on `proportion`. The INTERVAL is the mark, not the point. */
+  lower: number;
+  upper: number;
 }
 
 export interface ConfidenceClass {
@@ -51,7 +57,6 @@ export interface ConfidenceDistribution {
   finding: string;
 }
 
-const BIN_COUNT = 10;
 const DEGENERATE_SHARE = 0.5;
 
 /**
@@ -95,11 +100,20 @@ export function buildConfidenceDistribution(
   const classes: ConfidenceClass[] = histogram
     .map((entry) => ({
       issueType: entry.issue_type,
-      bins: entry.bins.map((bin) => ({
-        from: bin.from_value,
-        to: bin.to_value,
-        count: bin.count,
-      })),
+      bins: entry.bins.map((bin) => {
+        // Each bin is a binomial proportion of its class, so it has a computable interval.
+        // Drawing the count alone would state a precision the data does not have, which is
+        // the overclaim `TrustLedger.as_dict()` refuses to make on the backend.
+        const interval = proportionInterval(bin.count, entry.count);
+        return {
+          from: bin.from_value,
+          to: bin.to_value,
+          count: bin.count,
+          proportion: interval.estimate,
+          lower: interval.lower,
+          upper: interval.upper,
+        };
+      }),
       count: entry.count,
       distinctValues: entry.distinct_values,
       modeValue: entry.mode_value ?? null,
