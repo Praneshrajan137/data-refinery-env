@@ -34,7 +34,13 @@ function primaryRepairMoment(page: import("@playwright/test").Page) {
 
 async function activateAnalyze(page: import("@playwright/test").Page) {
   const analyze = page.getByRole("button", { name: "Analyze", exact: true });
-  await expect(analyze).toBeEnabled();
+  // 15s, not the default 5s. Enablement waits on the sample dataset arriving, so this is a
+  // network-dependent condition being asserted with a UI-latency timeout. It passed by luck
+  // until the suite grew: the same worker contention already documented for the density perf
+  // assertion (5.30ms isolated, 22.20ms under six workers) pushes this past 5s, and with
+  // `retries: 0` outside CI a flake becomes a hard failure. The state is correct either way,
+  // only slower, so the timeout is the thing that was wrong.
+  await expect(analyze).toBeEnabled({ timeout: 15_000 });
   await analyze.focus();
   await analyze.press("Enter");
 }
@@ -658,6 +664,26 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   const scan = await new AxeBuilder({ page }).analyze();
   expect(scan.violations).toEqual([]);
 });
+
+/**
+ * The exhaustive route x theme x contrast axe sweep lives in `e2e/a11y-sweep.spec.ts`, run
+ * with `playwright.a11y.config.ts` at one worker.
+ *
+ * It was written here first and moved out on measurement: 28 axe analyses is CPU-bound
+ * enough that sharing this suite starved an unrelated pre-existing test past its timeout,
+ * the same contention already documented for the density painter. A sweep and a functional
+ * flow are different kinds of test and the repo already separates them that way.
+ */
+
+/**
+ * The forced-colours canvas check lives in `e2e/a11y-sweep.spec.ts`.
+ *
+ * It was written here and moved out on evidence: running a full analyze from this file
+ * without the dataset selection the other flows perform left shared state that made the
+ * following test ("failed upload keeps the last valid dataset") fail even at one worker.
+ * Reproduced by running just those two together. An environmental check does not belong in
+ * the middle of a functional sequence.
+ */
 
 test("guardrail verifies an untrusted agent batch and passes accessibility", async ({ page }) => {
   await page.goto("/playground/guardrail");
