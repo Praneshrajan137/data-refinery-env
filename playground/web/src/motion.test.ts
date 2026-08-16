@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import motionTokens from "./design/motion-tokens.json";
 import {
   agentMotionStates,
   motionDurations,
@@ -49,6 +50,35 @@ describe("motion system", () => {
     expect(motionEasings.standard).toEqual([0.2, 0, 0, 1]);
     expect(motionEasings.emphasized).toEqual([0.16, 1, 0.3, 1]);
     expect(motionEasings.exit).toEqual([0.4, 0, 1, 1]);
+  });
+
+  it("treats max as an actual ceiling, with cycle the one declared exception", () => {
+    // `max: 480` used to be a name rather than a ceiling: `spin` shipped at 1.15s and
+    // `df-agent-breathe` at 1.8s, hand-written in styles.css with literal durations that
+    // audit_motion.mjs could not see because it scanned only the generated file. Literal
+    // durations are now rejected outright, and `cycle` is the single declared duration
+    // permitted above `max`, reserved for cyclic progress indicators.
+    const above = Object.entries(motionDurations).filter(
+      ([, seconds]) => seconds > motionDurations.max,
+    );
+    expect(above.map(([name]) => name)).toEqual(["cycle"]);
+    expect(motionDurations.cycle).toBe(1.2);
+  });
+
+  it("declares every looping animation, including the hand-authored ones", () => {
+    // The loop-honesty rule is the motion system's central claim: a loop asserts ongoing
+    // activity, so an undeclared loop animates an element with no event behind it. It
+    // covered 6 of 8 loopable animations until the two cyclic indicators were declared.
+    const cyclic = Object.keys(motionTokens.cyclicAnimations).filter(
+      (key) => !key.startsWith("$"),
+    );
+    expect(cyclic).toEqual(["spin", "df-agent-breathe"]);
+    for (const name of cyclic) {
+      const spec = motionTokens.cyclicAnimations[name as "spin" | "df-agent-breathe"];
+      expect(spec.rung).toBe("verifying");
+      expect(spec.duration).toBe("cycle");
+      expect(spec.answers.length).toBeGreaterThan(0);
+    }
   });
 
   it("covers every agent-state motion contract", () => {

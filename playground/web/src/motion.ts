@@ -41,15 +41,16 @@ export interface WorkflowMotionEvent {
 // generate_motion_system.mjs emits the matching CSS custom properties.
 const ms = motionTokens.durationsMs;
 
-export const motionDurations = {
-  instant: ms.instant / 1000,
-  micro: ms.micro / 1000,
-  fast: ms.fast / 1000,
-  standard: ms.standard / 1000,
-  measured: ms.measured / 1000,
-  page: ms.page / 1000,
-  max: ms.max / 1000,
-} as const;
+/**
+ * Seconds, derived from every millisecond token rather than a hand-written list.
+ *
+ * This used to enumerate the seven keys explicitly, which meant adding `cycle` to the token
+ * file silently dropped it here -- the same single-source drift the comment above claims is
+ * impossible. Mapping the entries keeps the two in step by construction.
+ */
+export const motionDurations = Object.fromEntries(
+  Object.entries(ms).map(([name, milliseconds]) => [name, milliseconds / 1000]),
+) as { readonly [K in keyof typeof ms]: number };
 
 const easingTuple = (name: keyof typeof motionTokens.easings): [number, number, number, number] => {
   const value = motionTokens.easings[name];

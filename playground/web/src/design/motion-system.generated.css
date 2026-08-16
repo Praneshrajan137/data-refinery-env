@@ -8,6 +8,7 @@
   --df-motion-measured: 320ms;
   --df-motion-page: 360ms;
   --df-motion-max: 480ms;
+  --df-motion-cycle: 1200ms;
   --df-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --df-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
   --df-ease-exit: cubic-bezier(0.4, 0, 1, 1);
