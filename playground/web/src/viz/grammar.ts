@@ -26,7 +26,14 @@ export type { Rung };
 export type AbsenceState = "zero" | "not_measured" | "truncated";
 export type GroundContact = "contact" | "weakening" | "none";
 export type FillStyle = "filled" | "unfilled";
-export type StrokeStyle = "solid" | "dashed" | "struck" | "none";
+/**
+ * `witnessed` is solid plus a witness rail, and it exists because of a measurement: the
+ * identity law found `proven` and `corroborated` colour-collapsed at OKLab distance 0.0000
+ * under normal vision in both themes, sharing the token `success-30`, while the grammar
+ * declared both as `filled|solid|contact`. The rail was already rendering; the grammar was
+ * not describing it. See specs/SPEC_perceptual_verification.md.
+ */
+export type StrokeStyle = "solid" | "dashed" | "struck" | "none" | "witnessed";
 
 export interface RungSpec {
   strength: number;

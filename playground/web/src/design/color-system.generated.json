@@ -1525,8 +1525,8 @@
         "hex": "#312747"
       },
       "--df-action-border": {
-        "palette": "brand-40",
-        "hex": "#723122"
+        "palette": "brand-80",
+        "hex": "#f5a795"
       }
     },
     "dark": {
@@ -1547,8 +1547,8 @@
         "hex": "#e2d7ff"
       },
       "--df-action-border": {
-        "palette": "brand-80",
-        "hex": "#f5a795"
+        "palette": "brand-40",
+        "hex": "#723122"
       }
     }
   }

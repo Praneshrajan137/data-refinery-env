@@ -13,7 +13,7 @@
   "salienceWeights": {
     "$comment": "Weights for the MEASURED salience used to assert ladder monotonicity. fill/stroke are fractions of a mark covered in ink; contact and glow are the earned-salience channels. Total must be strictly increasing in rung strength.",
     "fill": { "filled": 1.0, "unfilled": 0.0 },
-    "stroke": { "solid": 1.0, "dashed": 0.5, "struck": 0.25, "none": 0.0 },
+    "stroke": { "solid": 1.0, "dashed": 0.5, "struck": 0.25, "none": 0.0, "witnessed": 1.25 },
     "contact": { "contact": 1.0, "weakening": 0.25, "none": 0.0 },
     "glow": { "true": 1.0, "false": 0.0 },
     "accent": { "true": 0.5, "false": 0.0 }
@@ -24,10 +24,12 @@
       "depthPx": 0,
       "groundContact": "contact",
       "fill": "filled",
-      "stroke": "solid",
+      "stroke": "witnessed",
+      "$strokeNote": "Solid plus a witness rail. Declared because the identity law measured `proven` and `corroborated` as colour-collapsed at OKLab distance 0.0000 under NORMAL vision in both themes -- they share the token success-30 -- while this file declared both as filled|solid|contact. The 3px left rail already rendered in styles.css; the grammar simply did not say so, so the only DECLARED difference was the verdict string, and text is not a separability route. The rail is the second witness: a structural cue that survives dichromacy and greyscale.",
       "glowEligible": true,
       "witnessAccent": true,
       "tokenFamily": "corroborated",
+      "urgency": "none",
       "text": "Proven - independently verified"
     },
     "proven": {
@@ -39,6 +41,7 @@
       "glowEligible": true,
       "witnessAccent": false,
       "tokenFamily": "proven",
+      "urgency": "none",
       "text": "Proven - would apply, reversible"
     },
     "held": {
@@ -50,6 +53,7 @@
       "glowEligible": false,
       "witnessAccent": false,
       "tokenFamily": "held",
+      "urgency": "review",
       "text": "Held for review"
     },
     "downgraded": {
@@ -61,6 +65,7 @@
       "glowEligible": false,
       "witnessAccent": false,
       "tokenFamily": "downgraded",
+      "urgency": "review",
       "text": "Downgraded by drift - now review"
     },
     "plausibility_only": {
@@ -72,6 +77,7 @@
       "glowEligible": false,
       "witnessAccent": false,
       "tokenFamily": "plausibility",
+      "urgency": "review",
       "text": "Plausibility-only - not written"
     },
     "rejected": {
@@ -83,6 +89,7 @@
       "glowEligible": false,
       "witnessAccent": false,
       "tokenFamily": "status-danger",
+      "urgency": "attention",
       "text": "Rejected - not proven safe"
     },
     "idle": {
@@ -94,6 +101,7 @@
       "glowEligible": false,
       "witnessAccent": false,
       "tokenFamily": "confidence-low",
+      "urgency": "none",
       "text": "Idle - no claim"
     }
   },
@@ -108,8 +116,19 @@
     "forbiddenBlendModes": ["additive", "lighten", "screen", "color-dodge"]
   },
   "absenceStates": ["zero", "not_measured", "truncated"],
+  "channelRoles": {
+    "$comment": "The three quantities a trust surface answers, over DISJOINT channel sets (perceptual-language.md section 2.0, SPEC_perceptual_verification.md section 3). Disjointness is the load-bearing property and is gated: signalling urgency through a warrant channel -- giving a rejected claim ground contact or glow so it stands out -- is precisely the overtrust the language exists to prevent.",
+    "warrant": ["fill", "stroke", "contact", "glow", "accent", "depth"],
+    "identity": ["hue"],
+    "urgency": ["chroma"]
+  },
+  "urgencyLevels": ["none", "review", "attention"],
+  "$urgencyDerivation": "Assigned from SEMANTICS -- what must a human do? -- BEFORE the palette was measured, so the levels are not reverse-fitted to whatever chroma happens to do. none = nothing to do (no claim, or a written proof); review = a decision is waiting (held is awaiting a human, downgraded means a proof drifted, plausibility_only is proposed but not written); attention = the system refused and the user should know. Measured afterwards: shipped chroma IS monotonic across these bands in both themes (light: none max 0.0375 < review min 0.0415 < attention 0.0852), which is evidence the palette was right about the urgency axis all along and the old law was describing the wrong axis.",
   "magnitudeChannels": ["position", "length", "neutral_count"],
   "forbiddenMagnitudeChannels": ["volume", "area", "hue", "saturation", "angle"],
+  "scaleBearingChannels": ["position", "length"],
+  "$scaleNote": "L1a, the common-scale corollary. A component encoding magnitude by position or length MUST render a scale. L1 justifies itself with Cleveland and McGill's rank 1, 'position along a common scale', while rank 2 is the same channel on identical NON-ALIGNED scales -- the difference between the two is precisely whether the scale is shared and drawn. None of the four components drew an axis, tick or label, and the confidence histogram normalised each class to its own peak, so its bars were not comparable across classes. A length with no scale is a shape, not a magnitude. `neutral_count` is exempt: it is binary presence, so there is no magnitude to place on a scale.",
+  "$intervalNote": "L6, the interval law. No aggregate proportion may be rendered as a point when its denominator is known. Every bin of the confidence histogram is a count out of a known class total, so it is a binomial proportion with a computable Clopper-Pearson interval, and drawing the point estimate alone states a precision the data does not have. This matters more since the backend's TrustLedger.as_dict() began emitting a bound and a scope caveat BY CONSTRUCTION so a consumer cannot read the point estimate alone -- the frontend was a consumer that could only read point estimates. The interval is the mark and the point estimate is subordinate to it; error bars are avoided on the evidence that they are systematically misread (Correll and Gleicher, IEEE TVCG 20(12):2142-2151, 2014).",
   "minMarkHeightPx": 3,
   "components": {
     "evidence-overview": {
@@ -119,7 +138,10 @@
       "loopingPrimitives": 0,
       "addressable": false,
       "renderer": "canvas2d",
-      "encoder": "density.ts"
+      "encoder": "density.ts",
+      "rendersScale": true,
+      "rendersInterval": false,
+      "$intervalExemption": "Binary presence, not a proportion. There is no denominator, so there is no interval to compute."
     },
     "claim-detail": {
       "purpose": "Individually addressable claims: one DOM object per claim, carrying rung by hue, form, text and earned depth.",
@@ -128,7 +150,10 @@
       "loopingPrimitives": 0,
       "addressable": true,
       "renderer": "dom",
-      "encoder": "claims.ts"
+      "encoder": "claims.ts",
+      "rendersScale": true,
+      "rendersInterval": false,
+      "$intervalExemption": "Each mark is one claim, not an aggregate. A single cell has no sampling uncertainty to report; its warrant is carried by the rung."
     },
     "dependency-graph": {
       "purpose": "Functional-dependency edges between columns, deterministic layered layout.",
@@ -137,7 +162,10 @@
       "loopingPrimitives": 0,
       "addressable": true,
       "renderer": "svg",
-      "encoder": "DependencyGraph.tsx"
+      "encoder": "DependencyGraph.tsx",
+      "rendersScale": true,
+      "rendersInterval": false,
+      "$intervalExemption": "Position encodes layer index, an exact graph property with no sampling in it. Edge confidence is reported as text in the sibling table rather than drawn."
     },
     "confidence-distribution": {
       "purpose": "Per-issue-type detector confidence histogram. States that confidence is near-degenerate and is not a ranking signal; draws NO threshold line, because _DEFAULT_THRESHOLDS gates the corrector path, not deterministic auto-apply.",
@@ -146,7 +174,9 @@
       "loopingPrimitives": 0,
       "addressable": true,
       "renderer": "dom",
-      "encoder": "confidence.ts"
+      "encoder": "confidence.ts",
+      "rendersScale": true,
+      "rendersInterval": true
     }
   },
   "$notBuilt": {

@@ -195,16 +195,48 @@ export function readVizTokens(root?: HTMLElement | null, reader?: Reader): VizTo
     surface: colour("--df-surface-1", neutralSurface),
     gridLine: colour("--df-line-subtle", neutralInk),
     countText: colour("--df-confidence-medium-text", neutralInk),
-    densityInk: colour("--df-confidence-medium-text", neutralInk),
+    densityInk: forcedColoursInk(target) ?? colour("--df-confidence-medium-text", neutralInk),
     proofGlow: colour("--df-proof-glow", { ...TRANSPARENT }),
     unresolved,
   };
 }
 
 /**
- * Subscribe to the media conditions that change the token values. There is no
- * manual theme toggle in this app -- light/dark and contrast come only from the
- * OS -- so these three queries are the complete set of triggers.
+ * The density map's ink under Windows High Contrast, or null when not in forced-colours mode.
+ *
+ * This is the one place forced colours cannot be handled in CSS. `forced-colors: active`
+ * overrides CSS-painted colour, but it cannot reach a canvas `fillStyle`, so the density map
+ * would keep painting `--df-confidence-medium-text` onto an OS-supplied background -- a
+ * neutral grey on a forced black or white, with no guarantee of contrast and no repaint when
+ * the mode changes. `onTokenChange` now watches the query; this supplies the value.
+ *
+ * A custom property cannot carry the answer: `--df-ink: CanvasText` reads back as the literal
+ * string "CanvasText", because custom properties are not resolved against the system palette.
+ * The document's own `color` IS overridden to CanvasText in forced-colours mode, so reading
+ * the resolved `color` off the root gets the real value the OS chose.
+ */
+function forcedColoursInk(target: HTMLElement | null): RgbaColor | null {
+  if (target === null || typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return null;
+  }
+  if (!window.matchMedia("(forced-colors: active)").matches) {
+    return null;
+  }
+  return parseCssColor(getComputedStyle(target).color);
+}
+
+/**
+ * Subscribe to the media conditions that change the token values.
+ *
+ * There is no manual theme toggle in this app -- light/dark, contrast and forced colours all
+ * come from the OS.
+ *
+ * `forced-colors` was missing, and the previous version of this comment claimed the other
+ * three were "the complete set of triggers". They were not. Forced-colors mode (Windows High
+ * Contrast) overrides CSS-painted colour but CANNOT reach a canvas `fillStyle`, so the
+ * density map went on painting its own ink onto an OS-forced background with no
+ * notification and no repaint. The canvas is the one surface where forced colours have to be
+ * handled in code rather than in CSS.
  */
 export function onTokenChange(callback: () => void): () => void {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
@@ -214,6 +246,7 @@ export function onTokenChange(callback: () => void): () => void {
     "(prefers-color-scheme: dark)",
     "(prefers-contrast: more)",
     "(color-gamut: p3)",
+    "(forced-colors: active)",
   ].map((query) => window.matchMedia(query));
 
   const handler = (): void => callback();

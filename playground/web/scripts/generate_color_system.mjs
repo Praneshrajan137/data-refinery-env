@@ -246,14 +246,23 @@ const highContrastRefs = {
     "--df-line": "neutral-60",
     "--df-line-strong": "neutral-40",
     "--df-focus-ring": "agent-30",
-    "--df-action-border": "brand-40",
+    // brand-80, not brand-40. The light theme's --df-action-bg is brand-30 (#541507, dark),
+    // so the border must move AWAY from it into the light tones. brand-40 gave 1.46:1
+    // against its own background -- below the 3:1 that WCAG 1.4.11 requires for a control
+    // boundary, and a downgrade from the 3.43:1 of the standard brand-60 it overrides. The
+    // high-contrast mode was reducing contrast by 2.35x. The two themes' values were
+    // swapped; brand-80 gives 7.29:1.
+    "--df-action-border": "brand-80",
   },
   dark: {
     "--df-text-2": "neutral-95",
     "--df-line": "neutral-70",
     "--df-line-strong": "neutral-80",
     "--df-focus-ring": "agent-90",
-    "--df-action-border": "brand-80",
+    // brand-40, not brand-80. The dark theme's --df-action-bg is neutral-98 (#faf8f4,
+    // near-white), so the border must move into the dark tones. brand-80 gave 1.83:1;
+    // brand-40 gives 9.09:1.
+    "--df-action-border": "brand-40",
   },
 };
 

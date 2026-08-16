@@ -294,14 +294,16 @@ function auditHighContrast(system) {
       "--df-line": "neutral-60",
       "--df-line-strong": "neutral-40",
       "--df-focus-ring": "agent-30",
-      "--df-action-border": "brand-40",
+      // Swapped with dark: see generate_color_system.mjs. brand-40 gave 1.46:1 against the
+      // light theme's brand-30 action background, a downgrade from the 3.43:1 it overrode.
+      "--df-action-border": "brand-80",
     },
     dark: {
       "--df-text-2": "neutral-95",
       "--df-line": "neutral-70",
       "--df-line-strong": "neutral-80",
       "--df-focus-ring": "agent-90",
-      "--df-action-border": "brand-80",
+      "--df-action-border": "brand-40",
     },
   };
 
@@ -442,6 +444,234 @@ function auditEarnedSalience(system, css) {
   }
 }
 
+/**
+ * The warrant law (W), measured rather than name-matched.
+ *
+ * `auditEarnedSalience` above verifies that each rung's text token belongs to the right
+ * hue FAMILY, by string prefix. It never reads a colour value, which is why the one law was
+ * violated on its own first-named channel in both themes without failing a build: measured
+ * chroma falls as warrant rises, on 5 of 6 adjacent pairs in light and 4 of 6 in dark. See
+ * SPEC_perceptual_verification.md section 2 for the tables.
+ *
+ * The resolution moves chroma out of the warrant set entirely, so this gate enforces the
+ * boundary instead of a monotonic ordering that would have made failures quieter than
+ * proofs:
+ *
+ *   1. warrant is computed only from the declared warrant channels, and
+ *   2. no hue or chroma value may enter that computation.
+ *
+ * Making the exclusion structural is what prevents a regression. A rule that says "do not
+ * put chroma in the warrant sum" is a rule to remember; a gate that fails when a colour
+ * channel appears among the salience weights is not.
+ */
+function auditWarrantChannelPurity() {
+  const tokens = readJson(resolve(srcRoot, "design", "quantitative-tokens.json"));
+
+  const declared = Object.keys(tokens.salienceWeights).filter((key) => !key.startsWith("$"));
+  const expected = ["fill", "stroke", "contact", "glow", "accent"];
+  if (declared.join(",") !== expected.join(",")) {
+    fail(
+      `Warrant channels are ${declared.join(", ")}; expected exactly ${expected.join(", ")}. ` +
+        "Warrant is carried by form, not colour (SPEC_perceptual_verification.md, law W).",
+    );
+  }
+
+  const colourChannels = ["chroma", "hue", "saturation", "color", "colour", "lightness", "oklch"];
+  for (const channel of declared) {
+    for (const forbidden of colourChannels) {
+      if (channel.toLowerCase().includes(forbidden)) {
+        fail(
+          `Warrant channel '${channel}' names a colour quantity. Hue and chroma carry ` +
+            "identity and urgency, never warrant (law W).",
+        );
+      }
+    }
+  }
+
+  // The DECLARED warrant role must also be free of colour. Found by mutation: adding "chroma"
+  // to channelRoles.warrant survived, because this function only inspected salienceWeights.
+  for (const channel of tokens.channelRoles?.warrant ?? []) {
+    for (const forbidden of colourChannels) {
+      if (channel.toLowerCase().includes(forbidden)) {
+        fail(
+          `channelRoles.warrant declares '${channel}', a colour quantity. Warrant is carried ` +
+            "by form; hue carries identity and chroma carries urgency (law W).",
+        );
+      }
+    }
+  }
+
+  // The salience weights must be pure numbers. A weight expressed as a token reference or a
+  // colour string would smuggle colour into the warrant sum past the name check above.
+  for (const [channel, weights] of Object.entries(tokens.salienceWeights)) {
+    if (channel.startsWith("$")) {
+      continue;
+    }
+    for (const [variant, weight] of Object.entries(weights)) {
+      if (typeof weight !== "number" || !Number.isFinite(weight)) {
+        fail(
+          `Warrant weight ${channel}.${variant} is ${JSON.stringify(weight)}; warrant weights ` +
+            "must be finite numbers so warrant can never read a colour (law W).",
+        );
+      }
+    }
+  }
+
+  // `measureRungSalience` is the one function that computes warrant. It must not import or
+  // reference a colour source.
+  const grammarSource = readFileSync(resolve(srcRoot, "viz", "grammar.ts"), "utf8");
+  for (const forbidden of ["color-system", "oklch", "chroma", "culori", "readVizTokens"]) {
+    if (grammarSource.includes(forbidden)) {
+      fail(
+        `src/viz/grammar.ts references '${forbidden}'. The warrant computation must not be ` +
+          "able to read a colour value (law W).",
+      );
+    }
+  }
+}
+
+/**
+ * The colour engine must never reach the browser bundle.
+ *
+ * SPEC_color_system.md requires that "no color engine ships in the browser runtime bundle",
+ * and `auditPackage` checks only that culori is a devDependency pinned to 4.0.2 -- which
+ * says nothing about whether `src/` imports it. The perceptual measurement kernel added for
+ * laws W and I lives in `scripts/` for exactly this reason, and this gate keeps it there.
+ */
+function auditNoColourEngineInSource() {
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const child = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(child);
+        continue;
+      }
+      if (!/\.(ts|tsx|js|jsx|mjs)$/.test(entry.name)) {
+        continue;
+      }
+      // Test files are excluded from the production bundle by Vite, and the perceptual
+      // measurements have to be assertable somewhere.
+      if (/\.test\.(ts|tsx|mjs)$/.test(entry.name)) {
+        continue;
+      }
+      const source = readFileSync(child, "utf8");
+      if (/from\s+["']culori["']|require\(["']culori["']\)/.test(source)) {
+        offenders.push(child);
+      }
+    }
+  };
+  walk(srcRoot);
+  if (offenders.length > 0) {
+    fail(
+      `culori is imported from src/ in: ${offenders.join(", ")}. The colour engine is ` +
+        "build-time only and must not enter the browser bundle (SPEC_color_system.md).",
+    );
+  }
+}
+
+/**
+ * The high-contrast overrides must actually meet their contrast ratios.
+ *
+ * `auditHighContrast` checks these five tokens for IDENTITY against hard-coded palette
+ * strings, and `auditContrast` reads `system.semantic[theme]` only -- so the ratios of the
+ * `prefers-contrast: more` overrides were never computed. The feature that exists to help
+ * low-vision users was the one feature with no contrast verification, and an override could
+ * have been strictly worse than the value it replaces without failing a build.
+ *
+ * Each override is checked at the same threshold its semantic counterpart uses, and is also
+ * required to be no worse than the value it replaces -- because an override that reduces
+ * contrast is not a high-contrast mode.
+ */
+function auditHighContrastRatios(system) {
+  const thresholds = {
+    "--df-text-2": { background: "--df-bg", minimum: 4.5 },
+    "--df-line": { background: "--df-bg", minimum: 3 },
+    "--df-line-strong": { background: "--df-bg", minimum: 3 },
+    "--df-focus-ring": { background: "--df-bg", minimum: 3 },
+    "--df-action-border": { background: "--df-action-bg", minimum: 3 },
+  };
+
+  for (const theme of ["light", "dark"]) {
+    const overrides = system.highContrast[theme];
+    if (overrides === undefined) {
+      fail(`No high-contrast overrides for the ${theme} theme.`);
+      continue;
+    }
+    for (const [token, override] of Object.entries(overrides)) {
+      const rule = thresholds[token];
+      if (rule === undefined) {
+        fail(
+          `High-contrast override ${token} (${theme}) has no declared contrast threshold. ` +
+            "An override with no verified ratio is an accessibility claim nobody checked.",
+        );
+        continue;
+      }
+      // The background may itself be overridden in high-contrast mode; prefer the override.
+      const backgroundHex =
+        overrides[rule.background]?.hex ?? system.semantic[theme][rule.background]?.hex;
+      if (backgroundHex === undefined) {
+        fail(`Cannot resolve ${rule.background} for ${theme} high contrast.`);
+        continue;
+      }
+      const ratio = wcagContrast(override.hex, backgroundHex);
+      if (ratio < rule.minimum) {
+        fail(
+          `${theme} high-contrast ${token} on ${rule.background} is ${ratio.toFixed(2)}:1, ` +
+            `below ${rule.minimum}:1.`,
+        );
+      }
+      // And it must not be a downgrade of the value it replaces.
+      const semanticHex = system.semantic[theme][token]?.hex;
+      if (semanticHex !== undefined) {
+        const semanticRatio = wcagContrast(semanticHex, backgroundHex);
+        if (ratio < semanticRatio - 1e-6) {
+          fail(
+            `${theme} high-contrast ${token} is ${ratio.toFixed(2)}:1, WORSE than the ` +
+              `standard ${semanticRatio.toFixed(2)}:1 it overrides. An override that lowers ` +
+              "contrast is not a high-contrast mode.",
+          );
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Forced colours must be handled, and the canvas must be handled in script.
+ *
+ * There was no `forced-colors` support at all: no media query, no system colours, and
+ * `viz/tokens.ts` claimed its three media queries were "the complete set of triggers". The
+ * canvas is the specific hazard, because `forced-colors: active` overrides CSS-painted colour
+ * but cannot reach a `fillStyle`, so the density map painted its own neutral ink onto an
+ * OS-supplied background with no repaint when the mode changed.
+ */
+function auditForcedColours() {
+  const stylesPath = resolve(srcRoot, "styles.css");
+  const styles = readFileSync(stylesPath, "utf8");
+  if (!styles.includes("@media (forced-colors: active)")) {
+    fail(
+      "styles.css must handle @media (forced-colors: active). Forced-colours mode drops " +
+        "box-shadow, which carries ground contact, earned depth and the corroborated witness " +
+        "rail, so every rung distinction those channels made would vanish.",
+    );
+  }
+
+  const vizTokens = readFileSync(resolve(srcRoot, "viz", "tokens.ts"), "utf8");
+  if (!vizTokens.includes("(forced-colors: active)")) {
+    fail(
+      "viz/tokens.ts must subscribe to (forced-colors: active). The canvas is painted in " +
+        "script, so forced colours cannot reach it and a mode change would not repaint.",
+    );
+  }
+  if (!/forcedColoursInk/.test(vizTokens)) {
+    fail(
+      "viz/tokens.ts must resolve a forced-colours ink for the canvas. A custom property " +
+        "cannot carry it: `--df-ink: CanvasText` reads back as the literal string.",
+    );
+  }
+}
+
 const system = readJson(jsonPath);
 const css = readFileSync(cssPath, "utf8");
 
@@ -449,8 +679,12 @@ auditGeneratedFiles(system, css);
 auditContrast(system);
 auditAurelianProofPalette(system);
 auditHighContrast(system);
+auditHighContrastRatios(system);
+auditForcedColours();
 auditApexBackgroundDiscipline(system);
 auditEarnedSalience(system, css);
+auditWarrantChannelPurity();
+auditNoColourEngineInSource();
 auditPackage();
 auditRawHexUsage();
 

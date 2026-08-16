@@ -200,9 +200,17 @@ def test_frontend_uses_generated_color_system_contract() -> None:
         assert token in generated_json["semantic"]["dark"]
 
     assert generated_json["highContrast"]["light"]["--df-text-2"]["palette"] == "neutral-20"
-    assert generated_json["highContrast"]["light"]["--df-action-border"]["palette"] == "brand-40"
+    # brand-80 in light and brand-40 in dark, corrected 2026-08-14. These were swapped, and
+    # the swap was a real accessibility defect: the light theme's --df-action-bg is brand-30
+    # (#541507, dark), so brand-40 gave 1.46:1 against its own background -- below the 3:1
+    # WCAG 1.4.11 requires for a control boundary, and a DOWNGRADE from the 3.43:1 of the
+    # standard brand-60 border it overrides. Dark, whose action background is near-white
+    # neutral-98, was 1.83:1. The mode that exists to raise contrast was lowering it in both
+    # themes. It survived because auditContrast read system.semantic only and no axe scan ran
+    # under prefers-contrast: more. Now 7.29:1 and 9.09:1, gated by auditHighContrastRatios.
+    assert generated_json["highContrast"]["light"]["--df-action-border"]["palette"] == "brand-80"
     assert generated_json["highContrast"]["dark"]["--df-text-2"]["palette"] == "neutral-95"
-    assert generated_json["highContrast"]["dark"]["--df-action-border"]["palette"] == "brand-80"
+    assert generated_json["highContrast"]["dark"]["--df-action-border"]["palette"] == "brand-40"
 
 
 def test_apex_color_system_keeps_green_blue_and_black_out_of_primary_action() -> None:

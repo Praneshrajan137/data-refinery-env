@@ -224,7 +224,7 @@
     --df-line: var(--df-palette-neutral-60);
     --df-line-strong: var(--df-palette-neutral-40);
     --df-focus-ring: var(--df-palette-agent-30);
-    --df-action-border: var(--df-palette-brand-40);
+    --df-action-border: var(--df-palette-brand-80);
   }
 }
 
@@ -361,7 +361,7 @@
     --df-line: var(--df-palette-neutral-70);
     --df-line-strong: var(--df-palette-neutral-80);
     --df-focus-ring: var(--df-palette-agent-90);
-    --df-action-border: var(--df-palette-brand-80);
+    --df-action-border: var(--df-palette-brand-40);
   }
 }
 

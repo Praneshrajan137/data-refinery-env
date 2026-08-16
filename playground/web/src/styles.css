@@ -552,7 +552,7 @@ select:disabled {
 
 .stage-node--active::after {
   color: var(--df-stage-active-line);
-  animation: df-agent-breathe 1.8s var(--df-ease-standard) infinite;
+  animation: df-agent-breathe var(--df-motion-cycle) var(--df-ease-standard) infinite;
 }
 
 .stage-node--verified {
@@ -634,7 +634,7 @@ select:disabled {
 .stage-node--active .stage-icon svg,
 .loading-state svg,
 .status-chip--active svg {
-  animation: spin 1.15s linear infinite;
+  animation: spin var(--df-motion-cycle) linear infinite;
 }
 
 .stage-copy {
@@ -1581,6 +1581,40 @@ textarea {
     transition-duration: 0.001ms !important;
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+/* Windows High Contrast and other forced-colours modes.
+   The OS takes over the palette, so nothing here tries to reassert colour. What this block
+   does is keep the rung ladder legible once colour stops being ours to assign, because
+   forced-colours mode DROPS box-shadow entirely -- and box-shadow is what carries ground
+   contact, earned depth, and the corroborated witness rail's inner line.
+   Borders are preserved and re-coloured by the OS, so every dropped shadow is replaced by a
+   border cue. The identity law already guarantees that form, not hue, distinguishes every
+   rung pair, which is why this is a small block rather than a redesign. */
+@media (forced-colors: active) {
+  /* Ground contact and depth were box-shadows; give the two rungs that used depth an
+     explicit border weight instead, preserving their ORDER without asserting colour. */
+  .claim[data-rung="proven"] > .claim__button,
+  .claim[data-rung="corroborated"] > .claim__button {
+    border-width: 2px;
+  }
+
+  /* The witness rail is the only distinction between proven and corroborated, and its inner
+     line is an inset shadow that forced colours removes. A left border width survives. */
+  .claim[data-rung="corroborated"] > .claim__button {
+    border-left-width: 6px;
+  }
+
+  /* Glow is a shadow and disappears; that is correct, since glow is earned salience and the
+     OS palette cannot express degrees. Nothing replaces it. */
+
+  /* The density canvas is painted in script, not CSS, so forced colours cannot reach it.
+     `forcedColoursInk` in viz/tokens.ts reads the resolved CanvasText off the root; this
+     keeps the surrounding frame consistent with it. */
+  .evidence-overview__canvas {
+    forced-color-adjust: none;
+    border: 1px solid CanvasText;
   }
 }
 
@@ -3408,9 +3442,23 @@ textarea {
   box-shadow: 0 1px 0 0 var(--df-proven-line), 0 2px 3px -2px var(--df-proven-line);
 }
 
+/* The witness rail: stroke "witnessed" in quantitative-tokens.json.
+   `corroborated` is proof plus an independent witness, and the rail is that witness made
+   structural. It must not be a colour difference alone: the identity law measured
+   `--df-proven-text` and `--df-corroborated-text` as the SAME token (success-30), OKLab
+   distance 0.0000 under normal vision in both themes, so before this was declared the only
+   difference the grammar admitted was the verdict string -- and text is not a separability
+   route because every rung renders one.
+   Width, not hue, is what survives dichromacy and greyscale, so the rail is widened to 4px
+   and given an inset companion line. Two lines for two independent verifications. */
 .claim[data-rung="corroborated"] > .claim__button {
-  border-left-width: 3px;
+  border-left-width: 4px;
   border-left-color: var(--df-corroborated-line);
+  box-shadow:
+    inset 3px 0 0 -1px var(--df-proven-bg),
+    inset 5px 0 0 -1px var(--df-corroborated-line),
+    0 1px 0 0 var(--df-proven-line),
+    0 2px 3px -2px var(--df-proven-line);
 }
 
 .claim[data-rung="held"] > .claim__button {
@@ -3515,12 +3563,51 @@ textarea {
 }
 
 /* Count by LENGTH (L1 channel 3). Not area, not intensity. */
+/* The confidence plot: a common 0-100% scale with the scale actually drawn.
+   The histogram previously normalised each class to its own peak with no axis, so lengths
+   were not comparable across classes and no reader could recover a magnitude. L1 justifies
+   itself with Cleveland and McGill's rank 1, "position along a COMMON scale", and rank 2 is
+   the same channel on non-aligned scales -- the difference is exactly the axis. */
+.confidence-plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: 0.25rem;
+  padding-left: 2.1rem;
+}
+
+.confidence-axis {
+  position: absolute;
+  inset: 0 0 0 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.confidence-axis__tick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--df-line-subtle);
+}
+
+.confidence-axis__label {
+  position: absolute;
+  right: calc(100% + 0.3rem);
+  transform: translateY(-50%);
+  font-size: 0.58rem;
+  color: var(--df-text-2);
+  white-space: nowrap;
+}
+
 .confidence-histogram {
+  position: relative;
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 40px;
-  margin-top: 0.25rem;
+  height: 56px;
   padding: 2px;
   border: 1px solid var(--df-line-subtle);
   border-radius: var(--df-radius-tight);
@@ -3528,10 +3615,40 @@ textarea {
 }
 
 .confidence-bin {
+  position: relative;
   flex: 1 1 0;
+  align-self: stretch;
+}
+
+/* The INTERVAL is the mark. Error bars are avoided on the evidence that they are
+   systematically misread, including a within-the-bar bias (Correll and Gleicher, IEEE TVCG
+   20(12):2142-2151, 2014), so the band is the extent rather than a whisker on a bar. */
+.confidence-bin__interval {
+  position: absolute;
+  left: 0;
+  right: 0;
   min-height: 1px;
   background: var(--df-confidence-medium-text);
+  opacity: 0.42;
   border-radius: 1px;
+}
+
+/* The point estimate, subordinate to the interval by design: thinner, and drawn as a line
+   rather than a filled area, so it cannot read as the whole claim. */
+.confidence-bin__estimate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  margin-bottom: -1px;
+  background: var(--df-confidence-medium-text);
+  border-radius: 1px;
+}
+
+.confidence-class__scale {
+  margin: 0.2rem 0 0;
+  font-size: 0.6rem;
+  color: var(--df-text-2);
 }
 
 @media (max-width: 720px) {
