@@ -17,7 +17,12 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: "./src/test/setup.ts",
-    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // scripts/ is included so the perceptual measurement kernel can be unit-tested.
+    // It lives outside src/ on purpose: culori is a devDependency and
+    // SPEC_color_system.md requires that no colour engine ship in the browser bundle,
+    // so keeping the engine out of src/ makes that structural rather than dependent on
+    // tree-shaking.
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx", "scripts/**/*.test.mjs"],
     css: true,
   },
 });

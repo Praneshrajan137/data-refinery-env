@@ -35,18 +35,51 @@ deserves to be, and not one lumen more.
 
 ## 2. The one law: Earned Salience
 
-**Perceptual intensity is a strictly monotonic function of epistemic strength —
-never of activity, novelty, or importance.**
+**No signal may wear a treatment that a stronger rung has earned.**
 
-Perceptual intensity is the sum of a signal's chroma, motion amplitude, glow,
-weight, and form-completeness. Epistemic strength is how much the system can prove
-about the claim the signal represents. The more DataForge can prove, the more
-*settled, solid, and complete* the signal. The less it can prove, the more
-*provisional, outlined, and unresolved* the signal.
+Warrant — how much the system can prove about the claim a signal represents — is
+carried by *warrant channels* and is strictly monotonic across the rung ladder:
+fill, stroke, ground contact, glow, depth, and weight. The more DataForge can
+prove, the more *settled, solid, and complete* the signal. The less it can prove,
+the more *provisional, outlined, and unresolved* the signal.
 
 The consequence is the property the product needs: **an unproven value physically
 cannot wear the treatment reserved for proof.** Overtrust is not discouraged by
 guidelines; it is made unrenderable.
+
+### 2.0 Three quantities, disjoint channels (amended 2026-08-14)
+
+This law previously read "perceptual intensity is a strictly monotonic function of
+epistemic strength", with intensity defined as "the sum of a signal's **chroma**,
+motion amplitude, glow, weight, and form-completeness". That version was wrong,
+and measurement proved it: chroma violated the requirement on **five of six**
+adjacent rung pairs in the light theme and four of six in the dark theme, with
+`rejected` carrying 2.27x the chroma of `proven`. The full measured tables are in
+[SPEC_perceptual_verification.md](../../specs/SPEC_perceptual_verification.md) §2.
+
+The palette was not the bug. The law was, in two independent ways. It contradicted
+§3.1 of this document — "Color answers 'what is this?', never 'how loud is this?'"
+— because a quantity cannot be pure semantics *and* a monotonic summand of
+intensity. And it contradicted good practice: a calm proof and a loud rejection is
+correct, since attention belongs where a human is needed. Enforcing the old
+wording would have required making failures quieter than proofs.
+
+"Intensity" conflated three questions a trust surface must answer separately:
+
+| Quantity | Question | Kind | Channels |
+| --- | --- | --- | --- |
+| **Warrant** | How much is proven? | ordered, strictly monotonic | fill, stroke, ground contact, glow, depth, weight |
+| **Identity** | What kind of claim is this? | nominal, unordered | hue |
+| **Urgency** | Must a human act? | ordered on its own axis | chroma, and only channels declared for it |
+
+The channel sets are disjoint, and that disjointness is gated. Signalling urgency
+through a warrant channel — giving a rejected claim ground contact or glow so it
+"stands out" — is the precise overtrust this language exists to prevent, and it
+now fails the build.
+
+The split follows the standard channel taxonomy, in which identity channels are
+nominal and magnitude channels are ordered (Bertin's levels of organisation;
+Tamara Munzner, *Visualization Analysis and Design*, A K Peters, 2014).
 
 ### 2.1 The epistemic-strength ladder
 
@@ -224,11 +257,17 @@ test (implemented in Phase 6):
    `plausibility_only` value can render with proven form, proven glow, or `settle`
    motion. If any code path can produce it, the language has failed and the build
    must fail.
-2. **Ladder monotonicity.** For any two rungs, the higher rung's salience ≥ the
-   lower on every channel (color-chroma, glow, motion amplitude, weight).
+2. **Ladder monotonicity.** For any two rungs, the higher rung's salience is at
+   least the lower's on every **warrant** channel (fill, stroke, ground contact,
+   glow, depth, weight). Hue and chroma are excluded: they carry identity and
+   urgency, not warrant (§2.0). Warrant computations may not read a hue or chroma
+   value at all, so the exclusion is structural rather than a rule to remember.
 3. **Redundancy survival.** Every state distinction is still readable under (a)
-   grayscale, (b) reduced motion, (c) `NO_COLOR` text. Automated where possible,
-   audited otherwise.
+   grayscale, (b) dichromacy — deuteranopia, protanopia, tritanopia, (c) reduced
+   motion, (d) `NO_COLOR` text. **Verified by simulation over every ordered rung
+   pair in both themes, not asserted.** This item read "Automated where possible,
+   audited otherwise" until 2026-08-14, and it had never been automated; the
+   colourblind-safety claim in §5 was an argument, never an execution.
 4. **Honest motion.** No loop exists on an idle/finished element; `resolve` runs
    only while work is happening. (Audited in the motion source, §6.)
 5. **Predictability (the real definition of "intelligent-feeling").** A user who has
