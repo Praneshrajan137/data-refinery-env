@@ -12,6 +12,159 @@ Format for every entry:
 
 ---
 
+## 2026-08-14 - The perceptual laws were verified symbolically, so the one law was inverted
+
+**Context**: asked to elevate the visual design, I checked whether the design system's laws
+are actually enforced. They are stated in perceptual terms and verified in symbolic terms:
+`audit_colors.mjs`, `audit_motion.mjs` and `audit_quantitative.mjs` check token names, set
+membership and counts, and **not one of them parsed a colour, simulated an eye, or measured a
+rendered magnitude**. `auditEarnedSalience` — whose own comment reads "perceptual intensity
+must track epistemic strength, so overtrust is unrenderable. These are BUILD GATES, not
+advice" — is five `startsWith()` calls and two `includes()` calls.
+
+**Consequence**: the one law was violated on its own first-named channel, in both themes, for
+the entire life of the design system, while the build stayed green.
+
+`perceptual-language.md` defined perceptual intensity as "the sum of a signal's **chroma**,
+motion amplitude, glow, weight, and form-completeness" and required strict monotonicity in
+epistemic strength on every channel. Measured chroma of each rung's text token, walked along
+the machine-enforced `rungOrder`:
+
+| rung | light chroma | dark chroma |
+| --- | --- | --- |
+| idle | 0.00637 | 0.00621 |
+| rejected | 0.08522 | 0.05196 |
+| plausibility_only | 0.05769 | 0.05537 |
+| downgraded | 0.04153 | 0.04326 |
+| held | 0.04153 | 0.04326 |
+| proven | 0.03751 | 0.03855 |
+| corroborated | 0.03751 | 0.03855 |
+
+**Five of six adjacent pairs violate strict monotonicity in light, four of six in dark.**
+Excluding `idle`, chroma decreases as warrant increases: the ladder is inverted. `rejected`
+carries 2.27x the chroma of `proven`.
+
+These are not the seed chromas. The seeds declare `warning.c = 0.066`, but `mapToGamut`
+reduces chroma to fit sRGB and each rung draws a different tone, so `warning-20` renders at
+0.04153. A gate that audited authored intent would report a ladder users never see.
+
+**Decision**: the palette is right and the law was wrong. Split the conflated scalar into
+three quantities over disjoint channel sets — **warrant** (fill, stroke, contact, glow, depth,
+weight; strictly monotonic), **identity** (hue; nominal, separable, unordered), **urgency**
+(chroma; declared, disjoint from warrant) — and make every perceptual claim perceptually
+measured.
+
+**Reasoning**: a calm proof and a loud rejection is correct; attention belongs where a human
+is needed. The old law contradicted itself — §3.1 says "Color answers 'what is this?', never
+'how loud is this?'", which cannot coexist with chroma inside a monotonic intensity sum — and
+it forbade intensity tracking "importance" while a rejected fix is important. Enforcing it as
+written would have required making failures quieter than proofs. The split follows the standard
+channel taxonomy in which identity channels are nominal and magnitude channels are ordered
+(Bertin; Munzner, *Visualization Analysis and Design*, A K Peters, 2014), and follows the
+precedent of the addressability law: dissolve the dilemma rather than trade against it.
+
+### What measurement found that argument had not
+
+**The colourblind-safety claim had never been executed.** §5 claimed it was "guaranteed by the
+redundancy law"; two source comments claimed distinctions "survive grayscale". There was no CVD
+simulation, no greyscale test, and no pairwise comparison anywhere in the repository. `culori`
+already shipped the filters, unused. WCAG 2.x cannot substitute: the W3C states that "contrast
+is calculated in such a way that color (hue) is not a key factor", so passing every ratio says
+nothing about whether `proven` can be told from `rejected`.
+
+Executed over all 21 rung pairs, both themes, five vision conditions:
+
+- **`proven` vs `corroborated` was colour-collapsed at distance 0.0000 under NORMAL vision in
+  both themes, with identical declared form.** Both resolve to `success-30` `#1f3324` and both
+  were `filled|solid|contact`. A 3px witness rail was already rendering in `styles.css`, but the
+  grammar did not describe it, so the only *declared* difference between the two strongest rungs
+  was the verdict string. Text is not a separability route — every rung has one, so accepting it
+  would make the law vacuous. Fixed by declaring `stroke: "witnessed"` and widening the rail.
+- **`proven` vs `rejected` collapses under deuteranopia** (0.0238 light, **0.0041** dark). The
+  product's most important distinction sits on the red-green confusion axis and survives only
+  because form differs. The redundancy law was doing real work; nobody had checked.
+- **48 pair-conditions rely on form**, now reported rather than discovered.
+- Protanopia drives red from L=0.628 to L=0.236, which *raises* total distance while collapsing
+  hue — the long-wavelength luminance loss the W3C names as WCAG 2.x's own blind spot,
+  reproduced here. Separability must therefore include lightness and hue-collapse must exclude
+  it; they are different questions and the kernel answers both.
+
+**A real accessibility defect in the accessibility feature.** `auditContrast` read
+`system.semantic[theme]` only, so the `prefers-contrast: more` overrides — pinned by exact
+palette string — had never had a ratio computed, and no axe scan ran under that media
+condition. The light high-contrast action border was **1.46:1** against its own background,
+below the 3:1 WCAG 1.4.11 requires for a control boundary and a downgrade from the 3.43:1 it
+replaced. Dark was 1.83:1. The two themes' values had been swapped. The mode that exists to
+raise contrast was lowering it in both.
+
+**Two infinite animations bypassed the motion honesty gate entirely.** `spin` (1.15s) and
+`df-agent-breathe` (1.8s) were hand-written with literal durations, and `audit_motion.mjs`
+matched only `@keyframes df-*` in the generated file and `.df-motion-*` classes — so "only
+active primitives may loop", the system's central motion claim, was enforced on 6 of 8
+loopable animations, and both rogue loops ran at 2.4x and 3.75x the declared `max`. Literal
+durations are now rejected outright, which makes the ceiling structural rather than a name.
+
+**Windows High Contrast was entirely unhandled**, and `viz/tokens.ts` claimed its three media
+queries were "the complete set of triggers". Forced colours overrides CSS-painted colour but
+cannot reach a canvas `fillStyle`, so the density map painted its own neutral ink onto an
+OS-supplied background with no repaint on mode change.
+
+**A fifth instance of the drift class, latent.** The rung ladder existed in two independent
+sources — `RUNG_ORDER` in `dataforge/domain/vocabulary.py` and `rungOrder` in
+`quantitative-tokens.json` — with no parity gate; `audit_quantitative.mjs` validated the order
+only against the token file's own keys, which is self-referential. They agreed. This repo has
+paid four times for exactly this, once inside `certificate.py`.
+
+**L1 cited "position along a common scale" while drawing no scale.** Cleveland & McGill's rank
+1 and rank 2 differ precisely by whether the scale is shared, and none of the four components
+drew an axis, tick or label. The confidence histogram normalised every class to *its own peak*,
+so bar heights were not comparable across classes even in principle. A length with no scale is
+a shape. Now a common 0-100% share axis with quarter-step ticks.
+
+**No uncertainty rendering existed at all**, while the backend's `TrustLedger.as_dict()` had
+begun emitting a Clopper-Pearson bound and a scope caveat *by construction* so that a consumer
+could not read a point estimate alone. The frontend was a consumer that could only read point
+estimates. Every histogram bin is a count out of a known total, so L6 was buildable from data
+already in the payload — unlike the calibration plot, whose refusal stands.
+
+### Where I was wrong, and what corrected me
+
+**A gate I wrote had to be demoted.** Chroma band-monotonicity against declared urgency failed
+in dark (`plausibility_only` 0.0554 above `rejected` 0.0520), and on reflection the semantic
+direction is arguable: `rejected` is *resolved*, `plausibility_only` is *unresolved and waiting
+for a human*. Gating a direction I cannot defend from first principles would assert a law the
+design does not follow, and tuning the palette to satisfy it would fit pixels to an unjustified
+rule. Reported, not gated, following the precedent already set for L4.
+
+**Mutation testing found 8 holes in my own work**, including 5 mutants that were silent no-ops
+because the token files are pretty-printed and my patterns assumed single-line JSON. A no-op
+mutant is worse than a failing one: it proves nothing while looking like a test. JSON mutants
+now operate on the parsed object. Three were real gate gaps: `channelRoles.warrant` was not
+checked for colour, the `colours` runner did not run the generator's `--check` so a generator
+edit was invisible to an audit that reads the generated artifact, and nothing cross-checked a
+cyclic animation's declared duration against the CSS it actually uses. **18/18 now killed.**
+
+**My e2e test broke an unrelated one, and it was my fault, not flake.** It ran a full analyze
+without the dataset selection the other flows perform, leaving shared state that failed the
+following test even at one worker — reproduced by running just those two together. Moved to an
+isolated sweep config; the canvas assertion moved to a unit test of `forcedColoursInk`, which
+is where the logic actually lives.
+
+**Alternatives considered**: re-tune the palette to satisfy the old law (would make failures
+quieter than proofs, and enforce a rule that contradicts §3.1); keep name-prefix checks and add
+prose (guarantees a sixth drift); adopt APCA instead of WCAG 2.x (APCA is not normative; the
+perceptual checks are additive to the existing ratios and relax none of them).
+
+**Reviewed with**: nobody yet.
+
+**Reversal criteria**: if the identity law's COLLAPSE_FLOOR of 0.05 OKLab starts failing pairs
+that are obviously distinguishable in practice, the threshold's derivation from the palette's
+own smallest tone step is wrong and the spec — not the palette — should change. If the two
+independent Clopper-Pearson implementations ever need to share code to agree, the shared
+goldens are too weak.
+
+---
+
 ## 2026-08-13 - The proof was not consumable, so the thesis was not checkable
 
 **Context**: asked to elevate the project's purpose, I looked for the gap between what

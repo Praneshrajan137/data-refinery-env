@@ -6,9 +6,10 @@
   "scripts": {
     "audit:colors": "node scripts/audit_colors.mjs",
     "audit:motion": "node scripts/audit_motion.mjs",
+    "audit:perceptual": "node scripts/audit_perceptual.mjs",
     "audit:quantitative": "node scripts/audit_quantitative.mjs",
     "budget": "node scripts/check_bundle_budget.mjs",
-    "build": "npm run colors:check && npm run motion:check && npm run audit:quantitative && npm run audit:docpaths && npm run audit:vocabulary && npm run config:sync && tsc -b && vite build && npm run budget",
+    "build": "npm run colors:check && npm run motion:check && npm run audit:perceptual && npm run audit:quantitative && npm run audit:docpaths && npm run audit:vocabulary && npm run config:sync && tsc -b && vite build && npm run budget",
     "config:sync": "node scripts/sync_runtime_config.mjs",
     "colors": "node scripts/generate_color_system.mjs",
     "colors:check": "node scripts/generate_color_system.mjs --check && npm run audit:colors",
@@ -21,7 +22,10 @@
     "test:unit": "vitest run",
     "typecheck": "tsc -b",
     "audit:quantitative:mutants": "node scripts/mutate_quantitative.mjs",
+    "audit:perceptual:mutants": "node scripts/mutate_perceptual.mjs",
+    "test": "vitest run && npm run audit:quantitative:mutants && npm run audit:perceptual:mutants && playwright test",
     "perf:density": "playwright test --config=playwright.perf.config.ts --workers=1",
+    "test:a11y": "playwright test --config=playwright.a11y.config.ts",
     "audit:docpaths": "node scripts/audit_doc_paths.mjs",
     "audit:vocabulary": "node scripts/audit_vocabulary.mjs"
   },
