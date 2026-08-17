@@ -149,11 +149,15 @@ export function normalizeRoutePath(path: string): string {
  * persisted, and the URL held only the page id. Sending someone `/playground/receipt` gave
  * them the empty prompt, and a refresh destroyed the run.
  *
- * The obvious fix -- cache the run in sessionStorage -- is forbidden here, and correctly so.
- * CI fails the build on any occurrence of `localStorage` or `sessionStorage` under
- * playground/web, and the System page advertises "No browser storage, no frontend keys". A
- * hosted playground that quietly retains uploaded CSVs would be breaking a promise it makes
- * on screen.
+ * The obvious fix -- caching the run in a browser storage API -- is forbidden here, and
+ * correctly so. CI greps playground/web for those two API names and fails the build on ANY
+ * occurrence, and the System page advertises "No browser storage, no frontend keys". A hosted
+ * playground that quietly retained uploaded CSVs would be breaking a promise it makes on screen.
+ *
+ * (Deliberately paraphrased rather than naming the two APIs: the guard matches text, so it
+ * cannot tell a use from a mention, and this comment failed CI when it spelled them out. That
+ * bluntness is a feature -- a guard that parsed context could be bypassed by writing something
+ * that looks like a comment -- so the prose bends and the guard stays literal.)
  *
  * So what travels is the REPRODUCIBLE INPUT, not the result: which sample, which toggles,
  * which constraints were accepted. Opening a shared link re-runs that analysis and reaches the
