@@ -2,7 +2,7 @@
  * GENERATED FILE -- DO NOT EDIT BY HAND.
  *
  * Source:      dataforge/domain/vocabulary.py
- * Source hash: sha256:98acad9d128a1bac6c919a9953a0794e39c5c61cdeaa74e3f5489702b240c888
+ * Source hash: sha256:3fa31f102e7b2477526e1242db2f438d1a1a752fba96b057a9438e155e4ec1e2
  * Generator:   scripts/ci/generate_domain_vocabulary.py
  * Verify:      python scripts/ci/generate_domain_vocabulary.py --check
  *              (or, without Python: npm run audit:vocabulary)
@@ -131,6 +131,14 @@ export type VerifierVerdict =
 /** Every verifier verdict, for runtime membership checks. */
 export const VERIFIER_VERDICTS: readonly VerifierVerdict[] = ["accept", "reject", "unknown", "not_run"] as const;
 
+/** What a human reads for each verifier verdict. The browser rendered the raw token. */
+export const VERIFIER_VERDICT_HUMAN: Record<string, string> = {
+  accept: "proved safe",
+  reject: "proved unsafe",
+  unknown: "could not decide",
+  not_run: "not required",
+};
+
 /** What the safety constitution decided. */
 export type SafetyVerdict =
   | "allow"
@@ -139,6 +147,31 @@ export type SafetyVerdict =
 
 /** Every safety verdict, for runtime membership checks. */
 export const SAFETY_VERDICTS: readonly SafetyVerdict[] = ["allow", "escalate", "deny"] as const;
+
+/** What a human reads for each safety verdict. */
+export const SAFETY_VERDICT_HUMAN: Record<string, string> = {
+  allow: "allowed",
+  escalate: "needs confirmation",
+  deny: "refused",
+};
+
+/** What a human reads for the second verifier's outcome. 'not_run' is not a failure. */
+export const INDEPENDENT_VERIFICATION_HUMAN: Record<string, string> = {
+  agreed: "independently verified",
+  disagreed: "second verifier disagreed",
+  not_run: "single verifier",
+};
+
+/** Where a proposed value came from, in words rather than implementation tokens. */
+export const PROVENANCE_HUMAN: Record<string, string> = {
+  deterministic: "derived by rule",
+  llm_live: "model proposal",
+  llm_cache: "model proposal (cached)",
+  entity_consensus: "sibling rows agree",
+  external: "supplied by caller",
+  external_untrusted: "supplied by caller, untrusted",
+  external_llm: "model proposal via caller",
+};
 
 /** The epistemic ladder, weakest to strongest. Perceptual intensity is monotonic in it. */
 export type Rung =

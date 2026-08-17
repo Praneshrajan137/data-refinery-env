@@ -216,6 +216,13 @@ export function verificationStrengthFor(
         )
     )
     parts.append(
+        _record(
+            "VERIFIER_VERDICT_HUMAN",
+            vocab.VERIFIER_VERDICT_HUMAN,
+            "What a human reads for each verifier verdict. The browser rendered the raw token.",
+        )
+    )
+    parts.append(
         _union("SafetyVerdict", vocab.SAFETY_VERDICTS, "What the safety constitution decided.")
     )
     parts.append(
@@ -224,6 +231,27 @@ export function verificationStrengthFor(
             vocab.SAFETY_VERDICTS,
             "SafetyVerdict",
             "Every safety verdict, for runtime membership checks.",
+        )
+    )
+    parts.append(
+        _record(
+            "SAFETY_VERDICT_HUMAN",
+            vocab.SAFETY_VERDICT_HUMAN,
+            "What a human reads for each safety verdict.",
+        )
+    )
+    parts.append(
+        _record(
+            "INDEPENDENT_VERIFICATION_HUMAN",
+            vocab.INDEPENDENT_VERIFICATION_HUMAN,
+            "What a human reads for the second verifier's outcome. 'not_run' is not a failure.",
+        )
+    )
+    parts.append(
+        _record(
+            "PROVENANCE_HUMAN",
+            vocab.PROVENANCE_HUMAN,
+            "Where a proposed value came from, in words rather than implementation tokens.",
         )
     )
     parts.append(

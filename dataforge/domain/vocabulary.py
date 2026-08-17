@@ -44,17 +44,21 @@ from typing import Final, Literal
 __all__ = [
     "ALL_PROVENANCE",
     "CALIBRATED_PROVENANCE",
+    "INDEPENDENT_VERIFICATION_HUMAN",
+    "PROVENANCE_HUMAN",
     "PROVENANCE_ORDER",
     "REVIEW_REASONS",
     "REVIEW_REASON_HUMAN",
     "RUNG_ORDER",
     "SAFETY_VERDICTS",
+    "SAFETY_VERDICT_HUMAN",
     "SEVERITIES",
     "SEVERITY_ORDER",
     "TRUSTED_PROVENANCE",
     "UNTRUSTED_PROVENANCE",
     "VERIFICATION_STRENGTHS",
     "VERIFIER_VERDICTS",
+    "VERIFIER_VERDICT_HUMAN",
     "Provenance",
     "ReviewReason",
     "Rung",
@@ -263,6 +267,56 @@ VERIFIER_VERDICTS: Final[tuple[VerifierVerdict, ...]] = (
 SafetyVerdict = Literal["allow", "escalate", "deny"]
 
 SAFETY_VERDICTS: Final[tuple[SafetyVerdict, ...]] = ("allow", "escalate", "deny")
+
+# The sentence a human reads for each verdict.
+#
+# These live here, beside the enums, for the same reason REVIEW_REASON_HUMAN does:
+# the browser was rendering the raw tokens. `Metric label="Verifier"` printed
+# "not_run", the safety metric printed "escalate", and one loop-rail line
+# concatenated both into "allow safety, accept verifier" -- machine values shown
+# to a user as though they were prose. Adding a second table in TypeScript would
+# have been the sixth instance of the vocabulary-drift class this repo has already
+# been bitten by, so the strings are defined once and generated into the frontend,
+# where audit_vocabulary.mjs pins them by hash.
+#
+# Phrased as short noun phrases rather than sentences because they render inside a
+# metric tile, next to a label, not in running text.
+
+VERIFIER_VERDICT_HUMAN: Final[dict[str, str]] = {
+    "accept": "proved safe",
+    "reject": "proved unsafe",
+    "unknown": "could not decide",
+    "not_run": "not required",
+}
+
+SAFETY_VERDICT_HUMAN: Final[dict[str, str]] = {
+    "allow": "allowed",
+    "escalate": "needs confirmation",
+    "deny": "refused",
+}
+
+# What the second, independently written verifier did. "not_run" is not a failure:
+# the deterministic gate already proved the applied set, so a cross-check was not
+# required. Saying "not run" alone reads as an omission, which is why the UI says
+# "single verifier" instead.
+INDEPENDENT_VERIFICATION_HUMAN: Final[dict[str, str]] = {
+    "agreed": "independently verified",
+    "disagreed": "second verifier disagreed",
+    "not_run": "single verifier",
+}
+
+# Where a proposed value came from. Provenance is the difference between a value
+# that was derived and one that was guessed, so it must not surface as an
+# implementation token like "llm_cache".
+PROVENANCE_HUMAN: Final[dict[str, str]] = {
+    "deterministic": "derived by rule",
+    "llm_live": "model proposal",
+    "llm_cache": "model proposal (cached)",
+    "entity_consensus": "sibling rows agree",
+    "external": "supplied by caller",
+    "external_untrusted": "supplied by caller, untrusted",
+    "external_llm": "model proposal via caller",
+}
 
 
 # --- The epistemic rung ladder ------------------------------------------------
