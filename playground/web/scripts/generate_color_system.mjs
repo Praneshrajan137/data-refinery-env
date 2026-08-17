@@ -440,6 +440,20 @@ function buildCss(system) {
   lines.push("  }");
   lines.push("}");
   lines.push("");
+  // Print. The palette, not the layout: the structural print rules live in styles.css, but
+  // colour VALUES may only be emitted here, because src/ is forbidden raw hex by
+  // auditRawHexUsage. Paper has no dark mode and no backlight, so the surfaces collapse to the
+  // lightest tone and text to the darkest -- the dark theme's surfaces are a screen affordance
+  // and on paper they are just wasted ink and lost contrast.
+  lines.push("@media print {");
+  lines.push("  :root {");
+  lines.push("    color-scheme: light;");
+  for (const [token, value] of Object.entries(system.semantic.light)) {
+    lines.push(`    ${token}: var(--df-palette-${value.palette});`);
+  }
+  lines.push("  }");
+  lines.push("}");
+  lines.push("");
   lines.push("@media (color-gamut: p3) {");
   lines.push("  :root {");
   for (const [token, ref] of Object.entries(glowRefs)) {

@@ -1,20 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
+﻿import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-const sampleCsv = [
-  "provider_number,hospital_name,city,state,zip_code,phone_number,rating,mortality_rate,readmission_rate,er_wait_time",
-  "PRV001,General Hospital,Springfield,IL,62701,2175550101,4.2,0.023,0.145,28",
-  "PRV002,St. Mary Medical Center,Chicago,IL,60601,3125550202,3.8,0.031,0.162,35",
-  "PRV001,Springfield Medical,Springfield,IL,62701,2175550303,4.5,0.019,0.138,22",
-  "PRV003,Mercy Hospital,Peoria,IL,61602,3095550404,3.5,0.028,0.158,31",
-  "PRV004,Northwestern Memorial,Chicago,IL,60611,3125550505,4.1,0.025,0.149,26",
-  "PRV005,Rush University MC,Chicago,IL,60612,3125550606,45.0,0.022,0.141,29",
-  "PRV006,Advocate Christ,Oak Lawn,IL,60453,7085550707,3.9,0.027,0.155,33",
-  "PRV007,Loyola University MC,Maywood,IL,60153,7085550808,4.3,0.020,0.142,25",
-  "PRV008,Presence St. Joseph,Joliet,IL,60435,8155550909,4.0,0.026,0.151,30",
-  "PRV009,Edward Hospital,Naperville,IL,60540,6305551010,3.7,0.029,0.160,34",
-].join("\n");
-const sourceHash = "a".repeat(64);
+import { analyzePayload, sampleCsv, sourceHash } from "./fixtures";
+
 const primaryRepairNote = "Row 6 rating: 45.0 -> 4.5 passed safety and verifier gates.";
 
 async function allowClipboardWrite(page: import("@playwright/test").Page) {
@@ -45,271 +33,6 @@ async function activateAnalyze(page: import("@playwright/test").Page) {
   await analyze.press("Enter");
 }
 
-function analyzePayload(accepted = false) {
-  return {
-    source: {
-      name: "hospital_10rows.csv",
-      size_bytes: sampleCsv.length,
-      sha256: sourceHash,
-      rows: 10,
-      columns: 10,
-      column_names: [
-        "provider_number",
-        "hospital_name",
-        "city",
-        "state",
-        "zip_code",
-        "phone_number",
-        "rating",
-        "mortality_rate",
-        "readmission_rate",
-        "er_wait_time",
-      ],
-    },
-    schema_inference: {
-      schema_version: "constraint_review_v1",
-      source_sha256: sourceHash,
-      row_count: 10,
-      candidates: [
-        {
-          candidate_id: "cnd-state-fd",
-          kind: "functional_dependency",
-          columns: ["provider_number"],
-          dependent: "hospital_name",
-          inferred_type: null,
-          pattern: null,
-          min_value: null,
-          max_value: null,
-          confidence: 0.92,
-          evidence: "provider_number determines hospital_name in 9/10 rows.",
-          decision: accepted ? "accepted" : "pending",
-          repair_supported: true,
-        },
-        {
-          candidate_id: "cnd-amount-regex",
-          kind: "regex",
-          columns: ["rating"],
-          dependent: null,
-          inferred_type: null,
-          pattern: "^\\d+$",
-          min_value: null,
-          max_value: null,
-          confidence: 1,
-          evidence: "10 non-empty values matched numeric rating values.",
-          decision: "pending",
-          repair_supported: false,
-        },
-      ],
-    },
-    risk_summary: {
-      dataset_level: "medium",
-      repair_readiness: "verified",
-      severity_counts: { safe: 0, review: 1, unsafe: 0 },
-      pending_repair_supported_constraints: accepted ? 0 : 1,
-      reasons: [
-        "1 review-level issue(s) were detected.",
-        accepted
-          ? "Accepted constraints were used for this dry run."
-          : "1 repair-supported inferred constraint(s) remain pending.",
-      ],
-    },
-    issues: [
-      {
-        column: "rating",
-        issue_type: "decimal_shift",
-        severity: "review",
-        row_indices: [5],
-        row_indices_truncated: false,
-        count: 1,
-      },
-    ],
-    // The untruncated per-cell channel the evidence surface is built from. Kept in
-    // lockstep with `issues` above: the same cell, with the fields the grouping
-    // destroys (confidence, actual, expected, reason).
-    flagged_cells: {
-      // rating is column index 4 in the hospital sample header.
-      index: { column_indices: [4], rows: [5] },
-      confidence_histogram: [
-        {
-          issue_type: "decimal_shift",
-          bins: Array.from({ length: 10 }, (_, index) => ({
-            from_value: index / 10,
-            to_value: (index + 1) / 10,
-            count: index === 8 ? 1 : 0,
-          })),
-          count: 1,
-          distinct_values: 1,
-          mode_value: 0.86,
-          mode_share: 1,
-        },
-      ],
-      cells: [
-        {
-          row: 5,
-          column: "rating",
-          issue_type: "decimal_shift",
-          severity: "review",
-          confidence: 0.86,
-          actual: "45.0",
-          expected: "4.5",
-          reason: "Value 45 in column rating appears to be ~10x the typical value.",
-        },
-      ],
-      total: 1,
-      truncated: false,
-      note: "All 1 flagged cells are individually listed.",
-    },
-    repairs: [
-      {
-        row: 5,
-        column: "rating",
-        old_value: "45.0",
-        new_value: "4.5",
-        detector_id: "decimal_shift",
-        reason: "Value 45 in column rating appears to be ~10x the typical value.",
-        confidence: 0.94,
-        provenance: "deterministic",
-        verifier_reason: "All proposed fixes passed the SMT verifier.",
-        verification_strength: "proven",
-      },
-    ],
-    verification: {
-      safety_verdict: "allow",
-      verifier_verdict: "accept",
-      accepted_constraint_ids: accepted ? ["cnd-state-fd"] : [],
-      failures: [
-        {
-          row: 2,
-          column: "hospital_name",
-          issue_type: "fd_violation",
-          status: "attempted_not_fixed",
-          reason: "No repair proposal was available for this issue.",
-          attempt_count: 1,
-          unsat_core: [],
-        },
-      ],
-      abstentions: ["No repair proposal was available for this issue."],
-      failure_reasons: ["No repair proposal was available for this issue."],
-    },
-    certificate: {
-      ok: true,
-      checks: [
-        {
-          name: "schema_recognized",
-          ok: true,
-          detail: "schema_version='repair_receipt_v1'",
-        },
-        {
-          name: "data_identity",
-          ok: true,
-          detail: "sha256(data) matches source_sha256.",
-        },
-        {
-          name: "auto_apply_is_proven_deterministic",
-          ok: true,
-          detail: "auto-applied set is proven (deterministic).",
-        },
-      ],
-    },
-    txn_journal: {
-      txn_id: "txn-demo",
-      created_at: "2026-05-20T12:00:00Z",
-      source_name: "hospital_10rows.csv",
-      source_sha256: sourceHash,
-      fixes_count: 1,
-      applied: false,
-      events: [{ event_type: "created" }],
-      note: "Playground is stateless.",
-    },
-    receipt: {
-      schema_version: "repair_receipt_v1",
-      receipt_version: "repair_receipt_v1",
-      contract_version: "repair_contract_v2",
-      mode: "dry_run",
-      applied: false,
-      reversible: true,
-      source_sha256: sourceHash,
-      post_sha256: null,
-      txn_id: "txn-demo",
-      safety_verdict: "allow",
-      verifier_verdict: "accept",
-      independent_verification: "not_run",
-      issues_count: 1,
-      fixes_count: 1,
-      applied_fixes: [],
-      suggested_fixes: [],
-      candidate_provenance: ["heuristic"],
-      root_causes: [
-        {
-          row: 5,
-          column: "rating",
-          issue_type: "decimal_shift",
-          category: "decimal_shift",
-          confidence: 0.94,
-          reason: "Rating appears to be shifted one decimal place.",
-        },
-        {
-          row: 2,
-          column: "hospital_name",
-          issue_type: "fd_violation",
-          category: "fd_conflict",
-          confidence: 0.9,
-          reason: "FD conflict.",
-        },
-      ],
-      candidate_repairs: [
-        {
-          row: 5,
-          column: "rating",
-          old_value: "45.0",
-          new_value: "4.5",
-          detector_id: "decimal_shift",
-          operation: "update",
-          reason: "Move decimal point one place left.",
-          confidence: 0.94,
-          provenance: "deterministic",
-          verifier_reason: "accepted",
-          verification_strength: "proven",
-        },
-      ],
-      proof_obligations: [
-        {
-          obligation_id: "smt::decimal_shift::5::rating::attempt::1",
-          verifier: "smt",
-          status: "accepted",
-          reason: "accepted",
-          unsat_core: [],
-        },
-      ],
-      accepted_constraint_ids: accepted ? ["cnd-state-fd"] : [],
-      constraints_artifact_sha256: accepted ? "b".repeat(64) : null,
-      patch_plan_sha256: "c".repeat(64),
-      revert_command: "dataforge revert txn-demo",
-      limitations: ["Dry run only; no source data was mutated."],
-      reason: "Dry run completed without mutating the source file.",
-    },
-    apply_handoff: {
-      source_name: "hospital_10rows.csv",
-      dry_run_command: accepted
-        ? "dataforge repair path/to/hospital_10rows.csv --constraints constraints.json --dry-run"
-        : "dataforge repair path/to/hospital_10rows.csv --dry-run",
-      apply_command: accepted
-        ? "dataforge repair path/to/hospital_10rows.csv --constraints constraints.json --apply"
-        : "dataforge repair path/to/hospital_10rows.csv --apply",
-      audit_command: "dataforge audit txn-demo",
-      revert_command: "dataforge revert txn-demo",
-      note: "The hosted playground never mutates uploads.",
-    },
-    limitations: [
-      "Hosted analysis is stateless and dry-run only.",
-      "Inferred constraints are pending unless explicitly accepted for this run.",
-    ],
-    meta: {
-      api_version: "0.1.0",
-      contract_version: "repair_contract_v2",
-    },
-  };
-}
 
 function workflowStreamBody(accepted = false) {
   const analysis = analyzePayload(accepted);
@@ -587,14 +310,14 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   await expect(page.getByText("Export dry-run receipt")).toBeVisible();
   await expect(page.getByText("Hosted analysis is dry-run only and never mutates uploaded CSV files.")).toBeVisible();
   await expect(page.getByText("Local revert refuses if the file has drifted from the recorded post-state hash.")).toBeVisible();
-  await expect(page).toHaveURL(/\/playground\/run$/);
+  await expect(page).toHaveURL(/\/playground\/run(\?|$)/);
 
   await page.locator('.product-nav a[href="/playground/atlas"]').click();
   const reviewQueue = page.getByLabel("Human review queue");
   await reviewQueue.getByRole("checkbox", { name: /functional_dependency constraint cnd-state-fd/ }).check();
   await reviewQueue.getByRole("button", { name: "Rerun with accepted constraints" }).click();
   await page.locator('.product-nav a[href="/playground/evidence"]').click();
-  await expect(page).toHaveURL(/\/playground\/evidence$/);
+  await expect(page).toHaveURL(/\/playground\/evidence(\?|$)/);
   await expect(page.getByRole("heading", { name: "Constraint review" })).toBeVisible();
   await expect(page.locator(".risk-lens").getByRole("cell", { name: "accepted" })).toBeVisible();
 
@@ -787,11 +510,11 @@ test("product routes support direct load, navigation, and browser history", asyn
 
   await page.goto("/playground/");
   await page.locator('.product-nav a[href="/playground/run"]').click();
-  await expect(page).toHaveURL(/\/playground\/run$/);
+  await expect(page).toHaveURL(/\/playground\/run(\?|$)/);
   await page.locator('.product-nav a[href="/playground/system"]').click();
-  await expect(page).toHaveURL(/\/playground\/system$/);
+  await expect(page).toHaveURL(/\/playground\/system(\?|$)/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/playground\/run$/);
+  await expect(page).toHaveURL(/\/playground\/run(\?|$)/);
 });
 
 test("reduced motion keeps route and workflow state visible without overflow", async ({ page }) => {
@@ -1096,4 +819,199 @@ test("selecting a column reveals addressable claims with earned depth", async ({
 
   const scan = await new AxeBuilder({ page }).analyze();
   expect(scan.violations).toEqual([]);
+});
+
+/**
+ * Behaviours shipped in the previous round with unit tests only.
+ *
+ * Every test below is here because the App -> page -> component wiring is exactly what a
+ * component test cannot reach. The first one failed on the code as shipped: the shared-link
+ * feature loaded a dataset and never analysed, so a recipient landed on the same empty prompt
+ * the feature claimed to remove -- while a comment in routes.ts asserted the opposite.
+ */
+test("a shared sample link reproduces the run instead of landing on an empty prompt", async ({
+  page,
+}) => {
+  await page.goto("/playground/receipt?sample=hospital_10rows");
+
+  await expect(page.getByRole("region", { name: "Repair receipt summary" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText("Run analysis to unlock receipt")).toBeHidden();
+});
+
+test("a shared link keeps the route it names rather than redirecting to the run page", async ({
+  page,
+}) => {
+  await page.goto("/playground/receipt?sample=hospital_10rows");
+  await expect(page.locator("main")).toBeVisible();
+  await expect(page).toHaveURL(/\/playground\/receipt/);
+});
+
+test("a shared link carrying no sample still renders its page", async ({ page }) => {
+  await page.goto("/playground/evidence");
+  await expect(page.locator("main")).toBeVisible();
+  await expect(page.getByText("Run analysis to unlock evidence")).toBeVisible();
+});
+
+test("a failed run marks the previous result as stale on every route", async ({ page }) => {
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+  await expect(page.getByText("No unproven change would be written.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Trust verdict")).toBeVisible();
+
+  // The next attempt fails. The previous receipt is still real and is kept -- but it no longer
+  // describes what just happened, and every route that renders it must say so.
+  await page.route("**/api/analyze/stream**", async (route) => {
+    await route.fulfill({ status: 500, contentType: "text/plain", body: "boom" });
+  });
+  await page.route("**/api/analyze", async (route) => {
+    await route.fulfill({ status: 500, contentType: "text/plain", body: "boom" });
+  });
+  await activateAnalyze(page);
+
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(page.getByText("Previous run")).toBeVisible();
+  await expect(page.getByText(/describes an earlier run/i)).toBeVisible();
+  await expect(page.getByText("Trust verdict")).toBeHidden();
+
+  // The header marker is the part that must hold on routes with no trust panel.
+  const posture = page.getByLabel("Current run posture");
+  await expect(posture).toContainText(/superseded/i);
+
+  for (const route of ["receipt", "evidence", "repairs", "atlas"]) {
+    await page.locator(`.product-nav a[href="/playground/${route}"]`).click();
+    await expect(page.getByLabel("Current run posture"), route).toContainText(/superseded/i);
+  }
+});
+
+test("going offline is stated, and Analyze is paused rather than left to fail", async ({
+  page,
+  context,
+}) => {
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await expect(page.locator(".loop-panel--profile").getByRole("heading", { name: "Current CSV" })).toBeVisible();
+
+  await context.setOffline(true);
+  // navigator.onLine does not fire the event by itself under CDP offline emulation.
+  await page.evaluate(() => window.dispatchEvent(new Event("offline")));
+
+  const banner = page.getByText("You are offline");
+  await expect(banner).toBeVisible();
+  // The user's real question mid-run is whether their work survived.
+  await expect(page.getByText(/still here/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect(banner).toBeHidden();
+  await expect(page.getByRole("button", { name: "Analyze" })).toBeEnabled();
+});
+
+test("an unreachable backend is named as such, not as a bad CSV", async ({ page }) => {
+  await page.route("**/api/analyze/stream**", async (route) => route.abort("failed"));
+  await page.route("**/api/analyze", async (route) => route.abort("failed"));
+
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+
+  const alert = page.getByRole("alert");
+  await expect(alert).toBeVisible();
+  // The defect this replaces: every locally-originated failure was titled as CSV validation.
+  await expect(alert).toContainText(/Cannot reach the backend|You are offline/);
+  await expect(alert).not.toContainText("Dataset validation failed");
+  // And a retry that does not cost the user their loaded dataset.
+  await expect(alert.getByRole("button", { name: /Try again/i })).toBeVisible();
+  await expect(page.locator(".loop-panel--profile").getByRole("heading", { name: "Current CSV" })).toBeVisible();
+});
+
+test("a truncated workflow stream reports a cut stream, not a raw JSON error", async ({ page }) => {
+  await page.route("**/api/analyze/stream**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-ndjson",
+      // A complete line, then an object cut in half.
+      body: '{"schema_version":"workflow_event_v1","run_id":"r","sequence":1,"stage_id":"intake","status":"completed","summary":"s","started_at":"2026-06-02T00:00:00Z","completed_at":"2026-06-02T00:00:01Z","counts":{},"requires_human":false}\n{"stage_i',
+    });
+  });
+
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+
+  const alert = page.getByRole("alert");
+  await expect(alert).toBeVisible();
+  await expect(alert).toContainText(/cut short|dropped part-way/i);
+  await expect(alert).not.toContainText(/JSON/i);
+});
+
+test("an unknown address says so instead of silently rendering a real page", async ({ page }) => {
+  await page.goto("/playground/nonsense");
+  await expect(page.getByRole("region", { name: "No page at this address" })).toBeVisible();
+  await expect(page.getByText("/playground/nonsense")).toBeVisible();
+  // No real page's content may be what an unknown URL renders.
+  await expect(page.getByRole("region", { name: "DataForge mission bar" })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "CSV repair loop", level: 1 })).toBeHidden();
+  await expect(
+    page.getByRole("heading", { name: "Unproven fixes are refused, not applied", level: 1 }),
+  ).toBeHidden();
+
+  // Recovery goes to the declared front door.
+  await page.getByRole("button", { name: "Go to the front page" }).click();
+  await expect(page).toHaveURL(/\/playground\/guardrail(\?|$)/);
+  await expect(
+    page.getByRole("heading", { name: "Unproven fixes are refused, not applied", level: 1 }),
+  ).toBeVisible();
+});
+
+test("the backend-unavailable retry re-probes without discarding the loaded dataset", async ({
+  page,
+}) => {
+  let healthCalls = 0;
+  await page.route("**/api/health", async (route) => {
+    healthCalls += 1;
+    if (healthCalls <= 6) {
+      await route.fulfill({ status: 503, contentType: "text/plain", body: "asleep" });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        status: "ok",
+        advanced_available: false,
+        verify_available: true,
+        streaming_available: true,
+        workflow_contract_version: "workflow_event_v1",
+        max_upload_bytes: 1_048_576,
+      },
+    });
+  });
+
+  await page.goto("/playground/run");
+  const chip = page.getByRole("button", { name: /Backend unavailable/i });
+  await expect(chip).toBeVisible({ timeout: 30_000 });
+
+  // The defect this replaces: this control was window.location.reload(), which threw away the
+  // dataset and any completed receipt in order to recover from a transient error.
+  await chip.click();
+  await expect(page.getByRole("button", { name: "Analyze" })).toBeVisible({ timeout: 30_000 });
+  expect(healthCalls).toBeGreaterThan(6);
+});
+
+test("the evidence page shows one risk summary, not two", async ({ page }) => {
+  await page.goto("/playground/run");
+  await page.getByRole("button", { name: /Hospital/ }).click();
+  await activateAnalyze(page);
+  await page.locator('.product-nav a[href="/playground/evidence"]').click();
+  await expect(page.getByRole("heading", { name: "Constraint review" })).toBeVisible();
+
+  // Two panels used to render here -- one smuggled in by the overview lens, one owned by the
+  // risk lens -- and the accepted mitigation was to give them different accessible names.
+  await expect(page.locator(".risk-panel")).toHaveCount(1);
+
+  // The run page still gets its risk summary; the fix must not remove it, only de-duplicate.
+  await page.locator('.product-nav a[href="/playground/run"]').click();
+  await expect(page.locator(".risk-panel")).toHaveCount(1);
 });

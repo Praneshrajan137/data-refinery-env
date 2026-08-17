@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+﻿import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +10,29 @@ const checkMode = process.argv.includes("--check");
 
 const tokens = JSON.parse(readFileSync(tokensPath, "utf8"));
 
+/**
+ * `import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const webRoot = resolve(scriptDir, "..");
+const tokensPath = resolve(webRoot, "src", "design", "motion-tokens.json");
+const cssPath = resolve(webRoot, "src", "design", "motion-system.generated.css");
+const checkMode = process.argv.includes("--check");
+
+const tokens = JSON.parse(readFileSync(tokensPath, "utf8"));
+
+-prefixed keys are metadata, not primitives.
+ *
+ * The file already used `$comment` and `$wcag` under cyclicAnimations, and the loop-honesty
+ * audit filtered them -- but these generator loops did not, so adding a `$wcag` argument to
+ * `primitives` would have emitted a `.df-motion-$wcag` class and a `@keyframes df-$wcag`.
+ * Filtered in one place so the convention holds wherever it is used.
+ */
+function declared(group) {
+  return Object.entries(group).filter(([name]) => !name.startsWith("$"));
+}
 function bezier(name) {
   const value = tokens.easings[name];
   if (!value) {
@@ -48,7 +71,7 @@ function buildCss() {
   lines.push("}");
   lines.push("");
 
-  for (const [name, spec] of Object.entries(tokens.primitives)) {
+  for (const [name, spec] of declared(tokens.primitives)) {
     if (name === "still") {
       continue; // stillness has no keyframe by definition
     }
@@ -59,7 +82,7 @@ function buildCss() {
   }
 
   lines.push("/* Primitive utility classes. Loop is sourced from motion-tokens.json. */");
-  for (const [name, spec] of Object.entries(tokens.primitives)) {
+  for (const [name, spec] of declared(tokens.primitives)) {
     if (name === "still") {
       lines.push(".df-motion-still {");
       lines.push("  animation: none;");
@@ -80,7 +103,7 @@ function buildCss() {
   // Reduced-motion twin: primitives collapse to their meaning-preserving static
   // state (no movement) but never change rung. Form/color/text carry meaning.
   lines.push("@media (prefers-reduced-motion: reduce) {");
-  for (const name of Object.keys(tokens.primitives)) {
+  for (const [name] of declared(tokens.primitives)) {
     if (name === "still") {
       continue;
     }

@@ -34,25 +34,62 @@ const EVERY_ROUTE = [
   "system",
 ] as const;
 
+/**
+ * The index is scanned separately from the named routes because it is not one of them: it
+ * is whatever `routeFromPathname` falls back to. It appeared in the navigation smoke test
+ * but in no accessibility scan, so the first URL any visitor loads was the one route never
+ * checked.
+ */
+const EVERY_PATH = ["", ...EVERY_ROUTE] as const;
+
+async function scanEveryPath(page: import("@playwright/test").Page, label: string) {
+  for (const routeName of EVERY_PATH) {
+    await page.goto(`/playground/${routeName}`);
+    await expect(page.locator("main")).toBeVisible();
+
+    const scan = await new AxeBuilder({ page }).analyze();
+    expect(
+      scan.violations,
+      `${routeName || "index"} in ${label}: ` +
+        scan.violations.map((violation) => violation.id).join(", "),
+    ).toEqual([]);
+  }
+}
+
 for (const contrast of ["no-preference", "more"] as const) {
   for (const colorScheme of ["light", "dark"] as const) {
     test(`every route passes axe in ${colorScheme} at contrast:${contrast}`, async ({ page }) => {
       await page.emulateMedia({ colorScheme, contrast });
-
-      for (const routeName of EVERY_ROUTE) {
-        await page.goto(`/playground/${routeName}`);
-        await expect(page.locator("main")).toBeVisible();
-
-        const scan = await new AxeBuilder({ page }).analyze();
-        expect(
-          scan.violations,
-          `${routeName} in ${colorScheme}/${contrast}: ` +
-            scan.violations.map((violation) => violation.id).join(", "),
-        ).toEqual([]);
-      }
+      await scanEveryPath(page, `${colorScheme}/${contrast}`);
     });
   }
 }
+
+/**
+ * Reduced motion was emulated in the functional suite but never scanned.
+ *
+ * The reduced-motion twin collapses every duration to 0.001ms and removes transforms. That
+ * is a different rendered DOM, not merely a faster one -- state that motion was carrying
+ * has to be carried by something else, and a rung that depended on a transform for its
+ * form would lose it here. One pass over every route, in light only: motion does not
+ * interact with the colour axis, so multiplying this by scheme and contrast would quadruple
+ * the runtime to re-verify the same thing.
+ */
+test("every route passes axe under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await scanEveryPath(page, "reduced-motion");
+});
+
+/**
+ * A mobile viewport is a different DOM here, not a narrower one: three width breakpoints
+ * restack the layout, and the 720px block is the only place a touch-target floor is
+ * declared at all. The sweep's own header claimed the checks were "viewport-independent",
+ * which is true of token contrast and false of landmark structure once columns collapse.
+ */
+test("every route passes axe at a mobile viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 915 });
+  await scanEveryPath(page, "mobile 412px");
+});
 
 /**
  * Forced colours, checked structurally.
@@ -65,14 +102,14 @@ for (const contrast of ["no-preference", "more"] as const) {
  */
 test("forced colours keeps every route accessible", async ({ page }) => {
   await page.emulateMedia({ forcedColors: "active" });
-  for (const routeName of EVERY_ROUTE) {
+  for (const routeName of EVERY_PATH) {
     await page.goto(`/playground/${routeName}`);
     await expect(page.locator("main")).toBeVisible();
 
     const scan = await new AxeBuilder({ page }).analyze();
     expect(
       scan.violations,
-      `${routeName} under forced colours: ` +
+      `${routeName || "index"} under forced colours: ` +
         scan.violations.map((violation) => violation.id).join(", "),
     ).toEqual([]);
   }

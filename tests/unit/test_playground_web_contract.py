@@ -102,8 +102,17 @@ def test_frontend_has_typed_vite_quality_gates() -> None:
     assert '"@axe-core/playwright"' in body
     assert '"motion"' in body
     assert '"budget"' in body
-    assert "Number.POSITIVE_INFINITY" in budget
-    assert "Bundle budget is unbounded" in budget
+    # This test used to assert the OPPOSITE: that the budget script contained
+    # "Number.POSITIVE_INFINITY" and printed "Bundle budget is unbounded". It locked the
+    # gate open -- a contract test enshrining the absence of the guarantee it named.
+    #
+    # The replacement forbids the ASSIGNMENT rather than the mention, so the script may
+    # still explain the defect it removed. Whether the shipped ceilings are actually
+    # enforceable is asserted where it can be checked properly, against the parsed table:
+    # playground/web/scripts/check_bundle_budget.test.mjs.
+    assert not re.search(r"=\s*Number\.POSITIVE_INFINITY", budget)
+    assert "assertBudgetsAreEnforceable" in budget
+    assert "totalJsBytes" in budget
 
 
 def test_frontend_motion_system_contract() -> None:

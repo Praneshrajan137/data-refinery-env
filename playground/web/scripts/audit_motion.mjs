@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+﻿import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,8 +20,36 @@ function fail(message) {
 // Anything else looping would animate an idle or finished element -- a lie.
 const allowedLoopPrimitives = new Set(["hover", "resolve"]);
 
-function auditLoopHonesty() {
-  for (const [name, spec] of Object.entries(tokens.primitives)) {
+/**
+ * `import { readdirSync, readFileSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = fileURLToPath(new URL(".", import.meta.url));
+const webRoot = resolve(scriptDir, "..");
+const srcRoot = resolve(webRoot, "src");
+const tokensPath = resolve(srcRoot, "design", "motion-tokens.json");
+const cssPath = resolve(srcRoot, "design", "motion-system.generated.css");
+
+const tokens = JSON.parse(readFileSync(tokensPath, "utf8"));
+const css = readFileSync(cssPath, "utf8");
+
+function fail(message) {
+  throw new Error(message);
+}
+
+// Honesty rule: a loop is a claim of ongoing activity. Only the active primitives
+// (hover = uncommitted proposal, resolve = verification in progress) may loop.
+// Anything else looping would animate an idle or finished element -- a lie.
+const allowedLoopPrimitives = new Set(["hover", "resolve"]);
+
+-prefixed keys are metadata, not primitives. `$comment` and `$wcag` are the file's
+ * established convention for recording an argument next to the thing it justifies.
+ */
+function declaredPrimitives() {
+  return Object.entries(tokens.primitives).filter(([name]) => !name.startsWith("$"));
+}
+function auditLoopHonesty() {  for (const [name, spec] of declaredPrimitives()) {
     if (spec.loop && !allowedLoopPrimitives.has(name)) {
       fail(`Primitive ${name} declares loop:true but only active primitives may loop.`);
     }
@@ -44,7 +72,7 @@ function auditReducedMotionTwin() {
   if (!css.includes("@media (prefers-reduced-motion: reduce)")) {
     fail("Motion system must ship a reduced-motion twin.");
   }
-  for (const name of Object.keys(tokens.primitives)) {
+  for (const [name] of declaredPrimitives()) {
     if (name === "still") {
       continue;
     }
@@ -267,6 +295,7 @@ function auditCyclicDurationsMatchTheirCss() {
 }
 
 auditLoopHonesty();
+auditLoopsAreArgued();
 auditReducedMotionTwin();
 auditGpuSafe();
 auditAllKeyframesAreGpuSafe();
@@ -276,3 +305,42 @@ auditCyclicDurationsMatchTheirCss();
 auditNoLegacyDrift();
 
 console.log("Motion audit passed.");
+
+/**
+ * Every group that contains a forever-loop must carry a WCAG argument.
+ *
+ * `cyclicAnimations` had a `$wcag` argument; `primitives` did not, even though `hover` and
+ * `resolve` both loop infinitely -- the two motions a user cannot escape by waiting. The
+ * exemption under 2.2.2 was relied upon and never written down, which is the same failure the
+ * cyclicAnimations argument was added to fix. Requiring it means the next looping primitive
+ * cannot ship unargued either.
+ */
+function auditLoopsAreArgued() {
+  const groups = [
+    ["primitives", tokens.primitives, declaredPrimitives().some(([, spec]) => spec.loop)],
+    [
+      "cyclicAnimations",
+      tokens.cyclicAnimations ?? {},
+      Object.keys(tokens.cyclicAnimations ?? {}).some((name) => !name.startsWith("$")),
+    ],
+  ];
+
+  for (const [groupName, group, hasLoop] of groups) {
+    if (!hasLoop) {
+      continue;
+    }
+    const argument = group.$wcag;
+    if (typeof argument !== "string" || argument.trim().length === 0) {
+      fail(
+        `${groupName} contains a forever-loop but carries no $wcag argument. A loop that cannot ` +
+          "be outwaited needs its 2.2.2 position stated where the loop is declared.",
+      );
+    }
+    if (!argument.includes("2.2.2")) {
+      fail(
+        `${groupName}.$wcag does not address WCAG 2.2.2 (Pause, Stop, Hide), which is the ` +
+          "criterion a forever-loop has to answer.",
+      );
+    }
+  }
+}

@@ -32,6 +32,7 @@ const STYLES = resolve(srcRoot, "styles.css");
 const VIZ_TOKENS = resolve(srcRoot, "viz", "tokens.ts");
 const GRAMMAR = resolve(srcRoot, "viz", "grammar.ts");
 const CONFIDENCE = resolve(srcRoot, "viz", "confidence.ts");
+const RECEIPT_COMPONENT = resolve(srcRoot, "components", "receipt.tsx");
 
 /** Each runner is a gate. A mutant names the runner that must catch it.
  *
@@ -51,6 +52,7 @@ const RUNNERS = {
     ["scripts/audit_motion.mjs"],
   ],
   quantitative: [["scripts/audit_quantitative.mjs"]],
+  vocabulary: [["scripts/audit_vocabulary.mjs"]],
 };
 
 /**
@@ -147,6 +149,27 @@ const MUTANTS = [
       const order = tokens.rungOrder;
       [order[1], order[2]] = [order[2], order[1]];
     },
+  },
+  {
+    name: "the looping primitives lose their WCAG argument",
+    law: "loops are argued",
+    runner: "motion",
+    path: MOTION_TOKENS,
+    json: (tokens) => {
+      delete tokens.primitives.$wcag;
+    },
+  },
+  {
+    name: "a machine verdict token is rendered to the user again",
+    law: "vocabulary",
+    runner: "vocabulary",
+    path: RECEIPT_COMPONENT,
+    // The exact code that shipped: Metric printed "not_run" and "escalate" as prose.
+    apply: (source) =>
+      source.replace(
+        "value={humanizeVerifierVerdict(analysis.receipt.verifier_verdict)}",
+        "value={analysis.receipt.verifier_verdict}",
+      ),
   },
   {
     name: "the high-contrast action border is downgraded below its own background",

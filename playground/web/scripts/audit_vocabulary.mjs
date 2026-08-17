@@ -13,6 +13,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { auditRawTokens, humanisedFields } from "./raw_tokens.mjs";
+
 const ROOT = resolve(import.meta.dirname, "../../..");
 const SOURCE = resolve(ROOT, "dataforge/domain/vocabulary.py");
 const GENERATED = resolve(ROOT, "playground/web/src/domain/vocabulary.generated.ts");
@@ -52,3 +54,23 @@ if (actual !== declared[1]) {
 }
 
 console.log("Domain vocabulary fingerprint verified (generated file matches Python source).");
+
+// Second law, same file: a vocabulary that exists is not the same as a vocabulary that is USED.
+// The fingerprint above proves the humaniser tables are current; this proves the components
+// actually call them instead of printing the machine token.
+const rawTokens = auditRawTokens(resolve(ROOT, "playground/web/src"), generated);
+if (rawTokens.length > 0) {
+  console.error("Raw domain tokens reach the browser:");
+  for (const problem of rawTokens) {
+    console.error(`  ${problem}`);
+  }
+  console.error(
+    "Wrap each in the matching humanizer from src/observatory.ts, or add a *_HUMAN table to " +
+      "dataforge/domain/vocabulary.py and regenerate.",
+  );
+  process.exit(1);
+}
+
+console.log(
+  `Raw-token audit passed (${humanisedFields(generated).join(", ")} are humanised at every render site).`,
+);

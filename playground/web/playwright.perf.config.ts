@@ -18,12 +18,14 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    // Port 4175: one port per config, so the three sequential CI steps cannot race a lingering
+    // server from the previous step. See playwright.a11y.config.ts for the full reasoning.
+    baseURL: "http://127.0.0.1:4175",
     trace: "off",
   },
   webServer: {
-    command: "npm run build && npm run preview -- --port 4173",
-    url: "http://127.0.0.1:4173",
+    command: "npm run build && npm run preview -- --port 4175",
+    url: "http://127.0.0.1:4175",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

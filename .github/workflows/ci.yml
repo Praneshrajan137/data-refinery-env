@@ -147,6 +147,15 @@ jobs:
         run: cd playground/web && npx playwright install --with-deps chromium
       - name: Frontend gate
         run: npm --prefix playground/web run test
+      # The accessibility sweep and the density frame budget are separate steps rather than
+      # folded into `run test`, so a failure names which guarantee broke. Both existed as
+      # npm scripts but were invoked by NO workflow: 35 axe scans (every route x light and
+      # dark x prefers-contrast, plus forced-colors) and the 16ms frame budget were
+      # local-only and could not fail a pull request.
+      - name: Frontend accessibility sweep
+        run: npm --prefix playground/web run test:a11y
+      - name: Frontend density frame budget
+        run: npm --prefix playground/web run perf:density
       - name: Install core + dev + playground deps
         run: |
           python -m pip install --upgrade pip
