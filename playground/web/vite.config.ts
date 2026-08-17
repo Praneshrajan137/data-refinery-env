@@ -1,4 +1,4 @@
-import react from "@vitejs/plugin-react";
+﻿import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
@@ -9,7 +9,24 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks: undefined,
+        // Third-party code is split from application code so the bundle budget is
+        // ATTRIBUTABLE: a single monolithic chunk tells you that the bundle grew but
+        // never which half grew, which is most of why an unbounded budget survived.
+        // The split is also the caching-honest shape -- app code changes on every
+        // deploy, these four dependencies do not.
+        manualChunks: (id) => {
+          if (!id.includes("node_modules")) {
+            return undefined;
+          }
+          // `motion` gets its own chunk because it is the single largest dependency: measured
+          // at 41.4 KiB gzip, roughly a quarter of all shipped JS. Folded into `vendor` its
+          // growth was attributable only to "dependencies", which is the same blindness a
+          // monolithic bundle has, one level down. Isolated, it carries its own ceiling.
+          if (id.includes("node_modules/motion") || id.includes("framer-motion")) {
+            return "motion";
+          }
+          return "vendor";
+        },
       },
     },
   },

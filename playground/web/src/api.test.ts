@@ -224,3 +224,124 @@ describe("problem detail handling", () => {
     ).rejects.toMatchObject({ problem });
   });
 });
+
+describe("timeout is distinguishable from a user cancel", () => {
+  it("reports a request timeout as a problem, not as a silent abort", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(
+          (_input: RequestInfo | URL, init?: RequestInit) =>
+            new Promise<Response>((_resolve, reject) => {
+              init?.signal?.addEventListener("abort", () =>
+                reject(new DOMException("aborted", "AbortError")),
+              );
+            }),
+        ),
+      );
+      const client = new DataForgeClient("https://api.example.test");
+      const pending = client.analyze(new File(["id\n1"], "s.csv"), false);
+      const assertion = expect(pending).rejects.toMatchObject({
+        problem: { error: "request_timeout", status: 504 },
+      });
+      await vi.advanceTimersByTimeAsync(20_000);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets a caller-initiated abort stay an AbortError, so Cancel reads as intent", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: RequestInfo | URL, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("aborted", "AbortError")),
+            );
+          }),
+      ),
+    );
+    const controller = new AbortController();
+    const client = new DataForgeClient("https://api.example.test");
+    const pending = client.analyze(
+      new File(["id\n1"], "s.csv"),
+      false,
+      [],
+      "deterministic",
+      false,
+      controller.signal,
+    );
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("threads the abort signal into the non-streaming request at all", async () => {
+    const seen: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        seen.push(init?.signal);
+        return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+      }),
+    );
+    const controller = new AbortController();
+    const client = new DataForgeClient("https://api.example.test");
+    await client.analyze(new File(["id\n1"], "s.csv"), false, [], "deterministic", false, controller.signal);
+    expect(seen[0]).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe("network failures are named honestly", () => {
+  it("maps a failed fetch to a reachability problem rather than a CSV problem", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Failed to fetch");
+    }));
+    const client = new DataForgeClient("https://api.example.test");
+    await expect(client.analyze(new File(["id\n1"], "s.csv"), false)).rejects.toMatchObject({
+      problem: { error: "network_unavailable" },
+    });
+  });
+
+  it("says the device is offline when the browser reports no connection", async () => {
+    const original = Object.getOwnPropertyDescriptor(Navigator.prototype, "onLine");
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+    try {
+      vi.stubGlobal("fetch", vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }));
+      const client = new DataForgeClient("https://api.example.test");
+      await expect(client.analyze(new File(["id\n1"], "s.csv"), false)).rejects.toMatchObject({
+        problem: { error: "offline", title: "You are offline" },
+      });
+    } finally {
+      if (original) Object.defineProperty(Navigator.prototype, "onLine", original);
+    }
+  });
+});
+
+describe("a truncated stream", () => {
+  it("reports a cut stream instead of throwing a raw JSON SyntaxError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              // A complete line, then an object cut in half mid-key.
+              controller.enqueue(new TextEncoder().encode('{"stage_id":"intake"}\n{"stage_i'));
+              controller.close();
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/x-ndjson" } },
+        ),
+      ),
+    );
+    const client = new DataForgeClient("https://api.example.test");
+    await expect(
+      client.analyzeStream(new File(["id\n1"], "s.csv"), false, [], { onEvent: vi.fn() }),
+    ).rejects.toMatchObject({ problem: { error: "stream_malformed" } });
+  });
+});

@@ -336,7 +336,11 @@ function failureToReviewItem(failure: RepairFailure): ReviewItem {
 // the engine's UNTRUSTED set (a superset that includes `external` and
 // `entity_consensus`). Two different sets sharing one name is how the drift hid.
 import {
+  INDEPENDENT_VERIFICATION_HUMAN,
+  PROVENANCE_HUMAN,
   REVIEW_REASON_HUMAN,
+  SAFETY_VERDICT_HUMAN,
+  VERIFIER_VERDICT_HUMAN,
   verificationStrengthFor,
 } from "./domain/vocabulary.generated";
 
@@ -390,6 +394,47 @@ export function humanizeReviewReason(reason: string | null | undefined): string 
     return "Held for review — not proven safe to auto-apply.";
   }
   return REVIEW_REASON_COPY[reason] ?? formatLabel(reason);
+}
+
+/**
+ * Humanisers for the verdict enums.
+ *
+ * These read from the generated vocabulary, which is hash-pinned to
+ * dataforge/domain/vocabulary.py by audit_vocabulary.mjs. That matters more than it looks:
+ * defining these tables in TypeScript instead would have been the sixth instance of the
+ * vocabulary-drift class in this repo, where the same list exists twice and no gate compares
+ * them.
+ *
+ * Each falls back to `formatLabel`, so a verdict added to the engine before the frontend is
+ * regenerated degrades to "not run" rather than vanishing or throwing. That is a deliberate
+ * choice to fail legibly: an unknown verdict is still shown, just not yet phrased.
+ */
+export function humanizeVerifierVerdict(verdict: string | null | undefined): string {
+  if (!verdict) {
+    return "not run";
+  }
+  return VERIFIER_VERDICT_HUMAN[verdict] ?? formatLabel(verdict);
+}
+
+export function humanizeSafetyVerdict(verdict: string | null | undefined): string {
+  if (!verdict) {
+    return "not evaluated";
+  }
+  return SAFETY_VERDICT_HUMAN[verdict] ?? formatLabel(verdict);
+}
+
+export function humanizeIndependentVerification(value: string | null | undefined): string {
+  if (!value) {
+    return "single verifier";
+  }
+  return INDEPENDENT_VERIFICATION_HUMAN[value] ?? formatLabel(value);
+}
+
+export function humanizeProvenance(value: string | null | undefined): string {
+  if (!value) {
+    return "unattributed";
+  }
+  return PROVENANCE_HUMAN[value] ?? formatLabel(value);
 }
 
 // --- Proof attribution -------------------------------------------------------

@@ -14,28 +14,106 @@
   },
   "$cycleNote": "`cycle` is the ONE duration allowed to exceed `max`, and only for a declared cyclic animation (see cyclicAnimations). It exists because `max` was a name, not a ceiling: `spin` shipped at 1.15s and `df-agent-breathe` at 1.8s -- 2.4x and 3.75x the declared maximum -- hand-written in styles.css with literal durations, where audit_motion.mjs could not see them because it only scanned the generated file. A progress indicator cannot run at 480ms without reading as frantic, so the honest fix is a declared cyclic duration rather than a violated ceiling.",
   "easings": {
-    "standard": [0.2, 0, 0, 1],
-    "emphasized": [0.16, 1, 0.3, 1],
-    "exit": [0.4, 0, 1, 1]
+    "standard": [
+      0.2,
+      0,
+      0,
+      1
+    ],
+    "emphasized": [
+      0.16,
+      1,
+      0.3,
+      1
+    ],
+    "exit": [
+      0.4,
+      0,
+      1,
+      1
+    ]
   },
   "springs": {
-    "soft": { "stiffness": 420, "damping": 36, "mass": 0.85 },
-    "snap": { "stiffness": 620, "damping": 42, "mass": 0.7 },
-    "layout": { "stiffness": 500, "damping": 45, "mass": 1 }
+    "soft": {
+      "stiffness": 420,
+      "damping": 36,
+      "mass": 0.85
+    },
+    "snap": {
+      "stiffness": 620,
+      "damping": 42,
+      "mass": 0.7
+    },
+    "layout": {
+      "stiffness": 500,
+      "damping": 45,
+      "mass": 1
+    }
   },
   "primitives": {
-    "settle": { "rung": "proven", "duration": "measured", "easing": "emphasized", "loop": false, "answers": "proven and committed; converges to rest" },
-    "hover": { "rung": "plausibility", "duration": "max", "easing": "standard", "loop": true, "answers": "uncommitted proposal; low-amplitude, never settles" },
-    "resolve": { "rung": "verifying", "duration": "measured", "easing": "standard", "loop": true, "answers": "verification in progress; determinate, honest" },
-    "pause": { "rung": "held", "duration": "fast", "easing": "standard", "loop": false, "answers": "held or abstained; motion arrested" },
-    "recoil": { "rung": "rejected", "duration": "fast", "easing": "exit", "loop": false, "answers": "rejected or failed; one decisive counter-motion, no loop" },
-    "still": { "rung": "idle", "duration": "instant", "easing": "standard", "loop": false, "answers": "idle, no claim; no motion" },
-    "downgrade": { "rung": "downgraded", "duration": "page", "easing": "standard", "loop": false, "answers": "drift relaxed a proof back to review" }
+    "$wcag": "The two looping primitives are hover (an uncommitted proposal being pointed at) and resolve (verification in progress). Both loop forever, so both are argued here rather than assumed -- the discipline already applied to spin and df-agent-breathe under cyclicAnimations, which left the primitives themselves unargued. WCAG 2.2.2 (Pause, Stop, Hide): hover runs only while a pointer rests on the element, so it is user-initiated and ends on withdrawal, and the criterion applies to content that starts automatically; resolve is an essential progress indication and stops when the verification stops, which the criterion exempts. WCAG 2.3.1 (Three Flashes): resolve completes one cycle per measured duration (320ms, about 3.1Hz, which is above the 3Hz guideline figure) but it is a low-amplitude opacity and transform cycle, not a luminance change crossing the general flash threshold, so it is not a flash; the amplitude is the reason it passes, not the tempo, and that is the honest statement of it. prefers-reduced-motion removes both via the generated reduce block. Recorded because a looping primitive is the one motion a user cannot escape by waiting.",
+    "settle": {
+      "rung": "proven",
+      "duration": "measured",
+      "easing": "emphasized",
+      "loop": false,
+      "answers": "proven and committed; converges to rest"
+    },
+    "hover": {
+      "rung": "plausibility",
+      "duration": "max",
+      "easing": "standard",
+      "loop": true,
+      "answers": "uncommitted proposal; low-amplitude, never settles"
+    },
+    "resolve": {
+      "rung": "verifying",
+      "duration": "measured",
+      "easing": "standard",
+      "loop": true,
+      "answers": "verification in progress; determinate, honest"
+    },
+    "pause": {
+      "rung": "held",
+      "duration": "fast",
+      "easing": "standard",
+      "loop": false,
+      "answers": "held or abstained; motion arrested"
+    },
+    "recoil": {
+      "rung": "rejected",
+      "duration": "fast",
+      "easing": "exit",
+      "loop": false,
+      "answers": "rejected or failed; one decisive counter-motion, no loop"
+    },
+    "still": {
+      "rung": "idle",
+      "duration": "instant",
+      "easing": "standard",
+      "loop": false,
+      "answers": "idle, no claim; no motion"
+    },
+    "downgrade": {
+      "rung": "downgraded",
+      "duration": "page",
+      "easing": "standard",
+      "loop": false,
+      "answers": "drift relaxed a proof back to review"
+    }
   },
   "cyclicAnimations": {
     "$comment": "Hand-authored keyframes outside the primitive system that are permitted to loop. Declared here so the loop-honesty rule covers them: previously `spin` and `df-agent-breathe` looped forever with literal durations and the audit's regexes matched only `.df-motion-*` classes in the generated file, so 2 of 8 loopable animations were enforced by nothing. Each entry must name the rung whose claim the loop makes, or the loop is animating an idle element -- a lie.",
     "$wcag": "Both are progress indicators, so WCAG 2.2.2 (Pause, Stop, Hide) does not require a pause control: the criterion applies to moving content that starts automatically, lasts more than five seconds, and is presented in parallel with other content, and it exempts activity where the movement is part of an essential loading indication. They stop when work stops, and prefers-reduced-motion neutralises them via the global reduce block in styles.css. Recorded because the exemption was previously relied upon and never argued.",
-    "spin": { "rung": "verifying", "duration": "cycle", "answers": "work in progress; indeterminate rotation" },
-    "df-agent-breathe": { "rung": "verifying", "duration": "cycle", "answers": "an agent stage is live; low-amplitude opacity pulse" }
+    "spin": {
+      "rung": "verifying",
+      "duration": "cycle",
+      "answers": "work in progress; indeterminate rotation"
+    },
+    "df-agent-breathe": {
+      "rung": "verifying",
+      "duration": "cycle",
+      "answers": "an agent stage is live; low-amplitude opacity pulse"
+    }
   }
 }

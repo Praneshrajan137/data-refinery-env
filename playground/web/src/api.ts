@@ -15,6 +15,15 @@ import type {
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
+/**
+ * A stream has no single response to time out, so it is bounded by IDLE time instead: the
+ * clock resets on every chunk. Before this, `analyzeStream` called bare `fetch` with no
+ * timeout at all, so a hung stream hung forever and the Cancel button was the only way out.
+ * Generous relative to the 20s request timeout because a long analysis legitimately goes
+ * quiet between stages.
+ */
+const STREAM_IDLE_TIMEOUT_MS = 45_000;
+
 export class ApiProblemError extends Error {
   problem: ProblemDetail;
 
@@ -23,6 +32,35 @@ export class ApiProblemError extends Error {
     this.name = "ApiProblemError";
     this.problem = problem;
   }
+}
+
+function timeoutProblem(detail: string): ProblemDetail {
+  return {
+    type: "https://dataforge.local/problems/request_timeout",
+    title: "Request timed out",
+    status: 504,
+    detail,
+    error: "request_timeout",
+  };
+}
+
+/**
+ * A failed `fetch` rejects with a bare TypeError whose message ("Failed to fetch") is a
+ * browser string, not an explanation. Left unmapped it reached the UI under the hardcoded
+ * title "Dataset validation failed", which told the user their CSV was bad when their network
+ * was down.
+ */
+function networkProblem(): ProblemDetail {
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  return {
+    type: "https://dataforge.local/problems/network_unavailable",
+    title: offline ? "You are offline" : "Cannot reach the backend",
+    status: 0,
+    detail: offline
+      ? "This device reports no network connection, so the request was never sent."
+      : "The backend could not be reached. It may be asleep, restarting, or blocked by the network.",
+    error: offline ? "offline" : "network_unavailable",
+  };
 }
 
 export class DataForgeClient {
@@ -65,6 +103,10 @@ export class DataForgeClient {
     acceptedConstraintIds: string[] = [],
     repairMode: RepairMode = "deterministic",
     allowEntityConsensus = false,
+    // Accepting a signal is what makes the Cancel button real on this path. It renders
+    // whenever a run is in flight, but in the non-streaming fallback the request had no way
+    // to be aborted, so pressing it did nothing to the work already underway.
+    signal?: AbortSignal,
   ): Promise<AnalyzeResponse> {
     const params = advanced ? "?advanced=true" : "";
     const formData = new FormData();
@@ -78,10 +120,12 @@ export class DataForgeClient {
     if (allowEntityConsensus) {
       formData.append("allow_entity_consensus", "true");
     }
-    return this.requestJson<AnalyzeResponse>(`/api/analyze${params}`, {
-      method: "POST",
-      body: formData,
-    });
+    return this.requestJson<AnalyzeResponse>(
+      `/api/analyze${params}`,
+      { method: "POST", body: formData },
+      REQUEST_TIMEOUT_MS,
+      signal,
+    );
   }
 
   async analyzeStream(
@@ -105,40 +149,112 @@ export class DataForgeClient {
       formData.append("allow_entity_consensus", "true");
     }
 
-    const response = await fetch(backendPath(this.backendUrl, `/api/analyze/stream${params}`), {
-      method: "POST",
-      body: formData,
-      signal: options.signal,
-    });
-    if (!response.ok) {
-      throw new ApiProblemError(await problemFromResponse(response));
-    }
-    if (!response.body) {
-      throw new ApiProblemError({
-        type: "https://dataforge.local/problems/stream_unavailable",
-        title: "Stream Unavailable",
-        status: 502,
-        detail: "The backend did not return a readable workflow stream.",
-        error: "stream_unavailable",
-      });
-    }
+    // An idle-bounded controller wraps the caller's signal, so the stream is cancellable by
+    // the user AND cannot hang forever. Previously this was a bare `fetch`.
+    const idle = new AbortController();
+    let idleTimedOut = false;
+    let idleTimer = 0;
+    const resetIdleTimer = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => {
+        idleTimedOut = true;
+        idle.abort();
+      }, STREAM_IDLE_TIMEOUT_MS);
+    };
+    const forwardAbort = () => idle.abort();
+    options.signal?.addEventListener("abort", forwardAbort);
+    resetIdleTimer();
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let finalAnalysis: AnalyzeResponse | null = null;
+    const failIfIdleTimedOut = (error: unknown): never => {
+      if (idleTimedOut && !(options.signal?.aborted ?? false)) {
+        throw new ApiProblemError(
+          timeoutProblem(
+            `The workflow stream went quiet for more than ${Math.round(STREAM_IDLE_TIMEOUT_MS / 1000)} seconds. Nothing was applied.`,
+          ),
+        );
+      }
+      throw error;
+    };
 
-    while (true) {
-      const { done, value } = await reader.read();
-      buffer += decoder.decode(value, { stream: !done });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) {
-          continue;
+    /**
+     * A stream can be cut mid-line, leaving a partial JSON object. An unguarded JSON.parse
+     * threw a raw SyntaxError ("Unexpected end of JSON input") that escaped as a non-problem
+     * error and reached the user under the wrong title.
+     */
+    const parseEvent = (raw: string): WorkflowEvent => {
+      try {
+        return JSON.parse(raw) as WorkflowEvent;
+      } catch {
+        throw new ApiProblemError({
+          type: "https://dataforge.local/problems/stream_malformed",
+          title: "Workflow stream was cut short",
+          status: 502,
+          detail:
+            "The connection ended part-way through a workflow event, so this run has no receipt. Nothing was applied.",
+          error: "stream_malformed",
+        });
+      }
+    };
+
+    try {
+      const response = await fetchWithTimeout(
+        backendPath(this.backendUrl, `/api/analyze/stream${params}`),
+        { method: "POST", body: formData },
+        STREAM_IDLE_TIMEOUT_MS,
+        idle.signal,
+      );
+      if (!response.ok) {
+        throw new ApiProblemError(await problemFromResponse(response));
+      }
+      if (!response.body) {
+        throw new ApiProblemError({
+          type: "https://dataforge.local/problems/stream_unavailable",
+          title: "Stream Unavailable",
+          status: 502,
+          detail: "The backend did not return a readable workflow stream.",
+          error: "stream_unavailable",
+        });
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let finalAnalysis: AnalyzeResponse | null = null;
+
+      while (true) {
+        let chunk: ReadableStreamReadResult<Uint8Array>;
+        try {
+          chunk = await reader.read();
+        } catch (error) {
+          return failIfIdleTimedOut(error);
         }
-        const event = JSON.parse(trimmed) as WorkflowEvent;
+        const { done, value } = chunk;
+        resetIdleTimer();
+        buffer += decoder.decode(value, { stream: !done });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            continue;
+          }
+          const event = parseEvent(trimmed);
+          options.onEvent(event);
+          if (event.analysis) {
+            finalAnalysis = event.analysis;
+          }
+          if (event.problem && event.status === "failed") {
+            throw new ApiProblemError(event.problem);
+          }
+        }
+        if (done) {
+          break;
+        }
+      }
+
+      const trailing = buffer.trim();
+      if (trailing) {
+        const event = parseEvent(trailing);
         options.onEvent(event);
         if (event.analysis) {
           finalAnalysis = event.analysis;
@@ -147,33 +263,21 @@ export class DataForgeClient {
           throw new ApiProblemError(event.problem);
         }
       }
-      if (done) {
-        break;
-      }
-    }
 
-    const trailing = buffer.trim();
-    if (trailing) {
-      const event = JSON.parse(trailing) as WorkflowEvent;
-      options.onEvent(event);
-      if (event.analysis) {
-        finalAnalysis = event.analysis;
+      if (!finalAnalysis) {
+        throw new ApiProblemError({
+          type: "https://dataforge.local/problems/stream_missing_receipt",
+          title: "Stream Missing Receipt",
+          status: 502,
+          detail: "The workflow stream ended before returning a repair receipt.",
+          error: "stream_missing_receipt",
+        });
       }
-      if (event.problem && event.status === "failed") {
-        throw new ApiProblemError(event.problem);
-      }
+      return finalAnalysis;
+    } finally {
+      window.clearTimeout(idleTimer);
+      options.signal?.removeEventListener("abort", forwardAbort);
     }
-
-    if (!finalAnalysis) {
-      throw new ApiProblemError({
-        type: "https://dataforge.local/problems/stream_missing_receipt",
-        title: "Stream Missing Receipt",
-        status: 502,
-        detail: "The workflow stream ended before returning a repair receipt.",
-        error: "stream_missing_receipt",
-      });
-    }
-    return finalAnalysis;
   }
 
   async verifyScenario(name: string): Promise<VerifyScenario> {
@@ -222,8 +326,18 @@ export class DataForgeClient {
     });
   }
 
-  private async requestJson<T>(path: string, init: RequestInit, timeoutMs = REQUEST_TIMEOUT_MS) {
-    const response = await fetchWithTimeout(backendPath(this.backendUrl, path), init, timeoutMs);
+  private async requestJson<T>(
+    path: string,
+    init: RequestInit,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+    signal?: AbortSignal,
+  ) {
+    const response = await fetchWithTimeout(
+      backendPath(this.backendUrl, path),
+      init,
+      timeoutMs,
+      signal,
+    );
     if (!response.ok) {
       throw new ApiProblemError(await problemFromResponse(response));
     }
@@ -272,12 +386,38 @@ async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit,
   timeoutMs: number,
+  externalSignal?: AbortSignal,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  // WHY THE FLAG: both the timeout and the caller's Cancel button abort a controller, and
+  // both surface as an indistinguishable DOMException named "AbortError". The caller treats
+  // an AbortError as "the user meant it" and shows nothing, so a 20-second timeout used to
+  // render as a run that quietly stopped. Recording WHICH cause fired is the only way to tell
+  // them apart.
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const forwardAbort = () => controller.abort();
+  externalSignal?.addEventListener("abort", forwardAbort);
+
   try {
     return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut && !(externalSignal?.aborted ?? false)) {
+      throw new ApiProblemError(
+        timeoutProblem(
+          `The backend did not respond within ${Math.round(timeoutMs / 1000)} seconds. Nothing was applied.`,
+        ),
+      );
+    }
+    if (error instanceof TypeError) {
+      throw new ApiProblemError(networkProblem());
+    }
+    throw error;
   } finally {
     window.clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", forwardAbort);
   }
 }

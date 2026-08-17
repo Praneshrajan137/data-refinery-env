@@ -2,6 +2,40 @@ import type { Transition, Variants } from "motion/react";
 import type { WorkflowEvent, WorkflowStatus } from "./types";
 import motionTokens from "./design/motion-tokens.json";
 
+/**
+ * WHY `motion` IS A DEPENDENCY -- decided on a measurement, and on a corrected count.
+ *
+ * An earlier note in this repo justified keeping it by claiming there were "two uses:
+ * AnimatePresence exits plus one layoutId marker", at an estimated ~48 KiB gzip. Both halves
+ * of that were wrong, and the inventory was wrong in the direction that made the decision look
+ * easier than it is. Counted:
+ *
+ *   9 modules import from "motion/react"
+ *   ~30 `motion.*` elements across shell, lenses, atlas, agent, evidence, primitives,
+ *      repairs, receipt and App
+ *   2 AnimatePresence (route transitions in App, rung swap in atlas)
+ *   1 layoutId shared-layout marker (the nav active indicator)
+ *   MotionConfig (main.tsx) and useReducedMotion (App.tsx)
+ *
+ * Measured cost, gzip, from its own rollup chunk: 43.95 KiB, about 28% of shipped JS. Not the
+ * apportioned ~48 KiB that was previously written down.
+ *
+ * THE DEPENDENCY IS ALL-OR-NOTHING, which is the fact that actually decides this. Of the ~30
+ * usages, all but four are entrance animations that CSS could do unaided. But converting them
+ * saves ZERO bytes: `AnimatePresence` (exit animations cannot be done in CSS without holding
+ * the element in the tree yourself) and `layoutId` (shared-element transitions need
+ * measurement between two DOM positions) both pull in the same library. So incremental
+ * migration is pure churn -- the 43.95 KiB only leaves if the last four go too.
+ *
+ * KEPT, for now, on that basis: the remaining prize is real but it is a single all-at-once
+ * refactor of route transitions and the nav marker, not a cleanup that can be done gradually.
+ * The chunk is individually budgeted in scripts/check_bundle_budget.mjs so the number cannot
+ * drift while undecided. What would change the decision: if route transitions were dropped or
+ * replaced with a CSS view-transition, the nav marker reduced to a CSS transform on a shared
+ * parent, and the atlas rung swap made non-exiting -- at which point the library is removable
+ * in one commit and 43.95 KiB is the payoff.
+ */
+
 export type MotionIntensity = "standard" | "reduced";
 
 // Legible, event-backed agent states. Each maps to a REAL pipeline/trace event

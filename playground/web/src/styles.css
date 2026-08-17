@@ -1394,6 +1394,7 @@ textarea {
 }
 
 .problem-banner,
+.offline-banner,
 .loading-state,
 .empty-state {
   display: grid;
@@ -1415,11 +1416,53 @@ textarea {
   text-align: left;
 }
 
+/* Review tone, not danger: being offline is a condition to wait out, not a failure to
+   investigate, and the loaded CSV and any returned receipt survive it. Reusing the review
+   tokens keeps this on the same warrant ladder as everything else that is held rather than
+   broken. */
+.offline-banner {
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-items: start;
+  border-color: var(--df-held-line);
+  background: var(--df-held-bg);
+  color: var(--df-held-text);
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.offline-banner p {
+  margin: 2px 0 0;
+  color: var(--df-text-2);
+  font-size: 0.82rem;
+  max-width: 620px;
+}
+
 .problem-banner p,
 .empty-state p {
   margin: 0;
   color: var(--df-text-2);
   max-width: 620px;
+}
+
+.problem-banner__retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* WCAG 2.5.8 AA floor, like every other control the structural sweep measures. */
+  min-height: 24px;
+  margin-top: 10px;
+  border: 1px solid var(--df-line);
+  border-radius: var(--df-radius-sm, 6px);
+  background: var(--df-surface-2);
+  color: var(--df-text-1);
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.problem-banner__retry:hover {
+  border-color: var(--df-action-border);
 }
 
 .loading-state {
@@ -1481,16 +1524,13 @@ textarea {
     position: relative;
     top: auto;
     z-index: 2;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .product-loop-rail {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .product-loop-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  /* .product-loop-rail and .product-loop-grid used to collapse here. Both declare their
+     base grid LATER in this file (lines ~1849 and ~1918), and a media query carries no
+     extra specificity, so these declarations lost the cascade and never applied at any
+     viewport. The collapses now live immediately after each base rule. */
 
   .observatory-grid {
     grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
@@ -1516,9 +1556,8 @@ textarea {
 
   .mission-intake,
   .run-posture,
-  .observatory-grid,
-  .safety-revert-explainer {
-    grid-template-columns: 1fr;
+  .observatory-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .observatory-grid {
@@ -1534,10 +1573,8 @@ textarea {
   .metric-grid--four,
   .hash-grid,
   .json-grid,
-  .diff-grid,
-  .product-loop-rail,
-  .product-loop-grid {
-    grid-template-columns: 1fr;
+  .diff-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .lens-shelf {
@@ -1545,7 +1582,7 @@ textarea {
   }
 
   .filter-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1561,11 +1598,11 @@ textarea {
   }
 
   .sample-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .lens-shelf {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   table {
@@ -1600,11 +1637,11 @@ textarea {
     border-width: 2px;
   }
 
-  /* The witness rail is the only distinction between proven and corroborated, and its inner
-     line is an inset shadow that forced colours removes. A left border width survives. */
-  .claim[data-rung="corroborated"] > .claim__button {
-    border-left-width: 6px;
-  }
+  /* The witness rail's forced-colours widening is declared with the rung's base rule
+     instead of here. In this position it lost the cascade to the unconditional
+     `border-left-width: 4px` further down the file, so the rail rendered at 4px rather
+     than the intended 6px whenever the OS palette was in force -- against proven's 2px it
+     stayed distinguishable, but by a narrower margin than designed. */
 
   /* Glow is a shadow and disappears; that is correct, since glow is earned salience and the
      OS palette cannot express degrees. Nothing replaces it. */
@@ -1724,6 +1761,58 @@ textarea {
   min-width: 0;
 }
 
+/*
+ * Reflow floor (WCAG 1.4.10, Level AA), applied to CONTAINERS rather than to every box.
+ *
+ * Grid and flex items have an automatic minimum size of min-content in the inline axis, so
+ * a track refuses to shrink below its widest child and a single-column page stack inherits
+ * the min-content width of the widest chip row or heading inside it. Measured at 320px the
+ * document was 490px wide on every route.
+ *
+ * A blanket `min-width: 0` on every descendant DID fix the overflow, and broke the receipt
+ * page at 412px: a flex item with a zero basis, no longer floored by its own min-content,
+ * collapsed to zero width and hid the limitations list entirely. Shrinkable and
+ * collapsible are not the same property, so the floor is stated per container that was
+ * measured to leak, not universally.
+ */
+.product-loop-workbench,
+.product-loop-grid,
+.panel-heading,
+.safety-revert-explainer,
+.quiet-chip,
+.loop-panel {
+  min-width: 0;
+}
+
+/*
+ * These lists are `display: grid`, so their single implicit column is an `auto` track sized
+ * by the widest list item's min-content. Measured at 320px the items were pushed to
+ * 288..358, past the viewport edge. minmax(0, 1fr) lets the track shrink; the overflow-wrap
+ * rule below lets the text inside it reflow rather than merely overflow more quietly.
+ */
+.risk-panel ul,
+.limitations {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/*
+ * The other half of reflow: text that cannot break.
+ *
+ * With the layout floor above in place the page still scrolled, and no element rect
+ * exceeded the viewport -- the overflow came from text spilling out of boxes that fit.
+ * Measured at 320px: p.eyebrow by 28px, an h3 by 27px. This product renders hashes,
+ * transaction ids, detector ids, SMT core labels and schema version strings, none of which
+ * contain a break opportunity, so an unbreakable token is the normal case here rather than
+ * an edge case.
+ *
+ * `break-word` rather than `anywhere`: it only breaks a word that cannot fit on a line of
+ * its own, so ordinary prose keeps its normal wrapping and min-content widths are not
+ * reduced everywhere.
+ */
+.route-page :where(p, h1, h2, h3, h4, li, dd, dt, td, th, strong, small, b, em, code, span, label, figcaption) {
+  overflow-wrap: break-word;
+}
+
 .product-main > * {
   min-width: 0;
 }
@@ -1779,6 +1868,12 @@ textarea {
 
 .route-page {
   display: grid;
+  /* minmax(0, 1fr) rather than an implicit auto track: an auto track is sized by its
+     items' min-content, and a grid item's automatic minimum size is also min-content, so
+     the column grew to the widest section (480px) and the PAGE scrolled horizontally at
+     320px -- a WCAG 1.4.10 reflow failure on every route. min-width: 0 on the container
+     does not help, because the overflow is established by the track, not by this box. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
   min-width: 0;
 }
@@ -1793,6 +1888,21 @@ textarea {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 8px;
   padding: 10px;
+}
+
+/* Declared here, after the base rule, because a media query adds no specificity: while
+   these lived earlier in the file they lost the cascade and the rail stayed six columns
+   wide at every viewport. */
+@media (max-width: 1320px) {
+  .product-loop-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .product-loop-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .loop-step {
@@ -1861,6 +1971,20 @@ textarea {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 0.85fr) minmax(0, 1.35fr) minmax(0, 1fr);
   gap: 10px;
+}
+
+/* After the base rule for the same cascade reason as .product-loop-rail: the four-column
+   loop grid never collapsed, which is why its panels overflowed by 16-24px at 320px. */
+@media (max-width: 1320px) {
+  .product-loop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .product-loop-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .loop-panel {
@@ -1972,6 +2096,15 @@ textarea {
   padding: 12px;
   border-color: var(--df-autonomy-line);
   background: var(--df-autonomy-bg);
+}
+
+/* After the base rule for the same cascade reason as the loop rail and grid. The 220px and
+   180px track minimums are why this section forced the page to 358px at a 320px viewport:
+   its three columns never collapsed, so the third one sat at x=288. */
+@media (max-width: 980px) {
+  .safety-revert-explainer {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .safety-revert-explainer ul {
@@ -2216,10 +2349,13 @@ textarea {
 }
 
 @media (max-width: 1120px) {
+  /* minmax(0, 1fr), not 1fr: a bare 1fr has an automatic minimum of min-content, so these
+     single-column collapses still could not shrink below their widest child. Same reflow
+     defect as .route-page. */
   .product-shell,
   .atlas-page,
   .split-page {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .atlas-page {
@@ -2529,6 +2665,28 @@ textarea {
   border-left-color: var(--df-held-line);
 }
 
+/*
+ * A stale verdict is demoted off the warrant ladder entirely.
+ *
+ * It keeps neither the proven rail nor the held rail, because the run it describes is no
+ * longer the run in front of the user. Under the identity law the distinction cannot rest on
+ * hue alone, so the rail becomes a neutral line AND the panel loses its filled surface --
+ * form and colour both change, which is what survives dichromacy and forced colours.
+ */
+.trust-verdict--stale {
+  border-left-color: var(--df-line);
+  border-left-style: dashed;
+  background: transparent;
+}
+
+.trust-verdict__stale-note {
+  margin: 0;
+  border-left: 2px solid var(--df-held-line);
+  padding-left: 10px;
+  color: var(--df-held-text);
+  font-size: 0.8rem;
+}
+
 .trust-verdict__head {
   display: flex;
   align-items: flex-start;
@@ -2795,7 +2953,7 @@ textarea {
 
 @media (max-width: 900px) {
   .guardrail-setup {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -2948,8 +3106,18 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  /* WCAG 2.5.8 (Target Size (Minimum), Level AA). Measured at 19px tall, because the
+     label's height came from its 0.78rem text and the native checkbox is 13x13. The label
+     IS the target here -- it wraps the input -- so the floor belongs on the label. */
+  min-height: 24px;
   font-size: 0.78rem;
   color: var(--df-text-1);
+}
+
+.guardrail-upload input[type="file"] {
+  /* Measured at 21px tall: a bare native file input, unlike the visually hidden one behind
+     .file-intake whose label carries the target. WCAG 2.5.8 AA floor. */
+  min-height: 24px;
 }
 
 .primary-button,
@@ -3461,6 +3629,18 @@ textarea {
     0 2px 3px -2px var(--df-proven-line);
 }
 
+/* Forced colours drops both the inset companion line and the contact shadow, leaving the
+   left border as the ONLY thing separating corroborated from proven -- the two share an
+   exact hex and, measured under normal vision, an OKLab distance of 0.0000. So the rail is
+   widened here rather than merely kept.
+   Declared after the base rule on purpose: in the forced-colours block earlier in this file
+   it was defeated by the unconditional border-left-width above and never applied. */
+@media (forced-colors: active) {
+  .claim[data-rung="corroborated"] > .claim__button {
+    border-left-width: 6px;
+  }
+}
+
 .claim[data-rung="held"] > .claim__button {
   border-color: var(--df-held-line);
   background: var(--df-held-bg);
@@ -3660,4 +3840,139 @@ textarea {
   .evidence-overview__axis {
     flex-wrap: wrap;
   }
+}
+
+/*
+ * Print.
+ *
+ * There was no @media print block at all, which is a strange gap for a product whose central
+ * artifact is a receipt people are expected to hand to someone else: printing or "save as PDF"
+ * produced the full application chrome, the navigation rail, and a dark surface that wastes
+ * ink and drops the evidence into unreadable contrast.
+ *
+ * Deliberately narrow. This does not attempt a designed print layout; it removes the parts of
+ * the interface that are meaningless on paper (navigation, run controls, interactive
+ * affordances), so that what remains is the evidence itself.
+ *
+ * The print PALETTE is not here. Colour values may only be emitted by the generator --
+ * auditRawHexUsage forbids raw hex under src/ -- so `@media print` in
+ * design/color-system.generated.css collapses the tokens to their light-theme values, and this
+ * block is layout only. The first draft of this rule hardcoded seven hex values and the colour
+ * audit rejected it, correctly.
+ */
+@media print {
+  .product-nav,
+  .mission-bar,
+  .receipt-toolbar,
+  .route-actions,
+  .loop-actions,
+  .evidence-actions,
+  .filter-row,
+  .lens-shelf,
+  .offline-banner,
+  .problem-banner__retry,
+  .certificate-panel__actions {
+    display: none;
+  }
+
+  .product-shell,
+  .split-page,
+  .route-page {
+    display: block;
+    padding: 0;
+  }
+
+  /* The dock is a side rail on screen; on paper it belongs after the evidence it annotates. */
+  .evidence-dock {
+    position: static;
+    page-break-before: auto;
+  }
+
+  /* Keep a claim and its verdict on one page: splitting them across a page break is exactly
+     the separation of a value from its warrant that this product exists to prevent. */
+  .trust-verdict,
+  .certificate-panel,
+  .would-apply-row,
+  .certificate-check,
+  .loop-panel,
+  tr {
+    break-inside: avoid;
+  }
+
+  /* Hashes and commands must survive being read off paper, where nothing can be scrolled. */
+  pre,
+  code,
+  textarea {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    border: 1px solid var(--df-line-subtle);
+    background: var(--df-surface-1);
+    color: var(--df-text-1);
+  }
+
+  a[href]::after {
+    /* A link is unusable on paper unless its target is written out. */
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    color: var(--df-text-2);
+  }
+}
+
+/*
+ * The one visible explanation of the rung vocabulary.
+ *
+ * Exists because the proven-vs-plausibility distinction was previously carried only by a
+ * `title` tooltip, which a touch user can never open and a keyboard user cannot reach.
+ */
+.strength-legend {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid var(--df-line-subtle);
+  border-radius: var(--df-radius);
+  background: var(--df-surface-1);
+  padding: 10px 12px;
+}
+
+.strength-legend > div {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+}
+
+.strength-legend dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--df-text-1);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.strength-legend dd {
+  margin: 0;
+  color: var(--df-text-2);
+  font-size: 0.78rem;
+}
+
+.strength-legend svg {
+  width: 13px;
+  height: 13px;
+}
+
+@media (max-width: 720px) {
+  .strength-legend > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-signals__stale {
+  /* Review tone: a superseded result is held, not broken. Border weight as well as colour, so
+     the marker survives dichromacy and forced colours. */
+  border: 1px solid var(--df-held-line);
+  border-left-width: 3px;
+  background: var(--df-held-bg);
+  color: var(--df-held-text);
+  font-weight: 600;
 }

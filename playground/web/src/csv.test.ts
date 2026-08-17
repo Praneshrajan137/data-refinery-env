@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   DEFAULT_MAX_UPLOAD_BYTES,
   buildEvidenceExport,
@@ -181,5 +181,19 @@ describe("result shaping", () => {
       raw_receipt: { txn_id: "txn-demo" },
     });
     expect(payload.safety_revert_explanation.join(" ")).toContain("post-state hash");
+
+    // The artifact describes its own currency.
+    //
+    // A banner cannot travel with a downloaded file. After a failed attempt the UI still
+    // hands over the PREVIOUS run's receipt -- which is internally honest, since it carries
+    // that run's own source hash -- so the fact that something newer was attempted has to be
+    // recorded inside the payload rather than only on screen.
+    expect(payload.superseded_by_later_attempt).toBe(false);
+
+    const superseded = JSON.parse(buildEvidenceExport("sample.csv", analysis, true));
+    expect(superseded.superseded_by_later_attempt).toBe(true);
+    // Being superseded must not strip or alter the evidence for the run it does describe.
+    expect(superseded.hashes).toEqual(payload.hashes);
+    expect(superseded.schema_version).toBe(payload.schema_version);
   });
 });

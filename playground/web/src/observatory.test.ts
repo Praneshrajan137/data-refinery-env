@@ -7,7 +7,11 @@ import {
   buildObservatoryView,
   buildReviewQueue,
   buildTrustVerdict,
+  humanizeIndependentVerification,
+  humanizeProvenance,
   humanizeReviewReason,
+  humanizeSafetyVerdict,
+  humanizeVerifierVerdict,
   stageToProofNode,
   strengthOf,
 } from "./observatory";

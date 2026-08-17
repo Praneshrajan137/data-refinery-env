@@ -203,3 +203,77 @@ describe("workflow reducer", () => {
     expect(failed.lastAnalysis).toBe(analysis);
   });
 });
+
+describe("stale results are labelled, not silently reused", () => {
+  const analysis = analysisFixture();
+
+  // Seeded through an event rather than the { type: "analysis" } action, because that action
+  // runs the full JSON-fallback synthesiser; this suite is about staleness, not synthesis.
+  function receiptEvent(sequence: number): WorkflowEvent {
+    return {
+      schema_version: "workflow_event_v1",
+      run_id: "run-stale",
+      sequence,
+      stage_id: "receipt",
+      status: "completed",
+      summary: "Receipt ready.",
+      started_at: "2026-06-02T00:00:00Z",
+      completed_at: "2026-06-02T00:00:01Z",
+      counts: {},
+      requires_human: false,
+      analysis,
+    };
+  }
+
+  function withAnalysis() {
+    return workflowReducer(createWorkflowState(), { type: "event", event: receiptEvent(1) });
+  }
+
+  it("does not mark a fresh result stale", () => {
+    expect(withAnalysis().staleAnalysis).toBe(false);
+    expect(withAnalysis().lastAnalysis).not.toBeNull();
+  });
+
+  it("marks the previous result stale when a run fails", () => {
+    const failed = workflowReducer(withAnalysis(), {
+      type: "problem",
+      problem: { type: "about:blank", title: "t", status: 500, detail: "d", error: "e" },
+    });
+    expect(failed.staleAnalysis).toBe(true);
+    // Kept, not discarded: it is a real receipt the user may still need.
+    expect(failed.lastAnalysis).not.toBeNull();
+  });
+
+  it("marks the previous result stale when a run is cancelled", () => {
+    expect(workflowReducer(withAnalysis(), { type: "cancel" }).staleAnalysis).toBe(true);
+  });
+
+  it("marks it stale as soon as a new run starts, before any receipt arrives", () => {
+    expect(workflowReducer(withAnalysis(), { type: "start" }).staleAnalysis).toBe(true);
+  });
+
+  it("does not claim staleness when there was never a result to be stale", () => {
+    const failed = workflowReducer(createWorkflowState(), {
+      type: "problem",
+      problem: { type: "about:blank", title: "t", status: 500, detail: "d", error: "e" },
+    });
+    expect(failed.staleAnalysis).toBe(false);
+  });
+
+  it("clears staleness only when a new receipt actually arrives", () => {
+    const stale = workflowReducer(withAnalysis(), { type: "start" });
+    expect(stale.staleAnalysis).toBe(true);
+    const fresh = workflowReducer(stale, { type: "event", event: receiptEvent(2) });
+    expect(fresh.staleAnalysis).toBe(false);
+  });
+
+  it("stops showing stages as running once a run has failed", () => {
+    const running = workflowReducer(createWorkflowState(), { type: "start" });
+    const failed = workflowReducer(running, {
+      type: "problem",
+      problem: { type: "about:blank", title: "t", status: 500, detail: "d", error: "e" },
+    });
+    expect(failed.stages.some((stage) => stage.status === "running")).toBe(false);
+    expect(failed.stages.some((stage) => stage.status === "queued")).toBe(false);
+  });
+});

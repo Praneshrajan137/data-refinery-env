@@ -79,6 +79,17 @@ export interface WorkflowRunState {
   events: WorkflowEvent[];
   problem: ProblemDetail | null;
   lastAnalysis: AnalyzeResponse | null;
+  /**
+   * True when `lastAnalysis` describes an EARLIER run than the one the user just attempted.
+   *
+   * This exists because the alternative was worse in both directions. The UI reads
+   * `workflow.lastAnalysis ?? analysis`, and a failed or cancelled run left `lastAnalysis`
+   * untouched, so a red error banner rendered directly above a green "every applied change was
+   * proven" verdict describing a different run -- the product's central claim, attached to the
+   * wrong evidence. Clearing it instead would have thrown away a completed receipt the user
+   * may still need, which is its own dishonesty. So the result is kept and labelled.
+   */
+  staleAnalysis: boolean;
 }
 
 export type WorkflowAction =
@@ -97,6 +108,7 @@ export function createWorkflowState(): WorkflowRunState {
     events: [],
     problem: null,
     lastAnalysis: null,
+    staleAnalysis: false,
   };
 }
 
@@ -115,19 +127,35 @@ export function workflowReducer(
       stages: initialStages("queued"),
       events: [],
       problem: null,
+      // The moment a new run starts, any result still on screen belongs to the previous one.
+      staleAnalysis: state.lastAnalysis !== null,
     };
   }
   if (action.type === "cancel") {
     return {
       ...state,
       status: "cancelled",
+      // A cancelled run leaves any previous result standing but no longer current.
+      staleAnalysis: state.lastAnalysis !== null,
       stages: state.stages.map((stage) =>
         stage.status === "running" ? { ...stage, status: "cancelled" } : stage,
       ),
     };
   }
   if (action.type === "problem") {
-    return { ...state, status: "error", problem: action.problem };
+    return {
+      ...state,
+      status: "error",
+      problem: action.problem,
+      staleAnalysis: state.lastAnalysis !== null,
+      // Stages frozen mid-flight are not still running. Leaving them "running" alongside a
+      // terminal error made the atlas claim work was in progress after it had stopped.
+      stages: state.stages.map((stage) =>
+        stage.status === "running" || stage.status === "queued"
+          ? { ...stage, status: "blocked" }
+          : stage,
+      ),
+    };
   }
   if (action.type === "analysis") {
     return synthesizeWorkflowEvents(action.analysis).reduce(workflowReducer, {
@@ -136,6 +164,7 @@ export function workflowReducer(
       events: [],
       stages: initialStages("queued"),
       problem: null,
+      staleAnalysis: false,
     });
   }
 
@@ -172,6 +201,8 @@ export function workflowReducer(
     events: [...state.events, event],
     problem: event.problem ?? state.problem,
     lastAnalysis: event.analysis ?? state.lastAnalysis,
+    // A receipt arriving is the only thing that makes the displayed result current again.
+    staleAnalysis: event.analysis ? false : state.staleAnalysis,
   };
 }
 

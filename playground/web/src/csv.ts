@@ -148,6 +148,15 @@ export function problemToMessage(problem: ProblemDetail): string {
   if (problem.error === "request_timeout") {
     return "The backend timed out before completing the request. Try a smaller CSV or retry after the backend cools down.";
   }
+  if (problem.error === "offline") {
+    return "This device is offline, so the request was never sent. Reconnect and try again; your loaded CSV is still here.";
+  }
+  if (problem.error === "network_unavailable") {
+    return "The backend could not be reached. Free hosting sleeps when idle, so the first request after a pause can fail; retry in a moment.";
+  }
+  if (problem.error === "stream_malformed") {
+    return "The connection dropped part-way through a workflow event, so this run produced no receipt. Nothing was applied. Retry to get a complete result.";
+  }
   if (problem.error === "rate_limit_exceeded") {
     return "Too many requests. Wait about a minute before trying again.";
   }
@@ -157,6 +166,14 @@ export function problemToMessage(problem: ProblemDetail): string {
 export function buildEvidenceExport(
   datasetName: string,
   analysis: AnalyzeResponse,
+  // True when a LATER attempt failed or was cancelled, so this payload describes a run that is
+  // real but no longer the most recent thing the user tried.
+  //
+  // The receipt itself is internally honest either way: it carries its own source hash and is
+  // valid for the run it names. What was dishonest was the CONTEXT -- after a failed run the UI
+  // still handed this over as though it were the result. Recording it in the artifact means the
+  // fact survives leaving the browser, which a banner cannot do.
+  supersededByLaterAttempt = false,
 ): string {
   const primaryRepairMoment = selectPrimaryRepairMoment(analysis);
   return JSON.stringify(
@@ -166,6 +183,7 @@ export function buildEvidenceExport(
       dataset_name: datasetName,
       generated_at: new Date().toISOString(),
       dry_run: true,
+      superseded_by_later_attempt: supersededByLaterAttempt,
       primary_repair_note: primaryRepairMoment.note,
       primary_repair_moment: primaryRepairMoment,
       safety_revert_explanation: SAFETY_REVERT_EXPLANATION,
