@@ -42,7 +42,34 @@ def stage_space(output_dir: Path) -> None:
         PROJECT_ROOT / "playground" / "api" / "requirements.txt",
         api_output_dir / "requirements.txt",
     )
+    # Intentionally empty, and required by the Dockerfile: it stops SlowAPI reading a repository
+    # .env at import time.
+    shutil.copy2(
+        PROJECT_ROOT / "playground" / "api" / "slowapi.env",
+        api_output_dir / "slowapi.env",
+    )
     _copy_tree(PROJECT_ROOT / "playground" / "api" / "samples", api_output_dir / "samples")
+
+    # The frontend sources, because the Dockerfile now builds the SPA in a `web` stage and serves
+    # it from the same origin as the API. Without these the Space build fails at `npm ci`.
+    #
+    # This makes the Space a COMPLETE playground rather than an API alone, which matters because
+    # it is the fallback for the Azure deployment -- and the Azure subscription is a Free Trial
+    # that will expire. A fallback that only serves JSON is not a fallback for a web app.
+    shutil.copytree(
+        PROJECT_ROOT / "playground" / "web",
+        output_dir / "playground" / "web",
+        ignore=shutil.ignore_patterns(
+            "__pycache__",
+            "*.pyc",
+            "node_modules",
+            "dist",
+            "test-results",
+            "playwright-report",
+            ".vite",
+        ),
+    )
+
     _copy_tree(PROJECT_ROOT / "dataforge", output_dir / "dataforge")
     constitution_dir = PROJECT_ROOT / "dataforge" / "safety" / "constitutions"
     if constitution_dir.exists():

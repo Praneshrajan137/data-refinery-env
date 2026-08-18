@@ -150,7 +150,17 @@ def test_root_returns_api_service_metadata(client: TestClient) -> None:
     body = response.json()
     assert body["service"] == "DataForge Playground API"
     assert body["docs_url"] == "/api/docs"
-    assert body["frontend_hosting"] == "cloudflare_static_assets"
+    # Derived from the filesystem, not pinned to a literal.
+    #
+    # `frontend_hosting` now reports whether this process is actually serving the SPA, which
+    # depends on whether a bundle was baked into the image. Pinning either value would make the
+    # test environment-dependent: it is present after a local `docker build` or a manual copy, and
+    # absent in a source checkout. Asserting the REPORT MATCHES REALITY is the invariant -- the
+    # field is worthless if it can claim to serve a frontend that is not there.
+    from playground.api.app import WEB_INDEX
+
+    expected_hosting = "azure_container_app_same_origin" if WEB_INDEX.is_file() else "api_only"
+    assert body["frontend_hosting"] == expected_hosting
 
 
 # ---------------------------------------------------------------------------

@@ -17,9 +17,18 @@ from dataforge.release.playground_check import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+# Derived from the defaults under test, never duplicated.
+#
+# These were hardcoded as the retired HF Space host and the Cloudflare origin, so the mock stopped
+# matching the moment the real defaults moved to the Azure Container App -- the test failed for the
+# host change, not for the behaviour it checks. Deriving them means the next migration needs no
+# edit here. The frontend and backend now share one origin, which is the point.
+BACKEND_HOST = httpx.URL(DEFAULT_BACKEND_URL).host
+FRONTEND_ORIGIN = DEFAULT_BACKEND_URL
+
 
 def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
-    frontend_origin = "https://dataforge.praneshrajan15.workers.dev"
+    frontend_origin = FRONTEND_ORIGIN
 
     def handler(request: httpx.Request) -> httpx.Response:
         url = str(request.url).rstrip("/")
@@ -36,12 +45,9 @@ def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
                 text=f'window.__DATAFORGE_CONFIG__={{BACKEND_URL:"{DEFAULT_BACKEND_URL}"}};',
                 headers={"cache-control": "no-store"},
             )
-        if request.url.host == "praneshrajan15-dataforge-playground.hf.space" and path == "/":
+        if request.url.host == BACKEND_HOST and path == "/":
             return httpx.Response(200, json={"service": "DataForge Playground API", "status": "ok"})
-        if (
-            request.url.host == "praneshrajan15-dataforge-playground.hf.space"
-            and path == "/api/health"
-        ):
+        if request.url.host == BACKEND_HOST and path == "/api/health":
             headers = {}
             origin = request.headers.get("origin")
             if origin == frontend_origin:
@@ -82,23 +88,13 @@ def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
                 },
                 headers=headers,
             )
-        if (
-            request.url.host == "praneshrajan15-dataforge-playground.hf.space"
-            and path == "/api/samples/hospital_10rows"
-        ):
+        if request.url.host == BACKEND_HOST and path == "/api/samples/hospital_10rows":
             return httpx.Response(
                 200, content=b"id,amount\n1,100\n", headers={"content-type": "text/csv"}
             )
-        if (
-            request.url.host == "praneshrajan15-dataforge-playground.hf.space"
-            and path == "/api/profile"
-        ):
+        if request.url.host == BACKEND_HOST and path == "/api/profile":
             return httpx.Response(200, json={"issues": [], "meta": {"rows": 1}})
-        if (
-            include_analyze
-            and request.url.host == "praneshrajan15-dataforge-playground.hf.space"
-            and path == "/api/analyze"
-        ):
+        if include_analyze and request.url.host == BACKEND_HOST and path == "/api/analyze":
             return httpx.Response(
                 200,
                 json={
@@ -111,10 +107,7 @@ def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
                     "meta": {"contract_version": "repair_contract_v2"},
                 },
             )
-        if (
-            request.url.host == "praneshrajan15-dataforge-playground.hf.space"
-            and path == "/api/repair"
-        ):
+        if request.url.host == BACKEND_HOST and path == "/api/repair":
             return httpx.Response(200, json={"fixes": [], "txn_journal": {}, "meta": {}})
         return httpx.Response(404)
 

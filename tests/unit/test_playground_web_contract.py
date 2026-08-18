@@ -49,9 +49,14 @@ def _default_backend_url() -> str:
     both went stale when the backend migrated from an HF Space to Azure Container Apps,
     failing for a reason unrelated to the contract under test. Reading it from the
     generator means the next host migration is a one-line change in one place.
+
+    The character class accepts EMPTY. It required one-or-more, which quietly encoded the
+    assumption that the backend is always on another host -- so when the default became
+    same-origin, the helper reported "no longer declares DEFAULT_BACKEND_URL" about a file that
+    declares it plainly.
     """
     source = SYNC_SCRIPT_PATH.read_text(encoding="utf-8")
-    match = re.search(r'DEFAULT_BACKEND_URL\s*=\s*"([^"]+)"', source)
+    match = re.search(r'DEFAULT_BACKEND_URL\s*=\s*"([^"]*)"', source)
     assert match is not None, (
         f"{SYNC_SCRIPT_PATH.name} no longer declares DEFAULT_BACKEND_URL; the runtime "
         "config contract cannot be verified without it"
@@ -60,12 +65,21 @@ def _default_backend_url() -> str:
 
 
 def test_config_js_exposes_backend_url_contract() -> None:
-    """config.js defines the committed runtime contract for the backend URL."""
+    """config.js defines the committed runtime contract for the backend URL.
+
+    An EMPTY value is the contract now, not a failure to fill one in. This test previously
+    asserted the opposite -- that the shipped config must never be empty -- because a backend was
+    assumed to live on another host. The API and the SPA are now served by one Azure Container
+    App, so empty means "call the origin that served this page", which is the only value that
+    cannot go stale. See the single-origin section of playground/api/app.py.
+    """
     body = CONFIG_PATH.read_text(encoding="utf-8")
     assert "window.__DATAFORGE_CONFIG__" in body
     assert "BACKEND_URL" in body
-    assert 'BACKEND_URL: ""' not in body
     assert _default_backend_url() in body
+    # Whatever the generator's default is, the shipped file must equal it -- that is the actual
+    # contract. Asserting a specific hostname here is what let a dead one survive unnoticed.
+    assert f'BACKEND_URL: "{_default_backend_url()}"' in body
 
 
 def test_frontend_stays_storage_free_and_capability_aware() -> None:

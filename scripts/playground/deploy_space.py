@@ -17,7 +17,11 @@ if str(SCRIPT_DIR) not in sys.path:
 from stage_space import stage_space  # noqa: E402
 
 DEFAULT_REPO_ID = "Praneshrajan15/dataforge-playground"
-DEFAULT_FRONTEND_ORIGIN = "https://dataforge.praneshrajan15.workers.dev"
+# The origin allowed to call the API. Now the app's own origin, because the SPA is served from
+# the same Container App -- browsers send Origin on same-origin POSTs, so it must be allowlisted.
+DEFAULT_FRONTEND_ORIGIN = (
+    "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io"
+)
 
 
 def deploy_space(

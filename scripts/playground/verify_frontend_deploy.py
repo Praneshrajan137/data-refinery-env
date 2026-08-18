@@ -7,8 +7,11 @@ from urllib.parse import urlsplit
 
 import httpx
 
-DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
-DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
+# One origin serves both, so the frontend URL is derived rather than declared separately.
+DEFAULT_BACKEND_URL = (
+    "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io"
+)
+DEFAULT_FRONTEND_URL = f"{DEFAULT_BACKEND_URL}/playground"
 
 
 def normalize_url(value: str) -> str:

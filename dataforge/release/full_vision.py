@@ -37,8 +37,12 @@ EXPECTED_PACKAGES = (
 EXPECTED_MODEL_SIZES = MODEL_FAMILY_SIZES
 EXPECTED_MODEL_STAGES = MODEL_FAMILY_STAGES
 EXPECTED_DESIGN_PERSONAS = ("marcus", "priya", "shreya", "agent")
-DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
-DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
+# Single origin: see dataforge/release/playground_check.py for why the frontend URL is derived
+# rather than declared independently.
+DEFAULT_BACKEND_URL = (
+    "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io"
+)
+DEFAULT_FRONTEND_URL = f"{DEFAULT_BACKEND_URL}/playground"
 DEFAULT_HF_OWNER = "Praneshrajan15"
 REQUIRED_PACKAGE_EVIDENCE_FIELDS = (
     "version",
@@ -410,11 +414,14 @@ def _check_workers_playground(frontend_url: str, backend_url: str) -> FullVision
     if "no-store" not in metadata["config_cache_control"].lower():
         errors.append("config.js is not served with Cache-Control: no-store")
     return FullVisionCheck(
+        # Historical identifier: it is referenced by docs/claims.yaml and the readme-truth gate, so
+        # renaming it is a claims-contract change, not a rename. The playground no longer runs on
+        # workers.dev -- the detail text below says what is actually checked.
         name="workers_dev_playground",
         ok=not errors,
-        detail="workers.dev playground serves the production frontend."
+        detail="The hosted playground serves the production frontend."
         if not errors
-        else "workers.dev playground is not production-ready.",
+        else "The hosted playground is not production-ready.",
         metadata={**metadata, "errors": errors},
     )
 

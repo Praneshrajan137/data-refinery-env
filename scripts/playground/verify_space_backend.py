@@ -8,7 +8,11 @@ from pathlib import Path
 
 import httpx
 
-DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
+# The Azure Container App now serves the API. This script previously defaulted to the retired HF
+# Space, so it could report a healthy backend that nothing was using.
+DEFAULT_BACKEND_URL = (
+    "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io"
+)
 
 
 def _normalize_url(value: str) -> str:

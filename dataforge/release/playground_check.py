@@ -12,8 +12,17 @@ import httpx
 
 from dataforge.release.doctor import run_doctor
 
-DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space"
-DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground"
+# ONE host, and the frontend URL is DERIVED from it.
+#
+# These were two independent strings pointing at two providers -- an HF Space backend and a
+# Cloudflare frontend. Both had also gone stale: the scheduled monitor was checking a backend the
+# project had already moved off, so it reported healthy about a host nobody used. Deriving the
+# frontend URL makes the single-origin deployment structurally true here rather than a convention
+# two constants have to keep agreeing about.
+DEFAULT_BACKEND_URL = (
+    "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io"
+)
+DEFAULT_FRONTEND_URL = f"{DEFAULT_BACKEND_URL}/playground"
 NEGATIVE_CORS_ORIGIN = "https://untrusted-dataforge.example"
 REQUIRED_HEALTH_KEYS = {"status", "advanced_available", "max_upload_bytes"}
 ENHANCED_HEALTH_KEYS = {

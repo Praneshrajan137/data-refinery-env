@@ -4,8 +4,9 @@ import { createRequire } from "node:module";
 const require = createRequire(new URL("../../playground/web/package.json", import.meta.url));
 const { chromium, devices } = require("playwright");
 
-const DEFAULT_FRONTEND_URL = "https://dataforge.praneshrajan15.workers.dev/playground";
-const DEFAULT_BACKEND_URL = "https://Praneshrajan15-dataforge-playground.hf.space";
+// One origin serves both, so the frontend URL is derived rather than declared separately.
+const DEFAULT_BACKEND_URL = "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io";
+const DEFAULT_FRONTEND_URL = `${DEFAULT_BACKEND_URL}/playground`;
 const SAMPLE_CSV = "id,amount,state\n1,100,AL\n2,1020,AX\n3,105,AL\n";
 
 function parseArgs(argv) {

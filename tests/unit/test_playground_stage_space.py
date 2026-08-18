@@ -34,15 +34,30 @@ def test_stage_space_creates_consistent_hf_repo_layout(tmp_path: Path) -> None:
         output_dir / "pyproject.toml",
         output_dir / "playground" / "api" / "app.py",
         output_dir / "playground" / "api" / "requirements.txt",
+        output_dir / "playground" / "api" / "slowapi.env",
         output_dir / "playground" / "api" / "samples" / "hospital_10rows.csv",
         output_dir / "dataforge" / "__init__.py",
         output_dir / "constitutions" / "default.yaml",
+        # The frontend sources are now staged too: the Dockerfile builds the SPA in a `web` stage
+        # and serves it from the same origin, so a Space without these fails at `npm ci`. This
+        # assertion was `assert not (playground/web).exists()` -- correct when the Space was an
+        # API alone, and the reason a Space build would have broken silently.
+        output_dir / "playground" / "web" / "package.json",
+        output_dir / "playground" / "web" / "package-lock.json",
+        output_dir / "playground" / "web" / "src" / "App.tsx",
+        output_dir / "playground" / "web" / "vite.config.ts",
     ]
 
     for path in required_paths:
         assert path.exists(), f"Expected staged path to exist: {path}"
 
-    assert not (output_dir / "playground" / "web").exists()
+    # Build artefacts must NOT be staged: the image builds its own bundle, and shipping a stale
+    # dist/ would let the Space serve a frontend that does not match its source.
+    for excluded in (
+        output_dir / "playground" / "web" / "node_modules",
+        output_dir / "playground" / "web" / "dist",
+    ):
+        assert not excluded.exists(), f"Build artefact must not be staged: {excluded}"
 
 
 def test_stage_space_docker_copy_sources_all_exist(tmp_path: Path) -> None:

@@ -1,3 +1,23 @@
+# RETIRED as the primary deployment. Kept, not deleted, because the Workers site is still live
+# and this file is the only record of how it was built.
+#
+# The playground is now served entirely by ONE Azure Container App, which serves the API and the
+# SPA from the same origin (see playground/api/Dockerfile and the single-origin section of
+# playground/api/app.py). That removed CORS and let the CSP become `connect-src 'self'`.
+#
+# TWO THINGS MUST BE TRUE BEFORE DEPLOYING FROM THIS FILE AGAIN, or the result is a broken site:
+#
+#   1. BACKEND_URL must be set in [build.environment] below. The build default is now EMPTY,
+#      meaning same-origin, which is correct for the container and WRONG here -- an edge
+#      deployment has no /api routes, so the SPA would call workers.dev/api/* and get the SPA
+#      shell back instead of JSON.
+#   2. playground/web/public/_headers must re-add the backend host to `connect-src`. A
+#      cross-origin backend is blocked by the current same-origin CSP. This is the same coupling
+#      that silently broke the policy when the backend last moved: the CSP named *.hf.space and
+#      nothing failed loudly when that stopped being the backend.
+#
+# tests/unit/test_playground_deploy_contract.py enforces (1) so it cannot be forgotten again.
+
 name = "dataforge"
 main = "./playground/web/worker.js"
 compatibility_date = "2026-04-27"
@@ -5,6 +25,10 @@ workers_dev = true
 
 [build]
 command = "npm --prefix playground/web install && npm --prefix playground/web run build"
+
+[build.environment]
+# Absolute, because an edge deployment cannot serve the API itself.
+BACKEND_URL = "https://dataforge-playground.grayflower-1f6e0578.eastus2.azurecontainerapps.io"
 
 [assets]
 directory = "./playground/web/dist"

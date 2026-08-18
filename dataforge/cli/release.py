@@ -19,6 +19,12 @@ from dataforge.release.full_vision import (
     run_full_vision_gate,
 )
 from dataforge.release.gate import run_release_gate
+from dataforge.release.playground_check import (
+    DEFAULT_BACKEND_URL as PLAYGROUND_BACKEND_URL,
+)
+from dataforge.release.playground_check import (
+    DEFAULT_FRONTEND_URL as PLAYGROUND_FRONTEND_URL,
+)
 
 release_app = typer.Typer(help="Release verification utilities.", no_args_is_help=True)
 
@@ -136,12 +142,12 @@ def playground_check(
     ] = False,
     frontend_url: Annotated[
         str,
-        typer.Option("--frontend-url", help="Cloudflare Playground frontend URL."),
-    ] = "https://dataforge.praneshrajan15.workers.dev/playground",
+        typer.Option("--frontend-url", help="Playground frontend URL (served by the API)."),
+    ] = PLAYGROUND_FRONTEND_URL,
     backend_url: Annotated[
         str,
-        typer.Option("--backend-url", help="Hugging Face Playground backend URL."),
-    ] = "https://Praneshrajan15-dataforge-playground.hf.space",
+        typer.Option("--backend-url", help="Playground API base URL."),
+    ] = PLAYGROUND_BACKEND_URL,
     latency_threshold_ms: Annotated[
         float,
         typer.Option("--latency-threshold-ms", help="Warm health latency threshold."),
