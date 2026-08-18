@@ -1,4 +1,4 @@
-__pycache__/
+﻿__pycache__/
 *.pyc
 .venv/
 .audit-venv/
@@ -29,6 +29,9 @@ DESIGN_PARTNERS.md
 node_modules/
 playground/web/playwright-report/
 playground/web/test-results/
+# Locally staged SPA bundle. The image builds its own copy in the web Docker stage; this path
+# only exists when running the API directly to check the same-origin serving.
+playground/api/web/
 data/sft_traj/*.jsonl
 !data/sft_traj/.gitkeep
 training/kaggle/.ipynb_checkpoints/

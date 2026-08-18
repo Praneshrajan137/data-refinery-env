@@ -1,3 +1,12 @@
+﻿# NOTE: this file is a Cloudflare edge convention and is NOT read by a container. The playground
+# is now served by the FastAPI app itself (SecurityHeadersMiddleware in playground/api/app.py),
+# which applies the same baseline headers and this CSP. Kept in sync so a future edge deployment
+# does not silently ship a weaker policy than the container does.
+#
+# connect-src was `'self' https://*.hf.space` while the backend was hosted separately. That is
+# exactly why a split deployment is fragile: moving the backend invalidated the policy meant to
+# protect it, silently. Same-origin makes `'self'` both correct and stricter.
+
 /playground/config.js
   Cache-Control: no-store
 
@@ -8,4 +17,4 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
-  Content-Security-Policy: default-src 'self'; connect-src 'self' https://*.hf.space; img-src 'self' data:; font-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'
+  Content-Security-Policy: default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'

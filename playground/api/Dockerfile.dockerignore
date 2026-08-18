@@ -1,0 +1,52 @@
+# Build context for playground/api/Dockerfile ONLY.
+#
+# BuildKit prefers `<dockerfile>.dockerignore` over the root `.dockerignore`, which is why this
+# file is scoped here: the root file also governs the OpenEnv env-server images, and an allowlist
+# tuned for the playground would silently starve those builds.
+#
+# WHY AN ALLOWLIST. The root `.dockerignore` is a denylist, and it missed enough that the context
+# for this image measured 4.017 GiB -- model weights under eval/, datasets under data/, notebooks
+# under training/, sibling package trees, and two staged HF Space checkouts. None of it is copied
+# by the Dockerfile; all of it was uploaded. A denylist fails open, so every new heavy directory
+# joins the context by default. Starting from `*` fails closed: a new directory is excluded until
+# someone names it, which is the correct default for something that is uploaded on every build.
+
+*
+
+# --- Python package installed into the image ---
+!pyproject.toml
+!README.md
+!dataforge/
+!constitutions/
+
+# --- Playground API ---
+!playground/api/requirements.txt
+!playground/api/app.py
+!playground/api/samples/
+!playground/api/slowapi.env
+
+# --- Frontend sources needed by the `web` build stage ---
+!playground/web/package.json
+!playground/web/package-lock.json
+!playground/web/index.html
+!playground/web/vite.config.ts
+!playground/web/tsconfig.json
+!playground/web/tsconfig.app.json
+!playground/web/tsconfig.node.json
+!playground/web/config.js
+!playground/web/src/
+!playground/web/public/
+!playground/web/scripts/
+
+# --- Re-exclude artefacts that live inside the allowed trees ---
+playground/web/node_modules/
+playground/web/dist/
+playground/web/test-results/
+playground/web/playwright-report/
+playground/api/web/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/

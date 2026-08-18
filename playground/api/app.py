@@ -30,7 +30,7 @@ from typing import Any, Literal, Protocol, TypeVar, cast
 import pandas as pd
 from fastapi import FastAPI, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pandas.errors import EmptyDataError, ParserError
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -2519,7 +2519,9 @@ async def root() -> RootResponse:
         api_version=app.version,
         contract_version=CONTRACT_VERSION,
         docs_url="/api/docs",
-        frontend_hosting="cloudflare_static_assets",
+        # Reported, not assumed: this is true only when a bundle was baked into the image. An
+        # API-only image says so, rather than claiming a frontend it is not serving.
+        frontend_hosting=("azure_container_app_same_origin" if WEB_INDEX.is_file() else "api_only"),
     )
 
 
@@ -2894,3 +2896,121 @@ async def repair(request: Request, file: UploadFile) -> RepairResponse:
         ) from exc
 
     return _repair_response_from_analyze(analysis)
+
+
+# ============================================================
+# Single-origin frontend
+# ============================================================
+#
+# The playground SPA is served by THIS app, under /playground, from a bundle baked into the
+# image. That is a deliberate topology choice, not a convenience:
+#
+#   - The client already supports it. `backendPath()` in playground/web/src/config.ts returns a
+#     RELATIVE path when BACKEND_URL is empty, so a same-origin deployment needs no client
+#     change -- and the shipped config.js now defaults to empty.
+#   - It removes CORS from the deployment surface entirely. Frontend and API cannot disagree
+#     about an allowlist when there is only one origin.
+#   - It lets the Content-Security-Policy be `connect-src 'self'`. The previous split hosting
+#     required whitelisting the backend host in the CSP (it named *.hf.space), so moving the
+#     backend silently broke the policy that was supposed to protect it.
+#
+# Serving under /playground rather than / is required, not stylistic: routes.ts hardcodes
+# hrefs like /playground/run and isKnownRoutePath strips that prefix, so the app only works
+# beneath it. Vite is built with the matching base.
+#
+# The mount is CONDITIONAL on the bundle existing, so running the API alone -- local
+# development, the integration tests, an API-only image -- behaves exactly as before.
+
+WEB_DIST = Path(__file__).resolve().parent / "web"
+WEB_INDEX = WEB_DIST / "index.html"
+SPA_PREFIX = "/playground"
+
+# Mirrors what playground/web/public/_headers used to apply at the Cloudflare edge. That file is
+# not read by a container, so the guarantees it encoded have to live in the app that now serves
+# the bytes, or they silently stop existing.
+_BASELINE_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+}
+_HTML_CSP = (
+    "default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; "
+    "style-src 'self'; script-src 'self'; base-uri 'none'; frame-ancestors 'none'; "
+    "form-action 'none'"
+)
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Apply the baseline security headers, and a CSP to HTML only."""
+
+    async def dispatch(
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint,
+    ) -> Response:
+        """Add headers without overwriting anything a handler set deliberately."""
+        response = await call_next(request)
+        for header, value in _BASELINE_SECURITY_HEADERS.items():
+            response.headers.setdefault(header, value)
+        # The CSP is scoped to documents. Applying it to JSON would add bytes to every API
+        # response for no security gain, since a JSON body is not a script host.
+        if response.headers.get("content-type", "").startswith("text/html"):
+            response.headers.setdefault("Content-Security-Policy", _HTML_CSP)
+        return response
+
+
+def _spa_cache_control(relative_path: str) -> str:
+    """Cache policy per asset class."""
+    if relative_path == "config.js":
+        # The runtime backend pointer. Caching it would pin a browser to a stale backend across
+        # a redeploy, which is the failure this whole file exists to stop repeating.
+        return "no-store"
+    if relative_path.startswith("assets/"):
+        # Vite content-hashes these, so the name changes whenever the bytes do.
+        return "public, max-age=31536000, immutable"
+    # index.html and friends: revalidate, so a deploy is visible immediately.
+    return "no-cache"
+
+
+def _resolve_spa_file(relative_path: str) -> Path | None:
+    """Resolve a request path inside the bundle, refusing traversal."""
+    candidate = (WEB_DIST / relative_path).resolve()
+    # A request for ../../etc/passwd must not escape the bundle. Checked on the RESOLVED path,
+    # because the string form can be made to look harmless.
+    if not candidate.is_relative_to(WEB_DIST.resolve()):
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+if WEB_DIST.is_dir() and WEB_INDEX.is_file():
+    app.add_middleware(SecurityHeadersMiddleware)
+
+    @app.get(SPA_PREFIX, include_in_schema=False)
+    @app.get(f"{SPA_PREFIX}/", include_in_schema=False)
+    async def spa_index() -> FileResponse:
+        """Serve the app shell at the mount root."""
+        return FileResponse(
+            WEB_INDEX,
+            headers={"Cache-Control": _spa_cache_control("index.html")},
+        )
+
+    @app.get(f"{SPA_PREFIX}/{{spa_path:path}}", include_in_schema=False)
+    async def spa_catch_all(spa_path: str) -> FileResponse:
+        """Serve a bundled file, or the shell so client-side routes survive a hard refresh.
+
+        A plain StaticFiles mount 404s on /playground/receipt, because there is no file of that
+        name -- the route only exists inside the running app. Returning the shell for unmatched
+        paths is what makes a shared deep link work, which is the guarantee routes.ts advertises.
+        """
+        resolved = _resolve_spa_file(spa_path)
+        if resolved is None:
+            return FileResponse(
+                WEB_INDEX,
+                headers={"Cache-Control": _spa_cache_control("index.html")},
+            )
+        return FileResponse(
+            resolved,
+            headers={"Cache-Control": _spa_cache_control(spa_path)},
+        )
