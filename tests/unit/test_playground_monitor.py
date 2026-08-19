@@ -12,6 +12,7 @@ from dataforge.release.playground_check import (
     DEFAULT_FRONTEND_URL,
     NEGATIVE_CORS_ORIGIN,
     report_to_json,
+    resolve_declared_backend_url,
     run_playground_check,
 )
 
@@ -27,7 +28,18 @@ BACKEND_HOST = httpx.URL(DEFAULT_BACKEND_URL).host
 FRONTEND_ORIGIN = DEFAULT_BACKEND_URL
 
 
-def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
+def _mock_transport(
+    *,
+    include_analyze: bool = True,
+    config_backend_url: str | None = None,
+    config_cache_control: str = "no-store",
+) -> httpx.MockTransport:
+    """Build a mock playground.
+
+    ``config_backend_url`` is what config.js DECLARES. None means the same-origin form
+    (``BACKEND_URL: ""``), which is what the real deployment ships -- the mock only ever served an
+    absolute URL, so the check could regress on the production shape with every test still green.
+    """
     frontend_origin = FRONTEND_ORIGIN
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -42,8 +54,11 @@ def _mock_transport(*, include_analyze: bool = True) -> httpx.MockTransport:
         if url == f"{DEFAULT_FRONTEND_URL}/config.js":
             return httpx.Response(
                 200,
-                text=f'window.__DATAFORGE_CONFIG__={{BACKEND_URL:"{DEFAULT_BACKEND_URL}"}};',
-                headers={"cache-control": "no-store"},
+                text=(
+                    "window.__DATAFORGE_CONFIG__={BACKEND_URL:"
+                    f'"{"" if config_backend_url is None else config_backend_url}"}};'
+                ),
+                headers={"cache-control": config_cache_control},
             )
         if request.url.host == BACKEND_HOST and path == "/":
             return httpx.Response(200, json={"service": "DataForge Playground API", "status": "ok"})
@@ -172,3 +187,76 @@ def test_live_browser_audit_script_covers_expected_flow() -> None:
         "Mobile body overflow",
     ]:
         assert marker in script
+
+
+def _config_check(**kwargs: object) -> object:
+    """Run the checks against a mock and return the config.js verdict."""
+    with httpx.Client(transport=_mock_transport(**kwargs), follow_redirects=True) as client:  # type: ignore[arg-type]
+        report = run_playground_check(include_doctor=False, include_smoke=False, client=client)
+    return next(check for check in report.checks if check.name == "config_js_correct")
+
+
+def test_config_js_check_accepts_the_same_origin_form() -> None:
+    """An empty BACKEND_URL is the deployed value, and must pass.
+
+    The check previously required the absolute backend URL to appear verbatim in config.js, so this
+    exact configuration -- the one actually serving production -- failed every scheduled run while
+    the deployment was completely healthy.
+    """
+    check = _config_check(config_backend_url=None)
+    assert check.ok is True
+    assert check.metadata["same_origin"] is True
+    assert check.metadata["declared_backend_url"] == ""
+    assert check.metadata["effective_backend_url"] == DEFAULT_BACKEND_URL
+
+
+def test_config_js_check_accepts_an_explicit_absolute_backend() -> None:
+    """A split deployment naming the expected backend is still valid."""
+    check = _config_check(config_backend_url=DEFAULT_BACKEND_URL)
+    assert check.ok is True
+    assert check.metadata["same_origin"] is False
+
+
+def test_config_js_check_rejects_a_backend_that_is_not_the_expected_one() -> None:
+    """The real error this check exists for: a config pointing somewhere else."""
+    check = _config_check(config_backend_url="https://some-other-backend.example")
+    assert check.ok is False
+    assert "expected" in check.detail
+    assert check.metadata["effective_backend_url"] == "https://some-other-backend.example"
+
+
+def test_config_js_check_rejects_a_cacheable_config() -> None:
+    """A cacheable config.js can pin a browser to a stale backend across a redeploy."""
+    check = _config_check(config_cache_control="public, max-age=3600")
+    assert check.ok is False
+    assert "cacheable" in check.detail
+
+
+def test_resolver_accepts_either_quote_style_and_reports_absence() -> None:
+    """The resolver is the one place the rule lives, so its edges are tested directly.
+
+    Single quotes are valid JavaScript and appear in existing test fixtures; a resolver that only
+    understood double quotes reported "declares no BACKEND_URL" about a file that declares it.
+    """
+    frontend = "https://example.test/playground"
+
+    # Empty means same-origin: resolves to the origin that served config.js.
+    assert (
+        resolve_declared_backend_url('{BACKEND_URL: ""}', frontend_url=frontend)
+        == "https://example.test"
+    )
+    assert (
+        resolve_declared_backend_url("{BACKEND_URL: ''}", frontend_url=frontend)
+        == "https://example.test"
+    )
+    # Absolute resolves to itself, in either quote style.
+    assert (
+        resolve_declared_backend_url('{BACKEND_URL: "https://api.test"}', frontend_url=frontend)
+        == "https://api.test"
+    )
+    assert (
+        resolve_declared_backend_url("{BACKEND_URL: 'https://api.test'}", frontend_url=frontend)
+        == "https://api.test"
+    )
+    # Absent is None, which callers report differently from "wrong host".
+    assert resolve_declared_backend_url("{NOTHING: 1}", frontend_url=frontend) is None

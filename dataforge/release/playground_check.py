@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -122,25 +123,75 @@ def _check_frontend_deployed(
         return PlaygroundCheck("frontend_deployed", False, str(exc), {})
 
 
+def _origin_of(url: str) -> str:
+    """Return scheme://host[:port] for a URL, with no trailing slash."""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}"
+
+
+def resolve_declared_backend_url(config_body: str, *, frontend_url: str) -> str | None:
+    """Resolve the backend a served config.js actually points at.
+
+    Returns ``None`` when config.js declares no BACKEND_URL at all, which is a different failure
+    from declaring the wrong one and is reported differently.
+
+    THE RULE, once, shared by every caller. An empty value means "call the origin that served this
+    page", so it resolves to the frontend's origin; an absolute value resolves to itself. Two
+    separate checks previously open-coded `backend_url in config_body`, a substring test that
+    silently assumed the backend is always on another host. Both failed against a completely
+    healthy same-origin deployment, and one of them had been reporting "expected HF backend" for
+    two hosts after that stopped being true.
+
+    Either quote style is accepted. The generator emits double quotes, but JavaScript permits both
+    and a hand-edited or differently-rendered config is still a valid config -- a resolver that
+    only understood one style would report "declares no BACKEND_URL" about a file that declares it.
+    """
+    match = re.search(r"""BACKEND_URL:\s*(["'])(.*?)\1""", config_body)
+    if match is None:
+        return None
+    declared = match.group(2).strip()
+    return _origin_of(frontend_url) if declared == "" else declared
+
+
 def _check_config_js(
     client: httpx.Client,
     *,
     frontend_url: str,
     backend_url: str,
 ) -> PlaygroundCheck:
+    """Verify the served runtime config resolves to the backend we expect.
+
+    AN EMPTY BACKEND_URL IS VALID, and is the current deployment's correct value. See
+    ``resolve_declared_backend_url`` for why, and for what this check used to get wrong.
+    """
     try:
         response, latency_ms = _timed_request(client, "GET", join_url(frontend_url, "config.js"))
         cache_control = response.headers.get("cache-control", "")
+
+        match = re.search(r"""BACKEND_URL:\s*(["'])(.*?)\1""", response.text)
+        declared = match.group(2).strip() if match is not None else None
+        effective = resolve_declared_backend_url(response.text, frontend_url=frontend_url)
+
+        declares_backend_url = effective is not None
+        points_at_expected = effective is not None and effective.rstrip("/") == backend_url.rstrip(
+            "/"
+        )
+        uncached = "no-store" in cache_control.lower()
         ok = (
-            response.status_code == 200
-            and backend_url in response.text
-            and "no-store" in cache_control.lower()
+            response.status_code == 200 and declares_backend_url and points_at_expected and uncached
         )
-        detail = (
-            "config.js points at the expected backend and is uncached."
-            if ok
-            else "config.js is stale or cacheable."
-        )
+
+        if ok:
+            detail = "config.js resolves to the expected backend and is uncached."
+        elif not declares_backend_url:
+            detail = "config.js does not declare BACKEND_URL."
+        elif not points_at_expected:
+            detail = f"config.js resolves to {effective or '<unset>'}, expected {backend_url}."
+        elif not uncached:
+            detail = "config.js is cacheable; a stale backend pointer could be pinned in browsers."
+        else:
+            detail = "config.js request failed."
+
         return PlaygroundCheck(
             "config_js_correct",
             ok,
@@ -149,6 +200,10 @@ def _check_config_js(
                 "status_code": response.status_code,
                 "latency_ms": round(latency_ms, 2),
                 "cache_control": cache_control,
+                # Both recorded, so a failure says what was served AND what it resolved to.
+                "declared_backend_url": declared,
+                "effective_backend_url": effective,
+                "same_origin": declared == "",
             },
         )
     except Exception as exc:

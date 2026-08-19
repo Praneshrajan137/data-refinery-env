@@ -24,6 +24,7 @@ from dataforge.release.model_family import (
     license_matches,
     load_model_family_manifest,
 )
+from dataforge.release.playground_check import resolve_declared_backend_url
 
 SCHEMA_VERSION = "dataforge_full_vision_gate_v1"
 EXPECTED_VERSION = "0.1.0"
@@ -409,8 +410,19 @@ def _check_workers_playground(frontend_url: str, backend_url: str) -> FullVision
     metadata["config_cache_control"] = config_headers.get("cache-control", "")
     if config_error:
         errors.append(f"config.js fetch failed: {config_error}")
-    if backend_url not in config_body:
-        errors.append("config.js does not point at the expected HF backend")
+    # Same resolution rule as the playground monitor, imported rather than reimplemented: an empty
+    # BACKEND_URL means same-origin and resolves to whatever origin served config.js. This was
+    # `if backend_url not in config_body`, the identical substring assumption that failed the
+    # monitor on a healthy deployment -- and the error message still said "HF backend" two hosts
+    # later, which is how long a wrong string can survive when nothing resolves it.
+    effective_backend = resolve_declared_backend_url(config_body, frontend_url=frontend_url)
+    metadata["config_effective_backend_url"] = effective_backend
+    if effective_backend is None:
+        errors.append("config.js does not declare BACKEND_URL")
+    elif effective_backend.rstrip("/") != backend_url.rstrip("/"):
+        errors.append(
+            f"config.js resolves to {effective_backend or '<unset>'}, expected {backend_url}"
+        )
     if "no-store" not in metadata["config_cache_control"].lower():
         errors.append("config.js is not served with Cache-Control: no-store")
     return FullVisionCheck(
