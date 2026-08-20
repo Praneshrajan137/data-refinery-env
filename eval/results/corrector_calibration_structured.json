@@ -8,10 +8,10 @@
   "provider": "azure",
   "model": "gpt-5.6-sol",
   "complete": true,
-  "issues_completed": 3,
-  "issues_planned": 3,
-  "attempted": 3,
-  "proposals": 0,
+  "issues_completed": 25,
+  "issues_planned": 25,
+  "attempted": 25,
+  "proposals": 3,
   "conformal": {
     "alpha": 0.05,
     "delta": 0.05,
@@ -21,17 +21,65 @@
     "pooled_across_seeds": false
   },
   "analysis": {
-    "status": "no_samples"
+    "status": "analysed",
+    "n_total": 3,
+    "precision_overall": 0.0,
+    "ece_test_before": 0.2222,
+    "ece_test_after": 0.0,
+    "overall_test_coverage": 0.0,
+    "by_issue_type": {
+      "fd_violation": {
+        "n_calibration": 2,
+        "n_test": 1,
+        "threshold": 1.01,
+        "threshold_is_reachable": false,
+        "test_accepted": 0,
+        "test_coverage": 0.0,
+        "test_errors_in_accepted": 0,
+        "uncertified_reason": "insufficient_support: n=2 < min_support=30 (need >= 59 all-correct accepted samples to certify 95%)"
+      }
+    },
+    "largest_all_correct_slice": {
+      "n": 0,
+      "threshold": null
+    },
+    "samples_needed_to_certify": 59,
+    "policy": {
+      "target_precision": 0.95,
+      "auto_apply_thresholds": {
+        "fd_violation": 1.01
+      },
+      "default_threshold": 1.01,
+      "uncertified_classes": {
+        "fd_violation": "insufficient_support: n=2 < min_support=30 (need >= 59 all-correct accepted samples to certify 95%)"
+      }
+    },
+    "maps": {
+      "fd_violation": {
+        "method": "identity",
+        "x_knots": [],
+        "y_knots": [],
+        "a": 0.0,
+        "b": 0.0
+      }
+    },
+    "samples_by_type": {
+      "fd_violation": [
+        [
+          0.1111111111111111,
+          false
+        ],
+        [
+          1.0,
+          false
+        ],
+        [
+          0.2222222222222222,
+          false
+        ]
+      ]
+    }
   },
   "certified": false,
-  "estimated_usd": 0.144675,
-  "run_outcome": "NOT_OBTAINED_RETRY_TIMEOUT_STALL",
-  "run_outcome_note": "The flagship measurement was NOT obtained. CORRECTED CAUSE (2026-08-05): not throttling. AzureBenchClient runs max_retries=5 against DATAFORGE_AZURE_TIMEOUT_S=180 with min(2*(attempt+1),120) backoff, so a single hung request consumes 5*180 + 20 = 920s (~15.3 min) before raising TimeoutError, which the flagship loop catches per-issue and continues past. That matches the observed ~15-minute silent window exactly. Consequently real billable calls in that window were ~5, not ~540, and the original ~.90 receipt overstated spend by up to ~100x; it has been reissued with the corrected cause and bound. This artifact contains only a 3-issue smoke sample and no flagship samples. The primary endpoint is discharged as a NULL on the basis of the ARM SWEEP (eval/results/corrector_arm_sweep.json, 173 issues), not this file.",
-  "primary_endpoint": "NULL",
-  "primary_endpoint_basis": "eval/results/corrector_arm_sweep.json",
-  "run_outcome_root_causes": [
-    "unbounded per-issue retry wall-time (920s for one request)",
-    "no per-issue progress logging, so a stall is indistinguishable from death",
-    "180s timeout applied to ~30-token enum-constrained answers (set from runbook guidance for long reasoning outputs)"
-  ]
+  "estimated_usd": 1.31358
 }

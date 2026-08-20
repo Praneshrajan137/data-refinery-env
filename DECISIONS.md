@@ -2705,3 +2705,61 @@ same session shipped a torch pip-audit-exception re-triage for a check that CI s
 
 **Reversal criteria**: unchanged from 2026-07-15 - if a future corrector's precision lets the conformal gate certify a threshold below 1.01, calibrated auto-apply activates for schema-proven fixes; re-verify certified coverage and the never-corrupt invariants first.
 
+## 2026-08-20 - RETRACTION: gpt-5.6-sol quota, and the corrector precision confound
+
+**Status**: two of my own prior claims retracted, one new finding.
+
+**RETRACTION 1 - the quota claim was too strong.** I previously concluded that gpt-5.6-sol had
+**zero quota in all 26 regions and all SKUs** because the subscription carries
+`quotaId: FreeTrial_2014-09-01`. That generalised from one resource in westus3 to the whole
+subscription and is **false**. Verified 2026-08-20: `gpt-5.6-sol` version `2026-07-09` is
+deployed on `praneshrajan15-3599-resource` (eastus2), GlobalStandard, capacity 500, provisioning
+Succeeded, 500 requests/min and 500,000 tokens/min. The `quotaId` is unchanged. Quota was
+obtainable; a FreeTrial quotaId is a necessary-not-sufficient signal and I treated it as
+dispositive.
+
+**RETRACTION 2 - "frontier capability does not buy calibration" was a confounded reading.**
+The committed corrector precisions (0.059-0.297, across gemini, gpt-5-mini and sol alike) were
+measured on hospital's inferred-FD queue: **10,373 cells containing 455 real errors, 4.4% queue
+precision**. A corrector cannot correct a cell that was never wrong -- if the flag is a false
+positive, any proposed value scores incorrect. That precision was therefore bounded near 0.05 by
+the DETECTOR, not the corrector. It is the identical denominator artifact already documented for
+F1 in `corrector_gpt56sol_certified_coverage.json`, never applied to precision.
+
+Measured on a per-table calibration session, same model, same structured-enum mode:
+**114 correct of 115 proposals = 0.9913**. The mechanism is abstention -- of the 115 cells that
+received a proposal, 114 were genuine errors. See
+`docs/trust/corrector-queue-contamination.md`.
+
+**What was done**:
+- Made pricing model-aware (`dataforge/spend.py` `MODEL_PRICES`, `require_price_for`).
+  Provider-keyed pricing was a live financial hazard: `.env` held gpt-5-mini's rate
+  (0.00025/0.002) with `DATAFORGE_AZURE_MAX_USD=15` while the deployment was about to become sol
+  at 46x the measured cost per call, so the cap would have authorised hundreds of dollars.
+  5 mutants caught, including the original `del model`.
+- Rewrote `scripts/bench/repoint_azure_env.py` to take resource/model as arguments, write prices
+  FROM the per-model table so `.env` cannot contradict itself, and verify the deployment exists
+  before writing. It previously hardcoded gpt-5-mini plus mini prices and was the only writer of
+  either value.
+- Bounded the retry envelope: `max_retries=2`, `timeout=90`. Previously 5 x 180 + backoff = 920s
+  on a single hung request, which is what reduced the earlier flagship k=9 run to 3 issues.
+- Gave `dataforge calibrate` a `--propose` proposal source and `--label-repair`, making
+  `certify_from_session` reachable outside tests for the first time, and added a ledger receipt
+  to that path since it spends money and was previously unaudited.
+- Established `reasoning_effort` as a NULL: `none` and `xhigh` each produced exactly 4 correct
+  proposals on a paired 80-issue sweep slice, with `xhigh` costing 47% more. sol supports
+  `none|low|medium|high|xhigh` and REJECTS `minimal`, the value every committed gpt-5-mini
+  reproduction command sets, so those commands fail outright against sol.
+
+**Reasoning**: the pre-registered global certification at `alpha = 0.05` remains a NULL, and
+`eval/preregistration/api_phase_certification.md` forbids rescuing it by moving alpha,
+min_support, or the split. That instruction was respected rather than reinterpreted. The
+productive finding is that the lever is not the model but which queue the corrector is pointed
+at -- the same conclusion `docs/trust/constraint-circularity.md` reached for human review effort,
+now shown to hold for paid LLM correction.
+
+**Reversal criteria**: if a per-table session certifies at alpha=0.05 AND that certificate is
+independently validated on a disjoint held-out half rather than merely certified on the full
+sample, local calibrated auto-apply becomes defensible for that table, that model, and that
+schema fingerprint only. Global auto-apply still requires the pre-registered flagship endpoint.
+

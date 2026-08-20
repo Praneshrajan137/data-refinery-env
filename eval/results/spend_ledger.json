@@ -319,6 +319,149 @@
         "token counts MEASURED from corrector_gpt56sol_hospital_newaccount.json",
         "reasoning_tokens not itemised by bench records"
       ]
+    },
+    {
+      "run_id": "azure-capability-probe-0399b1a7",
+      "utc": "2026-08-20T08:40:00+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 4,
+      "prompt_tokens": 98,
+      "completion_tokens": 84,
+      "reasoning_tokens": 45,
+      "estimated_usd": 0.00175,
+      "cap_usd": 1.0,
+      "method": "capability_probe",
+      "dataset": null,
+      "git_sha": null,
+      "notes": [
+        "decision=structured_enum"
+      ]
+    },
+    {
+      "run_id": "flagship-throughput-probe",
+      "utc": "2026-08-20T09:02:31+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 225,
+      "prompt_tokens": 201762,
+      "completion_tokens": 20318,
+      "reasoning_tokens": 14510,
+      "estimated_usd": 1.31358,
+      "cap_usd": 3.0,
+      "method": "flagship_structured_k9",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "arm=B_structured_k9",
+        "issues_completed=25",
+        "proposals=3",
+        "certified=False"
+      ]
+    },
+    {
+      "run_id": "reasoning-smoke2-none",
+      "utc": "2026-08-20T09:33:44+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 12,
+      "prompt_tokens": 10755,
+      "completion_tokens": 257,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.05763,
+      "cap_usd": 70.0,
+      "method": "reasoning_effort_probe",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "effort=none",
+        "k=3",
+        "proposals=1",
+        "exploratory: sweep slice, no certificate"
+      ]
+    },
+    {
+      "run_id": "reasoning-smoke2-xhigh",
+      "utc": "2026-08-20T09:34:49+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 12,
+      "prompt_tokens": 10755,
+      "completion_tokens": 1839,
+      "reasoning_tokens": 1513,
+      "estimated_usd": 0.08136,
+      "cap_usd": 70.0,
+      "method": "reasoning_effort_probe",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "effort=xhigh",
+        "k=3",
+        "proposals=1",
+        "exploratory: sweep slice, no certificate"
+      ]
+    },
+    {
+      "run_id": "reasoning-effort-main-none",
+      "utc": "2026-08-20T09:48:35+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 237,
+      "prompt_tokens": 171801,
+      "completion_tokens": 4858,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.931875,
+      "cap_usd": 70.0,
+      "method": "reasoning_effort_probe",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "effort=none",
+        "k=3",
+        "proposals=14",
+        "exploratory: sweep slice, no certificate"
+      ]
+    },
+    {
+      "run_id": "reasoning-effort-main-xhigh",
+      "utc": "2026-08-20T10:08:07+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 237,
+      "prompt_tokens": 171801,
+      "completion_tokens": 33962,
+      "reasoning_tokens": 27758,
+      "estimated_usd": 1.368435,
+      "cap_usd": 70.0,
+      "method": "reasoning_effort_probe",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "effort=xhigh",
+        "k=3",
+        "proposals=12",
+        "exploratory: sweep slice, no certificate"
+      ]
+    },
+    {
+      "run_id": "calibrate-propose-0f7d0eaf2c5d",
+      "utc": "2026-08-20T11:05:13+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 675,
+      "prompt_tokens": 430560,
+      "completion_tokens": 51703,
+      "reasoning_tokens": 33403,
+      "estimated_usd": 2.928345,
+      "cap_usd": 70.0,
+      "method": "calibrate_propose",
+      "dataset": "hospital400.csv",
+      "git_sha": null,
+      "notes": [
+        "proposals=115",
+        "samples=240",
+        "local calibration session; structured enum corrector"
+      ]
     }
   ]
 }

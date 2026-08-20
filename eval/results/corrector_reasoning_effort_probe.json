@@ -1,0 +1,240 @@
+{
+  "schema": "dataforge_reasoning_effort_probe_v1",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "dataset": "hospital",
+  "slice": "preregistered_sweep_20pct",
+  "exploratory": true,
+  "why_exploratory": "Runs on the sweep slice only. The flagship arm is fixed at B_structured_k9 by eval/preregistration/api_phase_certification.md; selecting an arm on flagship data and certifying on it would be post-hoc selection. No certificate can come from this artifact.",
+  "question": "Can reasoning_effort move corrector PRECISION? Precision must exceed 0.50 for 59 correct proposals to be available within budget, which is the binding term in the alpha=0.05 certification floor.",
+  "k": 3,
+  "efforts": [
+    "none",
+    "xhigh"
+  ],
+  "issues_offered": 80,
+  "arms": [
+    {
+      "reasoning_effort": "none",
+      "k": 3,
+      "attempted": 80,
+      "proposals": 14,
+      "correct": 4,
+      "precision": 0.2857,
+      "proposal_rate": 0.175,
+      "mean_confidence": 0.7995,
+      "calls": 237,
+      "prompt_tokens": 171801,
+      "completion_tokens": 4858,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.931875,
+      "seconds": 795.9,
+      "seconds_per_issue": 9.95,
+      "samples": [
+        {
+          "row": 57,
+          "column": "Address1",
+          "issue_type": "fd_violation",
+          "confidence": 1.0,
+          "correct": true
+        },
+        {
+          "row": 119,
+          "column": "MeasureCode",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": false
+        },
+        {
+          "row": 724,
+          "column": "ProviderNumber",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": true
+        },
+        {
+          "row": 559,
+          "column": "ProviderNumber",
+          "issue_type": "fd_violation",
+          "confidence": 1.0,
+          "correct": true
+        },
+        {
+          "row": 675,
+          "column": "EmergencyService",
+          "issue_type": "fd_violation",
+          "confidence": 0.3333333333333333,
+          "correct": false
+        },
+        {
+          "row": 726,
+          "column": "CountyName",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": false
+        },
+        {
+          "row": 501,
+          "column": "EmergencyService",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 858,
+          "column": "HospitalOwner",
+          "issue_type": "fd_violation",
+          "confidence": 0.37000000000000005,
+          "correct": false
+        },
+        {
+          "row": 340,
+          "column": "ZipCode",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": true
+        },
+        {
+          "row": 522,
+          "column": "CountyName",
+          "issue_type": "fd_violation",
+          "confidence": 0.55,
+          "correct": false
+        },
+        {
+          "row": 843,
+          "column": "HospitalOwner",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": false
+        },
+        {
+          "row": 149,
+          "column": "EmergencyService",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 654,
+          "column": "Condition",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 329,
+          "column": "HospitalOwner",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": false
+        }
+      ]
+    },
+    {
+      "reasoning_effort": "xhigh",
+      "k": 3,
+      "attempted": 80,
+      "proposals": 12,
+      "correct": 4,
+      "precision": 0.3333,
+      "proposal_rate": 0.15,
+      "mean_confidence": 0.7478,
+      "calls": 237,
+      "prompt_tokens": 171801,
+      "completion_tokens": 33962,
+      "reasoning_tokens": 27758,
+      "estimated_usd": 1.368435,
+      "seconds": 1170.5,
+      "seconds_per_issue": 14.63,
+      "samples": [
+        {
+          "row": 57,
+          "column": "Address1",
+          "issue_type": "fd_violation",
+          "confidence": 1.0,
+          "correct": true
+        },
+        {
+          "row": 119,
+          "column": "MeasureCode",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 724,
+          "column": "ProviderNumber",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": true
+        },
+        {
+          "row": 559,
+          "column": "ProviderNumber",
+          "issue_type": "fd_violation",
+          "confidence": 1.0,
+          "correct": true
+        },
+        {
+          "row": 675,
+          "column": "EmergencyService",
+          "issue_type": "fd_violation",
+          "confidence": 0.9933333333333333,
+          "correct": false
+        },
+        {
+          "row": 501,
+          "column": "EmergencyService",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 858,
+          "column": "HospitalOwner",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 340,
+          "column": "ZipCode",
+          "issue_type": "fd_violation",
+          "confidence": 0.9899999999999999,
+          "correct": true
+        },
+        {
+          "row": 693,
+          "column": "State",
+          "issue_type": "fd_violation",
+          "confidence": 0.3333333333333333,
+          "correct": false
+        },
+        {
+          "row": 843,
+          "column": "HospitalOwner",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 149,
+          "column": "EmergencyService",
+          "issue_type": "fd_violation",
+          "confidence": 0.6666666666666666,
+          "correct": false
+        },
+        {
+          "row": 329,
+          "column": "HospitalOwner",
+          "issue_type": "fd_violation",
+          "confidence": 0.3333333333333333,
+          "correct": false
+        }
+      ]
+    }
+  ],
+  "estimated_usd_total": 2.30031,
+  "run_id": "reasoning-effort-main"
+}

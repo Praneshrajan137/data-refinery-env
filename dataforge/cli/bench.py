@@ -257,7 +257,9 @@ def _write_spend_receipt(output: Any) -> None:
 
     ledger = Path("eval") / "results" / "spend_ledger.json"
     for (provider, model), bucket in sorted(totals.items()):
-        price = prices_from_env(provider)
+        # Pass the model: omitting it meters every Azure deployment at one provider rate,
+        # and the measured spread is 46x, so a receipt would misstate spend by that factor.
+        price = prices_from_env(provider, model)
         if price is None:
             # Unpriced provider: the USD guard is disabled by design, so inventing a figure here
             # would be worse than recording none.

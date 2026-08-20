@@ -86,21 +86,88 @@ PRICES: dict[str, ModelPrice] = {
     "gemini": ModelPrice(usd_per_1k_input=0.002, usd_per_1k_output=0.006),
 }
 
+# Per-MODEL prices, keyed ``(provider, model)``. Provider-level pricing is not merely
+# imprecise here, it is a financial hazard: measured from this repo's own ledger,
+# gpt-5.6-sol costs $0.00372/call and gpt-5-mini $0.00008/call -- a factor of 46. So a
+# deployment swap that left the provider price in place would under-meter by 46x, and a
+# $15 cap would authorise roughly $700 of real spend before tripping.
+#
+# That is not hypothetical. `.env` carried DATAFORGE_AZURE_USD_PER_1K_INPUT=0.00025
+# (gpt-5-mini's rate) while the plan was to point DATAFORGE_AZURE_MODEL at gpt-5.6-sol.
+#
+# Values are deliberately conservative (rounded UP where uncertain) so that a wrong price
+# causes a run to stop EARLY rather than overspend. The Azure retail prices API returns
+# zero meters for these deployments, so these are list-rate estimates, not API-verified
+# figures -- which is exactly why erring high is the right direction.
+MODEL_PRICES: dict[tuple[str, str], ModelPrice] = {
+    ("azure", "gpt-5.6-sol"): ModelPrice(usd_per_1k_input=0.005, usd_per_1k_output=0.015),
+    ("azure", "gpt-5"): ModelPrice(usd_per_1k_input=0.005, usd_per_1k_output=0.015),
+    ("azure", "gpt-5.5"): ModelPrice(usd_per_1k_input=0.005, usd_per_1k_output=0.015),
+    ("azure", "gpt-5-mini"): ModelPrice(usd_per_1k_input=0.00025, usd_per_1k_output=0.002),
+    ("azure", "gpt-5-nano"): ModelPrice(usd_per_1k_input=0.00005, usd_per_1k_output=0.0004),
+}
+
 
 def price_for(provider: str, model: str | None = None) -> ModelPrice | None:
     """Return the conservative price for a provider/model, or None if unpriced.
 
+    Resolution order: exact ``(provider, model)`` match first, then the provider-level
+    fallback. The per-model table exists because provider-level pricing silently
+    mis-meters by up to 46x across Azure deployments (see :data:`MODEL_PRICES`).
+
+    The provider fallback is retained rather than made strict because removing it would
+    turn an unknown model into an *unpriced* one, and unpriced disables the cap entirely --
+    a strictly worse failure. Instead the fallback uses the provider's conservative (high)
+    number, so an unrecognised Azure deployment over-estimates cost and stops early.
+    Callers that need certainty should use :func:`require_price_for`.
+
     Args:
         provider: Provider identifier (e.g. ``"azure"``).
-        model: Optional model/deployment name. Reserved for future per-model
-            overrides; provider-level pricing is used today.
+        model: Optional model/deployment name.
 
     Returns:
         The :class:`ModelPrice`, or ``None`` when the provider is unpriced (free
         tier), in which case the USD guard is disabled by design.
     """
-    del model  # Provider-level pricing today; signature is stable for overrides.
-    return PRICES.get(provider.strip().lower())
+    key = provider.strip().lower()
+    if model:
+        exact = MODEL_PRICES.get((key, model.strip()))
+        if exact is not None:
+            return exact
+    return PRICES.get(key)
+
+
+def is_model_priced(provider: str, model: str | None) -> bool:
+    """Return whether an EXACT per-model price exists, not just a provider fallback.
+
+    Lets a paid run assert it knows what it is spending before it spends it, instead of
+    discovering afterwards that it was metered at a neighbouring deployment's rate.
+    """
+    if not model:
+        return False
+    return (provider.strip().lower(), model.strip()) in MODEL_PRICES
+
+
+def require_price_for(provider: str, model: str | None) -> ModelPrice:
+    """Return the exact per-model price, or raise.
+
+    Fails closed for paid experiments: metering a frontier deployment at a cheaper
+    sibling's rate is how a capped run overspends, so a missing price is an error rather
+    than a silent fallback.
+
+    Raises:
+        ValueError: If no exact ``(provider, model)`` price is registered.
+    """
+    if not is_model_priced(provider, model):
+        raise ValueError(
+            f"no per-model price registered for provider={provider!r} model={model!r}; "
+            "add it to dataforge.spend.MODEL_PRICES (conservative/high) or set "
+            f"DATAFORGE_{provider.strip().upper()}_USD_PER_1K_INPUT and _OUTPUT "
+            "explicitly. Refusing to meter a paid run at a fallback rate."
+        )
+    price = price_for(provider, model)
+    assert price is not None  # guaranteed by is_model_priced
+    return price
 
 
 def cap_from_env(provider: str) -> float | None:
@@ -480,13 +547,13 @@ def ledger_summary(path: Path) -> LedgerSummary:
     )
 
 
-def prices_from_env(provider: str) -> ModelPrice | None:
+def prices_from_env(provider: str, model: str | None = None) -> ModelPrice | None:
     """Return the prices a real run actually charges itself, honouring env overrides.
 
-    ``price_for`` returns the committed conservative table. The bench clients additionally accept
-    ``DATAFORGE_<PROVIDER>_USD_PER_1K_INPUT`` / ``_OUTPUT`` overrides, which exist because the table
-    is provider-level while prices are per-DEPLOYMENT: gpt-5-mini is ~20x cheaper than gpt-5.6-sol
-    on the same Azure provider entry, so one number cannot be right for both.
+    Resolution: exact per-model price, else provider fallback, then
+    ``DATAFORGE_<PROVIDER>_USD_PER_1K_INPUT`` / ``_OUTPUT`` on top. Passing ``model`` matters --
+    omitting it silently meters every Azure deployment at one rate, and the measured spread is
+    46x (gpt-5.6-sol $0.00372/call vs gpt-5-mini $0.00008/call).
 
     A receipt written from the table rather than from the overrides would disagree with the cap that
     was actually enforced during the run. Resolving both in one place is what keeps the ledger and
@@ -495,7 +562,7 @@ def prices_from_env(provider: str) -> ModelPrice | None:
     Returns ``None`` for unpriced providers, matching ``price_for``, so callers keep the documented
     "no price means no USD guard" behaviour instead of inventing a number.
     """
-    base = price_for(provider)
+    base = price_for(provider, model)
     if base is None:
         return None
     prefix = f"DATAFORGE_{provider.strip().upper()}_USD_PER_1K"

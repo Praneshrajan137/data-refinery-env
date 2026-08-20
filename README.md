@@ -267,6 +267,33 @@ split, measure on a disjoint test split), not by model size.
 This is the design center, not an apology: a data-repair tool you can trust is
 one that tells you exactly what it will and will not touch, and proves it.
 
+> **CORRECTION (2026-08-20): those precision numbers were mostly measuring the
+> DETECTOR, not the corrector.** The benchmark samples from hospital's
+> inferred-FD queue, which is 10,373 cells containing 455 real errors —
+> **4.4% queue precision**. A corrector cannot correct a cell that was never
+> wrong: if the flag is a false positive, *any* proposed value scores as
+> incorrect. So corrector precision measured there is bounded near 0.05
+> regardless of model quality, and "frontier capability does not buy
+> calibration" was a confounded reading of a denominator artifact — the same
+> mistake already documented for F1, never applied to precision.
+>
+> Measured on a per-table calibration session with the same model
+> (`gpt-5.6-sol`) and the same structured-enum mode: **114 correct of 115
+> proposals, 0.9913**. The mechanism is abstention — of the 115 cells that
+> received a proposal, **114 were genuine errors**. The corrector declines to
+> propose on non-errors, acting as a high-precision filter rather than a blind
+> rewriter. It is precise but partial (115 proposals from 240 sampled cells),
+> which is the correct trade for writing to a user's file.
+>
+> Two things this does **not** change. The pre-registered global certification
+> attempt remains a **NULL** at `alpha = 0.05`: it needs 59 accepted samples
+> with *zero* errors (1 error in 60 gives a Clopper-Pearson bound of 0.077),
+> and the budget bought ~157 proposals over ~16 hours of serial calling. And
+> `reasoning_effort` — the one lever `gpt-5-mini` lacked — does not help:
+> `none` and `xhigh` each produced exactly 4 correct proposals on a paired
+> 80-issue slice, with `xhigh` costing 47% more. Full analysis in
+> [`docs/trust/corrector-queue-contamination.md`](docs/trust/corrector-queue-contamination.md).
+
 #### Selective-Repair Calibration Benchmark
 
 The flagship artifact makes that proof reproducible. Framing the auto-apply gate

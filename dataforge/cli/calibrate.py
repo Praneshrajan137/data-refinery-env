@@ -30,6 +30,7 @@ from dataforge.calibration_session import (
 )
 from dataforge.cli.common import load_schema, read_csv, resolve_cli_path
 from dataforge.detectors import run_all_detectors
+from dataforge.table import TableLike
 
 _console = Console(stderr=True)
 
@@ -39,7 +40,7 @@ def _session_path(source_path: Path) -> Path:
     return calibration_dir_for(source_path) / "session.json"
 
 
-def _parse_labels(labels: list[str]) -> list[tuple[int, str, str]]:
+def _parse_labels(labels: list[str], *, flag: str = "--label") -> list[tuple[int, str, str]]:
     """Parse ``row:column=error|correct`` triples, failing loudly on a malformed one.
 
     Silently skipping a malformed label would drop a user's judgement without telling them,
@@ -48,16 +49,136 @@ def _parse_labels(labels: list[str]) -> list[tuple[int, str, str]]:
     parsed: list[tuple[int, str, str]] = []
     for raw in labels:
         if "=" not in raw or ":" not in raw.split("=", 1)[0]:
-            raise ValueError(f"--label must look like ROW:COLUMN=error|correct (got {raw!r})")
+            raise ValueError(f"{flag} must look like ROW:COLUMN=error|correct (got {raw!r})")
         locator, decision = raw.split("=", 1)
         row_text, column = locator.split(":", 1)
         decision = decision.strip().lower()
         if decision not in ("error", "correct"):
-            raise ValueError(f"--label decision must be 'error' or 'correct' (got {decision!r})")
+            raise ValueError(f"{flag} decision must be 'error' or 'correct' (got {decision!r})")
         if not column.strip():
-            raise ValueError(f"--label needs a column name (got {raw!r})")
+            raise ValueError(f"{flag} needs a column name (got {raw!r})")
         parsed.append((int(row_text), column.strip(), decision))
     return parsed
+
+
+def _propose_repairs(
+    artifact: CalibrationSessionArtifact,
+    df: TableLike,
+    *,
+    max_usd: float,
+) -> tuple[CalibrationSessionArtifact, int, float, str, str]:
+    """Attach LLM repair proposals to every unproposed sample in the session.
+
+    This is what makes :func:`~dataforge.calibration_session.certify_from_session` reachable.
+    Before it existed, nothing outside the test suite populated ``proposed_repair``, so the
+    local certification path -- the ONLY place where exchangeability holds by construction,
+    and therefore the only place a conformal guarantee is genuinely valid -- could not be
+    exercised at all.
+
+    Uses the structured-enum corrector deliberately. Free-text confidence is measurably at
+    chance (ROC-AUC 0.5536 in ``eval/results/corrector_arm_sweep.json``) for a mechanical
+    reason: the free-text prompts never request JSON, so the model's own confidence is never
+    parsed and the signal collapses to vote agreement over k. Certifying on that would be
+    certifying noise.
+
+    Returns:
+        ``(artifact, proposed_count, spend_usd, provider, model)``.
+    """
+    from dataforge.agent.providers import Message, get_provider_name, resolve_model
+    from dataforge.bench.runner import _build_azure_client
+    from dataforge.calibration_session import label_repair_sample
+    from dataforge.repairers.contract import build_correction_contract
+    from dataforge.repairers.llm_corrector import LLMCorrectorRepairer
+    from dataforge.spend import CostCapExceededError, require_price_for
+
+    provider = get_provider_name()
+    model = resolve_model(provider)
+    if provider != "azure":
+        raise ValueError(
+            f"--propose currently supports the azure provider only (active: {provider!r}); "
+            "set DATAFORGE_LLM_PROVIDER=azure"
+        )
+    # Fail closed on price before spending: metering a frontier deployment at a cheaper
+    # sibling's rate is how a capped run overspends.
+    require_price_for(provider, model)
+
+    client = _build_azure_client()
+
+    def structured_call(messages: list[Message], response_format: dict[str, object] | None) -> str:
+        payload = [{str(k): str(v) for k, v in message.items()} for message in messages]
+        return client.complete(payload, response_format).text
+
+    corrector = LLMCorrectorRepairer(
+        cache_dir=None,
+        allow_llm=True,
+        model=client.model,
+        samples=3,
+        structured_completion_fn=structured_call,
+        structured=True,
+    )
+    constraints = corrector._constraints_for(df, None)
+    issues_by_cell = {(issue.row, issue.column): issue for issue in run_all_detectors(df, None)}
+
+    proposed = 0
+    for sample in list(artifact.samples):
+        if sample.proposed_repair is not None:
+            continue
+        issue = issues_by_cell.get((sample.row, sample.column))
+        if issue is None:
+            continue
+        contract = build_correction_contract(issue, constraints)
+        if not contract.is_cell_correction:
+            continue
+        if client.cumulative_usd >= max_usd:
+            _console.print(f"[yellow]Proposal budget ${max_usd} reached; stopping.[/yellow]")
+            break
+        try:
+            fix = corrector.propose(issue, df, None)
+        except CostCapExceededError:
+            _console.print("[yellow]Spend cap reached; stopping proposals.[/yellow]")
+            break
+        except Exception as exc:  # noqa: BLE001 - one bad cell must not kill a paid run
+            _console.print(f"[dim]  row {sample.row} {sample.column}: {type(exc).__name__}[/dim]")
+            continue
+        if fix is None:
+            continue
+        artifact = label_repair_sample(
+            artifact,
+            row=sample.row,
+            column=sample.column,
+            decision="pending",
+            proposed_repair=str(fix.fix.new_value),
+            repair_confidence=float(fix.confidence),
+            corrector_provider=provider,
+            corrector_model=model,
+        )
+        proposed += 1
+
+    # Write a ledger receipt. `--propose` is the only paid path in this command, and an
+    # unaudited paid path contradicts the project's own spend-accountability doctrine: the
+    # ledger is what separates measured spend from reconstructed guesswork.
+    if proposed or client.meter.calls:
+        from dataforge.spend import append_receipt
+
+        ledger = Path("eval") / "results" / "spend_ledger.json"
+        try:
+            append_receipt(
+                ledger,
+                client.meter.receipt(
+                    run_id=f"calibrate-propose-{artifact.source_sha256[:12]}",
+                    method="calibrate_propose",
+                    dataset=Path(artifact.source_path).name,
+                    notes=(
+                        f"proposals={proposed}",
+                        f"samples={len(artifact.samples)}",
+                        "local calibration session; structured enum corrector",
+                    ),
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001 - a receipt failure must not hide the result
+            _console.print(f"[yellow]WARNING: spend receipt not written: {exc}[/yellow]")
+
+    return artifact, proposed, client.cumulative_usd, provider, model
 
 
 def _render(artifact: CalibrationSessionArtifact, queue_counts: dict[str, int]) -> None:
@@ -139,6 +260,29 @@ def calibrate(
         bool,
         typer.Option("--reset", help="Discard any existing session and draw a fresh sample."),
     ] = False,
+    propose: Annotated[
+        bool,
+        typer.Option(
+            "--propose",
+            help="SPENDS MONEY. Ask the LLM corrector for a replacement value for each "
+            "sampled cell, so repair verdicts (and therefore local certification) become "
+            "possible. Uses the structured-enum corrector, because free-text confidence is "
+            "measurably at chance.",
+        ),
+    ] = False,
+    propose_max_usd: Annotated[
+        float,
+        typer.Option("--propose-max-usd", help="Hard spend ceiling for --propose."),
+    ] = 5.0,
+    label_repair: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--label-repair",
+            help="Judge a PROPOSED VALUE as ROW:COLUMN=correct|error. Distinct from "
+            "--label, which judges whether the cell was an error at all. Only repair "
+            "verdicts can certify auto-apply. Repeatable.",
+        ),
+    ] = None,
     json_output: Annotated[
         bool, typer.Option("--json", help="Print the session and measured precision as JSON.")
     ] = False,
@@ -211,6 +355,37 @@ def calibrate(
                 )
         except (ValueError, KeyError) as exc:
             _console.print(f"[bold red]Could not record label:[/bold red] {exc}")
+            raise typer.Exit(code=2) from exc
+
+    if propose:
+        try:
+            artifact, proposed, spend, provider, model = _propose_repairs(
+                artifact, df, max_usd=propose_max_usd
+            )
+        except ValueError as exc:
+            _console.print(f"[bold red]Could not propose repairs:[/bold red] {exc}")
+            raise typer.Exit(code=2) from exc
+        _console.print(
+            f"[green]Attached {proposed} proposals from {provider}/{model} "
+            f"(spent ${spend:.4f}).[/green] Judge them with "
+            "--label-repair ROW:COLUMN=correct|error."
+        )
+
+    if label_repair:
+        from dataforge.calibration_session import label_repair_sample
+
+        try:
+            for row, column, decision in _parse_labels(label_repair, flag="--label-repair"):
+                # Polarity differs from --label on purpose: here "correct" means the PROPOSED
+                # VALUE is right, not that the cell was fine.
+                artifact = label_repair_sample(
+                    artifact,
+                    row=row,
+                    column=column,
+                    decision="correct" if decision == "correct" else "error",
+                )
+        except (ValueError, KeyError) as exc:
+            _console.print(f"[bold red]Could not record repair verdict:[/bold red] {exc}")
             raise typer.Exit(code=2) from exc
 
     session_path.parent.mkdir(parents=True, exist_ok=True)
