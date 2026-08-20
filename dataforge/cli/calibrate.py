@@ -66,6 +66,8 @@ def _propose_repairs(
     df: TableLike,
     *,
     max_usd: float,
+    session_path: Path | None = None,
+    checkpoint_every: int = 10,
 ) -> tuple[CalibrationSessionArtifact, int, float, str, str]:
     """Attach LLM repair proposals to every unproposed sample in the session.
 
@@ -153,32 +155,58 @@ def _propose_repairs(
             corrector_model=model,
         )
         proposed += 1
+        # Checkpoint the session AND the receipt as we go. Without this, a run that dies --
+        # a detached shell crossing a session boundary, a stall, a Ctrl-C -- loses both the
+        # proposals it already paid for and the audit trail for that spend. That happened
+        # once here: a ~1,600-call run died with no session file and no receipt, leaving
+        # money spent and unaccounted. Losing data is annoying; losing the audit trail
+        # contradicts the project's own spend-accountability doctrine.
+        if session_path is not None and proposed % checkpoint_every == 0:
+            session_path.parent.mkdir(parents=True, exist_ok=True)
+            session_path.write_text(dump_calibration_session(artifact), encoding="utf-8")
+            _write_propose_receipt(client, artifact, proposed)
+            _console.print(
+                f"[dim]  {proposed} proposals, ${client.cumulative_usd:.3f} (checkpointed)[/dim]"
+            )
 
     # Write a ledger receipt. `--propose` is the only paid path in this command, and an
     # unaudited paid path contradicts the project's own spend-accountability doctrine: the
     # ledger is what separates measured spend from reconstructed guesswork.
     if proposed or client.meter.calls:
-        from dataforge.spend import append_receipt
-
-        ledger = Path("eval") / "results" / "spend_ledger.json"
-        try:
-            append_receipt(
-                ledger,
-                client.meter.receipt(
-                    run_id=f"calibrate-propose-{artifact.source_sha256[:12]}",
-                    method="calibrate_propose",
-                    dataset=Path(artifact.source_path).name,
-                    notes=(
-                        f"proposals={proposed}",
-                        f"samples={len(artifact.samples)}",
-                        "local calibration session; structured enum corrector",
-                    ),
-                ),
-            )
-        except Exception as exc:  # noqa: BLE001 - a receipt failure must not hide the result
-            _console.print(f"[yellow]WARNING: spend receipt not written: {exc}[/yellow]")
+        _write_propose_receipt(client, artifact, proposed)
 
     return artifact, proposed, client.cumulative_usd, provider, model
+
+
+def _write_propose_receipt(
+    client: object, artifact: CalibrationSessionArtifact, proposed: int
+) -> None:
+    """Append (or refresh) the ledger receipt for a --propose run.
+
+    Called at every checkpoint as well as at the end, so a run that dies mid-flight still
+    leaves an audited record of what it spent. Receipts share one run id keyed to the source
+    hash, so re-running against the same bytes appends comparable entries rather than
+    inventing unrelated ones.
+    """
+    from dataforge.spend import append_receipt
+
+    ledger = Path("eval") / "results" / "spend_ledger.json"
+    try:
+        append_receipt(
+            ledger,
+            client.meter.receipt(  # type: ignore[attr-defined]
+                run_id=f"calibrate-propose-{artifact.source_sha256[:12]}",
+                method="calibrate_propose",
+                dataset=Path(artifact.source_path).name,
+                notes=(
+                    f"proposals={proposed}",
+                    f"samples={len(artifact.samples)}",
+                    "local calibration session; structured enum corrector",
+                ),
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 - a receipt failure must not hide the result
+        _console.print(f"[yellow]WARNING: spend receipt not written: {exc}[/yellow]")
 
 
 def _render(artifact: CalibrationSessionArtifact, queue_counts: dict[str, int]) -> None:
@@ -360,7 +388,7 @@ def calibrate(
     if propose:
         try:
             artifact, proposed, spend, provider, model = _propose_repairs(
-                artifact, df, max_usd=propose_max_usd
+                artifact, df, max_usd=propose_max_usd, session_path=session_path
             )
         except ValueError as exc:
             _console.print(f"[bold red]Could not propose repairs:[/bold red] {exc}")
