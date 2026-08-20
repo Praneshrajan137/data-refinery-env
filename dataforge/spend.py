@@ -478,3 +478,39 @@ def ledger_summary(path: Path) -> LedgerSummary:
         estimated_receipts=n_estimated,
         noop_receipts=n_noop,
     )
+
+
+def prices_from_env(provider: str) -> ModelPrice | None:
+    """Return the prices a real run actually charges itself, honouring env overrides.
+
+    ``price_for`` returns the committed conservative table. The bench clients additionally accept
+    ``DATAFORGE_<PROVIDER>_USD_PER_1K_INPUT`` / ``_OUTPUT`` overrides, which exist because the table
+    is provider-level while prices are per-DEPLOYMENT: gpt-5-mini is ~20x cheaper than gpt-5.6-sol
+    on the same Azure provider entry, so one number cannot be right for both.
+
+    A receipt written from the table rather than from the overrides would disagree with the cap that
+    was actually enforced during the run. Resolving both in one place is what keeps the ledger and
+    the guard talking about the same money.
+
+    Returns ``None`` for unpriced providers, matching ``price_for``, so callers keep the documented
+    "no price means no USD guard" behaviour instead of inventing a number.
+    """
+    base = price_for(provider)
+    if base is None:
+        return None
+    prefix = f"DATAFORGE_{provider.strip().upper()}_USD_PER_1K"
+
+    def _override(suffix: str, fallback: float) -> float:
+        raw = os.environ.get(f"{prefix}_{suffix}", "").strip()
+        if not raw:
+            return fallback
+        try:
+            value = float(raw)
+        except ValueError:
+            return fallback
+        return value if value >= 0 else fallback
+
+    return ModelPrice(
+        usd_per_1k_input=_override("INPUT", base.usd_per_1k_input),
+        usd_per_1k_output=_override("OUTPUT", base.usd_per_1k_output),
+    )

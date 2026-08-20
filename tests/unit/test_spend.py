@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from dataforge.cli.bench import _write_spend_receipt
 from dataforge.spend import (
     PRICES,
     CostCapExceededError,
@@ -316,3 +318,68 @@ class TestLedgerSummary:
             encoding="utf-8",
         )
         assert ledger_summary(path).total_usd == pytest.approx(total_estimated_usd(path))
+
+
+class TestBenchSpendReceipt:
+    """The bench CLI must record what a paid run cost.
+
+    `docs/trust/spend-accountability.md` presents the ledger as the after-the-fact record, but
+    `append_receipt` was called from one place only -- the Azure capability probe -- so the bench
+    path spent real money silently. A 270-call gpt-5.6-sol run costing ~$0.98 left no trace.
+    """
+
+    @staticmethod
+    def _record(**kwargs: object) -> SimpleNamespace:
+        base = {
+            "provider": "azure",
+            "model": "gpt-5.6-sol",
+            "llm_calls": 3,
+            "prompt_tokens": 1000,
+            "completion_tokens": 200,
+        }
+        base.update(kwargs)
+        return SimpleNamespace(**base)
+
+    def test_writes_one_receipt_per_provider_model_pair(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        output = SimpleNamespace(
+            records=[
+                self._record(),
+                self._record(),
+                self._record(model="gpt-5-mini", llm_calls=1),
+            ]
+        )
+        _write_spend_receipt(output)
+
+        payload = json.loads((tmp_path / "eval" / "results" / "spend_ledger.json").read_text())
+        receipts = payload["receipts"]
+        by_model = {r["model"]: r for r in receipts}
+        assert set(by_model) == {"gpt-5.6-sol", "gpt-5-mini"}
+        # Summed within a pair, never across pairs: two deployments have different prices, so
+        # merging them would attribute spend to whichever appeared first.
+        assert by_model["gpt-5.6-sol"]["calls"] == 6
+        assert by_model["gpt-5.6-sol"]["prompt_tokens"] == 2000
+        assert by_model["gpt-5-mini"]["calls"] == 1
+
+    def test_uses_env_prices_so_the_receipt_matches_the_enforced_cap(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("DATAFORGE_AZURE_USD_PER_1K_INPUT", "1.0")
+        monkeypatch.setenv("DATAFORGE_AZURE_USD_PER_1K_OUTPUT", "2.0")
+        _write_spend_receipt(SimpleNamespace(records=[self._record()]))
+
+        payload = json.loads((tmp_path / "eval" / "results" / "spend_ledger.json").read_text())
+        # 1000/1000*1.0 + 200/1000*2.0 = 1.4, not the provider-table figure.
+        assert payload["receipts"][0]["estimated_usd"] == pytest.approx(1.4)
+
+    def test_writes_nothing_when_no_llm_calls_were_made(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        _write_spend_receipt(
+            SimpleNamespace(records=[self._record(llm_calls=0), self._record(provider=None)])
+        )
+        assert not (tmp_path / "eval" / "results" / "spend_ledger.json").exists()

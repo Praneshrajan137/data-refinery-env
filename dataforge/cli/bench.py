@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -205,6 +207,9 @@ def bench(
         )
         raise typer.Exit(code=2) from exc
 
+    # Record spend BEFORE rendering, so a paid run is audited even if presentation fails.
+    _write_spend_receipt(output)
+
     if json_output:
         typer.echo(json.dumps(output.model_dump(mode="json"), indent=2, sort_keys=True))
         return
@@ -212,3 +217,75 @@ def bench(
     _render_summary(output)
     if quick:
         _render_coverage_matrix(output)
+
+
+def _write_spend_receipt(output: Any) -> None:
+    """Append an auditable spend receipt for a bench run that actually spent money.
+
+    WHY THIS EXISTS. `docs/trust/spend-accountability.md` presents the ledger at
+    `eval/results/spend_ledger.json` as the after-the-fact record of spend, but `append_receipt` was
+    called from exactly one place -- the Azure capability probe. The main bench path, which is where
+    API-phase money is actually spent, wrote nothing. A 270-call gpt-5.6-sol corrector run costing
+    about $0.98 left no trace in the ledger at all, so the documented guarantee was false for the
+    path that spends the most.
+
+    Written at the CLI boundary, next to `load_dotenv`, for the reason recorded there: this is the
+    real-run edge. The library runner stays hermetic so tests do not write to a shared ledger.
+
+    One receipt per (provider, model) pair, because a single invocation can span methods that use
+    different deployments and summing them would attribute spend to whichever happened to be first.
+    Prices come from `prices_from_env`, so the receipt agrees with the cap the run enforced rather
+    than with the provider-level table.
+    """
+    from dataforge.spend import SpendReceipt, append_receipt, cap_from_env, prices_from_env
+
+    records = getattr(output, "records", None) or []
+    totals: dict[tuple[str, str], dict[str, int]] = {}
+    for record in records:
+        provider = getattr(record, "provider", None)
+        model = getattr(record, "model", None)
+        calls = int(getattr(record, "llm_calls", 0) or 0)
+        if not provider or not model or calls <= 0:
+            continue
+        bucket = totals.setdefault((provider, model), {"calls": 0, "prompt": 0, "completion": 0})
+        bucket["calls"] += calls
+        bucket["prompt"] += int(getattr(record, "prompt_tokens", 0) or 0)
+        bucket["completion"] += int(getattr(record, "completion_tokens", 0) or 0)
+
+    if not totals:
+        return
+
+    ledger = Path("eval") / "results" / "spend_ledger.json"
+    for (provider, model), bucket in sorted(totals.items()):
+        price = prices_from_env(provider)
+        if price is None:
+            # Unpriced provider: the USD guard is disabled by design, so inventing a figure here
+            # would be worse than recording none.
+            continue
+        estimated = price.usd_for(bucket["prompt"], bucket["completion"])
+        try:
+            append_receipt(
+                ledger,
+                SpendReceipt(
+                    run_id=uuid.uuid4().hex[:12],
+                    utc=datetime.now(tz=UTC).isoformat(),
+                    provider=provider,
+                    model=model,
+                    calls=bucket["calls"],
+                    prompt_tokens=bucket["prompt"],
+                    completion_tokens=bucket["completion"],
+                    # Bench records do not break reasoning tokens out of completion tokens, so
+                    # this is 0 rather than a guess. They are billed at the output rate and are
+                    # already inside completion_tokens, so the USD figure is unaffected.
+                    reasoning_tokens=0,
+                    estimated_usd=estimated,
+                    cap_usd=cap_from_env(provider),
+                    method="bench",
+                    dataset=None,
+                    git_sha=None,
+                    notes=("reasoning_tokens not itemised by bench records",),
+                ),
+            )
+        except OSError as exc:
+            # A ledger write failure must not discard a completed paid run.
+            _console.print(f"[yellow]Could not append spend receipt: {exc}[/yellow]")
