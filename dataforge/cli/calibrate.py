@@ -181,29 +181,43 @@ def _propose_repairs(
 def _write_propose_receipt(
     client: object, artifact: CalibrationSessionArtifact, proposed: int
 ) -> None:
-    """Append (or refresh) the ledger receipt for a --propose run.
+    """Upsert the ledger receipt for a --propose run.
 
-    Called at every checkpoint as well as at the end, so a run that dies mid-flight still
-    leaves an audited record of what it spent. Receipts share one run id keyed to the source
-    hash, so re-running against the same bytes appends comparable entries rather than
-    inventing unrelated ones.
+    **Upsert, not append.** ``SpendMeter.receipt()`` reports CUMULATIVE spend, so appending one
+    receipt per checkpoint makes the ledger sum wildly wrong: a 229-proposal run wrote 23
+    receipts whose naive total came to $74.49 against a true $14.35, because summing cumulative
+    snapshots double-counts and ``ledger_summary`` sums. One receipt per run id, replaced in
+    place, keeps mid-flight crash-safety without inflating the total.
     """
-    from dataforge.spend import append_receipt
+    from dataforge.spend import load_ledger
 
     ledger = Path("eval") / "results" / "spend_ledger.json"
+    run_id = f"calibrate-propose-{artifact.source_sha256[:12]}"
     try:
-        append_receipt(
-            ledger,
-            client.meter.receipt(  # type: ignore[attr-defined]
-                run_id=f"calibrate-propose-{artifact.source_sha256[:12]}",
-                method="calibrate_propose",
-                dataset=Path(artifact.source_path).name,
-                notes=(
-                    f"proposals={proposed}",
-                    f"samples={len(artifact.samples)}",
-                    "local calibration session; structured enum corrector",
-                ),
+        receipt = client.meter.receipt(  # type: ignore[attr-defined]
+            run_id=run_id,
+            method="calibrate_propose",
+            dataset=Path(artifact.source_path).name,
+            notes=(
+                f"proposals={proposed}",
+                f"samples={len(artifact.samples)}",
+                "local calibration session; structured enum corrector",
             ),
+        )
+        kept: list[dict[str, object]] = []
+        if ledger.exists():
+            kept = [r for r in load_ledger(ledger) if r.get("run_id") != run_id]
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        ledger.write_text(
+            json.dumps(
+                {
+                    "schema": "dataforge_spend_ledger_v1",
+                    "receipts": [*kept, receipt.to_payload()],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
         )
     except Exception as exc:  # noqa: BLE001 - a receipt failure must not hide the result
         _console.print(f"[yellow]WARNING: spend receipt not written: {exc}[/yellow]")
