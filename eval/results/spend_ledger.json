@@ -946,6 +946,44 @@
         "samples=441",
         "local calibration session; structured enum corrector"
       ]
+    },
+    {
+      "run_id": "ranker-arms-sol",
+      "utc": "2026-08-20T17:12:19+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 240,
+      "prompt_tokens": 69167,
+      "completion_tokens": 9317,
+      "reasoning_tokens": 7283,
+      "estimated_usd": 0.48559,
+      "cap_usd": 8.0,
+      "method": "ranker_arms_cross_dataset",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "datasets=['hospital']",
+        "regime=default"
+      ]
+    },
+    {
+      "run_id": "ranker-arms-sol-flights",
+      "utc": "2026-08-21T05:33:22+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 240,
+      "prompt_tokens": 45716,
+      "completion_tokens": 17037,
+      "reasoning_tokens": 14493,
+      "estimated_usd": 0.484135,
+      "cap_usd": 6.0,
+      "method": "ranker_arms_cross_dataset",
+      "dataset": "flights",
+      "git_sha": null,
+      "notes": [
+        "datasets=['flights']",
+        "regime=default"
+      ]
     }
   ]
 }

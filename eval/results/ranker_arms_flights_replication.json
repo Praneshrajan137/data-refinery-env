@@ -1,0 +1,3444 @@
+{
+  "schema": "dataforge_ranker_replication_v1",
+  "provider": "azure",
+  "model": "gpt-5.6-sol",
+  "authoritative": false,
+  "why_not_authoritative": "n=120 versus the committed n=300 in ranker_arms_cross_dataset.json. The larger sample is authoritative. This run is kept because it DISAGREES and that disagreement is evidence, not noise to be hidden: it found a clear positive effect for detector evidence on flights (delta CI [0.1055, 0.2018]) where the n=300 run found none (delta CI [-0.1834, 0.1293]). The CIs overlap only marginally (0.105-0.129). Do not cite this in place of the n=300 result; cite it as an unreplicated signal worth a properly powered rerun.",
+  "dataset": "flights",
+  "regime": "default (no inferred FD constraints)",
+  "committed_n300_for_comparison": {
+    "cells_scored": 300,
+    "arms": [
+      {
+        "arm": "llm_evidence_free",
+        "n": 300,
+        "positives": 283,
+        "natural_precision": 0.9433,
+        "roc_auc": 0.574,
+        "roc_auc_ci95": [
+          0.4613,
+          0.7035
+        ],
+        "precision_at_top_10pct": 0.9333,
+        "calls_per_cell": 1
+      },
+      {
+        "arm": "llm_with_detector_evidence",
+        "n": 300,
+        "positives": 283,
+        "natural_precision": 0.9433,
+        "roc_auc": 0.5458,
+        "roc_auc_ci95": [
+          0.4579,
+          0.6498
+        ],
+        "precision_at_top_10pct": 0.9667,
+        "calls_per_cell": 1
+      }
+    ],
+    "paired_delta_ci95_evidence_minus_bare": [
+      -0.1834,
+      0.1293
+    ],
+    "records": [
+      {
+        "row": 692,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1283,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 371,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1799,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2091,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1512,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1207,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1212,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2011,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1791,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 89,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1189,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2178,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 914,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1269,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1488,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1228,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 795,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1841,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 882,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1315,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 896,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2261,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1230,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1099,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 513,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 253,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 646,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1645,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 394,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1795,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1319,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2306,
+        "column": "flight",
+        "issue_type": "entity_consensus",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 826,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 209,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1564,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1538,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1549,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 884,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1229,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1803,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 165,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1569,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2010,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 888,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 582,
+        "column": "act_dep_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 135,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1110,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2127,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1290,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 733,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1191,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 74,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 218,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 750,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 470,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1407,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 504,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 785,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1295,
+        "column": "sched_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2072,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1955,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 101,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 704,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1098,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 672,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1026,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2317,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1550,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1043,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 300,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 958,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 202,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1587,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 670,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2200,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 960,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 433,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1547,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2060,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 513,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 224,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 423,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 374,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 144,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1170,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1483,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1211,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2209,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 789,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2207,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 768,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2304,
+        "column": "flight",
+        "issue_type": "entity_consensus",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1182,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 661,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2326,
+        "column": "act_dep_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 334,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1525,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 339,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 454,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1819,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1265,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1175,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1279,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1515,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2273,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 266,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2059,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 144,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 390,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 408,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 88,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1572,
+        "column": "sched_dep_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1307,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1499,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 315,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 848,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1775,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1317,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1078,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2163,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1280,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 425,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1496,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1652,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 800,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1545,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1417,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 134,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 148,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2200,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2231,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2172,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 582,
+        "column": "act_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 799,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 880,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1204,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 946,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 489,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1422,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 820,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 105,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2297,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1597,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1482,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 387,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1489,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1721,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 447,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 111,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1996,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1829,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 316,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 795,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 809,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 474,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 156,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 152,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 188,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1583,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 943,
+        "column": "act_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 505,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 68,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 492,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2169,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 31,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2005,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 126,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1818,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1296,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 956,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1920,
+        "column": "act_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1498,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1116,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1561,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 751,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2083,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 130,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1137,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1192,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1514,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1214,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 83,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2224,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1578,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1311,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 961,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2105,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2228,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2123,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1099,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1388,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1590,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1769,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2256,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 742,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 411,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1292,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2016,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2038,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1596,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 366,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2257,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1582,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1967,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 771,
+        "column": "sched_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 442,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 88,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1555,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1677,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2159,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 806,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 205,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 795,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 308,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1235,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2021,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1628,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 915,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1519,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1779,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 84,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2177,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1316,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 357,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 122,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2126,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1125,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 76,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1204,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1202,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1601,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1594,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 132,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 805,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1146,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 706,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 364,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 167,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1178,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 115,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 633,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1817,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 366,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 95,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1571,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 333,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1791,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2355,
+        "column": "act_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1268,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 342,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1951,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2117,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 32,
+        "column": "sched_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 158,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 761,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1657,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 446,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2058,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 755,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1532,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1814,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1491,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1172,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 225,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2226,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1323,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1636,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 506,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1615,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1767,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1310,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2109,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 365,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 33,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1125,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 646,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 742,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2013,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 151,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 424,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 170,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 269,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 644,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 333,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1636,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 58,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1600,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 446,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2125,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 783,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 382,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1296,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1413,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1929,
+        "column": "act_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1091,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 804,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 154,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 367,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2302,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      }
+    ]
+  },
+  "this_run_n120": {
+    "cells_scored": 120,
+    "arms": [
+      {
+        "arm": "llm_evidence_free",
+        "n": 120,
+        "positives": 114,
+        "natural_precision": 0.95,
+        "roc_auc": 0.6272,
+        "roc_auc_ci95": [
+          0.587,
+          0.6712
+        ],
+        "precision_at_top_10pct": 1.0,
+        "calls_per_cell": 1
+      },
+      {
+        "arm": "llm_with_detector_evidence",
+        "n": 120,
+        "positives": 114,
+        "natural_precision": 0.95,
+        "roc_auc": 0.7807,
+        "roc_auc_ci95": [
+          0.7353,
+          0.8274
+        ],
+        "precision_at_top_10pct": 1.0,
+        "calls_per_cell": 1
+      }
+    ],
+    "paired_delta_ci95_evidence_minus_bare": [
+      0.1055,
+      0.2018
+    ],
+    "records": [
+      {
+        "row": 692,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1283,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 371,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1799,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2091,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1512,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1207,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1212,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2011,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1791,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 89,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1189,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2178,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 914,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1269,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1488,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1228,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 795,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1841,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 882,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1315,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 896,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2261,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1230,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1099,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 513,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 253,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 646,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1645,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 394,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1795,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1319,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2306,
+        "column": "flight",
+        "issue_type": "entity_consensus",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 826,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 209,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1564,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1538,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1549,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 884,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1229,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1803,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 165,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1569,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2010,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 888,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 582,
+        "column": "act_dep_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 135,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1110,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2127,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1290,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 733,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1191,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 74,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 218,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 750,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 470,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1407,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 504,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 785,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1295,
+        "column": "sched_arr_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2072,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1955,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 101,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 704,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1098,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 672,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1026,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2317,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1550,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1043,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 300,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 958,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 202,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1587,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 670,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2200,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 960,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 433,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1547,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2060,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 513,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 224,
+        "column": "sched_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 423,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 374,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 144,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1170,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1483,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1211,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2209,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 789,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2207,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 768,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 2304,
+        "column": "flight",
+        "issue_type": "entity_consensus",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1182,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 661,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2326,
+        "column": "act_dep_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 334,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1525,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 339,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 454,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1819,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1265,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1175,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1279,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1515,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2273,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 266,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 2059,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 144,
+        "column": "tuple_id",
+        "issue_type": "decimal_shift",
+        "label": false,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 390,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 408,
+        "column": "sched_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 88,
+        "column": "act_arr_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 1572,
+        "column": "sched_dep_time",
+        "issue_type": "format_violation",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1307,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1499,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 315,
+        "column": "act_dep_time",
+        "issue_type": "missing_value",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 0.0
+      },
+      {
+        "row": 848,
+        "column": "sched_arr_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1775,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1317,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 0.0,
+        "score_with_evidence": 1.0
+      },
+      {
+        "row": 1078,
+        "column": "sched_dep_time",
+        "issue_type": "entity_consensus",
+        "label": true,
+        "score_evidence_free": 1.0,
+        "score_with_evidence": 1.0
+      }
+    ]
+  },
+  "estimated_usd": 0.4841
+}

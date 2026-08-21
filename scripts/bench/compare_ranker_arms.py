@@ -246,6 +246,31 @@ def main() -> int:
             "estimated_usd": round(client.cumulative_usd, 6),
         }
         _ARTIFACT.parent.mkdir(parents=True, exist_ok=True)
+        # MERGE rather than overwrite. This script writes only the datasets it just ran, so a
+        # single-dataset rerun used to silently DELETE every other dataset from the committed
+        # artifact. That happened twice in one session: a `--datasets hospital flights` run
+        # that was interrupted replaced the committed n=300 hospital/flights/rayyan results
+        # with a partial n=120 hospital entry, and a later `--datasets flights` run reduced
+        # the file to flights alone. Both destroyed committed paid measurements, and the
+        # second one was briefly mistaken for the baseline.
+        #
+        # Preserving prior datasets keeps the destruction impossible; a rerun of the SAME
+        # dataset still replaces that dataset's entry, which is the intended behaviour.
+        if _ARTIFACT.exists():
+            try:
+                previous = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
+                prior_datasets = previous.get("datasets")
+                if isinstance(prior_datasets, dict):
+                    kept = {k: v for k, v in prior_datasets.items() if k not in datasets}
+                    if kept:
+                        payload["datasets"] = {**kept, **datasets}
+                        payload["merged_with_prior_datasets"] = sorted(kept)
+                        print(
+                            f"  preserved prior datasets: {sorted(kept)} "
+                            "(rerun replaced only the datasets it measured)"
+                        )
+            except (OSError, json.JSONDecodeError) as exc:
+                print(f"  WARNING: could not read prior artifact to merge: {exc}")
         _ARTIFACT.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         _upsert_receipt(
             client.meter.receipt(
