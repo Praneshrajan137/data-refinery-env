@@ -21,6 +21,7 @@ from rich.table import Table
 from dataforge.calibration import table_fingerprint
 from dataforge.calibration_session import (
     CalibrationSessionArtifact,
+    SessionCertification,
     build_calibration_session,
     calibration_dir_for,
     dump_calibration_session,
@@ -192,7 +193,12 @@ def _write_propose_receipt(
     from dataforge.spend import load_ledger
 
     ledger = Path("eval") / "results" / "spend_ledger.json"
-    run_id = f"calibrate-propose-{artifact.source_sha256[:12]}"
+    # Keyed on the SESSION, not the table. Keying on the source hash alone meant a second
+    # `--reset` run on the same file replaced the first run's receipt, so the ledger understated
+    # real spend by an entire run -- the mirror image of the historical 5x overstatement, and the
+    # same class of defect: a receipt key that does not identify what it is a receipt for.
+    session_key = artifact.session_id or artifact.source_sha256[:12]
+    run_id = f"calibrate-propose-{session_key}"
     try:
         receipt = client.meter.receipt(  # type: ignore[attr-defined]
             run_id=run_id,
@@ -223,10 +229,47 @@ def _write_propose_receipt(
         _console.print(f"[yellow]WARNING: spend receipt not written: {exc}[/yellow]")
 
 
-def _render(artifact: CalibrationSessionArtifact, queue_counts: dict[str, int]) -> None:
+def _render_certification(certification: SessionCertification) -> None:
+    """Print the certification outcome, including the label-noise term when it applies."""
+    table = Table(title="Local certification")
+    table.add_column("Issue type")
+    table.add_column("Threshold", justify="right")
+    table.add_column("Outcome")
+    for issue_type in sorted(certification.thresholds):
+        threshold = certification.thresholds[issue_type]
+        certified = issue_type in certification.certified_classes
+        table.add_row(
+            issue_type,
+            "abstain" if not certified else f"{threshold:.2f}",
+            "CERTIFIED" if certified else certification.reasons.get(issue_type, "not certified"),
+        )
+    Console().print(table)
+    if certification.label_noise_adjusted:
+        _console.print(
+            f"[dim]Label-noise adjusted: {certification.label_noise_false_accepts} of "
+            f"{certification.label_noise_controls} planted controls were wrongly accepted, so "
+            f"your false-accept rate is bounded at beta <= {certification.beta_upper:.4f} and "
+            f"the error bound is inflated by 1/(1-beta).[/dim]"
+        )
+        _console.print(f"[dim]{certification.beta_scope_note}[/dim]")
+    else:
+        _console.print(
+            "[yellow]label_source=oracle: no label-noise adjustment was applied. This "
+            "certificate is conditional on those verdicts being ground truth, and it does NOT "
+            "transfer to human labelling.[/yellow]"
+        )
+
+
+def _render(
+    artifact: CalibrationSessionArtifact,
+    queue_counts: dict[str, int],
+    *,
+    blind: bool = False,
+) -> None:
     """Render the measured per-class precision, or explain why there is nothing to show."""
     rows = summarize_calibration(artifact, queue_counts=queue_counts)
     labelled_total = len(artifact.labelled())
+    pending_controls = len(artifact.planted_controls) - len(artifact.labelled_controls())
     if not labelled_total:
         _console.print(
             f"[yellow]{len(artifact.samples)} cells sampled from "
@@ -234,6 +277,11 @@ def _render(artifact: CalibrationSessionArtifact, queue_counts: dict[str, int]) 
             "Label them with --label ROW:COLUMN=error|correct, then rerun to see measured "
             "precision for your table.[/yellow]"
         )
+        if pending_controls:
+            _console.print(
+                f"[yellow]{pending_controls} planted controls are also awaiting judgement. "
+                "They look like ordinary items and that is deliberate.[/yellow]"
+            )
         return
 
     table = Table(title=f"Measured precision on {Path(artifact.source_path).name}")
@@ -270,6 +318,20 @@ def _render(artifact: CalibrationSessionArtifact, queue_counts: dict[str, int]) 
         "Certification of auto-apply needs 59 all-correct accepted samples in a single "
         "class; see docs/trust/certification-promises.md.[/dim]"
     )
+    if artifact.label_source == "human" and not artifact.planted_controls:
+        _console.print(
+            "[yellow]No planted controls. Human verdicts carry a false-accept rate, and "
+            "certification will refuse without a measured bound on it -- a certified 0.05 is "
+            "really 0.10 at beta=0.5. Add --plant-controls 30. "
+            "See docs/trust/human-label-noise.md.[/yellow]"
+        )
+    elif pending_controls:
+        _console.print(f"[dim]{pending_controls} planted controls still awaiting judgement.[/dim]")
+    if blind:
+        _console.print(
+            "[dim]--blind: proposed values are hidden. Write down the value you believe is "
+            "correct before revealing them, so your verdict is not anchored on the machine's.[/dim]"
+        )
 
 
 def calibrate(
@@ -328,6 +390,52 @@ def calibrate(
     json_output: Annotated[
         bool, typer.Option("--json", help="Print the session and measured precision as JSON.")
     ] = False,
+    label_source: Annotated[
+        str,
+        typer.Option(
+            "--label-source",
+            help="Who is adjudicating: 'human' or 'oracle'. REQUIRED to be accurate, not "
+            "convenient. Human verdicts carry a false-accept rate, so certification refuses "
+            "them without planted controls (see --plant-controls). Declare 'oracle' only when "
+            "the verdicts come from retained ground truth.",
+        ),
+    ] = "human",
+    plant_controls_count: Annotated[
+        int,
+        typer.Option(
+            "--plant-controls",
+            min=0,
+            help="Mix N known-wrong items into the labelling stream to bound YOUR false-accept "
+            "rate. Certification on human labels requires these: if you ratify a wrong repair "
+            "with probability beta, the true error rate is measured/(1-beta), so a certified "
+            "0.05 is really 0.10 at beta=0.5. 30 is the budget optimum.",
+        ),
+    ] = 0,
+    label_control: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--label-control",
+            help="Judge a planted control as ROW:COLUMN=correct|error. 'correct' means you "
+            "accepted a known-wrong value -- a false accept. Repeatable.",
+        ),
+    ] = None,
+    blind: Annotated[
+        bool,
+        typer.Option(
+            "--blind",
+            help="Do not display proposed replacement values. Use this to label by writing down "
+            "the correct value yourself before seeing the machine's answer, which removes the "
+            "anchoring that drives automation bias.",
+        ),
+    ] = False,
+    certify: Annotated[
+        bool,
+        typer.Option(
+            "--certify",
+            help="Attempt local certification from the repair verdicts gathered so far. Refuses "
+            "when --label-source=human and no planted control has been labelled.",
+        ),
+    ] = False,
 ) -> None:
     """Measure DataForge's precision on your table by labelling a small random sample.
 
@@ -338,6 +446,12 @@ def calibrate(
     assumption that defeats benchmark-derived guarantees is satisfied by construction.
     """
     resolved_path = resolve_cli_path(path)
+    if label_source not in {"human", "oracle"}:
+        _console.print(
+            f"[bold red]--label-source must be 'human' or 'oracle'; got {label_source!r}."
+            "[/bold red]"
+        )
+        raise typer.Exit(code=2)
     parsed_schema = load_schema(schema) if schema is not None else None
     df = read_csv(resolved_path)
     issues = run_all_detectors(df, parsed_schema)
@@ -384,6 +498,26 @@ def calibrate(
             fd_detection_source="declared" if parsed_schema is not None else "none",
             per_class=per_class,
             seed=seed,
+            label_source=label_source,  # type: ignore[arg-type]
+        )
+
+    if plant_controls_count:
+        from dataforge.calibration_session import plant_controls as _plant
+
+        # Pass the FULL detector output, not just the sampled cells, so a plant never lands on a
+        # cell some detector independently considers broken -- otherwise its "withheld truth"
+        # would be a value the system itself disputes.
+        artifact = _plant(
+            artifact,
+            df,
+            count=plant_controls_count,
+            seed=seed,
+            flagged_cells=[(issue.row, issue.column) for issue in issues],
+        )
+        _console.print(
+            f"[green]Planted {len(artifact.planted_controls)} known-wrong controls.[/green] "
+            "They are indistinguishable from real items on purpose. Judge them with "
+            "--label-control ROW:COLUMN=correct|error."
         )
 
     if label:
@@ -430,8 +564,33 @@ def calibrate(
             _console.print(f"[bold red]Could not record repair verdict:[/bold red] {exc}")
             raise typer.Exit(code=2) from exc
 
+    if label_control:
+        from dataforge.calibration_session import label_planted_control
+
+        try:
+            for row, column, decision in _parse_labels(label_control, flag="--label-control"):
+                artifact = label_planted_control(
+                    artifact,
+                    row=row,
+                    column=column,
+                    decision="correct" if decision == "correct" else "error",
+                )
+        except (ValueError, KeyError) as exc:
+            _console.print(f"[bold red]Could not record control verdict:[/bold red] {exc}")
+            raise typer.Exit(code=2) from exc
+
     session_path.parent.mkdir(parents=True, exist_ok=True)
     session_path.write_text(dump_calibration_session(artifact), encoding="utf-8")
+
+    certification = None
+    certification_error: str | None = None
+    if certify:
+        from dataforge.calibration_session import certify_from_session
+
+        try:
+            certification = certify_from_session(artifact)
+        except ValueError as exc:
+            certification_error = str(exc)
 
     if json_output:
         typer.echo(
@@ -443,6 +602,10 @@ def calibrate(
                         entry.model_dump(mode="json")
                         for entry in summarize_calibration(artifact, queue_counts=queue_counts)
                     ],
+                    "certification": (
+                        certification.model_dump(mode="json") if certification else None
+                    ),
+                    "certification_error": certification_error,
                 },
                 indent=2,
                 sort_keys=True,
@@ -450,6 +613,10 @@ def calibrate(
         )
         raise typer.Exit(code=0)
 
-    _render(artifact, queue_counts)
+    _render(artifact, queue_counts, blind=blind)
+    if certification_error:
+        _console.print(f"[bold red]Cannot certify:[/bold red] {certification_error}")
+    elif certification is not None:
+        _render_certification(certification)
     _console.print(f"[dim]Session: {session_path}[/dim]")
     raise typer.Exit(code=0)

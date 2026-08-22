@@ -35,7 +35,11 @@ __all__ = [
     "LabeledSample",
     "ABSTAIN_THRESHOLD",
     "split_by_class",
+    "feasible_candidate_sequence",
     "certify_threshold",
+    "label_noise_adjusted_bound",
+    "min_samples_under_label_noise",
+    "certify_threshold_under_label_noise",
     "certify_thresholds_by_class",
     "certified_coverage_report",
     "population_stability_index",
@@ -109,6 +113,77 @@ def split_by_class(
     return calibration, test
 
 
+def feasible_candidate_sequence(
+    confidences: Sequence[float],
+    *,
+    grid: Sequence[float],
+    alpha: float,
+    delta: float = 0.05,
+    min_support: int = 30,
+) -> list[float]:
+    """Prune grid points that are arithmetically incapable of certifying, then order descending.
+
+    Why this exists
+    ---------------
+    :func:`certify_threshold` walks its candidates purest-first and ``break`` s on the first
+    tested failure. That is a valid fixed-sequence test, but the descending order runs from the
+    grid point with the **least** statistical power toward the most. With zero observed errors
+    the Clopper-Pearson upper bound is ``1 - delta**(1/n)``, so
+    ``min_samples_for_certification(alpha, delta)`` accepted samples is a hard floor -- 59 at
+    ``alpha = delta = 0.05``. A top grid point that slices only a few dozen samples off the tail
+    therefore **cannot clear the bound however perfect its record**, and by failing it halts the
+    sequence before any better-supported threshold is ever tested. A flawless record at a high
+    threshold destroys certification of every lower one.
+
+    This function removes exactly those hopeless points. A grid point survives only if its
+    accepted count reaches both ``min_support`` and the Clopper-Pearson floor, i.e. only if some
+    label assignment could make it certify. Nothing that could have certified is removed.
+
+    Why this does not compromise validity
+    -------------------------------------
+    Fixed-sequence testing requires the candidate sequence to be pre-specified **independently of
+    the labels**. It does not require it to be independent of the *confidences*, and this pruning
+    reads only confidences:
+
+    * ``n(t) = #{i : conf_i >= t}`` is a function of the confidences alone;
+    * conditional on the confidences, the accepted-set labels are independent Bernoulli and the
+      accepted set is confidence-measurable;
+    * so the family-wise ``delta`` claim holds conditionally on the confidences, hence marginally.
+
+    This is the same latitude Mondrian conformal prediction already takes when it allows the
+    taxonomy to depend on the covariates. Selecting a threshold using the **labels** -- picking
+    whichever minimises observed errors, say -- would break validity, and that boundary is
+    enforced by ``tests/unit/test_threshold_selection_label_independence.py`` rather than argued
+    in prose.
+
+    Pruning can only *increase* power, never soften the guarantee: a surviving point still has to
+    pass the same exact Clopper-Pearson test at the same ``delta`` before it certifies.
+
+    Args:
+        confidences: The calibration confidences. **Labels must not be passed here** -- the
+            signature takes bare floats precisely so a label cannot reach this function.
+        grid: The pre-specified candidate thresholds.
+        alpha: Target accepted-set error rate, used only for the feasibility floor.
+        delta: Failure probability, used only for the feasibility floor.
+        min_support: Minimum accepted-sample count a threshold must reach.
+
+    Returns:
+        The surviving thresholds in descending order. Empty when no grid point can certify, which
+        is the honest signal that this class needs more labels rather than a different threshold.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1); got {alpha}")
+    if not 0.0 < delta < 1.0:
+        raise ValueError(f"delta must be in (0, 1); got {delta}")
+    floor = max(int(min_support), min_samples_for_certification(alpha, delta))
+    values = [float(conf) for conf in confidences]
+    return [
+        threshold
+        for threshold in sorted({float(value) for value in grid}, reverse=True)
+        if sum(1 for conf in values if conf >= threshold) >= floor
+    ]
+
+
 def certify_threshold(
     calibration: Sequence[LabeledSample],
     *,
@@ -116,6 +191,7 @@ def certify_threshold(
     delta: float = 0.05,
     min_support: int = 30,
     grid: Sequence[float] | None = None,
+    prune_infeasible: bool = False,
 ) -> float | None:
     """Certify the lowest confidence threshold whose auto-apply error <= alpha.
 
@@ -146,6 +222,15 @@ def certify_threshold(
     distribution-free guarantee. Pass an explicit ``grid`` to obtain the guarantee
     exactly as stated.
 
+    **The descending order is a power defect, and ``prune_infeasible`` is the fix.**
+    The sequence runs from the grid point with the least statistical power toward the
+    most, so a thinly-populated top point fails on the Clopper-Pearson floor -- even
+    with a flawless record -- and halts the walk before any well-supported threshold
+    is reached. Set ``prune_infeasible=True`` to drop candidates that cannot certify
+    at any label assignment; see :func:`feasible_candidate_sequence` for why reading
+    the confidences to do so preserves validity. It defaults to ``False`` so no
+    committed benchmark number changes silently.
+
     Args:
         calibration: ``(confidence, was_correct)`` pairs from a held-out
             calibration split - never the samples used to report final metrics.
@@ -156,6 +241,9 @@ def certify_threshold(
         grid: Optional pre-specified, label-independent candidate thresholds, tested
             in descending order. Supplying this is what makes the FWER claim exact;
             omitting it falls back to the observed confidences (see the caveat above).
+        prune_infeasible: Drop grid points whose accepted count cannot reach the
+            Clopper-Pearson floor. Requires ``grid``; raises otherwise, because
+            pruning a label-derived grid would compound two selection effects.
 
     Returns:
         The lowest certified confidence threshold, or ``None`` if none can be
@@ -165,6 +253,12 @@ def certify_threshold(
         raise ValueError(f"alpha must be in (0, 1); got {alpha}")
     if not 0.0 < delta < 1.0:
         raise ValueError(f"delta must be in (0, 1); got {delta}")
+    if prune_infeasible and grid is None:
+        raise ValueError(
+            "prune_infeasible=True requires an explicit label-independent grid; "
+            "pruning a grid already derived from the data would compound two "
+            "selection effects and forfeit the family-wise guarantee."
+        )
     if not calibration:
         return None
 
@@ -173,11 +267,19 @@ def certify_threshold(
     # grid is label-independent and therefore makes the FWER claim exact; the fallback
     # derives candidates from observed confidences, which is data-dependent selection
     # (see the validity caveat in the docstring).
-    candidates = (
-        sorted({float(value) for value in grid}, reverse=True)
-        if grid is not None
-        else sorted({conf for conf, _ in calibration}, reverse=True)
-    )
+    if grid is None:
+        candidates = sorted({conf for conf, _ in calibration}, reverse=True)
+    elif prune_infeasible:
+        # Reads confidences only -- never labels. That is what keeps this valid.
+        candidates = feasible_candidate_sequence(
+            [conf for conf, _ in calibration],
+            grid=grid,
+            alpha=alpha,
+            delta=delta,
+            min_support=min_support,
+        )
+    else:
+        candidates = sorted({float(value) for value in grid}, reverse=True)
     for threshold in candidates:
         accepted = [correct for conf, correct in calibration if conf >= threshold]
         n = len(accepted)
@@ -188,6 +290,224 @@ def certify_threshold(
             certified = threshold  # keep lowering; last certified = max coverage
         else:
             break  # first non-rejection halts the fixed sequence (FWER control)
+    return certified
+
+
+def label_noise_adjusted_bound(
+    errors: int,
+    n: int,
+    *,
+    false_accepts: int,
+    controls: int,
+    delta: float = 0.05,
+) -> tuple[float, float, float]:
+    """Bound the true error rate when the labels themselves are a noisy human judgement.
+
+    The problem
+    -----------
+    Certification measures ``p_tilde``, the error rate **as judged by whoever labelled**. When
+    that judge is a human ratifying a machine's proposed value, the two mistakes are not
+    symmetric. Write ``beta`` for the false-accept rate (the human calls a wrong repair correct)
+    and ``gamma`` for the false-reject rate. Then::
+
+        p_tilde = p (1 - beta) + (1 - p) gamma
+        p       = (p_tilde - gamma) / (1 - beta - gamma)
+
+    **``gamma = 0`` is the conservative choice, and that is derived, not assumed.**
+    ``d p / d gamma`` has the sign of ``p_tilde - 1 + beta``, which is negative whenever
+    ``beta < 1 - p_tilde`` -- true throughout the regime of interest, where ``p_tilde`` is a few
+    percent. So ``p`` is *decreasing* in ``gamma``, and taking ``gamma = 0`` yields the largest
+    admissible ``p``::
+
+        p <= p_tilde / (1 - beta)
+
+    The consequence is a factor, not a rounding error: certifying a measured 0.05 actually
+    delivers 0.0625 at ``beta = 0.2`` and **0.10 at ``beta = 0.5``** -- double the advertised
+    budget. And automation bias pushes the noise in exactly that direction, because a labeller
+    shown the machine's answer and asked "is this right?" is performing an acquiescence-biased
+    ratification, so ``beta >> gamma`` by construction.
+
+    Why the label-noise literature does not rescue this
+    ---------------------------------------------------
+    Einbinder, Feldman, Bates, Angelopoulos, Gendler and Romano (arXiv:2209.14295, JMLR) show
+    risk control under label noise is conservative "whenever the noise is dispersive and
+    increases variability", and vulnerable to noise that *reduces* apparent uncertainty. Their
+    positive results for general losses cover the false-negative rate in multi-label
+    classification and segmentation under a vector-flip model with ``P(flip) < 0.5`` -- not a
+    scalar accept/reject loss on a machine-proposed value. So the guarantee survives only under a
+    condition this application systematically violates, which is why ``beta`` must be measured
+    rather than hoped for.
+
+    How ``beta`` is bounded
+    -----------------------
+    By **planted controls**: queue items whose wrongness is known by construction, mixed into the
+    labelling stream. Every "correct" verdict on one is an observed false accept. ``delta`` is
+    split evenly across the two bounds so their union still holds at ``1 - delta``.
+
+    **Scope, and it is not a footnote.** This estimates ``beta`` on the *plant* distribution, not
+    on the corrector's real error distribution. If plants are easier to reject than genuine
+    corrector mistakes, ``beta`` is understated and the adjusted bound is still anti-conservative
+    -- a rigorous-looking guarantee that is not one. Callers must draw plants from the column's
+    own empirical values and must record the estimate as plant-scoped. See
+    ``docs/trust/human-label-noise.md``.
+
+    Args:
+        errors: Observed labelled errors in the accepted set.
+        n: Accepted-set size.
+        false_accepts: Planted controls the labeller wrongly accepted.
+        controls: Planted controls labelled in total.
+        delta: Total failure probability, split ``delta/2`` per bound.
+
+    Returns:
+        ``(measured_bound, beta_upper, adjusted_bound)``. ``adjusted_bound`` is 1.0 when
+        ``beta_upper >= 1``, which is the honest reading of "the controls say nothing".
+
+    Raises:
+        ValueError: If ``controls`` is zero. There is no defensible default for ``beta``:
+            assuming 0 silently republishes the unadjusted bound under a name that implies it was
+            checked.
+    """
+    if not 0.0 < delta < 1.0:
+        raise ValueError(f"delta must be in (0, 1); got {delta}")
+    if n <= 0:
+        raise ValueError(f"n must be positive; got {n}")
+    if controls <= 0:
+        raise ValueError(
+            "label-noise adjustment requires at least one planted control. Assuming beta = 0 "
+            "would republish the unadjusted bound as if it had been checked, which is the "
+            "failure this function exists to prevent."
+        )
+    if not 0 <= false_accepts <= controls:
+        raise ValueError(f"false_accepts must be in [0, {controls}]; got {false_accepts}")
+    half = delta / 2.0
+    measured = _clopper_pearson_upper(errors, n, half)
+    beta_upper = _clopper_pearson_upper(false_accepts, controls, half)
+    if beta_upper >= 1.0:
+        return measured, beta_upper, 1.0
+    adjusted = min(1.0, measured / (1.0 - beta_upper))
+    return measured, beta_upper, adjusted
+
+
+def min_samples_under_label_noise(
+    alpha: float,
+    *,
+    controls: int,
+    false_accepts: int = 0,
+    delta: float = 0.05,
+) -> int | None:
+    """Accepted-and-correct samples needed to certify ``alpha`` *after* the noise adjustment.
+
+    The honest data budget for a human-labelled certificate, and it is roughly double the naive
+    one. At ``alpha = delta = 0.05`` the naive floor is 59; with 30 clean controls it is 82, for
+    112 human judgements in total. At ``alpha = 0.10`` it is 40 plus 30 controls against a naive
+    29. Both are an afternoon of a data steward's attention, which is the whole reason this is
+    worth doing rather than abandoning.
+
+    Returns:
+        The required ``n``, or ``None`` when no finite ``n`` suffices -- which happens once
+        ``beta_upper >= alpha``-adjusted feasibility is lost, i.e. the controls admit so much
+        false-accept rate that the target is unreachable at any sample size. ``None`` is the
+        signal to collect more controls, not more labels.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1); got {alpha}")
+    if not 0.0 < delta < 1.0:
+        raise ValueError(f"delta must be in (0, 1); got {delta}")
+    if controls <= 0:
+        raise ValueError("controls must be positive")
+    half = delta / 2.0
+    beta_upper = _clopper_pearson_upper(false_accepts, controls, half)
+    if beta_upper >= 1.0:
+        return None
+    target = alpha * (1.0 - beta_upper)
+    if target <= 0.0 or target >= 1.0:
+        return None
+    # 1 - half**(1/n) <= target  <=>  n >= ln(half) / ln(1 - target)
+    return math.ceil(math.log(half) / math.log(1.0 - target))
+
+
+def certify_threshold_under_label_noise(
+    calibration: Sequence[LabeledSample],
+    *,
+    alpha: float,
+    false_accepts: int,
+    controls: int,
+    delta: float = 0.05,
+    min_support: int = 30,
+    grid: Sequence[float],
+    prune_infeasible: bool = True,
+) -> float | None:
+    """:func:`certify_threshold`, but testing the label-noise-adjusted bound.
+
+    Identical fixed-sequence logic -- purest-first over a label-independent grid, halting on the
+    first tested failure -- with :func:`label_noise_adjusted_bound` in place of the raw
+    Clopper-Pearson upper bound. Strictly more conservative than :func:`certify_threshold` at the
+    same ``alpha``, because the adjustment can only inflate the bound.
+
+    ``prune_infeasible`` defaults to ``True`` here, unlike in :func:`certify_threshold`. This
+    function is new, so there is no committed number for it to move, and the two changes are
+    deliberately paired: the pruning buys power and the noise term spends it on honesty, so the
+    net effect on the advertised guarantee is stricter rather than looser.
+    """
+    if not 0.0 < alpha < 1.0:
+        raise ValueError(f"alpha must be in (0, 1); got {alpha}")
+    if not calibration:
+        return None
+    # The support floor must match the bound this loop actually TESTS. Until 2026-08-22 both
+    # the pruning call and the loop guard used the naive floor -- ``min_support`` (30) in the
+    # loop, and ``min_samples_for_certification(alpha, delta)`` (59 at alpha=delta=0.05)
+    # inside ``feasible_candidate_sequence`` -- while the walk tested the noise-ADJUSTED
+    # bound, whose floor is 82 with 30 clean controls. So a threshold with 59-81 accepted
+    # samples was tested against a bound it could not arithmetically satisfy, failed, and
+    # BROKE the fixed sequence before reaching a coarser threshold that would have passed.
+    #
+    # Measured on a 70-at-0.99 / 70-at-0.90 all-correct calibration set at alpha=0.05 with
+    # 30 clean controls: before, the walk tested t=0.99 (n=70, adjusted bound 0.0580 > 0.05),
+    # broke, and returned None. After, t=0.99 is below the floor and skipped, t=0.90 (n=140,
+    # adjusted 0.0294) certifies.
+    #
+    # The two guards below are REDUNDANT -- either one alone produces the correct answer, as
+    # a mutation run confirmed: reverting just one leaves the test green, and only reverting
+    # both resurrects the ``None``. They are both kept because they fail differently. The
+    # pruning call is an optimisation that also keeps the candidate list honest for anything
+    # that inspects it; the loop guard is the correctness backstop for a caller that passes
+    # ``prune_infeasible=False``, which is the ONLY path where the loop guard is load-bearing
+    # on its own. ``test_the_naive_floor_would_have_broken_the_sequence`` records the
+    # arithmetic that separates the two floors so a future reverter sees the cause.
+    adjusted_floor = min_samples_under_label_noise(
+        alpha, controls=controls, false_accepts=false_accepts, delta=delta
+    )
+    if adjusted_floor is None:
+        # No finite n can certify: the controls admit too much false-accept rate. Collect
+        # more controls, not more labels. Returning None here rather than walking the grid
+        # keeps the "not certifiable" answer distinguishable from "certified nothing".
+        return None
+    effective_min_support = max(min_support, adjusted_floor)
+    candidates = (
+        feasible_candidate_sequence(
+            [conf for conf, _ in calibration],
+            grid=grid,
+            alpha=alpha,
+            delta=delta,
+            min_support=effective_min_support,
+        )
+        if prune_infeasible
+        else sorted({float(value) for value in grid}, reverse=True)
+    )
+    certified: float | None = None
+    for threshold in candidates:
+        accepted = [correct for conf, correct in calibration if conf >= threshold]
+        n = len(accepted)
+        if n < effective_min_support:
+            continue
+        errors = sum(1 for correct in accepted if not correct)
+        _, _, adjusted = label_noise_adjusted_bound(
+            errors, n, false_accepts=false_accepts, controls=controls, delta=delta
+        )
+        if adjusted <= alpha:
+            certified = threshold
+        else:
+            break
     return certified
 
 
@@ -288,6 +608,8 @@ def certification_reason(
     alpha: float,
     delta: float = 0.05,
     min_support: int = 30,
+    grid: Sequence[float] | None = None,
+    prune_infeasible: bool = False,
 ) -> str | None:
     """Explain why a class could NOT be certified, or ``None`` if it was.
 
@@ -296,9 +618,25 @@ def certification_reason(
     than a magic number. Distinguishes the two distinct causes: too few labelled
     outcomes (fixable by collecting data) versus a corrector too imprecise to certify
     even with the data on hand (fixable only by a better corrector).
+
+    ``grid`` and ``prune_infeasible`` must match whatever the *deciding* call to
+    :func:`certify_threshold` used. They are threaded rather than defaulted because a
+    reason computed under a different procedure than the decision is not an explanation,
+    it is a second opinion -- and it can disagree, reporting ``None`` ("it certified")
+    for a class the decision abstained on.
     """
     n = len(samples)
-    if certify_threshold(samples, alpha=alpha, delta=delta, min_support=min_support) is not None:
+    if (
+        certify_threshold(
+            samples,
+            alpha=alpha,
+            delta=delta,
+            min_support=min_support,
+            grid=grid,
+            prune_infeasible=prune_infeasible,
+        )
+        is not None
+    ):
         return None
     needed = min_samples_for_certification(alpha, delta)
     if n < min_support:

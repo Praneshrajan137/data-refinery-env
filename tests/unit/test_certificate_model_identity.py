@@ -50,6 +50,10 @@ def _session(count: int = 70) -> object:
         table_fingerprint="fp",
         fd_detection_source="none",
         per_class=count,
+        # Verdicts here are applied programmatically by `_label_all`, so there is no human
+        # false-accept rate to bound and no planted controls are needed. Human-labelled
+        # certification is covered by `tests/unit/test_label_noise_certification.py`.
+        label_source="oracle",
     )
 
 

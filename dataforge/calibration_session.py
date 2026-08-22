@@ -32,9 +32,11 @@ labels gathered on one file can never be silently credited to different bytes.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import random
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -42,6 +44,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from dataforge.detectors.base import Issue
+    from dataforge.table import Table
 
 CALIBRATION_SESSION_SCHEMA_VERSION: Literal["dataforge_calibration_session_v1"] = (
     "dataforge_calibration_session_v1"
@@ -54,6 +57,16 @@ CalibrationDecision = Literal["pending", "error", "correct"]
 #: How the sample was drawn. Only ``random_within_class`` yields an unbiased estimate; the
 #: field exists so a biased sample cannot masquerade as an unbiased one.
 SamplingStrategy = Literal["random_within_class"]
+
+#: Who produced the verdicts. This is **not** cosmetic metadata: it decides whether a
+#: label-noise adjustment is required. ``oracle`` labels come from retained ground truth and
+#: carry no false-accept rate; ``human`` labels do, and certifying them without a measured bound
+#: on that rate advertises an error budget the certificate cannot support.
+LabelSource = Literal["human", "oracle"]
+
+#: How a planted control's wrong value was produced. Kept explicit because the two classes have
+#: different claims to being distributionally like a real corrector error.
+PlantedControlOrigin = Literal["column_distribution", "corrector_generated"]
 
 _DEFAULT_PER_CLASS = 12
 _DEFAULT_SEED = 20260806
@@ -98,6 +111,49 @@ class CalibrationSample(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
 
 
+class PlantedControl(BaseModel):
+    """A queue item whose wrongness is known by construction, used to measure the labeller.
+
+    Why these exist
+    ---------------
+    Certification measures the error rate *as judged by the labeller*. If the labeller ratifies a
+    wrong repair with probability ``beta``, the true error rate is ``p_tilde / (1 - beta)``, so a
+    certified 0.05 can really be 0.10. Nothing in the labelling stream reveals ``beta``, because
+    every real item's truth is exactly what is being asked. A planted control breaks that
+    circularity: its correct value is known before the labeller sees it, so a ``correct`` verdict
+    on one is an *observed* false accept.
+
+    Construction requirements, which are load-bearing rather than stylistic
+    ---------------------------------------------------------------------
+    ``planted_value`` must be drawn from the **same column's own empirical values**, so the plant
+    is as plausible as a genuine corrector mistake. A plant that is obviously wrong measures the
+    labeller's attention, not their false-accept rate on hard cases, and would understate
+    ``beta`` -- leaving the adjusted bound anti-conservative while looking rigorous. That is the
+    category error this class is designed around, and it is recorded in
+    ``docs/trust/human-label-noise.md`` rather than left implicit.
+
+    ``origin`` distinguishes the two control classes deliberately kept side by side:
+
+    * ``column_distribution`` -- a value resampled from the column, plausible by construction;
+    * ``corrector_generated`` -- an actual wrong proposal the corrector made on a cell whose truth
+      is known, so at least one control class is distributionally identical to real errors.
+    """
+
+    row: int = Field(ge=0)
+    column: str = Field(min_length=1)
+    issue_type: str = Field(min_length=1)
+    flagged_value: str
+    #: The value shown to the labeller as the proposed repair. Known to be WRONG.
+    planted_value: str
+    #: The actual correct value, withheld from the labeller. Recorded so the plant is auditable.
+    withheld_truth: str
+    origin: PlantedControlOrigin
+    #: ``correct`` here means the labeller accepted a known-wrong value: a FALSE ACCEPT.
+    repair_decision: CalibrationDecision = "pending"
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+
 class CalibrationSessionArtifact(BaseModel):
     """Strict JSON artifact recording a per-table calibration session."""
 
@@ -120,13 +176,39 @@ class CalibrationSessionArtifact(BaseModel):
     #: certificate that does not name its model cannot be checked at all.
     corrector_provider: str | None = None
     corrector_model: str | None = None
+    #: Who adjudicated. **Required, with no default, on purpose.** A default would have to be one
+    #: of two wrong things: ``human`` breaks every oracle-labelled fixture, and ``oracle`` lets a
+    #: real user's session be certified as though their judgement were ground truth -- the exact
+    #: unsafe direction. Forcing every construction site to state it is the fail-closed option.
+    label_source: LabelSource
+    #: Identifies this *drawing* of the sample, not the table. Spend receipts are upserted by run
+    #: id to keep checkpoints from double-counting cumulative snapshots; keying that id on the
+    #: source hash alone made a second ``--reset`` run **overwrite** the first run's receipt, so
+    #: the ledger understated real spend by the whole first run. A per-session nonce distinguishes
+    #: "the same run checkpointing again" from "a genuinely new run on the same file".
+    session_id: str = ""
     samples: list[CalibrationSample] = Field(default_factory=list)
+    #: Known-wrong items mixed into the labelling stream to bound the labeller's false-accept
+    #: rate. Kept in a separate list from ``samples`` so a plant can never be certified *on*.
+    planted_controls: list[PlantedControl] = Field(default_factory=list)
 
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
 
     def labelled(self) -> list[CalibrationSample]:
         """Return only the samples the user has actually adjudicated."""
         return [sample for sample in self.samples if sample.decision != "pending"]
+
+    def labelled_controls(self) -> list[PlantedControl]:
+        """Return only the planted controls that carry a verdict."""
+        return [
+            control for control in self.planted_controls if control.repair_decision != "pending"
+        ]
+
+    def observed_false_accepts(self) -> int:
+        """Count planted controls the labeller accepted -- each one an observed false accept."""
+        return sum(
+            1 for control in self.labelled_controls() if control.repair_decision == "correct"
+        )
 
 
 class ClassPrecision(BaseModel):
@@ -189,6 +271,7 @@ def build_calibration_session(
     seed: int = _DEFAULT_SEED,
     corrector_provider: str | None = None,
     corrector_model: str | None = None,
+    label_source: LabelSource = "human",
 ) -> CalibrationSessionArtifact:
     """Draw a stratified random sample of flagged cells for adjudication.
 
@@ -261,6 +344,12 @@ def build_calibration_session(
         seed=seed,
         corrector_provider=corrector_provider,
         corrector_model=corrector_model,
+        label_source=label_source,
+        # Fresh nonce per drawing, so a --reset run is a distinct run for spend accounting.
+        session_id=hashlib.sha256(
+            f"{source_sha256}|{seed}|{per_class}|{len(best_per_cell)}|"
+            f"{datetime.now(UTC).isoformat()}".encode()
+        ).hexdigest()[:12],
         samples=samples,
     )
 
@@ -447,6 +536,19 @@ class SessionCertification(BaseModel):
     reasons: dict[str, str] = Field(default_factory=dict)
     certified_classes: list[str] = Field(default_factory=list)
     repair_labels_used: int = Field(ge=0)
+    #: Who adjudicated. A certificate that does not say cannot be checked.
+    label_source: LabelSource
+    #: Planted controls labelled, and how many the labeller wrongly accepted. Zero controls is
+    #: only permitted for ``oracle`` labels.
+    label_noise_controls: int = Field(default=0, ge=0)
+    label_noise_false_accepts: int = Field(default=0, ge=0)
+    #: Clopper-Pearson upper bound on the labeller's false-accept rate at ``delta/2``.
+    #: ``None`` for oracle labels, where there is no labeller to bound.
+    beta_upper: float | None = None
+    #: Whether the certified thresholds were tested against the noise-adjusted bound.
+    label_noise_adjusted: bool = False
+    #: The scope caveat, carried in the artifact rather than left to the reader's memory.
+    beta_scope_note: str | None = None
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     table_fingerprint: str
     #: The model whose proposals earned this certificate. A certificate is void under a
@@ -474,6 +576,177 @@ def repair_labelled_samples(
     ]
 
 
+def label_planted_control(
+    artifact: CalibrationSessionArtifact,
+    *,
+    row: int,
+    column: str,
+    decision: CalibrationDecision,
+) -> CalibrationSessionArtifact:
+    """Record the labeller's verdict on a planted control.
+
+    ``correct`` means the labeller **accepted a known-wrong value**: an observed false accept.
+    That polarity is the opposite of what the word suggests in most contexts, so it is spelled
+    out here and in :class:`PlantedControl`.
+    """
+    matched = False
+    updated: list[PlantedControl] = []
+    for control in artifact.planted_controls:
+        if control.row == row and control.column == column:
+            matched = True
+            updated.append(control.model_copy(update={"repair_decision": decision}))
+        else:
+            updated.append(control)
+    if not matched:
+        raise KeyError(f"no planted control at row {row}, column {column!r}")
+    return artifact.model_copy(update={"planted_controls": updated})
+
+
+def _corrupt_like_the_table(value: str, rng: random.Random) -> str:
+    """Produce a plausibly-corrupted version of ``value`` by single-character substitution.
+
+    Deliberately mirrors the corruption model of the table being calibrated. On hospital that is
+    substitution with a fixed character (``birminghxm`` for ``birmingham``), and matching it is
+    **correct here even though it is a known-easy artifact for detectors** -- the purpose is to
+    make a plant indistinguishable from a real item at presentation time, so the labeller cannot
+    identify controls by their shape. A plant that looks different from real work measures
+    attention, not the false-accept rate on genuine cases.
+    """
+    positions = [index for index, char in enumerate(value) if char.isalnum()]
+    if not positions:
+        return value + "x"
+    at = rng.choice(positions)
+    return value[:at] + ("x" if value[at] != "x" else "q") + value[at + 1 :]
+
+
+def plant_controls(
+    artifact: CalibrationSessionArtifact,
+    table: Table,
+    *,
+    count: int = 30,
+    seed: int = 20260821,
+    flagged_cells: Sequence[tuple[int, str]] | None = None,
+) -> CalibrationSessionArtifact:
+    """Mix known-wrong items into the labelling stream so the labeller can be measured.
+
+    How truth is obtained without an oracle
+    ---------------------------------------
+    This is the part that makes planted controls work on a user's table, where no ground truth
+    exists. Pick a cell **no detector flagged**, so its current value ``V`` is the best available
+    truth. Corrupt it ourselves into ``V'`` and show *that* as the flagged value. Because we
+    performed the corruption, ``V`` is known by construction. Then propose some ``W != V`` as the
+    repair. A labeller who marks that repair ``correct`` has accepted a wrong value.
+
+    The alternative -- showing an *uncorrupted* cell and proposing a replacement -- is easier to
+    reject, because a labeller can reason "the value already looks fine, so any replacement is
+    wrong" without engaging with the proposal at all. That would understate ``beta`` and leave the
+    adjusted bound anti-conservative while appearing rigorous. Corrupting first keeps the plant's
+    presentation identical to real work.
+
+    Scope this does NOT escape
+    --------------------------
+    ``beta`` remains an estimate on the plant distribution. Plants built here are
+    ``column_distribution``: ``W`` is resampled from the column's own observed values, so it is as
+    plausible as a real mistake, but it is not literally a corrector output. The stricter
+    ``corrector_generated`` class -- where ``W`` is an actual wrong proposal the corrector made on
+    one of these planted cells, and so is distributionally identical to real corrector errors --
+    is populated by the proposal pass, which needs the model. Report the two separately; never
+    pool them into one headline.
+
+    The unflagged-cell assumption, and which way it errs
+    ---------------------------------------------------
+    "Pick a cell no detector flagged" does NOT establish that ``V`` is correct. It establishes
+    that no detector *noticed* anything, and detector recall is well below 1 -- so some
+    selected cells are genuinely wrong and merely unflagged. The phrase "known by
+    construction" above applies to ``V`` being the pre-corruption value, which we did observe;
+    it does not extend to ``V`` being the true value, which we never establish.
+
+    This assumption errs CONSERVATIVE, which is why it is recorded rather than fixed. Suppose a
+    selected cell's ``V`` is in fact wrong and the proposed ``W`` happens to be right. A
+    labeller who accepts ``W`` has then judged correctly, but this module counts the
+    acceptance as a false accept, because it scores against ``V``. So the effect is to
+    OVER-count false accepts, inflating ``beta_upper``, inflating the adjusted bound, and
+    making certification harder. The bias runs toward refusing to certify, never toward
+    certifying something unsound -- the direction the asymmetric cost of a silent bad write
+    demands.
+
+    The magnitude is second-order: it is bounded by the probability that an unflagged cell is
+    wrong AND the resampled ``W`` is its true value, and ``W`` is drawn from the column's
+    observed values without regard to the row. Do not report a tightened ``beta`` by
+    subtracting an estimate of this term; that would trade a conservative bound for a modelled
+    one, which is the opposite of the point.
+
+    Args:
+        artifact: The session to extend. Existing controls are replaced, not appended to, so
+            repeated calls are idempotent rather than silently inflating the control count.
+        table: The table, used to source both the clean cells and the replacement values.
+        count: Controls to plant.
+        seed: Recorded via the artifact's own seed discipline; passed explicitly for determinism.
+        flagged_cells: ``(row, column)`` pairs to avoid. Defaults to the sampled cells, but the
+            caller should pass the **full** detector output so a plant never lands on a cell some
+            detector independently considers broken.
+
+    Returns:
+        The session with ``planted_controls`` set. All verdicts start ``pending``.
+    """
+    rng = random.Random(seed)
+    avoid = set(flagged_cells) if flagged_cells is not None else set()
+    avoid.update((sample.row, sample.column) for sample in artifact.samples)
+
+    columns = list(table.columns)
+    if not columns or table.empty:
+        return artifact.model_copy(update={"planted_controls": []})
+
+    # Candidate clean cells: not flagged, non-empty, and in a column with >= 2 distinct values so
+    # a *different* replacement exists.
+    values_by_column: dict[str, list[str]] = {}
+    for column in columns:
+        distinct = sorted(
+            {table.cell(row, column) for row in table.index if table.cell(row, column).strip()}
+        )
+        if len(distinct) >= 2:
+            values_by_column[column] = distinct
+    if not values_by_column:
+        return artifact.model_copy(update={"planted_controls": []})
+
+    candidates: list[tuple[int, str, str]] = []
+    for column in values_by_column:
+        for row in table.index:
+            value = table.cell(row, column)
+            if not value.strip() or (row, column) in avoid:
+                continue
+            candidates.append((row, column, value))
+    if not candidates:
+        return artifact.model_copy(update={"planted_controls": []})
+    rng.shuffle(candidates)
+
+    controls: list[PlantedControl] = []
+    used: set[tuple[int, str]] = set()
+    issue_types = sorted({sample.issue_type for sample in artifact.samples}) or ["type_mismatch"]
+    for row, column, truth in candidates:
+        if len(controls) >= count:
+            break
+        if (row, column) in used:
+            continue
+        pool = [value for value in values_by_column[column] if value != truth]
+        if not pool:
+            continue
+        used.add((row, column))
+        controls.append(
+            PlantedControl(
+                row=row,
+                column=column,
+                # Wear the same issue type as real work so the plant is not identifiable by label.
+                issue_type=issue_types[len(controls) % len(issue_types)],
+                flagged_value=_corrupt_like_the_table(truth, rng),
+                planted_value=rng.choice(pool),
+                withheld_truth=truth,
+                origin="column_distribution",
+            )
+        )
+    return artifact.model_copy(update={"planted_controls": controls})
+
+
 def certify_from_session(
     artifact: CalibrationSessionArtifact,
     *,
@@ -494,12 +767,29 @@ def certify_from_session(
     authorize overwriting cells with unvalidated replacements, so this function refuses to
     look at them.
 
+    **Human labels require measured planted controls.** Exchangeability is not the only
+    assumption a per-table certificate rests on; the labels must also be *right*. A human
+    ratifying a machine's proposal accepts a wrong value with some rate ``beta``, and the true
+    error rate is then ``p_tilde / (1 - beta)`` -- so a certified 0.05 is really 0.10 at
+    ``beta = 0.5``. Automation bias pushes the noise in precisely that direction. When
+    ``label_source == "human"`` this function therefore requires labelled planted controls and
+    tests the adjusted bound; with none, it **raises** rather than quietly reporting the
+    unadjusted number. ``oracle`` labels skip the adjustment because there is no labeller to
+    bound, and the certificate records which case applied.
+
     Raises:
         ValueError: If no sample carries a repair verdict. Silently returning empty
             thresholds would read as "nothing could be certified" when the truth is
             "the wrong question was answered".
+        ValueError: If ``label_source == "human"`` and no planted control has been labelled.
     """
-    from dataforge.conformal import ABSTAIN_THRESHOLD, certification_reason, certify_threshold
+    from dataforge.conformal import (
+        ABSTAIN_THRESHOLD,
+        certification_reason,
+        certify_threshold,
+        certify_threshold_under_label_noise,
+        label_noise_adjusted_bound,
+    )
 
     usable = repair_labelled_samples(artifact)
     if not usable:
@@ -510,6 +800,19 @@ def certify_from_session(
             "authorize writing unvalidated values."
         )
 
+    controls = len(artifact.labelled_controls())
+    false_accepts = artifact.observed_false_accepts()
+    human = artifact.label_source == "human"
+    if human and controls == 0:
+        raise ValueError(
+            "human labels cannot certify without labelled planted controls. The measured error "
+            "rate is p_tilde = p(1 - beta) + (1 - p)gamma, so with a false-accept rate beta the "
+            "true rate is p_tilde/(1 - beta): a certified alpha = 0.05 is really 0.10 at "
+            "beta = 0.5. Assuming beta = 0 for a human would advertise an error budget this "
+            "certificate cannot support. Add planted controls (see PlantedControl) or record "
+            "label_source='oracle' if these verdicts come from retained ground truth."
+        )
+
     by_class: dict[str, list[tuple[float, bool]]] = {}
     for sample in usable:
         assert sample.repair_confidence is not None  # narrowed by repair_labelled_samples
@@ -517,23 +820,62 @@ def certify_from_session(
             (sample.repair_confidence, sample.repair_decision == "correct")
         )
 
+    beta_upper: float | None = None
+    if human:
+        # n is irrelevant to the beta half of the bound; pass the pooled size for a valid call.
+        _, beta_upper, _ = label_noise_adjusted_bound(
+            0, max(1, len(usable)), false_accepts=false_accepts, controls=controls, delta=delta
+        )
+
     thresholds: dict[str, float] = {}
     reasons: dict[str, str] = {}
     certified: list[str] = []
     for issue_type, samples in sorted(by_class.items()):
-        threshold = certify_threshold(
-            samples,
-            alpha=alpha,
-            delta=delta,
-            min_support=min_support,
-            grid=CERTIFICATION_GRID,
-        )
+        # ``prune_infeasible`` drops grid points whose accepted count cannot reach the
+        # Clopper-Pearson floor. Without it, a flawless record at a thinly-populated high
+        # threshold fails the bound and halts the descending sequence before any
+        # well-supported threshold is tested. Pruning reads confidences only, never labels,
+        # so the family-wise guarantee is preserved -- see
+        # ``dataforge.conformal.feasible_candidate_sequence`` for the argument, and
+        # ``tests/unit/test_threshold_selection_label_independence.py`` for its enforcement.
+        if human:
+            threshold = certify_threshold_under_label_noise(
+                samples,
+                alpha=alpha,
+                false_accepts=false_accepts,
+                controls=controls,
+                delta=delta,
+                min_support=min_support,
+                grid=CERTIFICATION_GRID,
+            )
+        else:
+            threshold = certify_threshold(
+                samples,
+                alpha=alpha,
+                delta=delta,
+                min_support=min_support,
+                grid=CERTIFICATION_GRID,
+                prune_infeasible=True,
+            )
         if threshold is None:
             thresholds[issue_type] = ABSTAIN_THRESHOLD
             reason = certification_reason(
-                samples, alpha=alpha, delta=delta, min_support=min_support
+                samples,
+                alpha=alpha,
+                delta=delta,
+                min_support=min_support,
+                grid=CERTIFICATION_GRID,
+                prune_infeasible=True,
             )
             reasons[issue_type] = reason or "not certified"
+            if human and reason is None:
+                # The unadjusted procedure would have certified; the noise term is what refused.
+                reasons[issue_type] = (
+                    f"label_noise_blocked: certifiable on face value but the labeller's "
+                    f"false-accept rate is bounded only at beta <= {beta_upper:.4f} "
+                    f"({false_accepts}/{controls} planted controls accepted), which inflates the "
+                    f"error bound past alpha {alpha}. Add controls or labels, not confidence."
+                )
         else:
             thresholds[issue_type] = threshold
             certified.append(issue_type)
@@ -547,6 +889,19 @@ def certify_from_session(
         reasons=reasons,
         certified_classes=certified,
         repair_labels_used=len(usable),
+        label_source=artifact.label_source,
+        label_noise_controls=controls,
+        label_noise_false_accepts=false_accepts,
+        beta_upper=beta_upper,
+        label_noise_adjusted=human,
+        beta_scope_note=(
+            "beta is estimated on the PLANTED-CONTROL distribution, not on the corrector's real "
+            "error distribution. If plants are easier to reject than genuine corrector mistakes, "
+            "beta is understated and this bound is still anti-conservative. Never quote it as "
+            "'the labeller's error rate'."
+        )
+        if human
+        else None,
         source_sha256=artifact.source_sha256,
         table_fingerprint=artifact.table_fingerprint,
         corrector_provider=artifact.corrector_provider,

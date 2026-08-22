@@ -527,24 +527,75 @@
     },
     {
       "run_id": "calibrate-propose-df65daa5c0a2",
-      "utc": "2026-08-20T16:53:31+00:00",
+      "utc": "2026-08-21T19:01:15+00:00",
       "provider": "azure",
       "model": "gpt-5.6-sol",
-      "calls": 1023,
-      "prompt_tokens": 878160,
-      "completion_tokens": 68672,
-      "reasoning_tokens": 40323,
-      "estimated_usd": 5.42088,
-      "cap_usd": 70.0,
+      "calls": 828,
+      "prompt_tokens": 693246,
+      "completion_tokens": 58522,
+      "reasoning_tokens": 35876,
+      "estimated_usd": 4.34406,
+      "cap_usd": 8.0,
       "method": "calibrate_propose",
-      "dataset": "hospital_full.csv",
+      "dataset": "tmp_hospital_dirty.csv",
       "git_sha": null,
       "notes": [
-        "proposals=229",
-        "samples=441",
+        "proposals=176",
+        "samples=376",
         "local calibration session; structured enum corrector"
       ]
+    },
+    {
+      "run_id": "calibrate-propose-79-OVERWRITTEN",
+      "utc": "2026-08-21T18:30:00+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_usd": 1.9512,
+      "cap_usd": 8.0,
+      "method": "calibrate_propose",
+      "dataset": "tmp_hospital_dirty.csv",
+      "git_sha": null,
+      "notes": [
+        "RECONSTRUCTED, and the reconstruction is the point. This run genuinely spent",
+        "1.9512 USD (79 proposals, reported by the CLI at completion). Its receipt was",
+        "then ERASED by a later --reset run, because run_id was keyed on the SOURCE FILE",
+        "hash rather than on the session, so both runs on the same file collided and the",
+        "second overwrote the first. The ledger therefore understated real spend by this",
+        "whole amount -- the mirror image of the historical 5x OVERstatement, same root",
+        "cause: a receipt key that does not identify what it is a receipt for.",
+        "FIXED: CalibrationSessionArtifact.session_id is a per-drawing nonce and",
+        "_write_propose_receipt now keys on it, so a --reset run is a distinct run.",
+        "USD is the CLI-reported figure; token counts were lost with the process."
+      ]
+    },
+    {
+      "run_id": "llm-acquiescence-probe-RECONSTRUCTED",
+      "utc": "2026-08-21T19:40:00+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.15,
+      "cap_usd": 1.2,
+      "method": "llm_acquiescence_probe",
+      "dataset": "hospital",
+      "git_sha": null,
+      "notes": [
+        "RECONSTRUCTED UPPER BOUND, not measured. The probe spent real money before its",
+        "receipt-writing was added, so its meter was lost with the process.",
+        "Basis: 38 ratification calls (30 column_distribution + 8 corrector_generated),",
+        "each ~150 input + ~20 output tokens at 0.005/1k in and 0.015/1k out => ~0.04 USD.",
+        "Rounded up to 0.15 to cover unreported reasoning tokens. The bound is recorded",
+        "rather than the point estimate so the ledger stays conservative without being",
+        "fabricated.",
+        "FIXED: scripts/bench/measure_label_noise_instrument.py now upserts a receipt."
+      ]
     }
-  ],
-  "note_cumulative_receipts": "calibrate-propose receipts were written at every 10-proposal checkpoint for crash safety, but SpendMeter.receipt() reports CUMULATIVE spend, so 25 receipts for 3 runs summed to .49 against a true .35. Collapsed to the final (highest) receipt per run_id. _write_propose_receipt now upserts so this cannot recur."
+  ]
 }

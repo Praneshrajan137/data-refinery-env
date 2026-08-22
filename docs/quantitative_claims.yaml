@@ -161,3 +161,56 @@ claims:
     note: >-
       Only 17 negatives in 300 cells at a 0.943 base rate, so the CI spans chance and no AUC
       claim belongs here. The base rate already answers the product question.
+
+  # --- Regenerated local certification: the candidate-pruning fix on real data (2026-08-21) ---
+  - id: local_type_mismatch_precision
+    doc: docs/trust/local-certification-result.md
+    artifact: eval/results/label_noise_instrument.json
+    pointer: /pruning_effect_by_class/type_mismatch/precision
+    format: "{:.4f}"
+    expect: "1.0000"
+    note: >-
+      92/92 on the regenerated, COMMITTED session. The previous session was never committed, so
+      its figures were unverifiable; these are re-derivable from
+      eval/results/hospital_calibration_session.json.
+
+  - id: local_entity_consensus_precision
+    doc: docs/trust/local-certification-result.md
+    artifact: eval/results/label_noise_instrument.json
+    pointer: /pruning_effect_by_class/entity_consensus/precision
+    format: "{:.4f}"
+    expect: "0.9048"
+    note: >-
+      Moved again (0.8978 at n=137, 0.9048 at n=84), which is why the earlier alpha=0.05 claim for
+      this class was retracted. A proportion at this sample size is not a stable number.
+
+  - id: pruning_certifies_type_mismatch_at_alpha_005
+    doc: docs/trust/local-certification-result.md
+    artifact: eval/results/label_noise_instrument.json
+    pointer: /pruning_effect_by_class/type_mismatch/by_alpha/0.05/pruned
+    format: "{:.2f}"
+    expect: "0.60"
+    note: >-
+      The load-bearing behavioural difference. The unpruned walk certifies NOTHING here because a
+      perfect 0/36 at threshold 0.99 fails the Clopper-Pearson floor and halts the fixed sequence.
+
+  - id: model_acquiescence_column_distribution
+    doc: docs/trust/local-certification-result.md
+    artifact: eval/results/label_noise_instrument.json
+    pointer: /llm_acquiescence_probe/by_class/column_distribution/rate
+    format: "{:.4f}"
+    expect: "0.0667"
+    note: >-
+      A MODEL ratifying known-wrong values. NOT human beta, and barred from certificates. Quoted
+      only beside the corrector_generated rate, which is 7.5x higher.
+
+  - id: model_acquiescence_corrector_generated
+    doc: docs/trust/local-certification-result.md
+    artifact: eval/results/label_noise_instrument.json
+    pointer: /llm_acquiescence_probe/by_class/corrector_generated/rate
+    format: "{:.4f}"
+    expect: "0.5000"
+    note: >-
+      Real corrector errors are ratified 7.5x more readily than column-resampled plants (n=8, so
+      the magnitude is unestablished; upper bound 0.843). Evidence that the two control classes
+      cannot be pooled -- a plant-only beta understates the false-accept rate.

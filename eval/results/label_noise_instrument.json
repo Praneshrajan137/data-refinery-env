@@ -1,0 +1,127 @@
+{
+  "artifact": "dataforge_label_noise_instrument_v1",
+  "corrector": "azure/gpt-5.6-sol",
+  "dataset": "hospital",
+  "human_beta": null,
+  "human_beta_status": "NOT MEASURED. Requires a human labeller. RAHA ground truth would return beta = 0 by construction and manufacture the guarantee under test; a model would measure a different quantity. Pre-registered in eval/preregistration/human_label_noise.md.",
+  "label_source_for_certification": "oracle",
+  "llm_acquiescence_probe": {
+    "by_class": {
+      "column_distribution": {
+        "accepted_known_wrong": 2,
+        "n": 30,
+        "rate": 0.0667,
+        "upper_bound_at_delta_over_2": 0.2207
+      },
+      "corrector_generated": {
+        "accepted_known_wrong": 4,
+        "n": 8,
+        "rate": 0.5,
+        "upper_bound_at_delta_over_2": 0.843
+      }
+    },
+    "model": "azure/gpt-5.6-sol",
+    "spend_usd": 0.0804,
+    "stopped_early": null,
+    "what_this_measures": "The rate at which a MODEL ratifies a value known to be wrong. This is NOT beta. beta is a property of a human labeller and cannot be obtained without one. A model is not a stand-in: it has no automation bias toward a peer's suggestion in the way a person has toward a machine's. This number must never enter a certificate."
+  },
+  "oracle_certification_alpha_0.05": {
+    "alpha": 0.05,
+    "beta_scope_note": null,
+    "beta_upper": null,
+    "certified_classes": [
+      "type_mismatch"
+    ],
+    "corrector_model": "gpt-5.6-sol",
+    "corrector_provider": "azure",
+    "delta": 0.05,
+    "grid": [
+      0.99,
+      0.98,
+      0.97,
+      0.96,
+      0.95,
+      0.94,
+      0.92,
+      0.9,
+      0.88,
+      0.85,
+      0.82,
+      0.8,
+      0.75,
+      0.7,
+      0.65,
+      0.6
+    ],
+    "label_noise_adjusted": false,
+    "label_noise_controls": 0,
+    "label_noise_false_accepts": 0,
+    "label_source": "oracle",
+    "min_support": 30,
+    "reasons": {
+      "entity_consensus": "precision_below_target: n=84 but Clopper-Pearson upper error 0.165 > alpha 0.05 (corrector too imprecise; need >= 59 all-correct at threshold)"
+    },
+    "repair_labels_used": 176,
+    "source_sha256": "df65daa5c0a28cc36d1a0427cf1a962f96dc88a8dee89a274faebbf101aa833d",
+    "table_fingerprint": "ba8a085292a16ed81b16af3f68154955",
+    "thresholds": {
+      "entity_consensus": 1.01,
+      "type_mismatch": 0.6
+    }
+  },
+  "proposals_scored_against_ground_truth": 176,
+  "pruning_effect_by_class": {
+    "entity_consensus": {
+      "by_alpha": {
+        "0.05": {
+          "naive_floor": 59,
+          "noise_aware_floor_k30": 82,
+          "pruned": null,
+          "unpruned": null
+        },
+        "0.1": {
+          "naive_floor": 29,
+          "noise_aware_floor_k30": 40,
+          "pruned": null,
+          "unpruned": null
+        },
+        "0.2": {
+          "naive_floor": 14,
+          "noise_aware_floor_k30": 19,
+          "pruned": 0.6,
+          "unpruned": 0.6
+        }
+      },
+      "correct": 76,
+      "n": 84,
+      "precision": 0.9048
+    },
+    "type_mismatch": {
+      "by_alpha": {
+        "0.05": {
+          "naive_floor": 59,
+          "noise_aware_floor_k30": 82,
+          "pruned": 0.6,
+          "unpruned": null
+        },
+        "0.1": {
+          "naive_floor": 29,
+          "noise_aware_floor_k30": 40,
+          "pruned": 0.6,
+          "unpruned": 0.6
+        },
+        "0.2": {
+          "naive_floor": 14,
+          "noise_aware_floor_k30": 19,
+          "pruned": 0.6,
+          "unpruned": 0.6
+        }
+      },
+      "correct": 92,
+      "n": 92,
+      "precision": 1.0
+    }
+  },
+  "purpose": "Three separate measurements: (1) whether candidate pruning certifies on real hospital data under oracle labels; (2) the acquiescence rate of a MODEL asked to ratify known-wrong values, which is NOT beta; (3) whether plant difficulty differs from real corrector errors. beta on a HUMAN is NOT measured here and remains the open pre-registered question.",
+  "source_sha256": "df65daa5c0a28cc36d1a0427cf1a962f96dc88a8dee89a274faebbf101aa833d"
+}

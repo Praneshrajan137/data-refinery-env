@@ -65,6 +65,12 @@ def _session(count: int = 80, issue_type: str = "missing_value") -> CalibrationS
         table_fingerprint="fp",
         fd_detection_source="none",
         per_class=count,
+        # These verdicts are applied programmatically by `_label_all_repairs`, not by a person,
+        # so they carry no false-accept rate and need no planted controls. Declaring `oracle`
+        # states that honestly; declaring `human` would (correctly) be refused for lacking a
+        # measured bound on the labeller's false-accept rate. Human-labelled certification is
+        # covered by `tests/unit/test_label_noise_certification.py`.
+        label_source="oracle",
     )
 
 
@@ -205,6 +211,7 @@ class TestCertificationFromRepairLabels:
             table_fingerprint="fp",
             fd_detection_source="none",
             per_class=80,
+            label_source="oracle",  # programmatic verdicts; see `_session`
         )
         for sample in list(artifact.samples):
             healthy = sample.issue_type == "missing_value"
