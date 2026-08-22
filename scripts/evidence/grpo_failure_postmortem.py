@@ -52,7 +52,9 @@ def _active_repair_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
         fn = int(row.get("fn", 0) or 0)
         truth_positive = tp + fn > 0
         predicted_repairs = row.get("predicted_repairs")
-        prediction_count = len(predicted_repairs) if isinstance(predicted_repairs, list) else fp + tp
+        prediction_count = (
+            len(predicted_repairs) if isinstance(predicted_repairs, list) else fp + tp
+        )
         if truth_positive:
             counts["truth_positive_tasks"] += 1
             totals["truth_positive_tasks"] += 1
@@ -99,7 +101,9 @@ def _active_repair_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     return {
         "overall": finalize(totals),
-        "by_dataset": {dataset: finalize(counter) for dataset, counter in sorted(by_dataset.items())},
+        "by_dataset": {
+            dataset: finalize(counter) for dataset, counter in sorted(by_dataset.items())
+        },
     }
 
 
@@ -114,7 +118,9 @@ def _failure_taxonomy(rows: list[dict[str, Any]]) -> dict[str, int]:
     return {key: taxonomy[key] for key in sorted(taxonomy)}
 
 
-def _model_summary(diagnostics: dict[str, Any], *, model_section: str, summary_section: str) -> dict[str, Any]:
+def _model_summary(
+    diagnostics: dict[str, Any], *, model_section: str, summary_section: str
+) -> dict[str, Any]:
     rows = _task_scores(diagnostics, model_section)
     summary = _summary_section(diagnostics, summary_section)
     return {
@@ -137,9 +143,7 @@ def _candidate_report_summary(candidate_report: dict[str, Any] | None) -> dict[s
         metrics = {}
     raw_status = str(candidate_report.get("status", "unknown"))
     normalized_status = (
-        "quality_gate_failed_no_upload"
-        if raw_status == "gate_failed_no_upload"
-        else raw_status
+        "quality_gate_failed_no_upload" if raw_status == "gate_failed_no_upload" else raw_status
     )
     return {
         "raw_status": raw_status,
@@ -177,7 +181,9 @@ def _brief(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _paired_comparison(sft_rows: list[dict[str, Any]], grpo_rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _paired_comparison(
+    sft_rows: list[dict[str, Any]], grpo_rows: list[dict[str, Any]]
+) -> dict[str, Any]:
     sft_by_task = {str(row.get("task_id")): row for row in sft_rows if row.get("task_id")}
     grpo_by_task = {str(row.get("task_id")): row for row in grpo_rows if row.get("task_id")}
     common_task_ids = sorted(set(sft_by_task) & set(grpo_by_task))
@@ -298,21 +304,21 @@ def render_markdown(summary: dict[str, Any]) -> str:
     )
     lines.extend(
         [
-        "- GRPO active-repair precision/recall/F1: "
-        f"`{grpo['active_repair']['overall']['precision']}` / "
-        f"`{grpo['active_repair']['overall']['recall']}` / "
-        f"`{grpo['active_repair']['overall']['f1']}`",
-        f"- Empty predictions on truth-positive tasks: `{grpo['active_repair']['overall']['empty_on_truth_positive']}`",
-        "- GRPO failure taxonomy: "
-        + ", ".join(f"`{key}`={value}" for key, value in grpo["failure_taxonomy"].items()),
-        "",
-        "## Paired Comparison",
-        "",
-        f"- Common tasks: `{paired['common_tasks']}`",
-        f"- Improved/regressed/unchanged: `{paired['improved_tasks']}` / `{paired['regressed_tasks']}` / `{paired['unchanged_tasks']}`",
-        "",
-        "## Findings",
-        "",
+            "- GRPO active-repair precision/recall/F1: "
+            f"`{grpo['active_repair']['overall']['precision']}` / "
+            f"`{grpo['active_repair']['overall']['recall']}` / "
+            f"`{grpo['active_repair']['overall']['f1']}`",
+            f"- Empty predictions on truth-positive tasks: `{grpo['active_repair']['overall']['empty_on_truth_positive']}`",
+            "- GRPO failure taxonomy: "
+            + ", ".join(f"`{key}`={value}" for key, value in grpo["failure_taxonomy"].items()),
+            "",
+            "## Paired Comparison",
+            "",
+            f"- Common tasks: `{paired['common_tasks']}`",
+            f"- Improved/regressed/unchanged: `{paired['improved_tasks']}` / `{paired['regressed_tasks']}` / `{paired['unchanged_tasks']}`",
+            "",
+            "## Findings",
+            "",
         ]
     )
     lines.extend(f"- {finding}" for finding in summary["headline_findings"])

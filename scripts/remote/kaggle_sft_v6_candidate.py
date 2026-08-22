@@ -266,7 +266,9 @@ def _load_config() -> dict[str, Any]:
     config_name = os.environ.get("DATAFORGE_SFT_CONFIG", spec["config_file"])
     config_path = INPUT_ROOT / config_name
     if not config_path.exists():
-        raise RuntimeError(f"Missing {spec['candidate_label']} config in Kaggle input: {config_path}")
+        raise RuntimeError(
+            f"Missing {spec['candidate_label']} config in Kaggle input: {config_path}"
+        )
     payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise RuntimeError(f"{config_path} must contain a YAML mapping.")
@@ -321,7 +323,10 @@ def _validate_curriculum_report(path: Path) -> dict[str, Any]:
         blockers.append("user_contract_version_mismatches_present")
     if int(metrics.get("record_contract_version_mismatches", -1)) != 0:
         blockers.append("record_contract_version_mismatches_present")
-    if spec.get("training_format") != "prompt_completion" and int(metrics.get("parse_failure_count", -1)) != 0:
+    if (
+        spec.get("training_format") != "prompt_completion"
+        and int(metrics.get("parse_failure_count", -1)) != 0
+    ):
         blockers.append("parse_failures_present")
     if spec.get("training_format") == "prompt_completion":
         if int(metrics.get("prompt_completion_records", 0)) <= 0:
@@ -353,7 +358,9 @@ def _validate_curriculum_report(path: Path) -> dict[str, Any]:
             if int(metrics.get("negative_contrast_target_leakage_count", -1)) != 0:
                 blockers.append("negative_contrast_targets_supervised")
     if blockers:
-        raise RuntimeError(f"{spec['candidate_label']} curriculum report blocked: " + ", ".join(blockers))
+        raise RuntimeError(
+            f"{spec['candidate_label']} curriculum report blocked: " + ", ".join(blockers)
+        )
     return report
 
 
@@ -432,7 +439,9 @@ def _records_to_dataset(records: list[dict[str, Any]]) -> tuple[Any, dict[str, A
             f"{_input_spec()['candidate_label']} curriculum contains invalid message records: {invalid}"
         )
     if not rows:
-        raise RuntimeError(f"{_input_spec()['candidate_label']} curriculum produced no trainable rows.")
+        raise RuntimeError(
+            f"{_input_spec()['candidate_label']} curriculum produced no trainable rows."
+        )
     return Dataset.from_list(rows), {
         "records": len(rows),
         "shape": dict(sorted(shape.items())),
@@ -556,7 +565,9 @@ def _sft_config_kwargs(config: dict[str, Any], supported_keys: set[str]) -> dict
     train_cfg = config["training"]
     if _input_spec().get("training_format") == "prompt_completion":
         if train_cfg.get("completion_only_loss") is not True:
-            raise RuntimeError(f"{_input_spec()['candidate_label']} requires training.completion_only_loss=true.")
+            raise RuntimeError(
+                f"{_input_spec()['candidate_label']} requires training.completion_only_loss=true."
+            )
         if train_cfg.get("packing") is not False:
             raise RuntimeError(
                 f"{_input_spec()['candidate_label']} requires packing=false so prompt/completion labels remain auditable."
@@ -724,7 +735,9 @@ def main() -> int:
         training_format=label_mask_audit.get("training_format"),
     )
     if not label_mask_audit["ok"]:
-        raise RuntimeError(f"{input_spec['candidate_label']} label-mask audit failed: {label_mask_audit['failures']}")
+        raise RuntimeError(
+            f"{input_spec['candidate_label']} label-mask audit failed: {label_mask_audit['failures']}"
+        )
 
     quant_cfg = None
     quant = config["model"].get("quantization", {})
@@ -852,10 +865,12 @@ def main() -> int:
         max_new_tokens=int(eval_cfg["max_new_tokens"]),
     )
     _log_event("sft_eval_done", macro_f1=float(sft_eval["macro_f1"]))
-    product_constrained_track, product_constrained_diagnostics = evaluate_product_constrained_finish_baseline(
-        tasks,
-        raw_research_summary=sft_eval,
-        max_failure_samples=int(config["release"].get("max_failure_samples", 25)),
+    product_constrained_track, product_constrained_diagnostics = (
+        evaluate_product_constrained_finish_baseline(
+            tasks,
+            raw_research_summary=sft_eval,
+            max_failure_samples=int(config["release"].get("max_failure_samples", 25)),
+        )
     )
     _log_event(
         "product_constrained_eval_done",
@@ -961,7 +976,9 @@ def main() -> int:
                     f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
                 )
             ),
-            candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+            candidate_label=str(
+                config["release"].get("candidate_label", input_spec["candidate_label"])
+            ),
             candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
             grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
             training_metrics=metrics,
@@ -1005,7 +1022,9 @@ def main() -> int:
                     f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
                 )
             ),
-            candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+            candidate_label=str(
+                config["release"].get("candidate_label", input_spec["candidate_label"])
+            ),
             candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
             grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
             training_metrics=metrics,
@@ -1048,7 +1067,9 @@ def main() -> int:
                     f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
                 )
             ),
-            candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+            candidate_label=str(
+                config["release"].get("candidate_label", input_spec["candidate_label"])
+            ),
             candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
             grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
             training_metrics=metrics,
@@ -1101,7 +1122,9 @@ def main() -> int:
                 f"dataforge_sft_{DEFAULT_SFT_VERSION}_candidate_eval_report_v1",
             )
         ),
-        candidate_label=str(config["release"].get("candidate_label", input_spec["candidate_label"])),
+        candidate_label=str(
+            config["release"].get("candidate_label", input_spec["candidate_label"])
+        ),
         candidate_kind=str(config["release"].get("candidate_kind", "predecessor")),
         grpo_consumer_label=str(config["release"].get("grpo_consumer_label", "GRPO-v3")),
         training_metrics=metrics,

@@ -30,7 +30,9 @@ DEFAULT_DATASET_DIR = ROOT / "training" / "kaggle_sft_v8_handoff"
 DEFAULT_KERNEL_DIR = ROOT / "training" / "kaggle_sft_v8_kernel"
 DEFAULT_TRAJECTORY = ROOT / "data" / "sft_traj" / "expert_v8_schema_distill.jsonl"
 DEFAULT_SPLIT_MANIFEST = ROOT / "data" / "sft_traj" / "split_manifest_v4_candidate.json"
-DEFAULT_CURRICULUM_REPORT = ROOT / "eval" / "results" / "sft_v8_schema_distill_curriculum_report.json"
+DEFAULT_CURRICULUM_REPORT = (
+    ROOT / "eval" / "results" / "sft_v8_schema_distill_curriculum_report.json"
+)
 DEFAULT_SFT_CONFIG = ROOT / "training" / "configs" / "sft_05b_v8.yaml"
 DATASET_ID = "praneshrajan15/dataforge-sft-v8-handoff"
 KERNEL_ID = "praneshrajan15/dataforge-0-5b-sft-v8-candidate"
