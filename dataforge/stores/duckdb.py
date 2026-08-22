@@ -16,6 +16,7 @@ from dataforge.stores.patch_plan import (
     PatchOperation,
     PatchPlan,
     RowIdentity,
+    enforce_plan_constraint_checkable_only,
     enforce_plan_proven_only,
 )
 from dataforge.stores.sql import ensure_safe_relation, quote_identifier, sql_literal
@@ -230,6 +231,7 @@ class DuckDBStore(TableStore):
         if not plan.apply_supported or not plan.reversible:
             raise TableStoreError(plan.reason)
         enforce_plan_proven_only(plan, allow_unproven_autoapply=allow_unproven_autoapply)
+        enforce_plan_constraint_checkable_only(plan)
         state_dir = (state_root or Path.cwd()).resolve()
         txn_id = generate_txn_id()
         snapshot_bytes = self._snapshot_bytes(plan)

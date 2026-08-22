@@ -12,7 +12,289 @@ Format for every entry:
 
 ---
 
-## 2026-08-14 - The perceptual laws were verified symbolically, so the one law was inverted
+## 2026-08-21 - The certification procedure penalises purity, and the guarantee had no term for the human
+
+**Context**: a next-phase investigation was asked to verify the project's own claims rather than
+inherit them. Nine defects had been alleged against the dataset layer, the certification result
+was recorded as blocked by a "starved" grid point, and the load-bearing open question was whether
+per-table certification survives a real human labeller instead of RAHA ground truth standing in
+for one. Everything below was established before any money was spent; total spend for this entry
+is **~$0.0002**, one pre-flight API call.
+
+### Five claims corrected
+
+1. **"rayyan and tax have no verified SHA-256 hashes" is FALSE.** Both carry pinned digests
+   (`datasets/registry.py:84-85` and `:101-102`), and `DatasetMetadata` declares
+   `dirty_sha256: str = Field(min_length=64, max_length=64)`, so a hash-less entry **cannot be
+   constructed**. What survives is narrower: no dataset carries an error-count field at all,
+   `BENCHMARK_REPORT.md:10` lists only hospital and flights, and
+   `scripts/data/audit_real_world_sources.py:23` hardcodes `("hospital", "flights", "beers")` --
+   which raises `KeyError`, since `beers` is not in `DATASET_REGISTRY`.
+2. **"No joins, no foreign keys, no relational error classes" OVERSTATES.** The machinery exists:
+   `RelationshipConstraint` (`verifier/schema.py:50-56`), the `"referential"` constraint kind
+   (`constraint_ir.py:18,132`), and the `"referential_break"` issue type (`engine/repair.py:177`).
+   The true claim is that **no shipped dataset exercises it**.
+3. **"A starved top grid point halts certification" is the right mechanism under the wrong name,**
+   and the name hid the fix. Corrected in place in
+   `docs/trust/local-certification-result.md`. Starved points `continue`; only a *tested failure*
+   `break`s. **But see the amendment below: the specific n=40 figure is unverified.**
+
+### AMENDMENT, same day: correction 3 asserted more than the evidence supports
+
+Written after the corrections above, and left in place rather than folded away. Correction 3
+originally read "The 0.99 point had n=40 >= min_support=30, so it was tested and failed on
+Clopper-Pearson (0.0722 > 0.05) with a flawless 40/40 record." Two things make that unsupportable:
+
+- **The raw labels were never committed.** `.dataforge/calibration/session.json` is untracked and
+  absent. None of the 1,883 tracked files carries the `(confidence, repair_decision)` pairs behind
+  the 0.9389 / 92-92 / 123-137 result. So the numbers cannot be re-derived at all.
+- **The published numbers do not cohere.** The grid walk reports `n=40` at threshold 0.99 while the
+  histogram in the same document gives `type_mismatch` confidences as `{0.99: 65, 1.00: 27}`,
+  i.e. `n(>= 0.99) = 92` and `n(>= 1.00) = 27`. `entity_consensus` gives 132 and 6. **40 matches
+  nothing.** `0/40 -> 0.0722` is arithmetically right, so 40 came from some real computation, but
+  not from either published distribution.
+
+**What survives, and it is enough to act on:** the mechanism is provable from
+`conformal.py:181-191` with no reference to those figures. The sequence is walked from the grid
+point with the *least* statistical power toward the most, and it halts on the first tested failure,
+so a well-supported lower threshold can be unreachable. That is a structural property of the
+ordering.
+
+### SECOND AMENDMENT, same day: the incoherence claim was ALSO wrong, and the real cause is a float hair
+
+I said "40 matches nothing". **That diagnosis was incorrect**, and the regenerated session shows
+why. The corrector's nominal `0.99` is stored as **0.9899999999999999**, strictly less than the
+grid's literal `0.99`. On the regenerated data:
+
+```
+RAW type_mismatch confidences: {1.0: 17, 0.9899999999999999: 56, 0.9933...: 9, 0.9966...: 10}
+n(conf >= 0.99) = 36  of 92     <-- 56 samples excluded by a float hair
+n(conf >= 0.98) = 92
+```
+
+The old document displayed *rounded* confidences while the code compared *unrounded* ones, so a
+real and subtle effect looked like an arithmetic error. **This is a third, independent defect:** a
+grid threshold numerically indistinguishable from the modal confidence can silently discard most of
+the sample. Candidate pruning cures it robustly (36 < the 59-sample floor, so `0.99` is removed),
+which is better than tuning grid literals to dodge float representation.
+
+Three corrections in one chain, each caught by trying to re-derive a number rather than quote it.
+**The regenerated session is committed** at `eval/results/hospital_calibration_session.json`, so
+this cannot recur for these figures.
+4. **The gpt-5.6-sol reproducibility block in this log is stale.** Retracted in place above,
+   against a live HTTP 200 from `gpt-5.6-sol-2026-07-09`.
+5. **The recorded label-noise caveat understated its own consequence** -- one sentence about a
+   noisier user, where the arithmetic shows a doubling of the error budget. Quantified below.
+
+**Alternatives**: (a) leave the wording, since the mechanism was described correctly -- rejected,
+because "starved" points maintainers at sample size and the cause is ordering; (b) silently fix
+the words -- rejected under the standing rule that a retraction belongs in the artifact that
+carried the claim.
+
+### Finding 1: a perfect record at a high threshold destroys certification below it
+
+`certify_threshold` walks candidates purest-first and `break`s on the first non-rejection. That is
+a valid fixed-sequence test, and `repeated_split_certification` confirms it empirically
+(over_alpha_rate 0.005 <= delta 0.05). But the grid is ordered from **least** statistical power to
+most: a higher threshold accepts fewer samples, and with zero observed errors the Clopper-Pearson
+upper bound is `1 - delta**(1/n)`, which needs `n >= 59` at alpha = delta = 0.05 before it can even
+reach the target. So a top grid point holding only a few dozen samples **cannot** clear the bound no
+matter how perfect its record, the sequence halts there, and every better-supported threshold below
+it becomes unreachable. This is a property of the ordering, derivable from
+`conformal.py:181-191` and `min_samples_for_certification` alone -- it does not depend on the lost
+session's figures (see the amendment above).
+
+**Decision**: fixed sequential testing requires the order to be *pre-specified*, not *descending*,
+and the selection may depend on the **confidences** because a confidence is a feature, not a label.
+Conditional on the confidences the accepted-set labels are independent Bernoulli; the accepted set
+is confidence-measurable; and a binomial Clopper-Pearson bound on the mean of independent
+non-identical Bernoullis is conservative, since a Poisson-binomial is less dispersed than the
+binomial of the same mean (Hoeffding 1956). This is the latitude Mondrian conformal already grants
+to a covariate-dependent taxonomy. Selecting on **labels** would break validity; that boundary is
+now enforced by a label-permutation invariance test, not argued in prose.
+
+**Reasoning**: this is free -- it re-reads committed labels and spends nothing. It was available
+before every paid run in the project's history, which makes it the fourth instance of the same
+lesson: the decisive measurement was cheaper than the one that got funded.
+
+**MEASURED on the regenerated, committed session** (hospital, 376 cells sampled, 176 proposals,
+`gpt-5.6-sol` structured-enum, labels from RAHA ground truth so `label_source=oracle`):
+
+| issue_type | correct/total | precision | alpha=0.05 unpruned | alpha=0.05 pruned |
+| --- | --- | --- | --- | --- |
+| `type_mismatch` | 92/92 | **1.0000** | none | **0.60** |
+| `entity_consensus` | 76/84 | 0.9048 | none | none |
+
+The walk: `t=0.99 -> n=36, errors=0, CP=0.0798, FAIL -> break`; `t=0.98 -> n=92, CP=0.0320, PASS`
+but never reached. **So the fix is load-bearing: unpruned certifies nothing, pruned certifies
+0.60.** At alpha=0.10 and 0.20 both procedures certify 0.60 and pruning changes nothing -- the
+pathology needs a floor high enough to strand the top point. An earlier, smaller draw (n=40 per
+class) also showed **no** difference, for the same reason. Reported because a fix that matters only
+in part of the parameter space must say which part.
+
+`entity_consensus` moved again: 0.8978 at n=137, 0.9048 at n=84. That is ordinary behaviour for a
+proportion at this sample size, and it is exactly why the earlier alpha=0.05 claim for the class was
+retracted.
+
+**This raises certified coverage, which is the convenient direction,** so it did not ship alone.
+See Finding 2.
+
+### Finding 2: the guarantee was missing the human, and the omission is worth a factor of two
+
+Certification measures `p_tilde`, the error rate **as judged by the labeller**. With human
+false-accept rate `beta` and false-reject rate `gamma`,
+`p_tilde = p(1 - beta) + (1 - p) gamma`. The realistic asymmetry is `gamma ~ 0`: a labeller shown
+a machine's proposed value and asked "is this correct?" is performing an acquiescence-biased
+ratification, so wrongly accepting is far likelier than wrongly rejecting. Then `p = p_tilde / (1 - beta)`:
+
+| beta | true error rate when a measured 0.05 is certified |
+| --- | --- |
+| 0.00 | 0.0500 |
+| 0.20 | 0.0625 |
+| 0.50 | **0.1000** |
+
+The literature does not rescue this. Einbinder, Feldman, Bates, Angelopoulos, Gendler and Romano
+(arXiv:2209.14295, JMLR) show risk control under label noise is conservative "whenever the noise is
+dispersive and increases variability", and vulnerable to noise that *reduces* apparent uncertainty.
+Their positive results for general losses (Propositions 4 and 5) cover **FNR in multi-label
+classification and segmentation under a vector-flip model with P(flip) < 0.5** -- not a scalar
+accept/reject loss on a machine-proposed value. So the honest reading is that the guarantee
+survives only under a condition **this application systematically violates**.
+
+**Decision**: `beta` becomes a measured input to the bound, and certification **refuses** when it is
+absent. `beta` is bounded by **planted controls** -- queue items whose wrongness is known by
+construction -- and the reported bound is
+`CP(errors, n, delta/2) / (1 - CP(false_accepts, k, delta/2))`, splitting `delta` across the two
+bounds by union. The sample cost is real and affordable:
+
+| alpha | naive n | noise-aware | total human judgements |
+| --- | --- | --- | --- |
+| 0.05 | 59 | n=82, k=30 | **112** (1.9x) |
+| 0.10 | 29 | n=40, k=30 | **70** (2.4x) |
+
+**Reasoning**: the alternative is to keep advertising alpha while delivering `alpha/(1 - beta)`.
+Under the project's asymmetric-cost principle -- a silent bad write is unrecoverable, a refusal is
+not -- an unmeasured `beta` is the worst available option, because it looks like a guarantee.
+
+**The category error this design could have made, named so it is not made later**: planted controls
+estimate `beta` on the **plant distribution**, not on the corrector's real error distribution. If
+plants are easier to reject than genuine corrector mistakes, `beta` is underestimated and the
+"noise-corrected" bound is still anti-conservative -- a rigorous-looking guarantee that is not one.
+Mitigations are mandatory, not optional: plants are drawn from the column's own empirical value
+distribution, a second control class is generated by the corrector itself on cells with known
+ground truth, and the certificate records `beta` as a plant-distribution estimate rather than as
+"the human's error rate".
+
+**That concern is now MEASURED, and it is larger than expected.** A probe asked `gpt-5.6-sol` to
+ratify values known to be wrong:
+
+| item class | ratified known-wrong | n | rate | upper bound |
+| --- | --- | --- | --- | --- |
+| `column_distribution` | 2 | 30 | 0.0667 | 0.2207 |
+| `corrector_generated` (real wrong proposals) | 4 | 8 | **0.5000** | 0.8430 |
+
+**A 7.5x gap.** At n=8 the magnitude is not established, but the direction turns an argued design
+requirement into an evidenced one: **the two control classes are not interchangeable and must never
+be pooled.** A plant-only `beta` would have understated the false-accept rate substantially.
+
+**This probe measures a MODEL, not a person.** It is not `beta`, it is barred from entering any
+certificate, and it is not a stand-in: a model has no automation bias toward a peer's suggestion in
+the way a person has toward a machine's. Recorded under its own name,
+`llm_acquiescence_probe`, in `eval/results/label_noise_instrument.json`.
+
+**Human `beta` remains NOT MEASURED.** It requires a human labeller. RAHA ground truth would return
+`beta = 0` by construction and manufacture the guarantee under test. Pre-registered with falsifier,
+stopping rule and kill criterion in `eval/preregistration/human_label_noise.md`.
+
+### What was investigated and deliberately NOT built
+
+- **Warehouse-native certification (Snowflake)**: a distribution surface, not a capability unlock.
+  Probed live on a Standard-edition account: `snowflake.core.null_count(...)` returns *"Data quality
+  monitoring feature is not enabled for this account"* -- DMFs are Enterprise-only. And a DMF
+  **cannot** express cell-level correction: `RETURNS NUMBER` only, the body must be "deterministic
+  and return a scalar value", and it cannot reference UDFs, so it cannot call Cortex. Cortex itself
+  *is* available on Standard, verified including structured output. The load-bearing architectural
+  consequence: a **byte-hash-gated certificate expires on every write to a live table**, and Time
+  Travel caps re-verification at 1 day on Standard (90 on Enterprise). Snowflake also already ships
+  Cortex Data Quality (AI-suggested checks) and free background quality scans. Deferred until the
+  guarantee is sellable at all.
+- **Building a real labelled error corpus**: viable and unclaimed -- `"revision history" AND "data
+  quality"` returns **0 arXiv hits** -- but a multi-month artifact. MusicBrainz is the best source:
+  **146.1M edits** with native per-field `{old, new}` payloads, ~170 typed edit types, and a
+  community vote on every edit. Two blockers: the edit dump is **CC BY-NC-SA 3.0**, not the CC0 that
+  covers core data; and the decisive scientific threat is **correction/update confounding correlated
+  with field type** -- volatile fields churn legitimately, stable fields carry real corrections, so a
+  naive harvest rewards a detector for learning *which fields churn* rather than which values are
+  wrong. That is the project's own first law in a new costume, and harder to see because the corpus
+  looks authentic. Wikidata (CC0, `mw-reverted` tags) is the permissive fallback. Nearest prior work
+  concedes the gap and answers it with LLM-generated errors (arXiv:2507.10934); arXiv:2606.09648 uses
+  651,045 real museum records and still injects 130,209 errors.
+- **A different formalism**: rejected. The framework is correctly implemented Learn-then-Test
+  selective risk control. Two genuine notes, though: `alpha = 0.05` was chosen **by default, not
+  derived**, and should follow the cost ratio `alpha* = C_miss / (C_bad + C_miss)`; and wiring
+  `certify_from_session` into the interactive `--label` loop would introduce **optional stopping**,
+  which invalidates a fixed-n bound and would need an anytime-valid confidence sequence. It has no
+  CLI caller today, so that defect is latent rather than live -- but wiring it is exactly what the
+  product needs, so the constraint is recorded now.
+- **The moat claim, corrected**: "a frontier model cannot judge its own work" is **false**.
+  Structured self-confidence discriminates well (ROC-AUC 0.862 at k=3, 0.948 at k=9; free text
+  0.5536, CI [0.500, 0.617]). What a model cannot produce is a **bound**: an AUC is an ordering
+  statistic and implies nothing about the error rate at a threshold on a particular table. The moat
+  is *ordering is not a guarantee*, and closing it is exactly the labelled per-table calibration plus
+  the `beta` term.
+
+**Reviewed with**: nobody; the corrections are checkable against the cited lines and the live probe.
+
+### Spend, and a receipt-keying defect found by reconciling it
+
+**$6.4455 this session**: $0.0002 pre-flight, $1.9512 first proposal draw, $4.3441 second draw
+(after `--reset` to 92 per class), $0.15 reconstructed upper bound for the acquiescence probe.
+
+Reconciling that against the ledger exposed a defect. `_write_propose_receipt` keyed `run_id` on
+the **source file hash**, so the second `--reset` run on the same file **overwrote the first run's
+receipt** and the ledger understated real spend by $1.9512 -- an entire run. This is the mirror
+image of the historical 5x *over*statement and the same root cause: **a receipt key that does not
+identify what it is a receipt for.**
+
+Fixed two ways. `CalibrationSessionArtifact.session_id` is now a per-drawing nonce, and the receipt
+keys on it, so "the same run checkpointing again" and "a new run on the same file" are
+distinguishable. The erased run is recorded as
+`calibrate-propose-79-OVERWRITTEN` with its cause. Separately, the probe script spent money before
+it had receipt-writing at all -- the same failure that once lost ~$6 to a detached shell -- and now
+upserts a receipt.
+
+**Reversal criteria**: if planted controls put `beta_upper` above 0.35 -- so that alpha=0.05 is
+unreachable inside ~200 human judgements -- then human-labelled per-table certification at 0.05 is
+dead, and the honest product is soundness-plus-reversibility (which needs no labels) plus advisory
+triage at alpha=0.20. That result gets published either way.
+
+### Gate status, including what could NOT be verified on this machine
+
+Green: `ruff check` + `ruff format --check` (384 files), `mypy --strict` (145 files),
+`pytest tests/` (**1,780 passed**), all four truth gates (`docs_truth` now verifies **20** claims),
+`python -m dataforge.release.gate` (**exit 0**, 29 checks), `mkdocs build --strict` (exit 0),
+frontend `typecheck` and `test:unit` (**348 passed, 25 files**), and the `docpaths`, `vocabulary`,
+`colors` and `motion` audits.
+
+`scripts/ci/backend_gate.py` **fails on this machine with three failures, none of them caused by
+these changes**, and the distinction is stated rather than assumed:
+
+- `playground build` and `playground test` -- `EPERM, Permission denied` on
+  `playground/web/dist/assets`. The bundle itself succeeds ("2010 modules transformed"); only the
+  final *write* fails, because the repo lives in a OneDrive-synced folder that will not release the
+  directory. The same lock produced `failed to remove training/colab/: Permission denied` during a
+  `git stash` earlier in the session. `git status` confirms **no file under `playground/web/`, and
+  no `package.json`, `package-lock.json` or `pyproject.toml`, was modified.**
+- `pip-audit --strict` -- `dataforge: Dependency not found on PyPI and could not be audited`. That
+  is pip-audit refusing to audit the project's own unpublished editable install, not a
+  vulnerability.
+
+CI runs on Linux outside OneDrive, so these three are expected to pass there. Recorded because
+"the gate failed" and "the gate failed for a reason attributable to this change" are different
+facts, and conflating them either blocks good work or ships bad work.
+
+
+---
 
 **Context**: asked to elevate the visual design, I checked whether the design system's laws
 are actually enforced. They are stated in perceptual terms and verified in symbolic terms:
@@ -777,6 +1059,20 @@ reproduced on this subscription**. Reproducing them requires either converting t
 Trial (a billing action) and being granted premium quota, or access to the original subscription. Until then,
 treat every gpt-5.6-sol number here as a historical measurement whose artifact is committed but whose rerun
 is blocked - which is precisely why the raw `(score, label)` pairs are persisted.
+
+> **CORRECTION (2026-08-21): the paragraph above is STALE and its conclusion no longer holds.**
+> It is true of resource `praneshrajan15-9819-resource`, which is what was reachable when it was
+> written. It is **false of the resource this repo now points at.** `.env` targets
+> `praneshrajan15-3599-resource`, and one live chat completion against it returned **HTTP 200 with
+> `model: gpt-5.6-sol-2026-07-09`** (13 prompt + 5 completion tokens, ~$0.0002). So gpt-5.6-sol is
+> reachable and its numbers **are** reproducible on the current subscription.
+>
+> The scoped claim that survives: *a Free Trial subscription gets zero quota for every premium tier,
+> so a resource on such a subscription cannot serve gpt-5.6-sol.* The root-cause investigation above
+> is correct and worth keeping. Only the sentence "cannot be reproduced on this subscription" was
+> wrong, and it was wrong because "this subscription" silently changed underneath it. **A claim
+> whose subject is "this environment" expires when the environment does** -- the same
+> claim-scope failure recorded elsewhere in this log, in a new disguise.
 
 
 | dataset | n | positives | evidence-free AUC | with-evidence AUC | paired delta CI |
@@ -2763,3 +3059,94 @@ independently validated on a disjoint held-out half rather than merely certified
 sample, local calibrated auto-apply becomes defensible for that table, that model, and that
 schema fingerprint only. Global auto-apply still requires the pre-registered flagship endpoint.
 
+## 2026-08-22 - Enforce the detector allowlist at the mutation primitives, not only at the partitioner
+
+**Context**: `decimal_shift` was removed from the auto-apply allowlist because its value is
+inferred from the shape of a column's own distribution -- 263,428 flagged money cells across
+three TPC-H tables with zero true errors. The fix landed in `partition_auto_apply`. The
+agent write surface never calls `partition_auto_apply`, so the corruption path stayed open
+there. Measured: `run_agent_repair` rewrote `4,1020` to `4,102` with no schema while
+`run_repair_pipeline` refused the identical fix on the identical table. Note the inversion --
+WITHOUT a premise the agent wrote, WITH one it did not, so the default invocation was the
+dangerous one. A first probe that happened to supply a schema came back clean and nearly
+closed the investigation.
+
+**Alternatives**:
+1. Make the agent call `partition_auto_apply`. Correct in spirit, but that function also
+   applies the per-class calibration thresholds, every one of which is the 1.01 sentinel --
+   so agent mode would apply nothing even with a schema. A much larger behavioural change
+   than closing the soundness hole.
+2. Enforce the allowlist only at each surface's partition point. Fixes today's two surfaces
+   and leaves the next one to rediscover the bug.
+3. Enforce at the mutation primitives AND proactively at each partition point. Chosen.
+4. Widen `verification_strength_for` so a non-checkable detector is not `proven`. Rejected:
+   it conflates two independent axes. A `decimal_shift` fix genuinely IS proven-by-construction
+   in the strength sense; what it lacks is a reference to be checked against. Collapsing them
+   would make `allow_unproven_autoapply` silently unlock corruption.
+
+**Decision**: enforce at both mutation primitives (`enforce_constraint_checkable_only` for
+CSV, `enforce_plan_constraint_checkable_only` for warehouse SQL) with a distinct exception
+type and NO opt-in flag; and hold proactively at each partition point so surfaces agree on a
+disposition rather than diverging on an exception. Publish the composed decision as
+`specs/SPEC_autoapply_decision.md` with an executable counterpart asserting bytes on disk
+across detector x premise x surface.
+
+**Reasoning**: this is the argument `enforce_proven_only` already makes in its own docstring,
+which cites two prior surfaces that bypassed a gate by forgetting to call the partitioner. That
+guard was right in shape and incomplete in scope: it enforces STRENGTH, and
+`verification_strength_for("deterministic", ...)` returns `proven` regardless of schema, so
+the allowlist was never consulted. Extending an existing invariant beats inventing one. No
+opt-in, because an unproven write is a defensible product choice (reversible, recorded honestly
+as not-proven) whereas an uncheckable-detector write has no evidence to record -- a flag there
+would be a flag for corrupting data on request. Proactive holding matters for PARITY, not just
+safety: the primitive RAISES, which would abort an agent run where the legacy pipeline completes
+with `fixes=0`, so the non-regression gate would compare a traceback against a clean zero.
+
+Blast radius measured before the change rather than assumed: of four registered repairers, only
+`decimal_shift` is non-allowlisted, so exactly its writes stop. `outlier` has no repairer at
+all and can never write, which downgrades its 0.0000 measured precision from a corruption risk
+to review-queue noise.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: if a detector inferring values from a column's own distribution is shown
+to have a false-positive rate low enough to write -- measured on realistically dispersed
+production columns, not on clustered fixtures -- it earns allowlist membership by that
+measurement. The allowlist stays an allowlist, never a denylist: a denylist fails open, so a
+detector nobody classified would inherit write access.
+
+## 2026-08-22 - One shared premised fixture replaces a copy-pasted literal in 13 files
+
+**Context**: the suite had no `tests/conftest.py`. The literal
+`id,amount\\n1,100\\n2,105\\n3,98\\n4,1020\\n5,103\\n` was copy-pasted into 13 files under six
+helper names. It encodes exactly ONE detector, so the suite's de-facto definition of "a
+repairable table" was a string tied to `decimal_shift`. Removing that detector from the
+allowlist broke 13 tests across seven files -- three of which (patch-plan, watch, certificate)
+have nothing to do with `decimal_shift` as a subject -- and left roughly six more passing
+while proving nothing.
+
+**Alternatives**:
+1. Migrate each fixture in place. Restores green, leaves the single point of failure.
+2. Relax the failing assertions. Restores green fastest and destroys the tests.
+3. One shared, self-verifying fixture pair in an importable module. Chosen.
+
+**Decision**: `tests/support/tables.py` defines `RepairableTable` plus two named concepts --
+`premised_repairable_table` (declared FD, `fd_violation`, auto-applied) and
+`unpremised_shifted_table` (the old literal, correctly named as HELD). Every builder calls
+`verify_premise()`, which asserts the disposition is consistent with the allowlist, the defect
+is present, and the pipeline reaches the claimed disposition on the claimed cell.
+`tests/conftest.py` is a thin pytest layer over it.
+
+**Reasoning**: the disposition is now visible at the call site instead of being an accident of
+which string got pasted. Fixtures that assert their own premise fail loudly rather than quietly
+weakening dependants -- the failure mode that produced the six vacuous greens. Two of those had
+degenerated to `[] == []` and `0 == 0`; two certificate tests were forging a `post_sha256`
+the verifier never read, because with `applied=False` it compares against `source_sha256`
+and skips the whole deep-verification block.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: if a second detector class becomes constraint-checkable, add a third
+named concept rather than parameterising these two -- the names carry the disposition, and a
+fixture whose disposition depends on an argument reintroduces exactly the ambiguity this
+removed.

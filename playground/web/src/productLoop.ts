@@ -54,11 +54,21 @@ export type PrimaryRepairMoment =
     };
 
 export function selectPrimaryRepairMoment(analysis: AnalyzeResponse): PrimaryRepairMoment {
+  // Preference order: the most illustrative APPLIED repair, else the first one.
+  //
+  // This used to prefer `decimal_shift` on a `rating` column, then any `decimal_shift`,
+  // then `repairs[0]`. Both `decimal_shift` branches became unreachable on 2026-08-22:
+  // that detector's value is inferred from the shape of the column's own distribution,
+  // so it is never auto-applied and never appears in `analysis.repairs` (see
+  // specs/SPEC_autoapply_decision.md). The chain silently fell through to `repairs[0]`,
+  // which is why the rendered note stayed correct while the stated intent was dead.
+  //
+  // Preferring `fd_violation` instead: it is constraint-checkable, it is the repair the
+  // bundled premised fixture demonstrates, and unlike `type_mismatch` -- whose fix blanks
+  // an unparseable cell -- it replaces a wrong value with a right one, which is the
+  // clearer thing to show someone first.
   const preferredFix =
-    analysis.repairs.find(
-      (fix) => fix.detector_id === "decimal_shift" && fix.column.toLowerCase() === "rating",
-    ) ??
-    analysis.repairs.find((fix) => fix.detector_id === "decimal_shift") ??
+    analysis.repairs.find((fix) => fix.detector_id === "fd_violation") ??
     analysis.repairs[0];
 
   if (preferredFix) {

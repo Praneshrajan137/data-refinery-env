@@ -25,22 +25,38 @@ def _duckdb_uri(database_path: Path, relation: str = "items") -> str:
 
 
 def _write_duckdb_table(database_path: Path) -> None:
+    """Create a relation whose single repair is constraint-checkable.
+
+    Was ``items(id, amount)`` with a ``1020`` decimal shift. That repair is now held on
+    every write surface, which emptied the patch plan and collapsed this whole round trip
+    -- including its pre- and post-revert assertions, which then agreed trivially because
+    nothing had ever changed. A declared FD ``state -> city`` gives a real SQL UPDATE to
+    apply, audit, and revert.
+    """
     import duckdb
 
+    rows = ", ".join(f"('{i}', 'MA', 'boston')" for i in range(1, 10))
     with duckdb.connect(str(database_path)) as connection:
-        connection.execute("CREATE TABLE items (id VARCHAR, amount VARCHAR)")
-        connection.execute(
-            "INSERT INTO items VALUES "
-            "('1', '100'), ('2', '105'), ('3', '98'), ('4', '1020'), ('5', '103')"
-        )
+        connection.execute("CREATE TABLE items (id VARCHAR, state VARCHAR, city VARCHAR)")
+        connection.execute(f"INSERT INTO items VALUES {rows}, ('10', 'MA', 'bostonn')")
 
 
-def _amount_for(database_path: Path, row_id: str) -> str:
+def _write_duckdb_schema(schema_path: Path) -> Path:
+    """The DECLARED premise that makes the city repair checkable."""
+    schema_path.write_text(
+        "columns:\n  id: string\n  state: string\n  city: string\n"
+        "functional_dependencies:\n  - determinant: [state]\n    dependent: city\n",
+        encoding="utf-8",
+    )
+    return schema_path
+
+
+def _city_for(database_path: Path, row_id: str) -> str:
     import duckdb
 
     with duckdb.connect(str(database_path), read_only=True) as connection:
         return str(
-            connection.execute("SELECT amount FROM items WHERE id = ?", [row_id]).fetchone()[0]
+            connection.execute("SELECT city FROM items WHERE id = ?", [row_id]).fetchone()[0]
         )
 
 
@@ -96,8 +112,11 @@ def test_duckdb_repair_apply_audit_and_revert_round_trip(
     database_path = tmp_path / "warehouse.duckdb"
     _write_duckdb_table(database_path)
     uri = _duckdb_uri(database_path)
+    schema_path = _write_duckdb_schema(tmp_path / "items.schema.yaml")
 
-    dry_run = runner.invoke(app, ["repair", uri, "--dry-run", "--json"])
+    dry_run = runner.invoke(
+        app, ["repair", uri, "--dry-run", "--json", "--schema", str(schema_path)]
+    )
     assert dry_run.exit_code == 0
     dry_payload = json.loads(dry_run.output)
     dry_plan = PatchPlan.model_validate(dry_payload["patch_plan"])
@@ -105,14 +124,14 @@ def test_duckdb_repair_apply_audit_and_revert_round_trip(
     assert dry_plan.apply_supported is True
     assert len(dry_plan.operations) == 1
     assert PatchPlan.model_validate_json(dry_plan.canonical_json()).sha256() == dry_plan.sha256()
-    assert _amount_for(database_path, "4") == "1020"
+    assert _city_for(database_path, "10") == "bostonn"
 
-    apply = runner.invoke(app, ["repair", uri, "--apply", "--json"])
+    apply = runner.invoke(app, ["repair", uri, "--apply", "--json", "--schema", str(schema_path)])
     assert apply.exit_code == 0
     apply_payload = json.loads(apply.output)
     txn_id = apply_payload["apply_receipt"]["txn_id"]
     assert txn_id
-    assert _amount_for(database_path, "4") == "102"
+    assert _city_for(database_path, "10") == "boston"
 
     audit = runner.invoke(app, ["audit", txn_id, "--search-root", str(tmp_path), "--json"])
     assert audit.exit_code == 0
@@ -123,4 +142,4 @@ def test_duckdb_repair_apply_audit_and_revert_round_trip(
     revert_payload = json.loads(revert.output)
     assert revert_payload["source_kind"] == "table_store"
     assert revert_payload["audit_verdict"] == "verified"
-    assert _amount_for(database_path, "4") == "1020"
+    assert _city_for(database_path, "10") == "bostonn"

@@ -33,6 +33,7 @@ from dataforge.detectors import run_all_detectors
 from dataforge.detectors.base import Issue, Schema
 from dataforge.domain.vocabulary import (
     CALIBRATED_PROVENANCE,
+    CONSTRAINT_CHECKABLE_DETECTORS,
     UNTRUSTED_PROVENANCE,
     ReviewReason,
     VerificationStrength,
@@ -99,6 +100,33 @@ class RepairEngineError(RuntimeError):
 
 class TransactionApplyError(RepairEngineError):
     """Raised when an apply transaction cannot be completed safely."""
+
+
+class UncheckableDetectorWriteError(RepairEngineError):
+    """Raised when a gated mutation primitive is handed a deterministic fix whose
+    detector is not in :data:`CONSTRAINT_CHECKABLE_DETECTORS`.
+
+    This is a DIFFERENT failure from :class:`UnprovenWriteError`, and the two are kept
+    separate because a caller hitting one needs a different remedy than a caller hitting
+    the other. An ``UnprovenWriteError`` says "this value was never checked against an
+    authority"; this says "the procedure that produced this value is deterministic, and
+    may well be *proven* in the strength sense, but its correctness cannot be checked
+    against anything outside the column's own distribution." Determinism is not
+    soundness -- see ``docs/trust/deterministic-is-not-sound.md``.
+
+    Why this lives at the primitive rather than only in :func:`partition_auto_apply`:
+    because on 2026-08-22 it did only live there, and the agent controller -- which never
+    calls :func:`partition_auto_apply` -- wrote a ``decimal_shift`` fix that the legacy
+    pipeline held, on the SAME table, with no schema. Measured: ``4,1020`` became
+    ``4,102`` via ``run_agent_repair`` while ``run_repair_pipeline`` refused. The
+    strength gate did not catch it because ``verification_strength_for("deterministic",
+    ...)`` is ``proven`` regardless of schema, so the allowlist was simply never
+    consulted on that surface.
+
+    That is the same class of defect, and the same remedy, as
+    :class:`UnprovenWriteError` itself: enforce at the primitive, so a write surface
+    cannot bypass the gate by forgetting to call the partitioner first.
+    """
 
 
 class UnprovenWriteError(RepairEngineError):
@@ -553,6 +581,7 @@ def apply_transaction(
         covered_columns=covered_columns,
         allow_unproven_autoapply=allow_unproven_autoapply,
     )
+    enforce_constraint_checkable_only(fixes)
     resolved_path = path.resolve()
     with source_path_lock(resolved_path):
         current_bytes = resolved_path.read_bytes()
@@ -974,17 +1003,29 @@ def partition_auto_apply(
 ) -> tuple[list[ProposedFix], list[ProposedFix], list[ProposedFix]]:
     """Split verified fixes into (auto_apply, calibration_held, plausibility_held).
 
-    The enforced product invariant: only PROVEN fixes auto-apply. A fix is proven
-    when it is deterministic (correct by construction) or was verified against an
-    authoritative schema. A ``plausibility_only`` fix (an LLM value with no
-    authoritative schema, checked only by the advisory inferred guard where the
-    verifier-floor gaps live) is NEVER auto-applied unless ``allow_unproven_autoapply``
-    is explicitly set -- and then it is recorded truthfully as unproven.
+    The enforced product invariant: only PROVEN fixes auto-apply. A fix is proven when
+    it is deterministic or was verified against an authoritative schema. A
+    ``plausibility_only`` fix (an LLM value with no authoritative schema, checked only by
+    the advisory inferred guard where the verifier-floor gaps live) is NEVER auto-applied
+    unless ``allow_unproven_autoapply`` is explicitly set -- and then it is recorded
+    truthfully as unproven.
 
-    Among proven fixes, deterministic ones always auto-apply; LLM-proven ones
-    auto-apply only when their calibrated confidence clears the per-class
-    threshold, else they are held for calibration review. With the default
-    propose-not-apply policy every LLM fix is held.
+    **Deterministic no longer means unconditional, and that fix is the reason this
+    docstring changed.** It previously read "among proven fixes, deterministic ones
+    always auto-apply", and the code was ``if deterministic or policy.action_for(...)``.
+    The ``or`` short-circuited the calibration gate, so ``enabled_classes == []``
+    protected nothing on the deterministic path. Measured consequence: a live
+    ``dataforge repair --apply`` on a 25-row table with no errors rewrote a legitimate
+    ``1131.20`` as ``113120`` -- a 100x monetary inflation -- recorded ``proven``, held
+    back by nothing. On error-free TPC-H the same rule would rewrite 263,428 monetary
+    values, and it has found **zero** true errors on hospital, flights or rayyan.
+
+    A deterministic fix now bypasses calibration only when its detector is in
+    :data:`CONSTRAINT_CHECKABLE_DETECTORS` -- an allowlist, so a detector nobody
+    classified is calibration-bound rather than exempt. Detectors that infer a repair
+    from the column's own distribution go through the same threshold as any other
+    fallible source, which under the shipped propose-not-apply policy means they are
+    held for review.
 
     When ``calibration_map_by_class`` is provided, an LLM fix's raw confidence is
     first rescaled through its per-issue-type post-hoc calibration map so the score
@@ -1003,9 +1044,28 @@ def partition_auto_apply(
         if strength == "plausibility_only" and not allow_unproven_autoapply:
             plausibility_held.append(fix)
             continue
-        deterministic = fix.provenance not in _LLM_PROVENANCE
+        # NOTE the misnomer, which caused a real mistake while writing this gate:
+        # ``_LLM_PROVENANCE`` is only ``{llm_cache, llm_live}``, so "not an LLM" is TRUE for
+        # ``external`` and ``entity_consensus`` as well as ``deterministic``. A first version
+        # of the restriction below keyed off this flag and silently blocked the schema-proven
+        # external write path, which is a legitimate premised write. Test the provenance you
+        # mean.
+        non_llm = fix.provenance not in _LLM_PROVENANCE
+        if fix.provenance == "deterministic":
+            # Determinism of the procedure is not soundness of the inference. A deterministic
+            # repair may skip the calibrated threshold only when its rule is checkable against
+            # a reference; one that infers a value from the column's own distribution must
+            # earn a threshold like any other fallible source.
+            bypasses_calibration = fix.fix.detector_id in CONSTRAINT_CHECKABLE_DETECTORS
+        else:
+            # ``external`` and ``entity_consensus`` are unchanged: they reached this line only
+            # by being schema-proven or by an explicit recorded opt-in.
+            bypasses_calibration = non_llm
         confidence = _calibrated_confidence(fix, calibration_map_by_class)
-        if deterministic or policy.action_for(fix.fix.detector_id, confidence) == "auto_apply":
+        if (
+            bypasses_calibration
+            or policy.action_for(fix.fix.detector_id, confidence) == "auto_apply"
+        ):
             auto.append(fix)
         else:
             calibration_held.append(fix)
@@ -1269,6 +1329,64 @@ def enforce_proven_only(
         "against an authoritative schema. Either supply a declared schema or pass "
         "allow_unproven_autoapply=True to accept them as unproven (they stay "
         "reversible and are recorded truthfully as not-proven in the certificate)."
+    )
+
+
+def enforce_constraint_checkable_only(fixes: list[ProposedFix]) -> None:
+    """Refuse to write a deterministic fix whose detector is not constraint-checkable.
+
+    The second half of the primitive-level write gate. :func:`enforce_proven_only`
+    enforces the STRENGTH dimension (was this value checked against an authority);
+    this enforces the SOUNDNESS dimension (can the procedure that produced it be
+    checked against anything at all).
+
+    The two are genuinely separable, which is why they are two functions and two
+    exception types rather than one. A ``decimal_shift`` fix on a schema-covered column
+    is ``proven`` by the strength predicate -- ``verification_strength_for`` returns
+    ``proven`` for every ``deterministic`` provenance, schema or no schema -- and is
+    still not something the product can stand behind, because the only evidence for it
+    is the shape of the column's own distribution.
+
+    There is deliberately no ``allow_*`` opt-in parameter. ``allow_unproven_autoapply``
+    exists because an unproven write is a defensible product choice: the value stays
+    reversible and the certificate records it honestly as not-proven. An
+    uncheckable-detector write is not a defensible choice at any confidence, because
+    there is no evidence to record -- the measured false-positive rate on realistically
+    dispersed money columns was 263,428 cells across three TPC-H tables with zero true
+    errors. A flag here would be a flag for corrupting data on request. Callers wanting
+    the value must take it from the review queue, where it is surfaced honestly.
+
+    Args:
+        fixes: The fixes about to be committed.
+
+    Raises:
+        UncheckableDetectorWriteError: If any fix has ``deterministic`` provenance and a
+            detector outside :data:`CONSTRAINT_CHECKABLE_DETECTORS`. The message names
+            both the detector and the allowlist, because a caller hitting this needs to
+            know which of the two gates refused and why.
+    """
+    uncheckable = [
+        fix
+        for fix in fixes
+        if fix.provenance == "deterministic"
+        and fix.fix.detector_id not in CONSTRAINT_CHECKABLE_DETECTORS
+    ]
+    if not uncheckable:
+        return
+    cells = ", ".join(
+        f"row {fix.fix.row} column {fix.fix.column!r} (detector {fix.fix.detector_id})"
+        for fix in uncheckable[:_UNPROVEN_WRITE_REPORT_LIMIT]
+    )
+    if len(uncheckable) > _UNPROVEN_WRITE_REPORT_LIMIT:
+        cells += f", and {len(uncheckable) - _UNPROVEN_WRITE_REPORT_LIMIT} more"
+    allowlist = ", ".join(sorted(CONSTRAINT_CHECKABLE_DETECTORS))
+    raise UncheckableDetectorWriteError(
+        f"Refusing to write {len(uncheckable)} fix(es) from a non-constraint-checkable "
+        f"detector: {cells}. Only these deterministic detectors may write: {allowlist}. "
+        "A deterministic procedure is not a sound inference: these values are inferred "
+        "from the shape of the column's own distribution, not checked against a "
+        "reference, so a correct cell in a widely dispersed column is indistinguishable "
+        "from an error. The fix is still surfaced for human review; it is not applied."
     )
 
 

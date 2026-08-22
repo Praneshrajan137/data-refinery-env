@@ -53,7 +53,6 @@ from typing import Literal
 import dataforge.engine as engine_pkg
 from dataforge.agent import AgentRepairRequest, run_agent_repair
 from dataforge.certificate import reverify_certificate, verify_certificate
-from dataforge.cli.common import load_schema
 from dataforge.engine.repair import (
     ExternalFix,
     RepairPipelineRequest,
@@ -63,6 +62,7 @@ from dataforge.engine.repair import (
     verify_and_apply,
 )
 from dataforge.transactions.revert import revert_transaction
+from tests.support.tables import build_premised_repairable_table
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DATAFORGE_PKG = REPO_ROOT / "dataforge"
@@ -265,19 +265,18 @@ _WRITE_PRIMITIVE_REGISTRY: tuple[WritePrimitive, ...] = (
 
 
 def _decimal_shift_case(tmp_path: Path) -> tuple[Path, object]:
-    """A CSV + schema whose deterministic floor auto-applies one proven fix."""
-    csv = tmp_path / "amounts.csv"
-    csv.write_text(
-        "id,amount\n1,100\n2,105\n3,98\n4,1020\n5,103\n6,101\n7,99\n8,102\n",
-        encoding="utf-8",
-    )
-    schema_path = tmp_path / "schema.yaml"
-    schema_path.write_text(
-        "columns:\n  id: str\n  amount: float\n"
-        "domain_bounds:\n  amount:\n    min: 0\n    max: 5000\n",
-        encoding="utf-8",
-    )
-    return csv, load_schema(schema_path)
+    """A CSV + premise whose deterministic floor auto-applies one proven fix.
+
+    The name is now historical. It used to build the ``1020`` table plus a
+    ``domain_bounds`` schema, on the reasonable-looking assumption that declaring the
+    column would make the write proven. It does not: ``decimal_shift`` infers its value
+    from the shape of the column's own distribution, so it is held regardless of schema
+    (``specs/SPEC_autoapply_decision.md`` rows 8 and 9). The three certificate tests below
+    are about JOURNALLING and VERIFICATION, not about which detector fired, so they now use
+    a declared functional dependency -- a repair the product actually stands behind.
+    """
+    table = build_premised_repairable_table(tmp_path / "premised.csv")
+    return table.csv_path, table.schema
 
 
 def test_single_write_primitive_is_defined_once() -> None:
@@ -478,10 +477,16 @@ def test_verify_and_apply_shares_one_certificate(tmp_path: Path) -> None:
     pipeline = run_repair_pipeline(
         RepairPipelineRequest(source_path=csv, mode="dry_run", schema=schema)
     ).receipt
+    # An EXTERNAL fix: the caller supplies the value, so the detector allowlist does not
+    # apply -- `external` provenance is gated on strength and on the expected-old-value
+    # precondition instead. Targets the same cell the premised fixture's own FD repair
+    # would, which is what makes `expected_old_value` a meaningful precondition here.
     external = verify_and_apply(
         VerifyAndApplyRequest(
             source_path=csv,
-            fixes=[ExternalFix(row=3, column="amount", new_value="102", expected_old_value="1020")],
+            fixes=[
+                ExternalFix(row=9, column="city", new_value="boston", expected_old_value="bostonn")
+            ],
             mode="apply",
             schema=schema,
             confirm_escalations=True,

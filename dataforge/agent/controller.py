@@ -47,6 +47,7 @@ from dataforge.agent.policy import AgentObservation, Policy, ResidualIssue, make
 from dataforge.agent.scratchpad import Scratchpad
 from dataforge.detectors import run_all_detectors
 from dataforge.detectors.base import Issue, Schema
+from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
 from dataforge.engine.repair import (
     CandidateFix,
     RepairMode,
@@ -404,6 +405,26 @@ def run_agent_repair(
     covered_columns = authoritative_columns(schema)
 
     def _is_held(fix: ProposedFix) -> bool:
+        # SOUNDNESS dimension, checked first and with NO opt-in. A deterministic fix from
+        # a detector outside the allowlist is held on every surface, because the only
+        # evidence for its value is the shape of the column's own distribution. This
+        # mirrors ``partition_auto_apply``; the two gates are pinned to agree by
+        # ``test_autoapply_decision_table``.
+        #
+        # Holding here rather than relying on the primitive matters for PARITY, not just
+        # safety. ``enforce_constraint_checkable_only`` inside ``apply_transaction`` is
+        # the structural backstop and it RAISES, which would abort the whole agent run --
+        # whereas the legacy pipeline holds the fix and completes with ``fixes=0``. If the
+        # only gate were the primitive, the two surfaces would diverge on an error rather
+        # than agree on a disposition, and the non-regression gate would compare a
+        # traceback against a clean zero. So: hold proactively here, and let the primitive
+        # catch any surface that forgets. That backstop should now be unreachable from
+        # this path, which is exactly what makes it a good backstop.
+        if (
+            fix.provenance == "deterministic"
+            and fix.fix.detector_id not in CONSTRAINT_CHECKABLE_DETECTORS
+        ):
+            return True
         if request.allow_unproven_autoapply:
             return False
         return strength_for_fix(fix, covered_columns) == "plausibility_only"

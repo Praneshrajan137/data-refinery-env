@@ -44,6 +44,7 @@ from typing import Final, Literal
 __all__ = [
     "ALL_PROVENANCE",
     "CALIBRATED_PROVENANCE",
+    "CONSTRAINT_CHECKABLE_DETECTORS",
     "INDEPENDENT_VERIFICATION_HUMAN",
     "PROVENANCE_HUMAN",
     "PROVENANCE_ORDER",
@@ -86,11 +87,30 @@ VERIFICATION_STRENGTHS: Final[tuple[VerificationStrength, ...]] = (
 
 
 # --- Provenance ---------------------------------------------------------------
-# Where a proposed value came from. `deterministic` is correct by construction --
-# derived from the table by a rule that cannot invent a value. Everything else is a
-# proposal from a source that can be confidently wrong, including `entity_consensus`:
-# sibling-row agreement is evidence, not proof, because the dirty-data majority is
-# sometimes itself the error.
+# Where a proposed value came from.
+#
+# **`deterministic` means the PROCEDURE is deterministic, not that the INFERENCE is
+# sound.** An earlier version of this comment read "`deterministic` is correct by
+# construction -- derived from the table by a rule that cannot invent a value". That
+# was false, and the falsehood was load-bearing: it justified letting deterministic
+# fixes bypass the calibration gate entirely.
+#
+# Measured 2026-08-22. The `decimal_shift` rule is deterministic and infers a repair
+# from the column's own distribution. It scored precision **0.0000** on hospital
+# (39 flags), flights (92) and rayyan (112) -- zero true errors found on any of them --
+# and on error-free TPC-H it would rewrite **263,428** monetary values, plus 9.86% of
+# `SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY.total_elapsed_time`. A live CLI run rewrote a
+# legitimate `1131.20` as `113120` and recorded it as `proven`.
+#
+# A rule that cannot invent a value can still deterministically choose the wrong one.
+# Trust is earned by measurement, not conferred by implementation category -- which is
+# what `PRODUCT.md` already says, and the deterministic path was the one place it was
+# not applied. See `CONSTRAINT_CHECKABLE_DETECTORS` below, and
+# `docs/trust/deterministic-is-not-sound.md`.
+#
+# Everything other than `deterministic` is a proposal from a source that can be
+# confidently wrong, including `entity_consensus`: sibling-row agreement is evidence,
+# not proof, because the dirty-data majority is sometimes itself the error.
 
 Provenance = Literal[
     "deterministic",
@@ -112,6 +132,34 @@ UNTRUSTED_PROVENANCE: Final[frozenset[str]] = frozenset(
 )
 
 ALL_PROVENANCE: Final[frozenset[str]] = TRUSTED_PROVENANCE | UNTRUSTED_PROVENANCE
+
+# --- Which deterministic repairs may bypass the calibration gate --------------
+# A deterministic fix historically auto-applied unconditionally: `partition_auto_apply`
+# read `if deterministic or policy.action_for(...)`, so `enabled_classes == []` gave no
+# protection at all. That is the hole `decimal_shift` fell through.
+#
+# Membership here is a claim that the repair is **checkable against a reference** --
+# another row sharing a determinant, a declared type, a functional dependency -- rather
+# than **inferred from the shape of the column's own distribution**. A distributional
+# inference has an error rate, so it must clear a calibrated threshold like any other
+# fallible source.
+#
+# **This is an allowlist, and that is deliberate.** Per this module's contract, a
+# denylist of known-bad detectors fails open: any detector nobody thought of would
+# bypass calibration by default. A new detector is calibration-bound until it earns
+# an entry here with a committed measurement.
+#
+# `decimal_shift` is excluded by measurement, not by taste: precision 0.0000 on all
+# three benchmark datasets and 263,428 false rewrites on a table with no errors in it.
+# A schema does not rescue it either -- `113120` satisfies every plausible numeric
+# constraint on a price column, so the premise cannot catch this class of wrongness.
+CONSTRAINT_CHECKABLE_DETECTORS: Final[frozenset[str]] = frozenset(
+    {
+        "type_mismatch",
+        "fd_violation",
+        "missing_value",
+    }
+)
 
 # A strict subset of the untrusted set: values that additionally require a calibrated
 # per-class threshold before they may be written. `external` and `entity_consensus` are

@@ -8,21 +8,32 @@ from unittest.mock import patch
 from dataforge.calibration import AbstentionPolicy
 from dataforge.certificate import reverify_certificate, verify_certificate
 from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline
+from tests.support.tables import build_premised_repairable_table
 
 
-def _decimal_shift_csv(path: Path) -> None:
-    # Clustered values with one clear 10x outlier -> deterministic decimal_shift
-    # fix that auto-applies through the verified gate.
-    path.write_text(
-        "amount\n100\n104\n98\n103\n101\n106\n99\n1020\n",
-        encoding="utf-8",
-    )
+def _premised_csv(path: Path) -> object:
+    """Write a table whose repair the product stands behind, and return its schema.
+
+    Was ``_decimal_shift_csv``: eight clustered amounts with one 10x outlier, relying on
+    ``decimal_shift`` auto-applying. It no longer does -- that detector infers its value
+    from the shape of the column's own distribution and is held on every surface
+    (``specs/SPEC_autoapply_decision.md`` rows 8-9).
+
+    This file is about CERTIFICATES, and most of its tests need ``receipt.applied`` to be
+    true before there is anything to certify. Two were failing outright; two more were
+    passing while proving nothing, because with ``applied=False`` the verifier compares
+    against ``source_sha256`` and never reads the ``post_sha256`` field the test forged.
+    A declared functional dependency gives a real write to certify.
+    """
+    return build_premised_repairable_table(path).schema
 
 
 def test_certificate_verifies_against_repaired_data(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
-    _decimal_shift_csv(source)
-    result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="apply"))
+    schema = _premised_csv(source)
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=source, mode="apply", schema=schema)
+    )
     receipt = result.receipt.model_dump(mode="json")
 
     verification = verify_certificate(receipt, data_bytes=source.read_bytes())
@@ -35,8 +46,10 @@ def test_certificate_verifies_against_repaired_data(tmp_path: Path) -> None:
 
 def test_tampered_data_is_detected(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
-    _decimal_shift_csv(source)
-    result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="apply"))
+    schema = _premised_csv(source)
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=source, mode="apply", schema=schema)
+    )
     receipt = result.receipt.model_dump(mode="json")
 
     tampered = source.read_bytes() + b"9\n"
@@ -47,8 +60,10 @@ def test_tampered_data_is_detected(tmp_path: Path) -> None:
 
 def test_tampered_receipt_hash_is_detected(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
-    _decimal_shift_csv(source)
-    result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="apply"))
+    schema = _premised_csv(source)
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=source, mode="apply", schema=schema)
+    )
     receipt = result.receipt.model_dump(mode="json")
 
     receipt["post_sha256"] = "0" * 64  # forge the recorded output hash
@@ -58,9 +73,11 @@ def test_tampered_receipt_hash_is_detected(tmp_path: Path) -> None:
 
 def test_dry_run_certificate_verifies_against_source(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
-    _decimal_shift_csv(source)
+    schema = _premised_csv(source)
     original = source.read_bytes()
-    result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="dry_run"))
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=source, mode="dry_run", schema=schema)
+    )
     receipt = result.receipt.model_dump(mode="json")
 
     assert source.read_bytes() == original  # dry run never mutates
@@ -302,8 +319,10 @@ def _permissive_policy() -> AbstentionPolicy:
 
 def test_reverify_re_derives_accept_for_deterministic_run(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
-    _decimal_shift_csv(source)
-    result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="apply"))
+    schema = _premised_csv(source)
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=source, mode="apply", schema=schema)
+    )
     receipt = result.receipt.model_dump(mode="json")
 
     verification = reverify_certificate(receipt, data_bytes=source.read_bytes())
@@ -316,8 +335,10 @@ def test_reverify_re_derives_accept_for_deterministic_run(tmp_path: Path) -> Non
 
 def test_reverify_detects_tampered_data(tmp_path: Path) -> None:
     source = tmp_path / "data.csv"
-    _decimal_shift_csv(source)
-    result = run_repair_pipeline(RepairPipelineRequest(source_path=source, mode="apply"))
+    schema = _premised_csv(source)
+    result = run_repair_pipeline(
+        RepairPipelineRequest(source_path=source, mode="apply", schema=schema)
+    )
     receipt = result.receipt.model_dump(mode="json")
 
     tampered = source.read_bytes().replace(b"amount", b"amount") + b"55\n"

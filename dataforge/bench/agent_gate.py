@@ -60,18 +60,106 @@ class AgentGateReport:
 
     @property
     def all_parity(self) -> bool:
-        """True when the agent matches the deterministic floor on every fixture."""
-        return all(item.parity for item in self.fixtures) and bool(self.fixtures)
+        """True when the agent matches the deterministic floor on every fixture.
+
+        Non-vacuous by construction: see :attr:`non_vacuous`. Parity alone is satisfied
+        by three zeros, so this property requires BOTH that every fixture agrees and
+        that at least one fixture actually exercised a write.
+        """
+        return (
+            all(item.parity for item in self.fixtures) and bool(self.fixtures) and self.non_vacuous
+        )
+
+    @property
+    def non_vacuous(self) -> bool:
+        """True when at least one fixture produced a non-zero deterministic floor.
+
+        Why this exists. ``parity`` is
+        ``agent.fixes_count == floor_count and agent.floor_fix_count == floor_count``.
+        When the floor is zero that is ``0 == 0 and 0 == 0`` -- a three-way equality
+        between three zeros, which an agent that silently dropped EVERY fix would
+        satisfy perfectly, and be certified as "reproducing the deterministic floor on
+        all fixtures".
+
+        Scope, stated honestly. This guard is PROPHYLACTIC, not a fix for a defect that
+        was live. When ``decimal_shift`` left the auto-apply allowlist on 2026-08-22 it
+        was predicted here that the bundled floor would drop to zero; measurement says
+        otherwise. Actual floors after that change:
+
+        * ``premised_fd_10rows.csv``  1  (``fd_violation``, declared premise)
+        * ``hospital_10rows.csv``     1  (``type_mismatch`` on ``phone_number``)
+        * ``dirty.csv``               2  (``type_mismatch`` on ``age``, twice)
+
+        All three survive because ``type_mismatch`` and ``fd_violation`` are themselves
+        allowlisted. The gate was therefore never vacuous in practice, and the earlier
+        claim that ``decimal_shift`` was the only fix the hospital floor contained was
+        simply wrong -- it was never measured before being asserted.
+
+        The guard is kept because the failure mode is real, cheap to exclude, and silent:
+        removing a detector from the allowlist is a one-line change that can empty a
+        floor without touching gate code, and the resulting pass looks identical to a
+        real one. Note the pre-existing ``and bool(self.fixtures)`` in :attr:`all_parity`
+        -- the author anticipated an empty fixture LIST and missed empty results PER
+        fixture. This closes that level. Compare the corruption oracle in
+        ``docs/trust/deterministic-is-not-sound.md``, which generated clean columns so
+        tightly clustered that no correct cell could be flagged, making the invariant it
+        guarded unfalsifiable.
+        """
+        return any(item.floor_fix_count > 0 for item in self.fixtures)
+
+    @property
+    def vacuity_reason(self) -> str | None:
+        """A human-readable reason when the report is vacuous, else ``None``."""
+        if not self.fixtures:
+            return "no fixtures were evaluated"
+        if not self.non_vacuous:
+            names = ", ".join(Path(item.fixture).name for item in self.fixtures)
+            return (
+                f"every fixture produced a ZERO deterministic floor ({names}), so the "
+                "parity assertion compares zero against zero and would be satisfied by "
+                "an agent that dropped every fix. Add a fixture whose repair the product "
+                "stands behind -- one with a declared premise and a detector in "
+                "CONSTRAINT_CHECKABLE_DETECTORS."
+            )
+        return None
 
 
 def default_gate_fixtures() -> list[Path]:
-    """Return offline, bundled CSV fixtures suitable for the parity gate."""
+    """Return offline, bundled CSV fixtures suitable for the parity gate.
+
+    ``premised_fd_10rows.csv`` is the only one carrying a DECLARED premise (a sibling
+    ``.schema.yaml`` declaring ``state -> city``). It was added on 2026-08-22 because the
+    other two fixtures reach their floor via ``type_mismatch``, which needs no schema, so
+    nothing in this gate exercised the schema-dependent ``fd_violation`` write path --
+    the path that every gate change since has had to reason about blind.
+
+    Measured floors: ``premised_fd_10rows`` 1, ``hospital_10rows`` 1, ``dirty`` 2.
+    """
     root = Path(__file__).resolve().parents[1]
     candidates = [
+        root / "fixtures" / "premised_fd_10rows.csv",
         root / "fixtures" / "hospital_10rows.csv",
         root / "datasets" / "embedded" / "hospital" / "dirty.csv",
     ]
     return [path for path in candidates if path.is_file()]
+
+
+def _premise_for(fixture: Path, explicit: Schema | None) -> Schema | None:
+    """Resolve the schema for one fixture: an explicit override, else its sibling file.
+
+    A fixture is a table PLUS its premise, not a table alone. Before this, the gate took
+    a single ``schema`` for every fixture, which made it impossible to add one premised
+    fixture without asserting that premise over the unpremised ones too -- and a premise
+    that does not hold is worse than none, because it manufactures violations.
+    """
+    if explicit is not None:
+        return explicit
+    sidecar = fixture.with_suffix(".schema.yaml")
+    if not sidecar.is_file():
+        return None
+    from dataforge.cli.common import load_schema
+
+    return load_schema(sidecar)
 
 
 def compare_agent_vs_deterministic(
@@ -93,12 +181,13 @@ def compare_agent_vs_deterministic(
     results: list[FixtureParity] = []
     for path in paths:
         resolved = path.resolve()
+        premise = _premise_for(resolved, schema)
         legacy = run_repair_pipeline(
-            RepairPipelineRequest(source_path=resolved, mode="dry_run", schema=schema)
+            RepairPipelineRequest(source_path=resolved, mode="dry_run", schema=premise)
         )
         agent = run_agent_repair(
             AgentRepairRequest(
-                source_path=resolved, mode="dry_run", schema=schema, policy="deterministic"
+                source_path=resolved, mode="dry_run", schema=premise, policy="deterministic"
             )
         )
         floor_count = len(legacy.fixes)

@@ -237,3 +237,46 @@ def enforce_plan_proven_only(plan: PatchPlan, *, allow_unproven_autoapply: bool)
         "proven against an authoritative schema. Either supply a declared schema or "
         "pass allow_unproven_autoapply=True to accept them as unproven."
     )
+
+
+def enforce_plan_constraint_checkable_only(plan: PatchPlan) -> None:
+    """Refuse to apply a plan containing a non-constraint-checkable deterministic op.
+
+    The table-store counterpart of
+    :func:`dataforge.engine.repair.enforce_constraint_checkable_only`, and the same
+    argument for existing: the warehouse path issues raw SQL rather than going through
+    ``apply_transaction``, so a gate that lives only on the CSV primitive leaves this
+    surface open. Both primitives read the one allowlist in the domain vocabulary, so
+    they cannot disagree about which detectors may write.
+
+    Unlike the strength gate above there is no ``allow_unproven_autoapply`` escape: see
+    :func:`dataforge.engine.repair.enforce_constraint_checkable_only` for why an opt-in
+    would amount to a flag for corrupting data on request.
+
+    Raises:
+        TableStoreError: If any operation has ``deterministic`` provenance and a detector
+            outside ``CONSTRAINT_CHECKABLE_DETECTORS``.
+    """
+    from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
+    from dataforge.stores.base import TableStoreError
+
+    uncheckable = [
+        op
+        for op in plan.operations
+        if op.provenance == "deterministic" and op.detector_id not in CONSTRAINT_CHECKABLE_DETECTORS
+    ]
+    if not uncheckable:
+        return
+    cells = ", ".join(
+        f"row {op.row} column {op.column!r} (detector {op.detector_id})" for op in uncheckable[:5]
+    )
+    if len(uncheckable) > 5:
+        cells += f", and {len(uncheckable) - 5} more"
+    allowlist = ", ".join(sorted(CONSTRAINT_CHECKABLE_DETECTORS))
+    raise TableStoreError(
+        f"Refusing to write {len(uncheckable)} operation(s) from a "
+        f"non-constraint-checkable detector to {plan.target}: {cells}. Only these "
+        f"deterministic detectors may write: {allowlist}. A deterministic procedure is "
+        "not a sound inference -- these values are inferred from the shape of the "
+        "column's own distribution, not checked against a reference."
+    )

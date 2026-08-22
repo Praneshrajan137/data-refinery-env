@@ -38,11 +38,42 @@ runner = CliRunner()
 
 
 def _write_repairable_csv(path: Path) -> None:
-    """Write a small CSV with a deterministic decimal-shift issue."""
+    """Write a small CSV with a deterministic decimal-shift issue.
+
+    NOTE: as of 2026-08-22 a decimal-shift issue is **detected but not auto-applied**.
+    `decimal_shift` infers a repair from the column's own distribution and measured
+    precision 0.0000 on hospital, flights and rayyan, so it is not in
+    `CONSTRAINT_CHECKABLE_DETECTORS` and must clear a calibrated threshold like any other
+    fallible source. Use `_write_premised_repairable` when a test needs a fix that
+    actually applies.
+    """
     path.write_text(
         "id,amount\n1,100\n2,105\n3,98\n4,1020\n5,103\n",
         encoding="utf-8",
     )
+
+
+def _write_premised_repairable(csv_path: Path) -> Path:
+    """Write a CSV whose repair is checkable against a DECLARED premise, plus that schema.
+
+    Returns the schema path. `state -> city` is declared, holds on every row but one, and
+    `fd_violation` is constraint-checkable -- so this exercises a write the product
+    actually stands behind, rather than a schema-free distributional guess.
+    """
+    rows = "\n".join(f"{i},MA,boston" for i in range(1, 10))
+    csv_path.write_text(f"id,state,city\n{rows}\n10,MA,bostonn\n", encoding="utf-8")
+    schema_path = csv_path.with_suffix(".schema.yaml")
+    schema_path.write_text(
+        "columns:\n"
+        "  id: string\n"
+        "  state: string\n"
+        "  city: string\n"
+        "functional_dependencies:\n"
+        "  - determinant: [state]\n"
+        "    dependent: city\n",
+        encoding="utf-8",
+    )
+    return schema_path
 
 
 def _write_fd_repairable_csv(path: Path) -> None:
@@ -62,7 +93,16 @@ def _write_fd_repairable_csv(path: Path) -> None:
     )
 
 
-def _issue(*, issue_type: str = "decimal_shift", row: int = 3, column: str = "amount") -> Issue:
+def _issue(*, issue_type: str = "fd_violation", row: int = 3, column: str = "amount") -> Issue:
+    """A candidate issue.
+
+    Default changed from ``decimal_shift`` to ``fd_violation`` on 2026-08-22.
+    ``decimal_shift`` is a distributional inference (measured precision 0.0000 on
+    hospital, flights and rayyan) and is deliberately no longer in
+    ``CONSTRAINT_CHECKABLE_DETECTORS``, so a fix carrying it is held for review rather
+    than auto-applied. Tests that patch ``propose_repairs`` to exercise the *write* path
+    need a detector the product actually stands behind.
+    """
     return Issue(
         row=row,
         column=column,
@@ -81,7 +121,7 @@ def _proposed_fix(
     column: str = "amount",
     old_value: str = "1020",
     new_value: str = "102",
-    detector_id: str = "decimal_shift",
+    detector_id: str = "fd_violation",
 ) -> ProposedFix:
     return ProposedFix(
         fix=CellFix(
@@ -172,26 +212,53 @@ class TestRepairCommand:
 
     def test_dry_run_shows_diff_and_creates_no_artifacts(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "data.csv"
-        _write_repairable_csv(csv_path)
+        schema_path = _write_premised_repairable(csv_path)
 
-        result = runner.invoke(app, ["repair", str(csv_path), "--dry-run"])
+        result = runner.invoke(
+            app, ["repair", str(csv_path), "--dry-run", "--schema", str(schema_path)]
+        )
 
         assert result.exit_code == 0
         assert "Proposed Repairs" in result.output
-        assert "decimal_shift" in result.output
+        assert "fd_violation" in result.output
         assert not (tmp_path / ".dataforge").exists()
 
     def test_dry_run_json(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "data.csv"
-        _write_repairable_csv(csv_path)
+        schema_path = _write_premised_repairable(csv_path)
 
-        result = runner.invoke(app, ["repair", str(csv_path), "--dry-run", "--json"])
+        result = runner.invoke(
+            app,
+            ["repair", str(csv_path), "--dry-run", "--json", "--schema", str(schema_path)],
+        )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["receipt"]["receipt_version"] == "repair_receipt_v1"
         assert '"mode": "dry_run"' in result.output
         assert '"fixes_count": 1' in result.output
+
+    def test_decimal_shift_is_detected_but_never_auto_applied(self, tmp_path: Path) -> None:
+        """The finding survives; the write does not.
+
+        This replaces what the two tests above used to assert. ``decimal_shift`` is a
+        distributional inference with measured precision 0.0000 on hospital, flights and
+        rayyan, and on error-free TPC-H it would have rewritten 263,428 monetary values.
+        It must still be reported -- suppressing a finding would be its own defect -- but
+        it must never reach the write path without a calibrated threshold.
+        """
+        csv_path = tmp_path / "data.csv"
+        _write_repairable_csv(csv_path)
+        original = csv_path.read_bytes()
+
+        profiled = runner.invoke(app, ["profile", str(csv_path)])
+        assert "decimal_shift" in profiled.output, "the finding must still be surfaced"
+
+        applied = runner.invoke(app, ["repair", str(csv_path), "--apply"])
+        assert csv_path.read_bytes() == original, (
+            "decimal_shift was auto-applied; it bypassed the calibration gate. "
+            f"exit={applied.exit_code}"
+        )
 
     def test_dry_run_json_uses_accepted_constraints_artifact(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "fd.csv"
@@ -257,21 +324,25 @@ class TestRepairCommand:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         csv_path = tmp_path / "data.csv"
-        _write_repairable_csv(csv_path)
+        # The half-migrated one: the mutated bytes below were already switched to the
+        # premised (state,city) shape while the fixture was left as the shifted table.
+        schema_path = _write_premised_repairable(csv_path)
         original_bytes = csv_path.read_bytes()
 
         def fake_apply(path: Path, fixes: list[object]) -> str:
             log_files = list((tmp_path / ".dataforge" / "transactions").glob("*.jsonl"))
             assert len(log_files) == 1
             assert path.read_bytes() == original_bytes
-            mutated = b"id,amount\n1,100\n2,105\n3,98\n4,102\n5,103\n"
+            mutated = b"id,state,city\n1,MA,boston\n"
             path.write_bytes(mutated)
             return hashlib.sha256(mutated).hexdigest()
 
         with patch("dataforge.engine.repair._apply_fixes_to_csv", side_effect=fake_apply):
-            result = runner.invoke(app, ["repair", str(csv_path), "--apply"])
+            result = runner.invoke(
+                app, ["repair", str(csv_path), "--apply", "--schema", str(schema_path)]
+            )
 
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
         assert "Transaction ID" in result.output
 
     def test_apply_then_revert_round_trip(
@@ -279,10 +350,12 @@ class TestRepairCommand:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         csv_path = tmp_path / "data.csv"
-        _write_repairable_csv(csv_path)
+        schema_path = _write_premised_repairable(csv_path)
         original_bytes = csv_path.read_bytes()
 
-        apply_result = runner.invoke(app, ["repair", str(csv_path), "--apply"])
+        apply_result = runner.invoke(
+            app, ["repair", str(csv_path), "--apply", "--schema", str(schema_path)]
+        )
         txn_match = re.search(r"txn-\d{4}-\d{2}-\d{2}-[0-9a-f]{6}", apply_result.output)
 
         assert apply_result.exit_code == 0
@@ -303,10 +376,12 @@ class TestRepairCommand:
         data_dir.mkdir()
         outside_dir.mkdir()
         csv_path = data_dir / "data.csv"
-        _write_repairable_csv(csv_path)
+        schema_path = _write_premised_repairable(csv_path)
         original_bytes = csv_path.read_bytes()
 
-        apply_result = runner.invoke(app, ["repair", str(csv_path), "--apply"])
+        apply_result = runner.invoke(
+            app, ["repair", str(csv_path), "--apply", "--schema", str(schema_path)]
+        )
         txn_match = re.search(r"txn-\d{4}-\d{2}-\d{2}-[0-9a-f]{6}", apply_result.output)
         assert apply_result.exit_code == 0
         assert txn_match is not None
@@ -593,7 +668,7 @@ class TestRepairHelpers:
         with (
             patch(
                 "dataforge.engine.repair.build_repairers",
-                return_value={"decimal_shift": _StaticRepairer(candidate)},
+                return_value={"fd_violation": _StaticRepairer(candidate)},
             ),
             patch(
                 "dataforge.engine.repair.SafetyFilter.evaluate",

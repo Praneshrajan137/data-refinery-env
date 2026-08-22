@@ -31,19 +31,52 @@ from hypothesis import strategies as st
 
 from dataforge.review import CellScore
 from dataforge.table import TableLike
+from dataforge.verifier.schema import FunctionalDependency, Schema
 
-# Chosen empirically to produce BOTH detected issues (4) and an accepted deterministic fix
-# (1). A fixture that produces neither makes every assertion below vacuously true, which is
+# Chosen empirically to produce BOTH detected issues and an accepted deterministic fix.
+# A fixture that produces neither makes every assertion below vacuously true, which is
 # exactly how the pre-existing unit tests came to prove nothing; `_assert_non_vacuous`
 # enforces this at runtime so the fixture cannot silently rot.
+#
+# UPDATED 2026-08-22, and the reason is worth keeping. The accepted fix used to come from
+# `decimal_shift`, which auto-applied unconditionally because `partition_auto_apply` read
+# `if deterministic or ...`. That bypass was removed: `decimal_shift` infers a repair from
+# the column's own distribution and measured precision 0.0000 on hospital, flights and
+# rayyan, so it is no longer in `CONSTRAINT_CHECKABLE_DETECTORS`. `_assert_non_vacuous`
+# then fired correctly -- the fixture produced no accepted fixes at all.
+#
+# It is repaired here by supplying a DECLARED functional dependency instead of leaning on
+# a schema-free heuristic. `state -> city` holds on every row but one, so `fd_violation`
+# produces a deterministic fix that is checkable against a stated premise rather than
+# guessed from a distribution. That is a better fixture than the original: it exercises
+# the write path that the product actually stands behind.
 _ROWS = (
     [
-        {"id": str(i + 1), "city": "boston", "age": str(30 + i % 5), "amount": "100.00"}
+        {
+            "id": str(i + 1),
+            "state": "MA",
+            "city": "boston",
+            "age": str(30 + i % 5),
+            "amount": "100.00",
+        }
         for i in range(14)
     ]
-    + [{"id": "15", "city": "bostonn", "age": "30", "amount": "100.00"}]
-    + [{"id": "16", "city": "boston", "age": "", "amount": "100.00"}]
-    + [{"id": "17", "city": "boston", "age": "99999", "amount": "abc"}]
+    + [{"id": "15", "state": "MA", "city": "bostonn", "age": "30", "amount": "100.00"}]
+    + [{"id": "16", "state": "MA", "city": "boston", "age": "", "amount": "100.00"}]
+    + [{"id": "17", "state": "MA", "city": "boston", "age": "99999", "amount": "abc"}]
+)
+
+#: Declared premise for the fixture. Without it nothing auto-applies, which is the
+#: intended behaviour of the engine and would make this test vacuous.
+_SCHEMA = Schema(
+    columns={
+        "id": "string",
+        "state": "string",
+        "city": "string",
+        "age": "string",
+        "amount": "string",
+    },
+    functional_dependencies=(FunctionalDependency(determinant=("state",), dependent="city"),),
 )
 
 
@@ -105,7 +138,7 @@ def _run(tmp_path: Path, scores: Sequence[float] | None) -> tuple[dict[str, obje
 
     source = tmp_path / "table.csv"
     _write_csv(source)
-    request = RepairPipelineRequest(source_path=source, mode="dry_run")
+    request = RepairPipelineRequest(source_path=source, mode="dry_run", repair_schema=_SCHEMA)
     ranker = _ScriptedRanker(scores) if scores else None
     result = run_repair_pipeline(request, review_ranker=ranker)
     payload = result.model_dump(mode="json")

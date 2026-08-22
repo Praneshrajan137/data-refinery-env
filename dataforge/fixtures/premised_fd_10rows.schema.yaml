@@ -1,0 +1,18 @@
+# Premise for `premised_fd_10rows.csv`.
+#
+# `state -> city` is a DECLARED functional dependency: it is an authority supplied by
+# the operator, not a pattern inferred from the column's own distribution. That is what
+# makes the repair on row 10 (`bostonn` -> `boston`) constraint-checkable, and therefore
+# a write the product stands behind. `fd_violation` is in
+# `dataforge.domain.vocabulary.CONSTRAINT_CHECKABLE_DETECTORS`.
+#
+# This fixture exists so the agent/legacy parity gate has a non-zero deterministic floor
+# to compare. Without it the gate's assertion reduces to `0 == 0 and 0 == 0` -- see
+# `AgentGateReport.non_vacuous`.
+columns:
+  id: string
+  state: string
+  city: string
+functional_dependencies:
+  - determinant: [state]
+    dependent: city

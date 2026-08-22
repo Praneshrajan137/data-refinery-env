@@ -14,7 +14,13 @@ export type WorkState = "idle" | "loading" | "ready" | "error";
 export type SortKey = "severity" | "count" | "column";
 
 export const SAMPLE_OPTIONS = [
-  { value: "hospital_10rows", label: "Hospital", detail: "Rating 45.0 -> 4.5" },
+  // The detail strings describe what the product actually DOES to each sample. The hospital
+  // entry read "Rating 45.0 -> 4.5" until 2026-08-22, describing a `decimal_shift` repair
+  // that is no longer auto-applied: its value is inferred from the shape of the column's own
+  // distribution, so it is held for review rather than written (see
+  // specs/SPEC_autoapply_decision.md). The measured floor fix on this sample is a
+  // `type_mismatch` that blanks an unparseable phone number.
+  { value: "hospital_10rows", label: "Hospital", detail: "Phone 'not available' -> blank" },
   { value: "flights_10rows", label: "Flights", detail: "Aviation data" },
   { value: "beers_10rows", label: "Beers", detail: "Consumer data" },
 ];

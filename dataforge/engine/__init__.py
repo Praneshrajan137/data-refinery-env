@@ -10,6 +10,7 @@ from dataforge.engine.repair import (
     RepairPipelineResult,
     RepairReceipt,
     RootCause,
+    UncheckableDetectorWriteError,
     UnprovenWriteError,
     VerifiedFix,
     apply_transaction,
@@ -30,6 +31,7 @@ __all__ = [
     "RepairPipelineResult",
     "RepairReceipt",
     "RootCause",
+    "UncheckableDetectorWriteError",
     "UnprovenWriteError",
     "VerifiedFix",
     # NOTE: ``apply_fixes_to_csv`` is deliberately absent. It is the raw byte-writer

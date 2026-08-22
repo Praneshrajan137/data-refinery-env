@@ -1,10 +1,31 @@
-"""The Corruption Oracle: a universal no-regression property test.
+"""The Corruption Oracle: a no-regression property test over CLUSTERED numeric columns.
 
-This is the test that turns DataForge's core promise -- "it never makes your
-data worse" -- from a design claim into a proven invariant. It generates random
-tables, injects errors whose ground-truth clean value is known by construction,
-runs the FULL engine end-to-end in apply mode, and asserts four invariants that
-together define provable safety:
+RETRACTION (2026-08-22): this file previously called itself "a universal no-regression
+property test" and claimed to turn "it never makes your data worse" into a proven
+invariant. **"Universal" was false, and the falsehood was load-bearing.** The clean
+numeric columns below are generated clustered (low variance) *specifically so that no
+correct cell is a decimal-shift outlier* -- see the note at the end of this docstring,
+which said so plainly. The precondition that makes `decimal_shift` sound was therefore a
+property of this FIXTURE rather than a check in the CODE, and INV1 was proven only over
+data constructed to satisfy it.
+
+Real warehouse columns do not satisfy it. Measured log-space IQR: `orders.o_totalprice`
+0.44 dex, `lineitem.l_extendedprice` 0.47, `customer.c_acctbal` 0.62,
+`QUERY_HISTORY.total_elapsed_time` 0.48. At that spread a 10x offset is ordinary, and the
+ungated detector would have rewritten 263,428 correct monetary values on error-free
+TPC-H. A live `dataforge repair --apply` turned `1131.20` into `113120`. See
+`docs/trust/deterministic-is-not-sound.md`.
+
+**Also note what this file can no longer prove.** INV1 ("a correct cell is never changed")
+and INV2 ("a changed cell holds ground truth") are BOTH satisfied by changing nothing. The
+schema-free auto-apply path is now empty by design, so on that path these invariants hold
+trivially. They are not the guard for it. `tests/property/test_clean_data_is_not_flagged.py`
+carries the invariant that can actually fail there, plus a non-vacuity anchor proving the
+write path is still alive under a declared premise.
+
+What this file still earns, stated honestly: over clustered numeric columns -- where a
+power-of-10 offset genuinely is anomalous -- the engine corrects only injected cells,
+never invents a third value, reverts byte-for-byte, and is deterministic.
 
   INV1 (no-regression): a cell that was already correct is never changed.
   INV2 (auto-apply correctness): any cell the engine changed now holds the
@@ -12,11 +33,12 @@ together define provable safety:
   INV3 (reversibility): apply-then-revert restores the exact original bytes.
   INV4 (determinism): the same input yields byte-identical applied output.
 
-Clean numeric columns are generated clustered (low variance) so no correct cell
-is a decimal-shift outlier -- this keeps INV1 sound (no false positives) while
-injected power-of-10 errors genuinely exercise the deterministic auto-apply path
-(the provable moat). LLM repair is off, so only deterministic + verifier-accepted
-fixes can auto-apply -- exactly the set the promise covers.
+Clean numeric columns are generated clustered (low variance) so no correct cell is a
+decimal-shift outlier. That is now the *enforced* precondition of the detector rather than
+an assumption of this fixture: `dataforge/detectors/decimal_shift.py` abstains when a
+power-of-10 offset falls inside 3 log-IQRs of the median. LLM repair is off, so only
+deterministic + verifier-accepted fixes can auto-apply -- exactly the set the promise
+covers.
 """
 
 from __future__ import annotations

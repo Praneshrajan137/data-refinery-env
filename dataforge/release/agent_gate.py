@@ -55,8 +55,20 @@ def check_agent_release_gate(
             report=report,
             reason=(
                 f"Agent reproduced the deterministic floor on all "
-                f"{len(report.fixtures)} fixture(s); no regression."
+                f"{len(report.fixtures)} fixture(s); no regression. Non-vacuous: "
+                f"{sum(item.floor_fix_count for item in report.fixtures)} floor fix(es) "
+                "were actually compared."
             ),
+        )
+    # Vacuity is reported BEFORE divergence, because a vacuous report has no meaningful
+    # divergence to name: every fixture would trivially agree at zero. Reporting them the
+    # other way round would print "diverged on: []" and confuse the reader.
+    vacuity = report.vacuity_reason
+    if vacuity is not None:
+        return AgentReleaseGateResult(
+            passed=False,
+            report=report,
+            reason=f"Agent parity gate is VACUOUS and proves nothing: {vacuity}",
         )
     diverged = [item.fixture for item in report.fixtures if not item.parity]
     return AgentReleaseGateResult(

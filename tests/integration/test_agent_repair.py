@@ -9,6 +9,7 @@ from dataforge.agent.policy import LLMPolicy, register_policy
 from dataforge.cli.common import load_schema
 from dataforge.engine.repair import RepairPipelineRequest, run_repair_pipeline
 from dataforge.transactions.revert import revert_transaction
+from tests.support.tables import build_premised_repairable_table
 
 
 def _scripted_policy(*responses: str):
@@ -34,15 +35,9 @@ class TestParity:
     """The agent with the deterministic policy must equal the legacy pipeline."""
 
     def test_deterministic_policy_matches_pipeline(self, tmp_path: Path) -> None:
-        csv = tmp_path / "amounts.csv"
-        csv.write_text("id,amount\n1,100\n2,105\n3,98\n4,1020\n5,103\n", encoding="utf-8")
-        schema = tmp_path / "schema.yaml"
-        schema.write_text(
-            "columns:\n  id: str\n  amount: float\n"
-            "domain_bounds:\n  amount:\n    min: 0\n    max: 5000\n",
-            encoding="utf-8",
-        )
-        parsed = load_schema(schema)
+        table = build_premised_repairable_table(tmp_path / "premised.csv")
+        csv = table.csv_path
+        parsed = table.schema
 
         legacy = run_repair_pipeline(
             RepairPipelineRequest(source_path=csv, mode="dry_run", schema=parsed)
@@ -52,6 +47,12 @@ class TestParity:
                 source_path=csv, mode="dry_run", schema=parsed, policy="deterministic"
             )
         )
+        # Non-vacuity FIRST. On the old `1020` + domain_bounds fixture every quantity
+        # below became zero or the empty set once decimal_shift left the allowlist, so all
+        # five assertions held while comparing nothing. Parity between two empty results is
+        # not parity -- an agent that dropped every fix would satisfy it.
+        assert legacy.fixes, "precondition: the legacy pipeline must produce a floor fix"
+
         assert agent.fixes_count == len(legacy.fixes)
         assert agent.floor_fix_count == len(legacy.fixes)
         assert agent.agent_fix_count == 0
@@ -206,22 +207,19 @@ class TestProvenOnlyGate:
         refuses a FIX on a resolved cell), so this test pins BOTH halves: the collision
         does not occur, and the partition would be correct even if it did.
         """
-        csv = tmp_path / "data.csv"
-        csv.write_text(
-            "id,amount\n1,100\n2,105\n3,98\n4,1020\n5,103\n6,101\n7,99\n8,102\n",
-            encoding="utf-8",
-        )
-        schema_path = tmp_path / "schema.yaml"
-        schema_path.write_text(
-            "columns:\n  id: str\n  amount: float\n"
-            "domain_bounds:\n  amount:\n    min: 0\n    max: 5000\n",
-            encoding="utf-8",
-        )
-        parsed = load_schema(schema_path)
+        table = build_premised_repairable_table(tmp_path / "data.csv")
+        csv = table.csv_path
+        parsed = table.schema
 
-        # The floor fixes the decimal-shift cell (row 3). Script the agent to target the
-        # SAME cell, so if the executor ever stopped deduping we would see it here.
-        policy = _scripted_policy(_fix_json(3, "amount", "102"), '{"action_type":"FINALIZE"}')
+        # The floor fixes the FD-violating cell. Script the agent to target the SAME cell,
+        # so if the executor ever stopped deduping we would see it here. Previously this
+        # used the `1020` table plus a domain_bounds schema, whose floor fix was a
+        # `decimal_shift` -- now held on every surface, which left no floor fix for the
+        # agent to collide WITH and made the test unable to observe its own property.
+        policy = _scripted_policy(
+            _fix_json(table.row, table.column, table.new_value),
+            '{"action_type":"FINALIZE"}',
+        )
         result = run_agent_repair(
             AgentRepairRequest(
                 source_path=csv,
