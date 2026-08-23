@@ -70,6 +70,19 @@ class GrpoConfigError(RuntimeError):
     """Raised when a GRPO handoff config is unsafe or stale."""
 
 
+# `beers` was de-registered on 2026-07-12, but these validators still *required* it, so a
+# config written against the current registry raised. Both sets are accepted: the legacy
+# triple so frozen configs and their recorded runs stay replayable (rewriting frozen
+# historical evidence is forbidden), and the current pair so a new config is writable.
+#
+# Deliberately not derived from DATASET_REGISTRY: these are training-corpus decisions
+# recorded in a config, and silently widening them whenever a corpus is registered would
+# let a new dataset enter a training contract without anyone choosing it.
+_LEGACY_DATASET_SET = ["hospital", "flights", "beers"]
+_CURRENT_DATASET_SET = ["hospital", "flights"]
+_ACCEPTED_DATASET_SETS = (_CURRENT_DATASET_SET, _LEGACY_DATASET_SET)
+
+
 def _as_mapping(value: object, *, name: str) -> dict[str, Any]:
     """Return a YAML object as a string-keyed mapping."""
     if not isinstance(value, dict):
@@ -155,13 +168,15 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
             "GRPO readiness.prompt_contract_version must be repair_contract_v2 or repair_contract_v3."
         )
     required_datasets = readiness.get("required_datasets")
-    if required_datasets != ["hospital", "flights", "beers"]:
-        raise GrpoConfigError("GRPO readiness.required_datasets must cover hospital/flights/beers.")
+    if required_datasets not in _ACCEPTED_DATASET_SETS:
+        raise GrpoConfigError(
+            "GRPO readiness.required_datasets must be "
+            f"{_CURRENT_DATASET_SET} (or the frozen legacy {_LEGACY_DATASET_SET})."
+        )
     auxiliary_datasets = readiness.get("auxiliary_datasets")
     if "hospital_synthetic_deterministic_v1" not in (auxiliary_datasets or []):
         raise GrpoConfigError(
-            "GRPO readiness.auxiliary_datasets must include "
-            "hospital_synthetic_deterministic_v1."
+            "GRPO readiness.auxiliary_datasets must include hospital_synthetic_deterministic_v1."
         )
     if float(readiness.get("min_reward_std", 0.0)) <= 0.0:
         raise GrpoConfigError("GRPO readiness.min_reward_std must be positive.")
@@ -229,7 +244,10 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         kaggle = _as_mapping(config.get("kaggle", {}), name="kaggle")
         if kaggle.get("auth_mode") != "oauth":
             raise GrpoConfigError("GRPO v2 requires Kaggle OAuth.")
-        if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
+        if (
+            str(kaggle.get("credentials_path", "")).strip()
+            != r"C:\Users\Pranesh\.kaggle\credentials.json"
+        ):
             raise GrpoConfigError("GRPO v2 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
         if reward.get("posture") != "balanced_recall":
             raise GrpoConfigError("GRPO v2 reward.posture must be balanced_recall.")
@@ -243,7 +261,10 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         kaggle = _as_mapping(config.get("kaggle", {}), name="kaggle")
         if kaggle.get("auth_mode") != "oauth":
             raise GrpoConfigError("GRPO v3 requires Kaggle OAuth.")
-        if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
+        if (
+            str(kaggle.get("credentials_path", "")).strip()
+            != r"C:\Users\Pranesh\.kaggle\credentials.json"
+        ):
             raise GrpoConfigError("GRPO v3 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
         if readiness.get("trajectory_filename") != "expert_v7_parse_latch.jsonl":
             raise GrpoConfigError("GRPO v3 must use the expert_v7_parse_latch handoff.")
@@ -265,7 +286,10 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         kaggle = _as_mapping(config.get("kaggle", {}), name="kaggle")
         if kaggle.get("auth_mode") != "oauth":
             raise GrpoConfigError("GRPO v4 requires Kaggle OAuth.")
-        if str(kaggle.get("credentials_path", "")).strip() != r"C:\Users\Pranesh\.kaggle\credentials.json":
+        if (
+            str(kaggle.get("credentials_path", "")).strip()
+            != r"C:\Users\Pranesh\.kaggle\credentials.json"
+        ):
             raise GrpoConfigError("GRPO v4 must use C:\\Users\\Pranesh\\.kaggle\\credentials.json.")
         if readiness.get("trajectory_filename") != "expert_v9_action_envelope.jsonl":
             raise GrpoConfigError("GRPO v4 must use the expert_v9_action_envelope handoff.")
@@ -299,8 +323,11 @@ def load_grpo_config(path: Path) -> dict[str, Any]:
         raise GrpoConfigError("evaluation.max_new_tokens must be 1024.")
     if evaluation.get("source") != "pinned_dataforge_registry":
         raise GrpoConfigError("evaluation.source must be pinned_dataforge_registry.")
-    if evaluation.get("datasets") != ["hospital", "flights", "beers"]:
-        raise GrpoConfigError("evaluation.datasets must cover hospital/flights/beers.")
+    if evaluation.get("datasets") not in _ACCEPTED_DATASET_SETS:
+        raise GrpoConfigError(
+            "evaluation.datasets must be "
+            f"{_CURRENT_DATASET_SET} (or the frozen legacy {_LEGACY_DATASET_SET})."
+        )
     return config
 
 

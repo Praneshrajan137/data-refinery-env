@@ -14,9 +14,11 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import time
+import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -50,27 +52,63 @@ MAX_NEW_TOKENS = 1024
 HELDOUT_TASKS = 100
 SEEDS_START = 10000
 CHUNK_WIDTH = 4
+# Pinned to a commit SHA, never a branch. This ran against `refs/heads/master` with no
+# checksum until 2026-08-23, which meant a held-out release evaluation could change
+# silently whenever upstream moved -- the one property a held-out evaluation must not have.
+#
+# These constants are duplicated from `dataforge.datasets.registry` rather than imported
+# because this file executes standalone on HF Jobs with no DataForge install. The
+# duplication is verified: `tests/unit/test_fetch_pinning.py` asserts every value here
+# matches the registry, so the two cannot drift.
+#
+# `beers` was de-registered on 2026-07-12 and is not fetched here any more.
+RAHA_GIT_REVISION = "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c"
+_RAHA_BASE_URL = f"https://raw.githubusercontent.com/BigDaMa/raha/{RAHA_GIT_REVISION}/datasets"
 DATA_SOURCES = {
     "hospital": {
-        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/hospital/dirty.csv",
-        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/hospital/clean.csv",
+        "dirty_url": f"{_RAHA_BASE_URL}/hospital/dirty.csv",
+        "clean_url": f"{_RAHA_BASE_URL}/hospital/clean.csv",
+        "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+        "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
     },
     "flights": {
-        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/flights/dirty.csv",
-        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/flights/clean.csv",
-    },
-    "beers": {
-        "dirty_url": "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/beers/dirty.csv",
-        "clean_url": "https://raw.githubusercontent.com/BigDaMa/raha/refs/heads/master/datasets/beers/clean.csv",
+        "dirty_url": f"{_RAHA_BASE_URL}/flights/dirty.csv",
+        "clean_url": f"{_RAHA_BASE_URL}/flights/clean.csv",
+        "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+        "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
     },
 }
 
 
+def _fetch_verified(url: str, expected_sha256: str) -> bytes:
+    """Fetch a URL and refuse the bytes unless they match the pinned digest.
+
+    Raises:
+        RuntimeError: If the digest does not match. Fails closed: an unverified
+            held-out corpus is worse than no evaluation, because it produces a number
+            that looks measured.
+    """
+    with urllib.request.urlopen(url, timeout=120) as response:  # noqa: S310
+        raw = bytes(response.read())
+    digest = hashlib.sha256(raw).hexdigest()
+    if digest != expected_sha256:
+        raise RuntimeError(
+            f"held-out corpus {url} does not match pinned revision {RAHA_GIT_REVISION}: "
+            f"expected sha256 {expected_sha256}, got {digest}"
+        )
+    return raw
+
+
 def load_bench_dataset(name: str) -> tuple[pd.DataFrame, tuple[str, ...], list[dict[str, Any]]]:
-    """Load one aligned dirty/clean benchmark dataset."""
+    """Load one aligned dirty/clean benchmark dataset from pinned, verified bytes."""
     source = DATA_SOURCES[name]
-    dirty = pd.read_csv(source["dirty_url"], dtype=str, keep_default_na=False, na_filter=False)
-    clean = pd.read_csv(source["clean_url"], dtype=str, keep_default_na=False, na_filter=False)
+    read_kwargs = {"dtype": str, "keep_default_na": False, "na_filter": False}
+    dirty = pd.read_csv(
+        io.BytesIO(_fetch_verified(source["dirty_url"], source["dirty_sha256"])), **read_kwargs
+    )
+    clean = pd.read_csv(
+        io.BytesIO(_fetch_verified(source["clean_url"], source["clean_sha256"])), **read_kwargs
+    )
     if len(dirty.index) != len(clean.index) or len(dirty.columns) != len(clean.columns):
         raise RuntimeError(f"Dirty/clean shape mismatch for held-out dataset {name}.")
     dirty.columns = [str(column) for column in clean.columns]

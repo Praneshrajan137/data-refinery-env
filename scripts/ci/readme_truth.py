@@ -740,6 +740,67 @@ def check_unshipped_integration_claims(paths: list[Path]) -> list[str]:
     return errors
 
 
+def check_corpus_tier_claims(docs: list[Path]) -> list[str]:
+    """Refuse a headline claim sourced from a non-headline corpus.
+
+    A tier that is only documented rots. This is the mechanism that makes
+    ``DatasetMetadata.tier`` real: a corpus whose errors are injected, synthetic or
+    contested may appear in a public document, but only alongside a qualifier that
+    tells the reader what they are looking at.
+
+    The qualifier requirement rather than a ban is deliberate. ``hospital`` must remain
+    discussable -- it is the project's regression tripwire and the subject of several
+    trust documents -- but a reader meeting "F1 0.7926 on hospital" with no nearby word
+    like "injected" or "tripwire" is being invited to read a benchmark artifact as a
+    capability claim.
+
+    Args:
+        docs: Public documents to check.
+
+    Returns:
+        One error string per unqualified mention.
+    """
+    from dataforge.datasets.registry import DATASET_REGISTRY, non_headline_corpora
+
+    non_headline = non_headline_corpora()
+    qualifiers = (
+        "injected",
+        "synthetic",
+        "contested",
+        "tripwire",
+        "diagnostic",
+        "not a headline",
+        "saturated",
+        "demoted",
+    )
+    errors: list[str] = []
+    for path in docs:
+        if not path.exists():
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            lowered = line.lower()
+            named = sorted(name for name in non_headline if name in lowered)
+            if not named:
+                continue
+            # Only lines that also carry a number read as a claim.
+            if not re.search(r"\d\.\d{2,}", line):
+                continue
+            if any(qualifier in lowered for qualifier in qualifiers):
+                continue
+            tiers = ", ".join(
+                f"{name}={DATASET_REGISTRY[name].tier}"
+                for name in named
+                if name in DATASET_REGISTRY
+            )
+            errors.append(
+                f"{path.name}:{number} quotes a number for non-headline corpus/corpora "
+                f"{named} ({tiers}) with no qualifier. Add one of {list(qualifiers)}, or "
+                "source the claim from a headline-tier corpus. See "
+                "docs/trust/column-benchmark-scope.md."
+            )
+    return errors
+
+
 def main() -> None:
     """Run all README truth checks."""
     readme_text = README.read_text(encoding="utf-8")
@@ -789,6 +850,7 @@ def main() -> None:
     errors.extend(check_unshipped_integration_claims(PUBLIC_CLAIM_TRUTH_DOCS))
     errors.extend(check_claim_ledger())
     errors.extend(check_evidence_ledger())
+    errors.extend(check_corpus_tier_claims(PUBLIC_CLAIM_TRUTH_DOCS))
 
     if errors:
         print("README truth check FAILED:", file=sys.stderr)

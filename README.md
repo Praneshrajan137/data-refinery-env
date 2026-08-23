@@ -170,17 +170,54 @@ is frequently impossible without external knowledge. The tool refuses to guess.
 Measured on the full RAHA benchmark datasets (deterministic stack, no LLM;
 reproduce with `dataforge bench --quick`):
 
-| Dataset  | Correction F1 | Detection coverage (recall by class)                                   |
-| -------- | ------------- | ---------------------------------------------------------------------- |
-| hospital | 0.7926        | value_format 1.00, text_normalization 0.87, other 1.00                 |
-| flights  | 0.0000        | missing_value 1.00 (2370 cells)                                        |
+| Dataset  | Error provenance | Tier | Correction F1 | Detection coverage (recall by class)                    |
+| -------- | ---------------- | ---- | ------------- | ------------------------------------------------------- |
+| hospital | injected         | tripwire   | 0.7926  | value_format 1.00, text_normalization 0.87, other 1.00  |
+| flights  | contested        | diagnostic | 0.0000  | missing_value 1.00 (2370 cells)                         |
+
+Neither row is a headline claim, and the two middle columns say why:
+
+- **hospital's errors are injected, and the entire error model is one substituted
+  character** -- 509 of 509 corrupted cells contain an `x` (`birminghxm` ->
+  `birmingham`). HoloClean's and HoloDetect's own authors describe it in print as an easy
+  benchmark, and the field has moved 0.83 -> 0.99 while this number sits at 0.7926. It is
+  retained as a fixed regression **tripwire**, which is a real and useful role, and it is
+  not evidence of capability on real errors.
+- **flights' labels are contested.** The errors are natural, but the same flight's arrival
+  time appears upstream as 10:30/10:31/10:28/10:39 and the ground truth picks one, so a
+  system that declines to invent a truth is scored identically to one that guesses wrong.
+  See [specs/SPEC_abstention_scoring.md](specs/SPEC_abstention_scoring.md).
+
+For measured behaviour on **real** errors -- 2,397 real table columns and 166,387 real
+distinct values, scored so that principled abstention is not penalised -- see
+[docs/trust/real-error-detection-result.md](docs/trust/real-error-detection-result.md), read
+together with its correction in
+[docs/trust/frequency-dependence-correction.md](docs/trust/frequency-dependence-correction.md).
+On unconstrained columns from tables in the wild, detection precision is roughly an order of
+magnitude below the injected-corpus figures above, and no detector holds a safe operating
+point at any confidence threshold.
+
+That is the hard case, and it is not the only case. Measured at **cell level** -- the unit a
+review queue is actually counted in -- on ordinary operational tables, several detectors reach
+perfect precision with no false positives: see
+[docs/trust/cell-level-detection-result.md](docs/trust/cell-level-detection-result.md). The
+two sets of numbers are **not** comparable, in either direction, and the measured gap between
+the units runs up to total
+([docs/trust/scoring-unit-reconciliation.md](docs/trust/scoring-unit-reconciliation.md)).
+
+The single most important measured fact for anyone deciding whether to use this: **the same
+detector's precision swings by more than an order of magnitude across corpora** -- perfect on
+one table, near-useless on another -- and nothing observable at runtime predicts which case a
+given table resembles. That is why `dataforge calibrate` measures your table rather than
+quoting a benchmark, and it is the strongest argument for the write gate not being relaxed.
 
 How to read this honestly:
 
 - DataForge **detects** a large share of errors on both datasets in the table above,
   including classes (missing values, format/normalization variants, outliers,
-  duplicate rows) it deliberately does not auto-correct. `rayyan` and `tax` are measured
-  too, but neither is an auto-apply target, so their results are reported in
+  duplicate rows) it deliberately does not auto-correct. `rayyan` is measured for
+  detection only and `tax` only on a sample, so neither is an auto-apply target and their
+  results are reported in
   [docs/trust/accuracy-frontier.md](docs/trust/accuracy-frontier.md) rather than here.
 - It only **auto-corrects** where a value is derivable and provable
   (decimal-shift inverse, FD majority/lookup), which is why correction F1 is
