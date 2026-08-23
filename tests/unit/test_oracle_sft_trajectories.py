@@ -8,7 +8,6 @@ from pathlib import Path
 import pandas as pd
 
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
-from dataforge.datasets.registry import DatasetMetadata
 from scripts.data.build_oracle_sft_trajectories import (
     COLLECTION_METHOD,
     HOSPITAL_SYNTHETIC_DATASET,
@@ -21,6 +20,7 @@ from scripts.data.build_oracle_sft_trajectories import (
     build_split_manifest,
     deterministic_row_split,
 )
+from tests.support.corpora import build_fixture_metadata
 
 FIXTURE_REVISION = "fixture"
 FIXTURE_DIRTY_SHA256 = "d" * 64
@@ -49,7 +49,7 @@ def _dataset(name: str = "flights") -> RealWorldDataset:
         }
     )
     return RealWorldDataset(
-        metadata=DatasetMetadata(
+        metadata=build_fixture_metadata(
             name=name,
             domain="aviation",
             n_rows=len(dirty_df.index),
@@ -109,7 +109,7 @@ def _hospital_dataset() -> RealWorldDataset:
     )
     clean_df = dirty_df.copy()
     return RealWorldDataset(
-        metadata=DatasetMetadata(
+        metadata=build_fixture_metadata(
             name="hospital",
             domain="healthcare",
             n_rows=len(dirty_df.index),

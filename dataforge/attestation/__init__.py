@@ -146,9 +146,15 @@ def pae(payload_type: str, body: bytes) -> bytes:
     ``PAE(type, body) = "DSSEv1" + SP + LEN(type) + SP + type + SP + LEN(body) + SP + body``
 
     Signing this rather than the JSON text is what removes canonicalisation from the
-    trust boundary. The transaction journal shows the alternative failing: it hashes a
-    compact-separator preimage but writes the line with default separators, so the bytes
-    on disk are not the bytes hashed and a second implementation must rediscover that.
+    trust boundary. The transaction journal used to show the alternative failing: it hashed
+    a compact-separator preimage but wrote the line with default separators, so the bytes on
+    disk were not the bytes hashed and a second implementation had to rediscover that. Fixed
+    2026-08-23 -- the writer now uses the canonical options, so the only difference between a
+    line and its preimage is the removal of the single ``event_sha256`` key. Asserted on
+    bytes in ``tests/unit/test_journal_preimage.py``.
+
+    The argument for PAE stands regardless: it holds even when both sides agree on a
+    canonical form, because it removes the need for them to agree.
     """
     type_bytes = payload_type.encode("utf-8")
     return b"DSSEv1 %d %s %d %s" % (len(type_bytes), type_bytes, len(body), body)

@@ -6,7 +6,7 @@ import pandas as pd
 
 from dataforge.bench.methods import run_entity_consensus_episode, run_heuristic_episode
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
-from dataforge.datasets.registry import DatasetMetadata
+from tests.support.corpora import build_fixture_metadata
 
 _SHA = "0" * 64
 
@@ -28,7 +28,7 @@ def _multi_source_dataset() -> RealWorldDataset:
     vals[0] = "WRONGVAL"  # entity A, row 0: disagrees with consensus VALA
     dirty_df = pd.DataFrame({"entity": keys, "val": vals})
     clean_df = pd.DataFrame({"entity": keys, "val": clean_vals})
-    metadata = DatasetMetadata(
+    metadata = build_fixture_metadata(
         name="flights",
         domain="aviation",
         n_rows=24,

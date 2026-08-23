@@ -34,8 +34,13 @@ def _synthetic_dataset(n: int) -> RealWorldDataset:
 
 
 def test_head_sample_keeps_first_rows_and_aligned_ground_truth() -> None:
+    """The legacy strategy, now explicitly requested rather than defaulted.
+
+    Kept reachable so the one committed artifact derived from it
+    (``eval/results/heuristic_tax_sampled.json``) stays reproducible.
+    """
     dataset = _synthetic_dataset(30)
-    sampled = sample_dataset_rows(dataset, 9)
+    sampled = sample_dataset_rows(dataset, 9, strategy="head")
 
     assert len(sampled.dirty_df.index) == 9
     assert len(sampled.clean_df.index) == 9
@@ -45,6 +50,57 @@ def test_head_sample_keeps_first_rows_and_aligned_ground_truth() -> None:
     # Rows still align: each GT row's dirty value matches the sampled dirty frame.
     for cell in sampled.ground_truth:
         assert sampled.dirty_df.iloc[cell.row][cell.column] == cell.dirty_value
+
+
+class TestRandomSampling:
+    """The default strategy since 2026-08-23. `head` of a sorted table is not a sample."""
+
+    def test_random_is_the_default(self) -> None:
+        dataset = _synthetic_dataset(300)
+        default = sample_dataset_rows(dataset, 30)
+        explicit = sample_dataset_rows(dataset, 30, strategy="random")
+        assert list(default.dirty_df["id"]) == list(explicit.dirty_df["id"])
+
+    def test_random_does_not_reduce_to_the_leading_slice(self) -> None:
+        """The whole point: `tax` is sorted, so a head slice is a biased stratum."""
+        dataset = _synthetic_dataset(300)
+        sampled = sample_dataset_rows(dataset, 30)
+        head = sample_dataset_rows(dataset, 30, strategy="head")
+        assert list(sampled.dirty_df["id"]) != list(head.dirty_df["id"])
+
+    def test_ground_truth_follows_the_rows_it_describes(self) -> None:
+        """Re-indexing is load-bearing under `random`; under `head` it was the identity.
+
+        Omitting the remap would attach every label to the wrong row while keeping the
+        counts plausible, which is the failure mode that produces a confidently wrong
+        precision.
+        """
+        dataset = _synthetic_dataset(300)
+        sampled = sample_dataset_rows(dataset, 30)
+
+        assert sampled.ground_truth, "precondition: the sample must contain errors"
+        for cell in sampled.ground_truth:
+            assert 0 <= cell.row < 30
+            assert sampled.dirty_df.iloc[cell.row][cell.column] == cell.dirty_value
+            assert sampled.clean_df.iloc[cell.row][cell.column] == cell.clean_value
+
+    def test_same_seed_is_reproducible_and_different_seeds_differ(self) -> None:
+        dataset = _synthetic_dataset(300)
+        first = sample_dataset_rows(dataset, 30, seed=7)
+        again = sample_dataset_rows(dataset, 30, seed=7)
+        other = sample_dataset_rows(dataset, 30, seed=8)
+
+        assert list(first.dirty_df["id"]) == list(again.dirty_df["id"])
+        assert list(first.dirty_df["id"]) != list(other.dirty_df["id"])
+
+    def test_unknown_strategy_rejected(self) -> None:
+        dataset = _synthetic_dataset(30)
+        try:
+            sample_dataset_rows(dataset, 5, strategy="first_n")
+        except ValueError as exc:
+            assert "unknown sampling strategy" in str(exc)
+            return
+        raise AssertionError("an unrecognised strategy must raise rather than fall back")
 
 
 def test_sample_updates_metadata_and_recomputes_hashes() -> None:

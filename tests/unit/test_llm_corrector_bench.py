@@ -15,7 +15,7 @@ from dataforge.bench.core import SeedBenchmarkResult
 from dataforge.bench.groq_client import GroqCompletion, ProviderRequestError
 from dataforge.bench.methods import corrector_promotion_verdict, run_llm_corrector_episode
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
-from dataforge.datasets.registry import DatasetMetadata
+from tests.support.corpora import build_fixture_metadata
 
 FIXTURE_SHA = "a" * 64
 
@@ -27,7 +27,7 @@ def _dataset() -> RealWorldDataset:
     populated = ["Boston", "Denver", "Austin", "Reno", "Miami", "Chicago", "Dallas"]
     dirty_df = pd.DataFrame({"city": [*populated, ""]})
     clean_df = pd.DataFrame({"city": [*populated, "Seattle"]})
-    metadata = DatasetMetadata(
+    metadata = build_fixture_metadata(
         name="hospital",
         domain="healthcare",
         n_rows=8,
@@ -58,7 +58,7 @@ def _multi_issue_dataset() -> RealWorldDataset:
     populated = ["Boston", "Denver", "Austin", "Reno", "Miami", "Chicago", "Dallas", "Portland"]
     dirty_df = pd.DataFrame({"city": [*populated, "", "", "", ""]})
     clean_df = pd.DataFrame({"city": [*populated, "Seattle", "Tampa", "Fresno", "Tucson"]})
-    metadata = DatasetMetadata(
+    metadata = build_fixture_metadata(
         name="hospital",
         domain="healthcare",
         n_rows=12,

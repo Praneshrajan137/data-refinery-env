@@ -22,6 +22,13 @@ from dataforge.detectors.fd_violation import FDViolationDetector
 from dataforge.detectors.format_violation import FormatViolationDetector
 from dataforge.detectors.missing_value import MissingValueDetector
 from dataforge.detectors.outlier import OutlierDetector
+from dataforge.detectors.semantic_domain import (
+    PatternSDC,
+    SDCLoadResult,
+    SemanticDomainDetector,
+    load_pattern_sdcs,
+    parse_pattern_sdcs,
+)
 from dataforge.detectors.time_format_cruft import TimeFormatCruftDetector
 from dataforge.detectors.type_mismatch import TypeMismatchDetector
 from dataforge.table import TableLike
@@ -37,11 +44,16 @@ __all__ = [
     "Issue",
     "MissingValueDetector",
     "OutlierDetector",
+    "PatternSDC",
+    "SDCLoadResult",
     "Schema",
+    "SemanticDomainDetector",
     "Severity",
     "TimeFormatCruftDetector",
     "TypeMismatchDetector",
     "default_detectors",
+    "load_pattern_sdcs",
+    "parse_pattern_sdcs",
     "run_all_detectors",
 ]
 
@@ -59,6 +71,10 @@ def default_detectors() -> list[Detector]:
 
     New base detectors are appended here. Order only affects tie-breaking when
     two detectors flag the same cell with equal confidence and severity.
+
+    :class:`SemanticDomainDetector` is deliberately **absent**: it needs a fetched,
+    hash-verified SDC artifact, and this ensemble must stay offline and dependency-free.
+    Construct it explicitly with ``load_pattern_sdcs()``.
     """
     return [
         TypeMismatchDetector(),

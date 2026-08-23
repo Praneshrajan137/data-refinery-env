@@ -237,6 +237,29 @@ _WRITE_PRIMITIVE_REGISTRY: tuple[WritePrimitive, ...] = (
         "RAHA benchmark dataset cache under ~/.dataforge/cache.",
     ),
     WritePrimitive(
+        "dataforge:datasets/column_corpus.py",
+        "write_bytes",
+        "metadata",
+        "Auto-Test RT/ST-bench cache under ~/.dataforge/cache. Never a user path, and "
+        "never vendored: upstream publishes no licence, so the bytes may only live in "
+        "a fetched, hash-verified cache.",
+    ),
+    WritePrimitive(
+        "dataforge:detectors/semantic_domain.py",
+        "write_bytes",
+        "metadata",
+        "Auto-Test learned-SDC artifact cache under ~/.dataforge/cache. Never a user path, "
+        "and never vendored: upstream publishes no licence.",
+    ),
+    WritePrimitive(
+        "dataforge:cli/attest.py",
+        "write_text",
+        "metadata",
+        "Writes the built attestation to --output. Never touches the user's data, and the "
+        "write is gated on the attestation self-verifying: a refused build leaves no file, "
+        "because a rejected certificate on disk will eventually be read as a valid one.",
+    ),
+    WritePrimitive(
         "dataforge:release/doctor.py", "unlink", "metadata", "Release-doctor temp cleanup."
     ),
     WritePrimitive(

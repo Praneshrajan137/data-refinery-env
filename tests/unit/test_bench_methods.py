@@ -18,7 +18,7 @@ from dataforge.bench.methods import (
     run_random_episode,
 )
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
-from dataforge.datasets.registry import DatasetMetadata
+from tests.support.corpora import build_fixture_metadata
 
 FIXTURE_REVISION = "fixture"
 FIXTURE_DIRTY_SHA256 = "d" * 64
@@ -38,7 +38,7 @@ def _dataset() -> RealWorldDataset:
             "Score": ["5", "4.5"],
         }
     )
-    metadata = DatasetMetadata(
+    metadata = build_fixture_metadata(
         name="hospital",
         domain="healthcare",
         n_rows=2,

@@ -12,7 +12,6 @@ import pytest
 from dataforge.bench.core import BenchmarkRepair
 from dataforge.bench.groq_client import GroqCompletion
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
-from dataforge.datasets.registry import DatasetMetadata
 from scripts.data.collect_sft_trajectories import (
     BudgetGuard,
     RuntimeDeadline,
@@ -33,6 +32,7 @@ from scripts.data.collect_sft_trajectories import (
     write_jsonl_records,
 )
 from scripts.data.validate_sft_readiness import SftReadinessError
+from tests.support.corpora import build_fixture_metadata
 
 FIXTURE_REVISION = "fixture"
 FIXTURE_DIRTY_SHA256 = "d" * 64
@@ -53,7 +53,7 @@ def _dataset() -> RealWorldDataset:
         }
     )
     return RealWorldDataset(
-        metadata=DatasetMetadata(
+        metadata=build_fixture_metadata(
             name="hospital",
             domain="healthcare",
             n_rows=2,
@@ -90,7 +90,7 @@ def _named_dataset(
     ground_truth: tuple[GroundTruthCell, ...],
 ) -> RealWorldDataset:
     return RealWorldDataset(
-        metadata=DatasetMetadata(
+        metadata=build_fixture_metadata(
             name=name,
             domain="test",
             n_rows=len(dirty_df.index),

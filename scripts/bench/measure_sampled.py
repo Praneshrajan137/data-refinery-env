@@ -29,13 +29,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--max-rows", type=int, required=True)
+    parser.add_argument(
+        "--strategy",
+        choices=("random", "head"),
+        default="random",
+        help=(
+            "random (default) draws a seeded uniform sample; head takes the leading slice. "
+            "head is NOT a sample of a sorted table -- it is a biased stratum -- and is "
+            "retained only to reproduce the pre-2026-08-23 tax artifact."
+        ),
+    )
+    parser.add_argument("--sample-seed", type=int, default=20260823)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output-json", type=Path, default=None)
     args = parser.parse_args()
 
     full = load_real_world_dataset(args.dataset)
     full_rows = len(full.dirty_df.index)
-    sample = sample_dataset_rows(full, args.max_rows)
+    sample = sample_dataset_rows(full, args.max_rows, strategy=args.strategy, seed=args.sample_seed)
     record = run_heuristic_episode(sample, seed=args.seed)
 
     artifact = {
@@ -46,19 +57,25 @@ def main() -> None:
             "max_rows": args.max_rows,
             "sampled_rows": len(sample.dirty_df.index),
             "full_rows": full_rows,
+            "sampling_strategy": args.strategy,
+            "sampling_seed": args.sample_seed if args.strategy == "random" else None,
+            "error_provenance": full.metadata.error_provenance,
+            "tier": full.metadata.tier,
             "ground_truth_cells_in_sample": len(sample.ground_truth),
             "seed": args.seed,
             "note": (
-                "SAMPLED deterministic-stack measurement (head sample). NOT a "
+                f"SAMPLED deterministic-stack measurement ({args.strategy} sample). NOT a "
                 "full-dataset result and NOT tied to the pinned source hashes. For "
-                "measure-first honesty only; never cite as the full-dataset number."
+                "measure-first honesty only; never cite as the full-dataset number. "
+                "Recorded strategy and seed so the sample cannot be mistaken for the whole."
             ),
         },
         "record": record.model_dump(mode="json"),
     }
 
     summary = (
-        f"{args.dataset} (sampled {len(sample.dirty_df.index)}/{full_rows}): "
+        f"{args.dataset} ({args.strategy} sample {len(sample.dirty_df.index)}/{full_rows}, "
+        f"provenance={full.metadata.error_provenance}, tier={full.metadata.tier}): "
         f"correction P/R/F1 = {record.precision:.4f}/{record.recall:.4f}/{record.f1:.4f} "
         f"(tp={record.tp} fp={record.fp} fn={record.fn}); runtime {record.runtime_s}s"
     )

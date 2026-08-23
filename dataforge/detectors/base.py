@@ -94,6 +94,11 @@ IssueTypeLiteral = Literal[
     "duplicate_row",
     "date_transposition",
     "entity_consensus",
+    # Detection-only, and structurally so: there is no `semantic_domain_violation`
+    # repairer and the id is deliberately absent from CONSTRAINT_CHECKABLE_DETECTORS, so
+    # it has no write path on any surface. See dataforge/detectors/semantic_domain.py for
+    # why an externally learned constraint must still be advisory.
+    "semantic_domain_violation",
 ]
 
 

@@ -20,7 +20,11 @@ from dataforge.datasets.real_world import (  # noqa: E402
 from dataforge.datasets.registry import DATASET_REGISTRY  # noqa: E402
 
 REPORT_SCHEMA_VERSION = "dataforge_real_world_source_audit_v1"
-DEFAULT_DATASETS = ("hospital", "flights", "beers")
+# Derived from the registry rather than hardcoded. The previous literal
+# ("hospital", "flights", "beers") raised KeyError on the default invocation for six
+# weeks after `beers` was de-registered on 2026-07-12: a hardcoded default cannot be
+# de-registered, so it silently became a crash instead of a corpus.
+DEFAULT_DATASETS = tuple(sorted(DATASET_REGISTRY))
 
 
 @dataclass(frozen=True, slots=True)

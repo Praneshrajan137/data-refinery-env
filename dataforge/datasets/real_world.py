@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import random
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -295,32 +296,78 @@ def _sha256_frame(frame: pd.DataFrame) -> str:
     return hashlib.sha256(frame.to_csv(index=False).encode("utf-8")).hexdigest()
 
 
-def sample_dataset_rows(dataset: RealWorldDataset, max_rows: int) -> RealWorldDataset:
-    """Deterministic head-sample of a dataset for scale-aware measurement.
+def sample_dataset_rows(
+    dataset: RealWorldDataset,
+    max_rows: int,
+    *,
+    strategy: str = "random",
+    seed: int = 20260823,
+) -> RealWorldDataset:
+    """Sample a dataset's rows for scale-aware measurement.
 
-    Keeps the first ``max_rows`` rows of the row-aligned dirty/clean frames and
-    only the ground-truth cells within that window (row indices are preserved by
-    a head slice, so no re-indexing is needed and scoring stays aligned). This
-    unblocks measuring datasets whose full size is impractical for the
-    deterministic bench (e.g. ``tax`` at 200k rows, where schema inference is
-    super-linear) WITHOUT fabricating results.
+    Keeps ``max_rows`` rows of the row-aligned dirty/clean frames and only the
+    ground-truth cells within the retained set. This unblocks measuring datasets
+    whose full size is impractical for the deterministic bench (e.g. ``tax`` at
+    200k rows, where schema inference is super-linear) WITHOUT fabricating results.
+
+    ``strategy`` defaults to ``"random"``, and the default changed on 2026-08-23.
+    It was ``"head"``, which is not a sample: ``tax`` is a sorted table, so
+    ``head(3000)`` of 200,000 rows is a biased slice whose error mix reflects
+    wherever the sort key happens to start. The one committed result from it
+    (F1 0.0000, 696 false positives) is a measurement of that slice, not of the
+    dataset. ``"head"`` remains reachable and explicitly named so that artifact
+    stays reproducible.
+
+    Row indices are re-based to ``0..max_rows-1`` under both strategies and the
+    ground truth is re-indexed with them, so scoring stays aligned. Under
+    ``"head"`` the mapping is the identity, which is why the previous
+    implementation could omit it.
 
     Honesty boundary: the returned dataset is an explicit SAMPLE. Its recomputed
     ``dirty_sha256``/``clean_sha256`` describe the sampled bytes, NOT the pinned
     upstream source, and ``metadata.n_rows`` is updated to the sample size. Never
     use a sampled dataset for pinned-hash verification or for committed
     ``benchmark_truth`` artifacts -- it is a measurement instrument only, and any
-    result derived from it must be reported as sampled (n = ``max_rows``), never
-    as the full-dataset number.
+    result derived from it must be reported as sampled (n = ``max_rows``) with its
+    strategy and seed, never as the full-dataset number.
+
+    Args:
+        dataset: The loaded dataset to sample.
+        max_rows: Rows to retain.
+        strategy: ``"random"`` for a seeded uniform sample, or ``"head"`` for the
+            legacy leading slice.
+        seed: Seed for ``"random"``. Ignored by ``"head"``.
+
+    Returns:
+        The sampled dataset.
+
+    Raises:
+        ValueError: If ``max_rows`` is negative or ``strategy`` is unrecognised.
     """
     if max_rows < 0:
         raise ValueError("max_rows must be non-negative")
+    if strategy not in {"random", "head"}:
+        raise ValueError(f"unknown sampling strategy {strategy!r}; expected 'random' or 'head'")
     total = len(dataset.dirty_df.index)
     if max_rows >= total:
         return dataset
-    dirty = dataset.dirty_df.head(max_rows).reset_index(drop=True)
-    clean = dataset.clean_df.head(max_rows).reset_index(drop=True)
-    ground_truth = tuple(cell for cell in dataset.ground_truth if cell.row < max_rows)
+
+    if strategy == "head":
+        positions = list(range(max_rows))
+    else:
+        positions = sorted(random.Random(seed).sample(range(total), max_rows))
+
+    # Map original row index -> new row index so ground truth follows the rows it
+    # describes. Under "head" this is the identity; under "random" it is not, and
+    # omitting it would silently attach labels to the wrong rows.
+    remap = {original: new for new, original in enumerate(positions)}
+    dirty = dataset.dirty_df.iloc[positions].reset_index(drop=True)
+    clean = dataset.clean_df.iloc[positions].reset_index(drop=True)
+    ground_truth = tuple(
+        cell.model_copy(update={"row": remap[cell.row]})
+        for cell in dataset.ground_truth
+        if cell.row in remap
+    )
     sampled_metadata = dataset.metadata.model_copy(update={"n_rows": max_rows})
     return replace(
         dataset,
