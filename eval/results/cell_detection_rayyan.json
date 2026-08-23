@@ -1,0 +1,211 @@
+{
+  "best_precision_detector": "DateTranspositionDetector",
+  "columns": 11,
+  "dataset": "rayyan",
+  "dataset_evidence": {
+    "clean_sha256": "23159f43c0706782388ed8957ad0c74eb7b88bc98f34d65bd49296e186d4673f",
+    "dirty_sha256": "7e25e6db262b0c72ca2d9735d5959599cf5a582e1c705459507c7b45d0d1d174",
+    "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+    "source_urls": [
+      "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/rayyan/dirty.csv",
+      "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/rayyan/clean.csv"
+    ]
+  },
+  "debatable_class_available": false,
+  "error_provenance": "natural",
+  "generated_at": "2026-08-23T12:30:14.768789+00:00",
+  "ground_truth_cells": 948,
+  "limitations": [
+    "Scoring unit is the CELL. These numbers are NOT comparable to the distinct-value figures in detection_rt_bench.json / detection_st_bench.json: measured on rayyan, the same detector shows gaps up to total between the two units, in both directions (docs/trust/scoring-unit-reconciliation.md).",
+    "RAHA pairs ship NO ground_truth_debatable class, so this scoring is TWO-WAY. Ambiguous cells were resolved by the corpus author and the resolution is unrecorded, so these numbers carry the identification problem the three-way rule removes. Cell level buys the right unit at the cost of the neutral zone; neither harness dominates.",
+    "Detection only. A detector reaching precision 1.0 here is finding error cells, not producing correct replacement values, and most of these have no repairer at all.",
+    "Corpus provenance matters and is recorded per run: hospital is injected (its errors are one substituted character), tax is synthetic, flights has contested labels.",
+    "Precision varies by up to 15x for the SAME detector across corpora. No number here generalises to an unseen table; that is the argument for per-table certification, not against it."
+  ],
+  "per_detector": [
+    {
+      "applicability": "per_value",
+      "detector": "TypeMismatchDetector",
+      "fired": true,
+      "issue_types": [
+        "type_mismatch"
+      ],
+      "score": {
+        "cells_flagged": 64,
+        "f1": 0.0039,
+        "flag_rate": 0.005818,
+        "fn": 946,
+        "fp": 62,
+        "precision": 0.0312,
+        "recall": 0.0021,
+        "total_cells": 11000,
+        "tp": 2
+      }
+    },
+    {
+      "applicability": "frequency_dependent",
+      "detector": "DecimalShiftDetector",
+      "fired": true,
+      "issue_types": [
+        "decimal_shift"
+      ],
+      "score": {
+        "cells_flagged": 7,
+        "f1": 0.0,
+        "flag_rate": 0.000636,
+        "fn": 948,
+        "fp": 7,
+        "precision": 0.0,
+        "recall": 0.0,
+        "total_cells": 11000,
+        "tp": 0
+      }
+    },
+    {
+      "applicability": "row_context",
+      "detector": "FDViolationDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "per_value",
+      "detector": "FormatViolationDetector",
+      "fired": true,
+      "issue_types": [
+        "format_violation"
+      ],
+      "score": {
+        "cells_flagged": 356,
+        "f1": 0.1304,
+        "flag_rate": 0.032364,
+        "fn": 863,
+        "fp": 271,
+        "precision": 0.2388,
+        "recall": 0.0897,
+        "total_cells": 11000,
+        "tp": 85
+      }
+    },
+    {
+      "applicability": "per_value",
+      "detector": "MissingValueDetector",
+      "fired": true,
+      "issue_types": [
+        "missing_value"
+      ],
+      "score": {
+        "cells_flagged": 1155,
+        "f1": 0.0713,
+        "flag_rate": 0.105,
+        "fn": 873,
+        "fp": 1080,
+        "precision": 0.0649,
+        "recall": 0.0791,
+        "total_cells": 11000,
+        "tp": 75
+      }
+    },
+    {
+      "applicability": "frequency_dependent",
+      "detector": "CategoricalNormalizationDetector",
+      "fired": true,
+      "issue_types": [
+        "categorical_normalization"
+      ],
+      "score": {
+        "cells_flagged": 25,
+        "f1": 0.0,
+        "flag_rate": 0.002273,
+        "fn": 948,
+        "fp": 25,
+        "precision": 0.0,
+        "recall": 0.0,
+        "total_cells": 11000,
+        "tp": 0
+      }
+    },
+    {
+      "applicability": "frequency_dependent",
+      "detector": "OutlierDetector",
+      "fired": true,
+      "issue_types": [
+        "outlier"
+      ],
+      "score": {
+        "cells_flagged": 118,
+        "f1": 0.0,
+        "flag_rate": 0.010727,
+        "fn": 948,
+        "fp": 118,
+        "precision": 0.0,
+        "recall": 0.0,
+        "total_cells": 11000,
+        "tp": 0
+      }
+    },
+    {
+      "applicability": "row_context",
+      "detector": "DuplicateRowDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "per_value",
+      "detector": "TimeFormatCruftDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "proportion_gated",
+      "detector": "DateTranspositionDetector",
+      "fired": true,
+      "issue_types": [
+        "date_transposition"
+      ],
+      "score": {
+        "cells_flagged": 722,
+        "f1": 0.8647,
+        "flag_rate": 0.065636,
+        "fn": 226,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 0.7616,
+        "total_cells": 11000,
+        "tp": 722
+      }
+    },
+    {
+      "applicability": "row_context",
+      "detector": "EntityConsensusDetector",
+      "fired": true,
+      "issue_types": [
+        "entity_consensus"
+      ],
+      "score": {
+        "cells_flagged": 1,
+        "f1": 0.0,
+        "flag_rate": 9.1e-05,
+        "fn": 948,
+        "fp": 1,
+        "precision": 0.0,
+        "recall": 0.0,
+        "total_cells": 11000,
+        "tp": 0
+      }
+    }
+  ],
+  "provenance": {
+    "git_commit": "d35f4627b7f36972f736124bfdd839d8bd662516",
+    "git_worktree_dirty": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "rows": 1000,
+  "schema_version": "dataforge_cell_detection_v1",
+  "scoring_unit": "cell",
+  "tier": "diagnostic",
+  "total_cells": 11000
+}

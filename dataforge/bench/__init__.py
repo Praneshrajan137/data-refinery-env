@@ -1,5 +1,12 @@
 """Shared benchmark helpers for real-world DataForge evaluation."""
 
+from dataforge.bench.abstention import (
+    AbstentionScoringError,
+    ThreeWayScore,
+    aggregate_three_way,
+    detection_risk_coverage_frontier,
+    score_detection_three_way,
+)
 from dataforge.bench.agent_gate import (
     AgentGateReport,
     FixtureParity,
@@ -7,6 +14,12 @@ from dataforge.bench.agent_gate import (
     agent_promotion_verdict,
     compare_agent_vs_deterministic,
     default_gate_fixtures,
+)
+from dataforge.bench.cell_detection import (
+    CellDetectionRunResult,
+    CellDetectorMeasurement,
+    CellScore,
+    measure_cell_detection,
 )
 from dataforge.bench.core import (
     AggregateBenchmarkResult,
@@ -20,6 +33,14 @@ from dataforge.bench.core import (
     quota_units,
     score_repairs,
     validate_estimated_calls,
+)
+from dataforge.bench.detection import (
+    DECLARED_APPLICABILITY,
+    EVALUABLE_ON_DISTINCT_VALUES,
+    DetectionRunResult,
+    DetectorMeasurement,
+    NotEvaluableError,
+    measure_column_benchmark,
 )
 from dataforge.bench.error_classes import (
     BENCH_ERROR_CLASSES,
@@ -41,25 +62,39 @@ from dataforge.bench.report import write_benchmark_outputs
 from dataforge.bench.runner import run_agent_comparison
 
 __all__ = [
+    "AbstentionScoringError",
+    "DECLARED_APPLICABILITY",
+    "EVALUABLE_ON_DISTINCT_VALUES",
     "AgentGateReport",
     "AggregateBenchmarkResult",
     "BENCH_ERROR_CLASSES",
     "BenchmarkRepair",
     "BenchmarkRunOutput",
     "ClassScore",
+    "CellDetectionRunResult",
+    "CellDetectorMeasurement",
+    "CellScore",
+    "DetectionRunResult",
+    "DetectorMeasurement",
     "FixtureParity",
     "LABELER_VERSION",
+    "NotEvaluableError",
     "PromotionVerdict",
     "SeedBenchmarkResult",
+    "ThreeWayScore",
     "agent_promotion_verdict",
+    "aggregate_three_way",
     "check_coverage_regression",
     "chunk_row_indices",
     "class_coverage_matrix",
     "classify_error_cell",
     "compare_agent_vs_deterministic",
     "default_gate_fixtures",
+    "detection_risk_coverage_frontier",
     "estimate_llm_calls",
     "expected_calibration_error",
+    "measure_cell_detection",
+    "measure_column_benchmark",
     "normalize_repairs",
     "precision_at_auto_apply",
     "precision_at_k",
@@ -68,6 +103,7 @@ __all__ = [
     "recall_at_k",
     "roc_auc",
     "run_agent_comparison",
+    "score_detection_three_way",
     "score_repairs",
     "score_repairs_by_class",
     "validate_estimated_calls",

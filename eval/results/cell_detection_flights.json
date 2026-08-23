@@ -1,0 +1,163 @@
+{
+  "best_precision_detector": "TimeFormatCruftDetector",
+  "columns": 7,
+  "dataset": "flights",
+  "dataset_evidence": {
+    "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+    "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+    "source_revision": "7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c",
+    "source_urls": [
+      "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/flights/dirty.csv",
+      "https://raw.githubusercontent.com/BigDaMa/raha/7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c/datasets/flights/clean.csv"
+    ]
+  },
+  "debatable_class_available": false,
+  "error_provenance": "contested",
+  "generated_at": "2026-08-23T12:30:15.464661+00:00",
+  "ground_truth_cells": 4920,
+  "limitations": [
+    "Scoring unit is the CELL. These numbers are NOT comparable to the distinct-value figures in detection_rt_bench.json / detection_st_bench.json: measured on rayyan, the same detector shows gaps up to total between the two units, in both directions (docs/trust/scoring-unit-reconciliation.md).",
+    "RAHA pairs ship NO ground_truth_debatable class, so this scoring is TWO-WAY. Ambiguous cells were resolved by the corpus author and the resolution is unrecorded, so these numbers carry the identification problem the three-way rule removes. Cell level buys the right unit at the cost of the neutral zone; neither harness dominates.",
+    "Detection only. A detector reaching precision 1.0 here is finding error cells, not producing correct replacement values, and most of these have no repairer at all.",
+    "Corpus provenance matters and is recorded per run: hospital is injected (its errors are one substituted character), tax is synthetic, flights has contested labels.",
+    "Precision varies by up to 15x for the SAME detector across corpora. No number here generalises to an unseen table; that is the argument for per-table certification, not against it."
+  ],
+  "per_detector": [
+    {
+      "applicability": "per_value",
+      "detector": "TypeMismatchDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "frequency_dependent",
+      "detector": "DecimalShiftDetector",
+      "fired": true,
+      "issue_types": [
+        "decimal_shift"
+      ],
+      "score": {
+        "cells_flagged": 9,
+        "f1": 0.0,
+        "flag_rate": 0.000541,
+        "fn": 4920,
+        "fp": 9,
+        "precision": 0.0,
+        "recall": 0.0,
+        "total_cells": 16632,
+        "tp": 0
+      }
+    },
+    {
+      "applicability": "row_context",
+      "detector": "FDViolationDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "per_value",
+      "detector": "FormatViolationDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "per_value",
+      "detector": "MissingValueDetector",
+      "fired": true,
+      "issue_types": [
+        "missing_value"
+      ],
+      "score": {
+        "cells_flagged": 2370,
+        "f1": 0.6502,
+        "flag_rate": 0.142496,
+        "fn": 2550,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 0.4817,
+        "total_cells": 16632,
+        "tp": 2370
+      }
+    },
+    {
+      "applicability": "frequency_dependent",
+      "detector": "CategoricalNormalizationDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "frequency_dependent",
+      "detector": "OutlierDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "row_context",
+      "detector": "DuplicateRowDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "per_value",
+      "detector": "TimeFormatCruftDetector",
+      "fired": true,
+      "issue_types": [
+        "format_violation"
+      ],
+      "score": {
+        "cells_flagged": 126,
+        "f1": 0.0499,
+        "flag_rate": 0.007576,
+        "fn": 4794,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 0.0256,
+        "total_cells": 16632,
+        "tp": 126
+      }
+    },
+    {
+      "applicability": "proportion_gated",
+      "detector": "DateTranspositionDetector",
+      "fired": false,
+      "issue_types": [],
+      "score": null
+    },
+    {
+      "applicability": "row_context",
+      "detector": "EntityConsensusDetector",
+      "fired": true,
+      "issue_types": [
+        "entity_consensus"
+      ],
+      "score": {
+        "cells_flagged": 1739,
+        "f1": 0.503,
+        "flag_rate": 0.104557,
+        "fn": 3245,
+        "fp": 64,
+        "precision": 0.9632,
+        "recall": 0.3404,
+        "total_cells": 16632,
+        "tp": 1675
+      }
+    }
+  ],
+  "provenance": {
+    "git_commit": "d35f4627b7f36972f736124bfdd839d8bd662516",
+    "git_worktree_dirty": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "rows": 2376,
+  "schema_version": "dataforge_cell_detection_v1",
+  "scoring_unit": "cell",
+  "tier": "diagnostic",
+  "total_cells": 16632
+}
