@@ -1,0 +1,97 @@
+{
+  "coverage_mismatch": 0,
+  "failed_conditions": [
+    "F1 rank correlation 0.0 < 0.7",
+    "F2 max precision gap 0.8667 > 0.25"
+  ],
+  "firing_detectors": 5,
+  "generated_at": "2026-08-23T05:56:14.166183+00:00",
+  "generated_columns": 1194,
+  "generator_id": "character_noise_v1",
+  "injected_values": 2398,
+  "injection_rate": 0.02,
+  "limitations": [
+    "The reference measures DETECTION only. A fidelity verdict about detection metrics is not evidence that the corpus reproduces real CORRECTION difficulty.",
+    "Reference precision rests on 88 unambiguous error values, so m(R) is itself noisy and F2's bound absorbs part of that noise.",
+    "Rank correlation over 3-8 points is low-powered. This is a floor against grossly wrong error populations, not a certificate of realism.",
+    "PASSED does not promote the corpus above diagnostic tier, does not authorise a headline claim, and may not add a detector to CONSTRAINT_CHECKABLE_DETECTORS.",
+    "Bound to (generator_id=character_noise_v1, seed=20260823, reference=rt_bench). Varying any of these requires a new verdict, not a confirmation."
+  ],
+  "max_precision_gap": 0.8667,
+  "per_detector": [
+    {
+      "detector": "CategoricalNormalizationDetector",
+      "generated_precision": null,
+      "reference_precision": null
+    },
+    {
+      "detector": "DateTranspositionDetector",
+      "generated_precision": null,
+      "reference_precision": null
+    },
+    {
+      "detector": "DecimalShiftDetector",
+      "generated_precision": 0.0,
+      "reference_precision": 0.0
+    },
+    {
+      "detector": "DuplicateRowDetector",
+      "generated_precision": null,
+      "reference_precision": null
+    },
+    {
+      "detector": "EntityConsensusDetector",
+      "generated_precision": null,
+      "reference_precision": null
+    },
+    {
+      "detector": "FDViolationDetector",
+      "generated_precision": null,
+      "reference_precision": null
+    },
+    {
+      "detector": "FormatViolationDetector",
+      "generated_precision": 0.88,
+      "reference_precision": 0.0133
+    },
+    {
+      "detector": "MissingValueDetector",
+      "generated_precision": 0.0,
+      "reference_precision": 0.3333
+    },
+    {
+      "detector": "OutlierDetector",
+      "generated_precision": 0.0,
+      "reference_precision": 0.0
+    },
+    {
+      "detector": "TimeFormatCruftDetector",
+      "generated_precision": null,
+      "reference_precision": null
+    },
+    {
+      "detector": "TypeMismatchDetector",
+      "generated_precision": 0.0,
+      "reference_precision": 0.0252
+    }
+  ],
+  "provenance": {
+    "git_commit": "d35f4627b7f36972f736124bfdd839d8bd662516",
+    "git_worktree_dirty": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "rank_correlation": 0.0,
+  "reference": "rt_bench",
+  "reference_sha256": "57cc995d15275fced84d19abaaa46802dd990492052c08d0cbc7fe76b49cb623",
+  "schema_version": "dataforge_error_fidelity_v1",
+  "seed": 20260823,
+  "status": "REFUSED",
+  "thresholds": {
+    "F1_min_rank_correlation": 0.7,
+    "F2_max_precision_gap": 0.25,
+    "F3_max_coverage_mismatch": 1,
+    "F4_min_firing_detectors": 3,
+    "pre_registration": "eval/preregistration/error_fidelity.md"
+  }
+}
