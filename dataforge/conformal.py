@@ -44,6 +44,8 @@ __all__ = [
     "certified_coverage_report",
     "population_stability_index",
     "risk_coverage_curve",
+    "RISK_COVERAGE_GRID",
+    "risk_coverage_frontier",
     "area_under_risk_coverage",
     "repeated_split_certification",
     "reliability_curve",
@@ -821,6 +823,91 @@ def risk_coverage_curve(samples: Sequence[LabeledSample]) -> list[dict[str, floa
             }
         )
     return curve
+
+
+# Pre-specified threshold grid for the bounded risk-coverage frontier. A module
+# constant for the same reason CERTIFICATION_GRID is one: a grid derived from the
+# labels it is evaluated against is a *validity* weakness, not merely a power one.
+RISK_COVERAGE_GRID: tuple[float, ...] = (
+    0.99,
+    0.95,
+    0.90,
+    0.85,
+    0.80,
+    0.75,
+    0.70,
+    0.65,
+    0.60,
+    0.50,
+    0.40,
+    0.30,
+    0.20,
+    0.10,
+    0.00,
+)
+
+
+def risk_coverage_frontier(
+    samples: Sequence[LabeledSample],
+    *,
+    grid: Sequence[float] = RISK_COVERAGE_GRID,
+    delta: float = 0.05,
+) -> list[dict[str, float]]:
+    """Risk-coverage frontier on a fixed grid, with an upper bound on the risk.
+
+    The bounded, pre-specified-grid sibling of :func:`risk_coverage_curve`. Both
+    exist, and the difference is the point:
+
+    * :func:`risk_coverage_curve` places one point per *observed* confidence. That
+      is the right shape for inspecting a proposer's own calibration, but its
+      thresholds are read off the evaluation data, and its ``selective_risk`` is a
+      point estimate with no finite-sample guarantee.
+    * This function evaluates a grid fixed *before* seeing the data and reports
+      ``risk_upper``, an exact one-sided Clopper-Pearson bound. That is what a
+      published frontier needs, because a point estimate at coverage 0.02 is
+      indistinguishable from noise.
+
+    ``selective_risk`` is defined identically in both -- the fraction of accepted
+    proposals that are wrong -- and identically to the quantity
+    :func:`certify_threshold` controls. There is deliberately only one definition
+    of risk in this module: a benchmark that measured risk differently from the
+    gate acting on it would be measuring a different system.
+
+    Args:
+        samples: ``(confidence, was_correct)`` pairs.
+        grid: Thresholds to evaluate, descending. Defaults to
+            :data:`RISK_COVERAGE_GRID`.
+        delta: Failure probability for the upper bound.
+
+    Returns:
+        One point per grid threshold with a non-empty accepted set, ordered by
+        increasing coverage, each carrying ``threshold``, ``n_accepted``,
+        ``n_errors``, ``coverage``, ``selective_risk`` and ``risk_upper``.
+        Thresholds accepting nothing are omitted rather than reported at risk 0.0,
+        because "no proposal cleared this bar" is not evidence of low risk.
+        Empty for empty input.
+    """
+    if not samples:
+        return []
+    total = len(samples)
+    frontier: list[dict[str, float]] = []
+    for threshold in sorted(grid, reverse=True):
+        accepted = [correct for confidence, correct in samples if confidence >= threshold]
+        n = len(accepted)
+        if n == 0:
+            continue
+        errors = sum(1 for correct in accepted if not correct)
+        frontier.append(
+            {
+                "threshold": round(float(threshold), 6),
+                "n_accepted": n,
+                "n_errors": errors,
+                "coverage": round(n / total, 6),
+                "selective_risk": round(errors / n, 6),
+                "risk_upper": round(_clopper_pearson_upper(errors, n, delta), 6),
+            }
+        )
+    return frontier
 
 
 def area_under_risk_coverage(curve: Sequence[dict[str, float]]) -> float:

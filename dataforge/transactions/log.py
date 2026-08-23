@@ -97,7 +97,12 @@ def _utc_now() -> datetime:
 
 
 def _canonical_event_bytes(record: dict[str, Any]) -> bytes:
-    """Serialize an audit event into the canonical hash material."""
+    """Serialize an audit event into the canonical hash material.
+
+    ``event_sha256`` is excluded because it is the output; everything else is included.
+    The options here are the canonical form, and :func:`_write_jsonl_line` must use the
+    same ones -- see the note there.
+    """
     unsigned = {key: value for key, value in record.items() if key != "event_sha256"}
     return json.dumps(
         unsigned,
@@ -122,6 +127,26 @@ def _sign_event(record: dict[str, Any]) -> dict[str, Any]:
 def _write_jsonl_line(path: Path, record: dict[str, Any], *, create: bool = False) -> None:
     """Append or create a JSONL record on disk.
 
+    The serialization options must match :func:`_canonical_event_bytes` exactly. Until
+    2026-08-23 they did not: this wrote ``json.dumps(record, sort_keys=True)`` with the
+    library's **default** separators (``", "``, ``": "``) and default ``ensure_ascii=True``,
+    while the preimage used compact separators and ``ensure_ascii=False``.
+
+    Verification still succeeded, because it re-parses each line and recomputes the hash
+    from the parsed object. But the consequence was that **the bytes on disk were not the
+    bytes that were hashed**, in a system whose central claim is byte-level verifiability.
+    A third party could not hash a line and compare; they had to know to re-parse it with a
+    JSON library configured exactly like this one and re-serialize. That puts
+    canonicalisation inside the trust boundary, which is the failure
+    ``dataforge/attestation/__init__.py`` avoids by signing a DSSE PAE rather than JSON
+    text -- and it cited this very log as the counterexample.
+
+    Now the only difference between a line on disk and its preimage is the removal of the
+    single ``event_sha256`` key, which is fully specified rather than incidental.
+
+    Older logs remain verifiable unchanged, because verification never depended on the
+    on-disk byte layout.
+
     Args:
         path: The target JSONL log path.
         record: JSON-serializable record to write.
@@ -134,7 +159,14 @@ def _write_jsonl_line(path: Path, record: dict[str, Any], *, create: bool = Fals
     mode = "x" if create else "a"
     try:
         with path.open(mode, encoding="utf-8", newline="\n") as handle:
-            handle.write(json.dumps(record, sort_keys=True))
+            handle.write(
+                json.dumps(
+                    record,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                )
+            )
             handle.write("\n")
     except OSError as exc:
         raise TransactionLogError(f"Could not write transaction log '{path}': {exc}") from exc
