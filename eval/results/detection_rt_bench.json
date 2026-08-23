@@ -1,0 +1,737 @@
+{
+  "axis": "detection",
+  "benchmark": "rt_bench",
+  "columns_quarantined": 0,
+  "columns_scored": 1200,
+  "dataset_evidence": {
+    "citation": "Qixu Chen, Yeye He, Raymond Chi-Wing Wong, Weiwei Cui, Song Ge, Haidong Zhang, Dongmei Zhang, Surajit Chaudhuri. Auto-Test: Learning Semantic-Domain Constraints for Unsupervised Error Detection in Tables. SIGMOD 2025. arXiv:2504.10762.",
+    "license_spdx": null,
+    "sha256": "57cc995d15275fced84d19abaaa46802dd990492052c08d0cbc7fe76b49cb623",
+    "source_revision": "4acf65cf37a506206bf2888dbd45f17e58dce2e2",
+    "source_url": "https://raw.githubusercontent.com/qixuchen/AutoTest/4acf65cf37a506206bf2888dbd45f17e58dce2e2/benchmarks/rt_bench.csv"
+  },
+  "debatable_values": 35,
+  "distinct_values": 93291,
+  "evaluable_detectors": [
+    "TypeMismatchDetector",
+    "FormatViolationDetector",
+    "MissingValueDetector",
+    "TimeFormatCruftDetector",
+    "DateTranspositionDetector",
+    "SemanticDomainDetector"
+  ],
+  "evaluable_ensemble": {
+    "abstention_rate": 0.9969,
+    "columns_scored": 1200,
+    "coverage": 0.0031,
+    "debatable_missed": 25,
+    "debatable_predicted": 10,
+    "f1": 0.0497,
+    "fn": 33,
+    "fp": 273,
+    "n_distinct_values": 93291,
+    "n_predicted": 291,
+    "precision": 0.0285,
+    "recall": 0.1951,
+    "tp": 8
+  },
+  "excluded_flags_upper_bound": 13,
+  "frequencies_available": false,
+  "generated_at": "2026-08-23T12:19:27.658184+00:00",
+  "ground_truth_values": 41,
+  "label_density": 0.000439,
+  "limitations": [
+    "L1: dist_val holds DISTINCT values, so a value occurring 900 times counts once. These are not cell-level metrics and are not comparable to BENCHMARK_REPORT.md.",
+    "L2: ground_truth contains only unambiguous errors, so recall here is an UPPER bound on recall over all real errors.",
+    "L3: no clean values ship with these corpora. Detection only. Any correction or repair number sourced from here would be fabricated.",
+    "L4: each row is one column, so detectors needing row or cross-column context are not_applicable, which is NOT recall 0.",
+    "Label density is ~0.0005: precision rests on six figures of real values, recall on double-digit support. Recall must be reported with its bound, never bare.",
+    "This is not a state-of-the-art claim. It authorises exactly one comparison: against Auto-Test's published curves on these same bytes under this same rule."
+  ],
+  "not_evaluable_detectors": [
+    "DecimalShiftDetector",
+    "FDViolationDetector",
+    "CategoricalNormalizationDetector",
+    "OutlierDetector",
+    "DuplicateRowDetector",
+    "EntityConsensusDetector"
+  ],
+  "per_detector": [
+    {
+      "applicability": "per_value",
+      "columns_flagged": 15,
+      "detector": "TypeMismatchDetector",
+      "evaluable": true,
+      "fired": true,
+      "frontier": [
+        {
+          "coverage": 0.882353,
+          "n_accepted": 105,
+          "n_errors": 102,
+          "risk_upper": 0.992168,
+          "selective_risk": 0.971429,
+          "threshold": 0.95
+        },
+        {
+          "coverage": 0.907563,
+          "n_accepted": 108,
+          "n_errors": 105,
+          "risk_upper": 0.992387,
+          "selective_risk": 0.972222,
+          "threshold": 0.9
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.85
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.8
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.75
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.7
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.65
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.6
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.5
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.4
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.3
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.2
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.1
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 119,
+          "n_errors": 116,
+          "risk_upper": 0.993094,
+          "selective_risk": 0.97479,
+          "threshold": 0.0
+        }
+      ],
+      "issue_types": [
+        "type_mismatch"
+      ],
+      "not_evaluable_reason": null,
+      "score": {
+        "abstention_rate": 0.9987,
+        "columns_scored": 1200,
+        "coverage": 0.0013,
+        "debatable_missed": 34,
+        "debatable_predicted": 1,
+        "f1": 0.0375,
+        "fn": 38,
+        "fp": 116,
+        "n_distinct_values": 93291,
+        "n_predicted": 120,
+        "precision": 0.0252,
+        "recall": 0.0732,
+        "tp": 3
+      },
+      "values_flagged": 120
+    },
+    {
+      "applicability": "frequency_dependent",
+      "columns_flagged": 3,
+      "detector": "DecimalShiftDetector",
+      "evaluable": false,
+      "fired": true,
+      "frontier": [],
+      "issue_types": [
+        "decimal_shift"
+      ],
+      "not_evaluable_reason": "needs value multiplicities and this corpus ships distinct values only, so any score would describe a distribution that does not exist (docs/trust/frequency-dependence-correction.md)",
+      "score": null,
+      "values_flagged": 8
+    },
+    {
+      "applicability": "row_context",
+      "columns_flagged": 0,
+      "detector": "FDViolationDetector",
+      "evaluable": false,
+      "fired": false,
+      "frontier": [],
+      "issue_types": [],
+      "not_evaluable_reason": "needs row or cross-column context that a one-column benchmark cannot supply",
+      "score": null,
+      "values_flagged": 0
+    },
+    {
+      "applicability": "per_value",
+      "columns_flagged": 17,
+      "detector": "FormatViolationDetector",
+      "evaluable": true,
+      "fired": true,
+      "frontier": [
+        {
+          "coverage": 0.353333,
+          "n_accepted": 53,
+          "n_errors": 51,
+          "risk_upper": 0.993254,
+          "selective_risk": 0.962264,
+          "threshold": 0.95
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.9
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.85
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.8
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.75
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.7
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.65
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.6
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.5
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.4
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.3
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.2
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.1
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 150,
+          "n_errors": 148,
+          "risk_upper": 0.997626,
+          "selective_risk": 0.986667,
+          "threshold": 0.0
+        }
+      ],
+      "issue_types": [
+        "format_violation"
+      ],
+      "not_evaluable_reason": null,
+      "score": {
+        "abstention_rate": 0.9983,
+        "columns_scored": 1200,
+        "coverage": 0.0017,
+        "debatable_missed": 30,
+        "debatable_predicted": 5,
+        "f1": 0.0209,
+        "fn": 39,
+        "fp": 148,
+        "n_distinct_values": 93291,
+        "n_predicted": 155,
+        "precision": 0.0133,
+        "recall": 0.0488,
+        "tp": 2
+      },
+      "values_flagged": 155
+    },
+    {
+      "applicability": "per_value",
+      "columns_flagged": 12,
+      "detector": "MissingValueDetector",
+      "evaluable": true,
+      "fired": true,
+      "frontier": [
+        {
+          "coverage": 0.777778,
+          "n_accepted": 7,
+          "n_errors": 5,
+          "risk_upper": 0.946624,
+          "selective_risk": 0.714286,
+          "threshold": 0.9
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.85
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.8
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.75
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.7
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.65
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.6
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.5
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.4
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.3
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.2
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.1
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.0
+        }
+      ],
+      "issue_types": [
+        "missing_value"
+      ],
+      "not_evaluable_reason": null,
+      "score": {
+        "abstention_rate": 0.9999,
+        "columns_scored": 1200,
+        "coverage": 0.0001,
+        "debatable_missed": 32,
+        "debatable_predicted": 3,
+        "f1": 0.12,
+        "fn": 38,
+        "fp": 6,
+        "n_distinct_values": 93291,
+        "n_predicted": 12,
+        "precision": 0.3333,
+        "recall": 0.0732,
+        "tp": 3
+      },
+      "values_flagged": 12
+    },
+    {
+      "applicability": "frequency_dependent",
+      "columns_flagged": 0,
+      "detector": "CategoricalNormalizationDetector",
+      "evaluable": false,
+      "fired": false,
+      "frontier": [],
+      "issue_types": [],
+      "not_evaluable_reason": "needs value multiplicities and this corpus ships distinct values only, so any score would describe a distribution that does not exist (docs/trust/frequency-dependence-correction.md)",
+      "score": null,
+      "values_flagged": 0
+    },
+    {
+      "applicability": "frequency_dependent",
+      "columns_flagged": 1,
+      "detector": "OutlierDetector",
+      "evaluable": false,
+      "fired": true,
+      "frontier": [],
+      "issue_types": [
+        "outlier"
+      ],
+      "not_evaluable_reason": "needs value multiplicities and this corpus ships distinct values only, so any score would describe a distribution that does not exist (docs/trust/frequency-dependence-correction.md)",
+      "score": null,
+      "values_flagged": 5
+    },
+    {
+      "applicability": "row_context",
+      "columns_flagged": 0,
+      "detector": "DuplicateRowDetector",
+      "evaluable": false,
+      "fired": false,
+      "frontier": [],
+      "issue_types": [],
+      "not_evaluable_reason": "needs row or cross-column context that a one-column benchmark cannot supply",
+      "score": null,
+      "values_flagged": 0
+    },
+    {
+      "applicability": "per_value",
+      "columns_flagged": 0,
+      "detector": "TimeFormatCruftDetector",
+      "evaluable": true,
+      "fired": false,
+      "frontier": [],
+      "issue_types": [],
+      "not_evaluable_reason": null,
+      "score": null,
+      "values_flagged": 0
+    },
+    {
+      "applicability": "proportion_gated",
+      "columns_flagged": 0,
+      "detector": "DateTranspositionDetector",
+      "evaluable": true,
+      "fired": false,
+      "frontier": [],
+      "issue_types": [],
+      "not_evaluable_reason": null,
+      "score": null,
+      "values_flagged": 0
+    },
+    {
+      "applicability": "row_context",
+      "columns_flagged": 0,
+      "detector": "EntityConsensusDetector",
+      "evaluable": false,
+      "fired": false,
+      "frontier": [],
+      "issue_types": [],
+      "not_evaluable_reason": "needs row or cross-column context that a one-column benchmark cannot supply",
+      "score": null,
+      "values_flagged": 0
+    },
+    {
+      "applicability": "per_value",
+      "columns_flagged": 8,
+      "detector": "SemanticDomainDetector",
+      "evaluable": true,
+      "fired": true,
+      "frontier": [
+        {
+          "coverage": 0.444444,
+          "n_accepted": 4,
+          "n_errors": 2,
+          "risk_upper": 0.902389,
+          "selective_risk": 0.5,
+          "threshold": 0.95
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.9
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.85
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.8
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.75
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.7
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.65
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.6
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.5
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.4
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.3
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.2
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.1
+        },
+        {
+          "coverage": 1.0,
+          "n_accepted": 9,
+          "n_errors": 6,
+          "risk_upper": 0.902253,
+          "selective_risk": 0.666667,
+          "threshold": 0.0
+        }
+      ],
+      "issue_types": [
+        "semantic_domain_violation"
+      ],
+      "not_evaluable_reason": null,
+      "score": {
+        "abstention_rate": 0.9998,
+        "columns_scored": 1200,
+        "coverage": 0.0002,
+        "debatable_missed": 30,
+        "debatable_predicted": 5,
+        "f1": 0.12,
+        "fn": 38,
+        "fp": 6,
+        "n_distinct_values": 93291,
+        "n_predicted": 14,
+        "precision": 0.3333,
+        "recall": 0.0732,
+        "tp": 3
+      },
+      "values_flagged": 14
+    }
+  ],
+  "provenance": {
+    "distinct_values_only": true,
+    "git_commit": "d35f4627b7f36972f736124bfdd839d8bd662516",
+    "git_worktree_dirty": true,
+    "ground_truth_scope": "unambiguous_only",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "schema_version": "dataforge_detection_run_v1",
+  "scoring_spec": "specs/SPEC_abstention_scoring.md",
+  "semantic_domain_sdcs": {
+    "declined_by_family": {
+      "CTA": 60,
+      "Embedding": 361,
+      "Function": 24
+    },
+    "pattern_sdcs_loaded": 60,
+    "sha256": "c51205c93da17d4ddb64b69a361469c98a3231146285e6b1d58741b1dc077e85",
+    "total_in_artifact": 505
+  }
+}
