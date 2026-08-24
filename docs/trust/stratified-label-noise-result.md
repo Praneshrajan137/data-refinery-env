@@ -78,6 +78,40 @@ Now separated:
 A metric that reports disagreement between things that agree would have made the case for
 stratification look stronger than it is, in a document arguing for stratification. Worth recording.
 
+## The live certification path now stratifies, not just the arithmetic helper
+
+A result that fires a kill criterion but leaves the killed behaviour shipping is worse than not
+having measured it. `certify_session` was pooling every planted control into one `beta`, so the
+product would have kept issuing the anti-conservative bound while the trust doc said otherwise.
+
+Changed:
+
+- **`CalibrationSessionArtifact.controls_by_origin()`** groups labelled controls as
+  `{origin: (false_accepts, controls)}`. `PlantedControl.origin` already carried the distinction --
+  the data model had the information and the certification path was discarding it.
+- **`certify_threshold_under_label_noise` takes `controls_by_class`**, and the pooled
+  `false_accepts`/`controls` parameters are **gone rather than deprecated**. A pooled bound is not
+  a weaker version of the honest one, it is a different and anti-conservative quantity, so it is
+  unreachable. Three test call sites had to be migrated, which is the intended blast radius.
+- **`_min_samples_given_beta`** factors the sample-floor arithmetic so the pooled entry point and
+  the stratified certifier share one implementation rather than two that can drift.
+- `observed_false_accepts()` remains, documented as pooled and unsuitable for certification. It is
+  the reporting and comparison figure only.
+
+**Blast radius is exactly the pooled multi-origin case.** With a single origin the union
+correction divides `delta/2` by 1, so the stratified bound is bit-identical to the pooled one. A
+test asserts this to 1e-12, so the migration cannot have quietly moved a number it was not meant to
+move.
+
+Four new tests pin the behaviour that ships, including
+`test_a_dirty_origin_cannot_be_hidden_by_a_clean_one`: 0 false accepts on 200 easy plants plus 4 on
+8 hard ones must still certify **nothing**. That is the failure mode pooling permits -- pad the
+control set with easy plants and the false-accept rate on the hard class disappears into the
+denominator.
+
+Mutant **M11-label-noise-beta-repooled** re-pools the origins in `certify_session`. It is killed, so
+a revert to pooling cannot pass CI as a tidy-up. 11/11 mutants killed.
+
 ## What is not changed
 
 `label_noise_adjusted_bound` keeps its signature and behaviour. It is not wrong -- it computes a

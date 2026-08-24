@@ -193,7 +193,7 @@ class TestTheAdjustmentOnlyTightens:
         samples = [(0.97, True)] * 120
         unadjusted = certify_threshold(samples, alpha=0.05, grid=_GRID, prune_infeasible=True)
         adjusted = certify_threshold_under_label_noise(
-            samples, alpha=0.05, false_accepts=0, controls=30, grid=_GRID
+            samples, alpha=0.05, controls_by_class={"column_distribution": (0, 30)}, grid=_GRID
         )
         assert unadjusted is not None
         # Adjusted may refuse, or certify no *lower* (more permissive) threshold than unadjusted.
@@ -272,8 +272,7 @@ class TestPruningUsesTheAdjustedFloor:
         certified = certify_threshold_under_label_noise(
             calibration,
             alpha=0.05,
-            false_accepts=0,
-            controls=30,
+            controls_by_class={"column_distribution": (0, 30)},
             grid=[0.99, 0.90],
             min_support=30,
         )
@@ -311,8 +310,7 @@ class TestPruningUsesTheAdjustedFloor:
         certified = certify_threshold_under_label_noise(
             self._calibration(n_high=500, n_low=500),
             alpha=0.05,
-            false_accepts=30,
-            controls=30,
+            controls_by_class={"column_distribution": (30, 30)},
             grid=[0.99, 0.90],
             min_support=30,
         )
@@ -414,3 +412,89 @@ def test_mutation_witnesses_are_documented() -> None:
         class_name, _, method = target.partition("::")
         assert class_name in module, f"{mutation}: no class {class_name}"
         assert hasattr(module[class_name], method), f"{mutation}: no test {target}"
+
+
+class TestTheLivePathStratifiesRatherThanPooling:
+    """The consequence of docs/trust/stratified-label-noise-result.md, enforced in the product.
+
+    `certify_session` used to pool every planted control into one `beta`. The two origins
+    measure different things and their measured false-accept rates differ by 7.5x, so pooling
+    understated `beta` by enough to change whether a pre-registered kill criterion fired.
+    These tests pin the fix at the level that ships, not just in the arithmetic helper.
+    """
+
+    @staticmethod
+    def _mixed(
+        *, distribution: tuple[int, int], corrector: tuple[int, int]
+    ) -> CalibrationSessionArtifact:
+        """A session whose controls span BOTH origins, with per-origin (false_accepts, n)."""
+        artifact = _human_session(labels=120, controls=0)
+        planted: list[PlantedControl] = []
+        row = 10_000
+        for origin, (accepted, total) in (
+            ("column_distribution", distribution),
+            ("corrector_generated", corrector),
+        ):
+            for index in range(total):
+                control = _control(row, accepted=index < accepted)
+                planted.append(control.model_copy(update={"origin": origin}))
+                row += 1
+        return artifact.model_copy(update={"planted_controls": planted})
+
+    def test_controls_are_grouped_by_origin_not_pooled(self) -> None:
+        artifact = self._mixed(distribution=(2, 30), corrector=(4, 8))
+        assert artifact.controls_by_origin() == {
+            "column_distribution": (2, 30),
+            "corrector_generated": (4, 8),
+        }
+        # The pooled accessor still exists for reporting, and still pools.
+        assert artifact.observed_false_accepts() == 6
+        assert len(artifact.labelled_controls()) == 38
+
+    def test_the_worst_origin_binds_the_certified_beta(self) -> None:
+        """The real measured split: 2/30 against 4/8.
+
+        Pooled this gives beta_upper 0.3125, below the pre-registered 0.35 kill threshold.
+        Stratified the binding class gives 0.8712, above it. The session must report the
+        latter, because that is the bound the labelling process actually supports.
+        """
+        artifact = self._mixed(distribution=(2, 30), corrector=(4, 8))
+        result = certify_from_session(artifact)
+        assert result.beta_upper is not None
+        assert result.beta_upper == pytest.approx(0.8712, abs=0.001)
+        assert result.beta_upper > 0.35, "the pre-registered kill criterion must fire here"
+
+    def test_pooling_would_have_reported_a_bound_below_the_kill_threshold(self) -> None:
+        """Pins the size of the defect, so a revert is visibly a regression and not a tidy-up."""
+        pooled = label_noise_adjusted_bound(0, 1, false_accepts=6, controls=38)[1]
+        assert pooled == pytest.approx(0.3125, abs=0.001)
+        assert pooled <= 0.35
+        stratified = certify_from_session(
+            self._mixed(distribution=(2, 30), corrector=(4, 8))
+        ).beta_upper
+        assert stratified is not None and stratified > pooled
+
+    def test_a_dirty_origin_cannot_be_hidden_by_a_clean_one(self) -> None:
+        """Many clean plants plus a few accepted hard ones must not average out.
+
+        This is the failure mode pooling permits: pad the control set with easy plants and the
+        false-accept rate on the hard class disappears into the denominator.
+        """
+        artifact = self._mixed(distribution=(0, 200), corrector=(4, 8))
+        result = certify_from_session(artifact)
+        assert result.beta_upper is not None
+        assert result.beta_upper > 0.35
+        assert result.certified_classes == [], (
+            "a binding beta above the kill threshold must certify nothing"
+        )
+
+    def test_a_single_origin_is_arithmetically_unchanged(self) -> None:
+        """The migration must not move any number it was not meant to move.
+
+        With one class the union correction divides delta/2 by 1, so the stratified bound is
+        bit-identical to the pooled one. That keeps the blast radius exactly at genuinely
+        pooled multi-origin sets.
+        """
+        single = certify_from_session(_human_session(labels=120, controls=30, false_accepts=2))
+        expected = label_noise_adjusted_bound(0, 1, false_accepts=2, controls=30)[1]
+        assert single.beta_upper == pytest.approx(expected, abs=1e-12)

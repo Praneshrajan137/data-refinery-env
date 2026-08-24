@@ -596,21 +596,34 @@ def min_samples_under_label_noise(
         raise ValueError("controls must be positive")
     half = delta / 2.0
     beta_upper = _clopper_pearson_upper(false_accepts, controls, half)
+    return _min_samples_given_beta(alpha, beta_upper=beta_upper, delta=delta)
+
+
+def _min_samples_given_beta(alpha: float, *, beta_upper: float, delta: float) -> int | None:
+    """The sample floor implied by an already-computed ``beta_upper``.
+
+    Factored out so the pooled entry point and the stratified certifier share one
+    implementation of the arithmetic rather than two that can drift. The caller owns how
+    ``beta_upper`` was derived, which matters because the stratified bound pays a union
+    correction across classes and the pooled one does not.
+
+    Returns:
+        The required ``n``, or ``None`` when no finite ``n`` suffices.
+    """
     if beta_upper >= 1.0:
         return None
     target = alpha * (1.0 - beta_upper)
     if target <= 0.0 or target >= 1.0:
         return None
     # 1 - half**(1/n) <= target  <=>  n >= ln(half) / ln(1 - target)
-    return math.ceil(math.log(half) / math.log(1.0 - target))
+    return math.ceil(math.log(delta / 2.0) / math.log(1.0 - target))
 
 
 def certify_threshold_under_label_noise(
     calibration: Sequence[LabeledSample],
     *,
     alpha: float,
-    false_accepts: int,
-    controls: int,
+    controls_by_class: dict[str, tuple[int, int]],
     delta: float = 0.05,
     min_support: int = 30,
     grid: Sequence[float],
@@ -619,7 +632,7 @@ def certify_threshold_under_label_noise(
     """:func:`certify_threshold`, but testing the label-noise-adjusted bound.
 
     Identical fixed-sequence logic -- purest-first over a label-independent grid, halting on the
-    first tested failure -- with :func:`label_noise_adjusted_bound` in place of the raw
+    first tested failure -- with :func:`label_noise_adjusted_bound_stratified` in place of the raw
     Clopper-Pearson upper bound. Strictly more conservative than :func:`certify_threshold` at the
     same ``alpha``, because the adjustment can only inflate the bound.
 
@@ -627,6 +640,15 @@ def certify_threshold_under_label_noise(
     function is new, so there is no committed number for it to move, and the two changes are
     deliberately paired: the pruning buys power and the noise term spends it on honesty, so the
     net effect on the advertised guarantee is stricter rather than looser.
+
+    **Takes per-class controls, not pooled counts, and this is deliberately not optional.**
+    Until 2026-08-24 this function accepted pooled ``false_accepts``/``controls``, and pooling
+    the two measured control origins gave ``beta_upper`` = 0.3125 against a binding
+    per-class 0.8712 -- the difference between a pre-registered kill criterion not firing and
+    firing. A pooled bound is not a weaker version of the honest one, it is a different and
+    anti-conservative quantity, so the pooled form is unreachable rather than discouraged. With a
+    single class the arithmetic is unchanged, because ``(delta/2)/1`` is ``delta/2``.
+    See ``docs/trust/stratified-label-noise-result.md``.
     """
     if not 0.0 < alpha < 1.0:
         raise ValueError(f"alpha must be in (0, 1); got {alpha}")
@@ -653,8 +675,12 @@ def certify_threshold_under_label_noise(
     # ``prune_infeasible=False``, which is the ONLY path where the loop guard is load-bearing
     # on its own. ``test_the_naive_floor_would_have_broken_the_sequence`` records the
     # arithmetic that separates the two floors so a future reverter sees the cause.
-    adjusted_floor = min_samples_under_label_noise(
-        alpha, controls=controls, false_accepts=false_accepts, delta=delta
+    adjusted_floor = _min_samples_given_beta(
+        alpha,
+        beta_upper=label_noise_adjusted_bound_stratified(
+            0, 1, controls_by_class=controls_by_class, delta=delta
+        ).beta_upper,
+        delta=delta,
     )
     if adjusted_floor is None:
         # No finite n can certify: the controls admit too much false-accept rate. Collect
@@ -680,9 +706,9 @@ def certify_threshold_under_label_noise(
         if n < effective_min_support:
             continue
         errors = sum(1 for correct in accepted if not correct)
-        _, _, adjusted = label_noise_adjusted_bound(
-            errors, n, false_accepts=false_accepts, controls=controls, delta=delta
-        )
+        adjusted = label_noise_adjusted_bound_stratified(
+            errors, n, controls_by_class=controls_by_class, delta=delta
+        ).adjusted_bound
         if adjusted <= alpha:
             certified = threshold
         else:

@@ -205,10 +205,42 @@ class CalibrationSessionArtifact(BaseModel):
         ]
 
     def observed_false_accepts(self) -> int:
-        """Count planted controls the labeller accepted -- each one an observed false accept."""
+        """Count planted controls the labeller accepted -- each one an observed false accept.
+
+        **Pooled, and therefore not suitable for certification.** Retained for reporting and
+        for the comparison figure in artifacts. Certification must use
+        :meth:`controls_by_origin`, because pooling the two origins understates ``beta``
+        by enough to change a published decision -- measured in
+        ``docs/trust/stratified-label-noise-result.md``.
+        """
         return sum(
             1 for control in self.labelled_controls() if control.repair_decision == "correct"
         )
+
+    def controls_by_origin(self) -> dict[str, tuple[int, int]]:
+        """Group labelled controls by origin as ``{origin: (false_accepts, controls)}``.
+
+        The certification path must stratify on this rather than pooling, because the two
+        origins measure different things and their false-accept rates differ by 7.5x on
+        measured data: ``column_distribution`` 2/30 = 0.0667 against ``corrector_generated``
+        4/8 = 0.5000. Pooling gave ``beta_upper`` 0.3125, below the pre-registered 0.35 kill
+        threshold; the binding class gives 0.8712, above it. See
+        ``docs/trust/stratified-label-noise-result.md``.
+
+        Only origins that actually have labelled controls appear. An origin with none is
+        absent rather than present-and-empty, because a zero-control class cannot bound
+        anything and :func:`~dataforge.conformal.label_noise_adjusted_bound_stratified`
+        rejects it by design.
+
+        Returns:
+            Origin to ``(false_accepts, controls)``. Empty when nothing is labelled.
+        """
+        grouped: dict[str, tuple[int, int]] = {}
+        for control in self.labelled_controls():
+            false_accepts, total = grouped.get(control.origin, (0, 0))
+            accepted = 1 if control.repair_decision == "correct" else 0
+            grouped[control.origin] = (false_accepts + accepted, total + 1)
+        return grouped
 
 
 class ClassPrecision(BaseModel):
@@ -788,7 +820,7 @@ def certify_from_session(
         certification_reason,
         certify_threshold,
         certify_threshold_under_label_noise,
-        label_noise_adjusted_bound,
+        label_noise_adjusted_bound_stratified,
     )
 
     usable = repair_labelled_samples(artifact)
@@ -801,6 +833,7 @@ def certify_from_session(
         )
 
     controls = len(artifact.labelled_controls())
+    controls_by_origin = artifact.controls_by_origin()
     false_accepts = artifact.observed_false_accepts()
     human = artifact.label_source == "human"
     if human and controls == 0:
@@ -822,10 +855,14 @@ def certify_from_session(
 
     beta_upper: float | None = None
     if human:
-        # n is irrelevant to the beta half of the bound; pass the pooled size for a valid call.
-        _, beta_upper, _ = label_noise_adjusted_bound(
-            0, max(1, len(usable)), false_accepts=false_accepts, controls=controls, delta=delta
-        )
+        # n is irrelevant to the beta half of the bound; pass 1 for a valid call. The bound is
+        # STRATIFIED by control origin rather than pooled: the two origins measure different
+        # things and their false-accept rates differ by 7.5x on measured data, and pooling them
+        # understates beta by enough to change a published decision. See
+        # docs/trust/stratified-label-noise-result.md.
+        beta_upper = label_noise_adjusted_bound_stratified(
+            0, 1, controls_by_class=controls_by_origin, delta=delta
+        ).beta_upper
 
     thresholds: dict[str, float] = {}
     reasons: dict[str, str] = {}
@@ -842,8 +879,7 @@ def certify_from_session(
             threshold = certify_threshold_under_label_noise(
                 samples,
                 alpha=alpha,
-                false_accepts=false_accepts,
-                controls=controls,
+                controls_by_class=controls_by_origin,
                 delta=delta,
                 min_support=min_support,
                 grid=CERTIFICATION_GRID,

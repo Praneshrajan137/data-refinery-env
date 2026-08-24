@@ -146,6 +146,20 @@ MUTANTS: tuple[Mutant, ...] = (
             "level up from the write allowlist, and it shipped for a day"
         ),
     ),
+    Mutant(
+        name="M11-label-noise-beta-repooled",
+        target="dataforge/calibration_session.py",
+        old="            0, 1, controls_by_class=controls_by_origin, delta=delta",
+        new="            0, 1, controls_by_class={\"p\": (false_accepts, controls)}, delta=delta",
+        tests=("tests/unit/test_label_noise_certification.py",),
+        why=(
+            "re-pooling the two planted-control origins drops the certified beta from 0.8712 "
+            "to 0.3125 on measured data, which is the difference between a pre-registered "
+            "kill criterion firing and not firing. Pooling is not a weaker bound, it is a "
+            "different and anti-conservative quantity, and it lets a dirty control class be "
+            "hidden by padding the control set with easy plants"
+        ),
+    ),
 )
 
 

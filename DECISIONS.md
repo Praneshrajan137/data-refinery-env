@@ -3251,3 +3251,12 @@ union correction. My own test caught it. Split into `heterogeneity_ratio` (wides
 bound at equal alpha, so the correction cancels; 3.56 here, exactly 1.0 on identical classes) and
 `stratified_vs_pooled_ratio` (2.79, the publication delta, explicitly not a heterogeneity measure).
 A metric overstating disagreement inside a document arguing for stratification is worth recording.
+
+**Follow-through, same day**: the live path was still pooling. `certify_session` and
+`certify_threshold_under_label_noise` now take per-origin controls via a new
+`CalibrationSessionArtifact.controls_by_origin()`; `PlantedControl.origin` already carried the
+distinction and the certification path was discarding it. The pooled `false_accepts`/`controls`
+parameters were REMOVED rather than deprecated, because a pooled bound is not a weaker version of
+the honest one but a different and anti-conservative quantity - three test call sites migrated.
+Single-origin sets are bit-identical (delta/2 divided by 1), asserted to 1e-12, so blast radius is
+exactly the genuinely-pooled case. Mutant M11 kills a revert to pooling. 2217 passed, 11/11 mutants.
