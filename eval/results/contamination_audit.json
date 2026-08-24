@@ -1,0 +1,748 @@
+{
+  "alpha": 0.01,
+  "api_version": "2025-04-01-preview",
+  "c2_columns": 120,
+  "c2_min_distinct_values": 20,
+  "c3_items": 172,
+  "c4_columns": 60,
+  "calls": 453,
+  "cancels_wild_column_measurement": false,
+  "column_label_base_rates_descriptive_only": {
+    "rt_bench": 0.5735,
+    "st_bench": 0.5769
+  },
+  "contamination_suspected": false,
+  "deployment": "gpt-5.6-sol",
+  "estimated_usd": 3.61159,
+  "exchangeability_available": false,
+  "exchangeability_reason": "deployment gpt-5.6-sol rejects logprobs (http_400), so the log-likelihood of a canonical ordering cannot be obtained. Oren et al.'s provable test is unavailable and this is recorded as a limit, not as a clean result.",
+  "failed_calls": 1,
+  "flagged_probes": [],
+  "generated_at": "2026-08-24T06:45:34.937358+00:00",
+  "limitations": [
+    "L1: C1 (Oren et al. exchangeability, the only provable method) is UNAVAILABLE on this deployment: logprobs is rejected, and chat-completions logprobs cover generated tokens only. Excluded from the flag count, never scored as passing.",
+    "L2: power is modest. A weak memorisation signal will not be detected, so CLEAN means NOT DETECTED, never absent.",
+    "L3: BLEURT and the GPT-4 classifier arm of Golchin & Surdeanu are not implemented. C2 and C3 also share a paired form, so they are not methodologically independent.",
+    "L4: the verdict is bound to this deployment and api-version. A model refresh invalidates it.",
+    "L5: C2 covers only columns with >= 20 distinct values. A corpus memorised solely in its short columns would be missed.",
+    "This audit authorises nothing about detection quality. It gates whether a measurement is worth making and cannot make one credible.",
+    "It does not bear on whether Auto-Test's own SDC training corpus overlapped its benchmarks, which remains contamination_unverified."
+  ],
+  "methods_implemented": [
+    "C2_guided_vs_general",
+    "C3_column_label",
+    "C4_control"
+  ],
+  "min_delta": 0.05,
+  "model": "gpt-5.6-sol",
+  "probes": {
+    "C2": {
+      "available": true,
+      "by_corpus_descriptive_only": {
+        "rt_bench": {
+          "available": true,
+          "detail": "C2/rt_bench: guided 0.3434 vs general 0.3466, delta -0.0032, p=0.6601",
+          "general_mean": 0.3466,
+          "guided_mean": 0.3434,
+          "mean_delta": -0.0032,
+          "nonzero_pairs": 24,
+          "p_value": 0.660067,
+          "pairs": 60
+        },
+        "st_bench": {
+          "available": true,
+          "detail": "C2/st_bench: guided 0.2295 vs general 0.2324, delta -0.0029, p=0.7670",
+          "general_mean": 0.2324,
+          "guided_mean": 0.2295,
+          "mean_delta": -0.0029,
+          "nonzero_pairs": 25,
+          "p_value": 0.767012,
+          "pairs": 60
+        }
+      },
+      "detail": "C2: guided 0.2865 vs general 0.2895, delta -0.0030, p=0.7681",
+      "general_mean": 0.2895,
+      "guided_mean": 0.2865,
+      "mean_delta": -0.003,
+      "nonzero_pairs": 49,
+      "p_value": 0.768112,
+      "pairs": 120
+    },
+    "C3": {
+      "available": true,
+      "by_corpus_descriptive_only": {
+        "rt_bench": {
+          "available": true,
+          "detail": "C3/rt_bench: guided 0.6765 vs general 0.7353, delta -0.0588, p=0.9821",
+          "general_mean": 0.7353,
+          "guided_mean": 0.6765,
+          "mean_delta": -0.0588,
+          "nonzero_pairs": 6,
+          "p_value": 0.982051,
+          "pairs": 68
+        },
+        "st_bench": {
+          "available": true,
+          "detail": "C3/st_bench: guided 0.5673 vs general 0.6250, delta -0.0577, p=0.9535",
+          "general_mean": 0.625,
+          "guided_mean": 0.5673,
+          "mean_delta": -0.0577,
+          "nonzero_pairs": 18,
+          "p_value": 0.953502,
+          "pairs": 104
+        }
+      },
+      "detail": "C3: guided 0.6105 vs general 0.6686, delta -0.0581, p=0.9881",
+      "general_mean": 0.6686,
+      "guided_mean": 0.6105,
+      "mean_delta": -0.0581,
+      "nonzero_pairs": 24,
+      "p_value": 0.988051,
+      "pairs": 172
+    },
+    "C4": {
+      "available": true,
+      "by_corpus_descriptive_only": {
+        "S0": {
+          "available": false,
+          "detail": "C4 control/S0: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S1": {
+          "available": true,
+          "detail": "C4 control/S1: guided 0.0000 vs general 0.5000, delta -0.5000, p=1.0000",
+          "general_mean": 0.5,
+          "guided_mean": 0.0,
+          "mean_delta": -0.5,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S10": {
+          "available": false,
+          "detail": "C4 control/S10: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S11": {
+          "available": false,
+          "detail": "C4 control/S11: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S12": {
+          "available": true,
+          "detail": "C4 control/S12: guided 0.0000 vs general 0.5000, delta -0.5000, p=1.0000",
+          "general_mean": 0.5,
+          "guided_mean": 0.0,
+          "mean_delta": -0.5,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S13": {
+          "available": false,
+          "detail": "C4 control/S13: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S14": {
+          "available": false,
+          "detail": "C4 control/S14: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S15": {
+          "available": false,
+          "detail": "C4 control/S15: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S16": {
+          "available": true,
+          "detail": "C4 control/S16: guided 0.5000 vs general 0.0000, delta +0.5000, p=0.4991",
+          "general_mean": 0.0,
+          "guided_mean": 0.5,
+          "mean_delta": 0.5,
+          "nonzero_pairs": 1,
+          "p_value": 0.499125,
+          "pairs": 2
+        },
+        "S17": {
+          "available": false,
+          "detail": "C4 control/S17: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S18": {
+          "available": false,
+          "detail": "C4 control/S18: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S19": {
+          "available": true,
+          "detail": "C4 control/S19: guided 0.0000 vs general 0.5000, delta -0.5000, p=1.0000",
+          "general_mean": 0.5,
+          "guided_mean": 0.0,
+          "mean_delta": -0.5,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S2": {
+          "available": false,
+          "detail": "C4 control/S2: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S20": {
+          "available": false,
+          "detail": "C4 control/S20: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S21": {
+          "available": false,
+          "detail": "C4 control/S21: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S22": {
+          "available": false,
+          "detail": "C4 control/S22: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S23": {
+          "available": false,
+          "detail": "C4 control/S23: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S24": {
+          "available": false,
+          "detail": "C4 control/S24: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S25": {
+          "available": false,
+          "detail": "C4 control/S25: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S26": {
+          "available": false,
+          "detail": "C4 control/S26: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S27": {
+          "available": false,
+          "detail": "C4 control/S27: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S28": {
+          "available": false,
+          "detail": "C4 control/S28: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S29": {
+          "available": false,
+          "detail": "C4 control/S29: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S3": {
+          "available": false,
+          "detail": "C4 control/S3: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S30": {
+          "available": false,
+          "detail": "C4 control/S30: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S31": {
+          "available": true,
+          "detail": "C4 control/S31: guided 0.5000 vs general 0.0000, delta +0.5000, p=0.4991",
+          "general_mean": 0.0,
+          "guided_mean": 0.5,
+          "mean_delta": 0.5,
+          "nonzero_pairs": 1,
+          "p_value": 0.499125,
+          "pairs": 2
+        },
+        "S32": {
+          "available": false,
+          "detail": "C4 control/S32: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S33": {
+          "available": false,
+          "detail": "C4 control/S33: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S34": {
+          "available": true,
+          "detail": "C4 control/S34: guided 0.0000 vs general 0.5000, delta -0.5000, p=1.0000",
+          "general_mean": 0.5,
+          "guided_mean": 0.0,
+          "mean_delta": -0.5,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S35": {
+          "available": false,
+          "detail": "C4 control/S35: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S36": {
+          "available": false,
+          "detail": "C4 control/S36: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S37": {
+          "available": false,
+          "detail": "C4 control/S37: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S38": {
+          "available": false,
+          "detail": "C4 control/S38: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S39": {
+          "available": false,
+          "detail": "C4 control/S39: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S4": {
+          "available": true,
+          "detail": "C4 control/S4: guided 0.5000 vs general 0.0000, delta +0.5000, p=0.4991",
+          "general_mean": 0.0,
+          "guided_mean": 0.5,
+          "mean_delta": 0.5,
+          "nonzero_pairs": 1,
+          "p_value": 0.499125,
+          "pairs": 2
+        },
+        "S40": {
+          "available": false,
+          "detail": "C4 control/S40: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S41": {
+          "available": true,
+          "detail": "C4 control/S41: guided 0.5000 vs general 0.5417, delta -0.0417, p=1.0000",
+          "general_mean": 0.5417,
+          "guided_mean": 0.5,
+          "mean_delta": -0.0417,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S42": {
+          "available": false,
+          "detail": "C4 control/S42: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S43": {
+          "available": false,
+          "detail": "C4 control/S43: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S44": {
+          "available": true,
+          "detail": "C4 control/S44: guided 0.0357 vs general 0.0000, delta +0.0357, p=0.4987",
+          "general_mean": 0.0,
+          "guided_mean": 0.0357,
+          "mean_delta": 0.0357,
+          "nonzero_pairs": 1,
+          "p_value": 0.498675,
+          "pairs": 2
+        },
+        "S45": {
+          "available": false,
+          "detail": "C4 control/S45: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S46": {
+          "available": false,
+          "detail": "C4 control/S46: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S47": {
+          "available": false,
+          "detail": "C4 control/S47: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S48": {
+          "available": false,
+          "detail": "C4 control/S48: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S49": {
+          "available": false,
+          "detail": "C4 control/S49: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S5": {
+          "available": false,
+          "detail": "C4 control/S5: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S50": {
+          "available": false,
+          "detail": "C4 control/S50: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S51": {
+          "available": false,
+          "detail": "C4 control/S51: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S52": {
+          "available": false,
+          "detail": "C4 control/S52: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S53": {
+          "available": true,
+          "detail": "C4 control/S53: guided 0.5333 vs general 0.5667, delta -0.0333, p=1.0000",
+          "general_mean": 0.5667,
+          "guided_mean": 0.5333,
+          "mean_delta": -0.0333,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S54": {
+          "available": false,
+          "detail": "C4 control/S54: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S55": {
+          "available": true,
+          "detail": "C4 control/S55: guided 0.5000 vs general 0.0000, delta +0.5000, p=0.4991",
+          "general_mean": 0.0,
+          "guided_mean": 0.5,
+          "mean_delta": 0.5,
+          "nonzero_pairs": 1,
+          "p_value": 0.499125,
+          "pairs": 2
+        },
+        "S56": {
+          "available": false,
+          "detail": "C4 control/S56: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S57": {
+          "available": false,
+          "detail": "C4 control/S57: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S58": {
+          "available": true,
+          "detail": "C4 control/S58: guided 0.0000 vs general 0.5000, delta -0.5000, p=1.0000",
+          "general_mean": 0.5,
+          "guided_mean": 0.0,
+          "mean_delta": -0.5,
+          "nonzero_pairs": 1,
+          "p_value": 1.0,
+          "pairs": 2
+        },
+        "S59": {
+          "available": false,
+          "detail": "C4 control/S59: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S6": {
+          "available": false,
+          "detail": "C4 control/S6: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.5,
+          "guided_mean": 0.5,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S7": {
+          "available": false,
+          "detail": "C4 control/S7: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S8": {
+          "available": false,
+          "detail": "C4 control/S8: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        },
+        "S9": {
+          "available": false,
+          "detail": "C4 control/S9: every paired delta is exactly zero: the arms produced identical output, which is a finding to report rather than a p-value to compute",
+          "general_mean": 0.0,
+          "guided_mean": 0.0,
+          "mean_delta": 0.0,
+          "nonzero_pairs": 0,
+          "p_value": null,
+          "pairs": 2
+        }
+      },
+      "detail": "C4 control: guided 0.2428 vs general 0.2518, delta -0.0090, p=0.6847",
+      "general_mean": 0.2518,
+      "guided_mean": 0.2428,
+      "mean_delta": -0.009,
+      "nonzero_pairs": 12,
+      "p_value": 0.684666,
+      "pairs": 120
+    }
+  },
+  "provenance": {
+    "git_commit": "5a660688e7f76b161ca67c12d29c13dbe9909684",
+    "git_worktree_dirty": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "provider": "azure",
+  "reasoning_effort": "none",
+  "reference": {
+    "rt_bench": {
+      "sha256": "57cc995d15275fced84d19abaaa46802dd990492052c08d0cbc7fe76b49cb623",
+      "source_revision": "4acf65cf37a506206bf2888dbd45f17e58dce2e2"
+    },
+    "st_bench": {
+      "sha256": "6899f46debd284d2167b644fe1f917bb59fa4785c1565cd1499c10359649ecf0",
+      "source_revision": "4acf65cf37a506206bf2888dbd45f17e58dce2e2"
+    }
+  },
+  "resamples": 20000,
+  "run_id": "contamination-359f4694",
+  "schema_version": "dataforge_contamination_audit_v1",
+  "seed": 0,
+  "status": "CLEAN",
+  "thresholds": {
+    "alpha": 0.01,
+    "kill_criterion": "2 or more of C1-C3 flagging cancels the wild-column measurement",
+    "min_mean_delta": 0.05,
+    "pre_registration": "eval/preregistration/contamination_audit.md"
+  },
+  "unavailable_probes": [
+    "C1"
+  ]
+}

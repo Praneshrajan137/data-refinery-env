@@ -76,14 +76,41 @@ class TestRegistryPinning:
             assert metadata.error_provenance == "natural"
 
     def test_absent_licence_is_recorded_as_none_not_assumed(self) -> None:
-        """Upstream publishes no LICENSE, so redistribution is not granted."""
-        for metadata in COLUMN_BENCHMARK_REGISTRY.values():
-            assert metadata.license_spdx is None
+        """A licence is recorded when present and null when absent, never assumed.
 
-    def test_corpora_are_not_vendored_into_the_repository(self) -> None:
-        """A licence-less corpus must exist only in a user's cache."""
+        Asserted as "no entry claims a licence it cannot evidence" rather than "every
+        entry is unlicensed", so a genuinely-licensed corpus can be registered later
+        without deleting the check. Both Auto-Test corpora are unlicensed today.
+        """
+        unlicensed = [
+            name
+            for name, metadata in COLUMN_BENCHMARK_REGISTRY.items()
+            if metadata.license_spdx is None
+        ]
+        assert set(unlicensed) == {"rt_bench", "st_bench"}, (
+            "the Auto-Test corpora publish no LICENSE upstream. If a licence has since "
+            "appeared, record the SPDX id and move the corpus out of this set "
+            "deliberately."
+        )
+
+    def test_unlicensed_corpora_are_not_vendored_into_the_repository(self) -> None:
+        """A licence-less corpus must exist only in a user's cache.
+
+        Derived from the registry rather than a hardcoded name tuple: the tuple form
+        silently left a newly registered licence-less corpus unprotected, which is the
+        wrong direction for a check whose whole purpose is redistribution risk.
+        """
         repo_root = Path(__file__).resolve().parents[2]
-        for name in ("rt_bench", "st_bench"):
+        unlicensed = [
+            name
+            for name, metadata in COLUMN_BENCHMARK_REGISTRY.items()
+            if metadata.license_spdx is None
+        ]
+        assert unlicensed, (
+            "precondition: at least one licence-less corpus must be registered, or this "
+            "test passes without checking anything"
+        )
+        for name in unlicensed:
             assert not list(repo_root.glob(f"**/{name}.csv")), (
                 f"{name}.csv must not be committed: upstream grants no redistribution right"
             )

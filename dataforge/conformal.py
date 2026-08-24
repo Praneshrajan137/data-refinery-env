@@ -30,6 +30,7 @@ import hashlib
 import math
 import random
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 __all__ = [
     "LabeledSample",
@@ -38,6 +39,8 @@ __all__ = [
     "feasible_candidate_sequence",
     "certify_threshold",
     "label_noise_adjusted_bound",
+    "label_noise_adjusted_bound_stratified",
+    "StratifiedLabelNoiseBound",
     "min_samples_under_label_noise",
     "certify_threshold_under_label_noise",
     "certify_thresholds_by_class",
@@ -388,6 +391,180 @@ def label_noise_adjusted_bound(
         return measured, beta_upper, 1.0
     adjusted = min(1.0, measured / (1.0 - beta_upper))
     return measured, beta_upper, adjusted
+
+
+@dataclass(frozen=True, slots=True)
+class StratifiedLabelNoiseBound:
+    """A label-noise bound where the worst control class binds, not the pooled average.
+
+    Pooling heterogeneous control classes is not a conservatism question, it is a validity
+    question, and on this project's own data it changes a published decision. Measured in
+    ``docs/trust/local-certification-result.md``:
+
+    ======================== ===== ==== ====== =============
+    control class            fa    n    rate   CP upper
+    ======================== ===== ==== ====== =============
+    ``column_distribution``  2     30   0.0667 0.2207
+    ``corrector_generated``  4     8    0.5000 **0.8430**
+    pooled                   6     38   0.1579 0.3125
+    ======================== ===== ==== ====== =============
+
+    ``eval/preregistration/human_label_noise.md`` pre-registered the kill criterion
+    ``beta_upper > 0.35``: above it, per-table certification at ``alpha = 0.05`` is dead.
+    **Pooled, the bound is 0.3125 and the criterion does not fire. Stratified, the binding
+    class is 0.8430 and it fires decisively.** So pooling was holding open a door the honest
+    arithmetic closes.
+
+    Why the worst class binds rather than an average: ``beta`` enters the adjustment as
+    ``p <= p_tilde / (1 - beta)``, and the guarantee must hold for the labelling process as
+    actually operated. A labeller who accepts half of the corrector's own wrong values has that
+    false-accept rate on those items regardless of how carefully they handle easier plants.
+    Averaging the two assumes a mixture the deployment does not promise.
+
+    ``pooled_beta_upper`` is carried for comparison only and **may not enter a decision**. It
+    exists so an artifact can show the gap rather than leaving it to prose.
+    """
+
+    measured_bound: float
+    beta_by_class: dict[str, float]
+    binding_class: str
+    beta_upper: float
+    adjusted_bound: float
+    pooled_beta_upper: float
+    delta: float
+
+    @property
+    def heterogeneity_ratio(self) -> float:
+        """Widest class bound divided by the narrowest. 1.0 means the classes agree.
+
+        Compares the classes **to each other**, both computed at the same per-class alpha, so
+        the union correction cancels and what remains is heterogeneity alone.
+
+        An earlier version of this property divided the stratified bound by the pooled one, and
+        a test with two *identical* classes caught it: that ratio was 1.41 on classes that agreed
+        exactly, because pooling gains sample size while stratifying pays a union correction. It
+        was measuring "stratified is wider", which is true even under perfect homogeneity, rather
+        than measuring disagreement. On this project's controls it is ~3.6.
+        """
+        bounds = list(self.beta_by_class.values())
+        if not bounds:
+            return 1.0
+        narrowest = min(bounds)
+        if narrowest <= 0.0:
+            return 1.0
+        return round(max(bounds) / narrowest, 4)
+
+    @property
+    def stratified_vs_pooled_ratio(self) -> float:
+        """Binding class bound divided by the pooled bound.
+
+        **Not a heterogeneity measure**, and deliberately named so it cannot be mistaken for
+        one: it also contains the union-correction penalty and the sample-size advantage pooling
+        enjoys, so it exceeds 1.0 even when the classes agree exactly. Carried because it is the
+        size of the change to what was previously published.
+        """
+        if self.pooled_beta_upper <= 0.0:
+            return 1.0
+        return round(self.beta_upper / self.pooled_beta_upper, 4)
+
+    @property
+    def pooling_would_have_understated(self) -> bool:
+        """Whether the classes disagree enough that pooling hides the binding one."""
+        return self.heterogeneity_ratio > 1.10
+
+    def kill_criterion_fires(self, threshold: float = 0.35) -> bool:
+        """Whether the pre-registered kill criterion fires on the honest bound.
+
+        Args:
+            threshold: The pre-registered bound, 0.35 by default.
+
+        Returns:
+            True when per-table certification at ``alpha = 0.05`` is unreachable.
+        """
+        return self.beta_upper > threshold
+
+
+def label_noise_adjusted_bound_stratified(
+    errors: int,
+    n: int,
+    *,
+    controls_by_class: dict[str, tuple[int, int]],
+    delta: float = 0.05,
+) -> StratifiedLabelNoiseBound:
+    """Bound the true error rate with ``beta`` taken from the **worst** control class.
+
+    The stratified counterpart of :func:`label_noise_adjusted_bound`, which computes a bound
+    from a single control group and therefore cannot see heterogeneity between classes. Callers
+    holding more than one class of planted control must use this function: pooling them is the
+    defect `docs/trust/local-certification-result.md` records as "not defensible", and it
+    changes whether a pre-registered kill criterion fires.
+
+    ``delta`` is split as ``delta/2`` for the measured bound and ``delta/2`` divided again
+    across the ``K`` classes, so the union of ``1 + K`` bounds still holds at ``1 - delta``.
+    That makes adding a class **cost** power, which is correct -- more bounds means each must be
+    tighter -- and removes any incentive to split a class to soften a result.
+
+    Args:
+        errors: Observed labelled errors in the accepted set.
+        n: Accepted-set size.
+        controls_by_class: Class name to ``(false_accepts, controls)``. Every class must have at
+            least one control.
+        delta: Total failure probability across all bounds.
+
+    Returns:
+        The :class:`StratifiedLabelNoiseBound`.
+
+    Raises:
+        ValueError: If ``n`` or ``delta`` is out of range, if no classes are supplied, if any
+            class has zero controls, or if any ``false_accepts`` exceeds its ``controls``.
+            Zero controls in a class raises rather than dropping the class, because a silently
+            dropped class cannot bind and its absence would look like evidence of low noise.
+    """
+    if not 0.0 < delta < 1.0:
+        raise ValueError(f"delta must be in (0, 1); got {delta}")
+    if n <= 0:
+        raise ValueError(f"n must be positive; got {n}")
+    if not controls_by_class:
+        raise ValueError(
+            "at least one control class is required. There is no defensible default for beta: "
+            "assuming 0 republishes the unadjusted bound as if it had been checked."
+        )
+    for name, (false_accepts, controls) in controls_by_class.items():
+        if controls <= 0:
+            raise ValueError(
+                f"control class {name!r} has no controls. Dropping it would remove a class that "
+                "might bind, and an absent class reads as evidence of low noise."
+            )
+        if not 0 <= false_accepts <= controls:
+            raise ValueError(
+                f"control class {name!r}: false_accepts must be in [0, {controls}]; "
+                f"got {false_accepts}"
+            )
+
+    half = delta / 2.0
+    per_class = half / len(controls_by_class)
+    measured = _clopper_pearson_upper(errors, n, half)
+    beta_by_class = {
+        name: _clopper_pearson_upper(false_accepts, controls, per_class)
+        for name, (false_accepts, controls) in controls_by_class.items()
+    }
+    binding_class = max(beta_by_class, key=lambda name: beta_by_class[name])
+    beta_upper = beta_by_class[binding_class]
+
+    pooled_false_accepts = sum(fa for fa, _ in controls_by_class.values())
+    pooled_controls = sum(c for _, c in controls_by_class.values())
+    pooled_beta = _clopper_pearson_upper(pooled_false_accepts, pooled_controls, half)
+
+    adjusted = 1.0 if beta_upper >= 1.0 else min(1.0, measured / (1.0 - beta_upper))
+    return StratifiedLabelNoiseBound(
+        measured_bound=measured,
+        beta_by_class=dict(beta_by_class),
+        binding_class=binding_class,
+        beta_upper=beta_upper,
+        adjusted_bound=adjusted,
+        pooled_beta_upper=pooled_beta,
+        delta=delta,
+    )
 
 
 def min_samples_under_label_noise(

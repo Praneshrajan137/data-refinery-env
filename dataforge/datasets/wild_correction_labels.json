@@ -1,0 +1,454 @@
+{
+  "annotators": 1,
+  "contains_corpus_values": false,
+  "counts": {
+    "ambiguous": 1,
+    "correctable": 52,
+    "not_determinable": 35
+  },
+  "key_format": "corpus:column_index:sha256(value)[:16]",
+  "labels": {
+    "rt_bench:1055:f5f051e9687e41ea": {
+      "label": "not_determinable",
+      "note": "encoding corruption has replaced the characters of a surname; the original bytes are not recoverable",
+      "rule": "N1"
+    },
+    "rt_bench:1105:ad465714ca426db9": {
+      "label": "correctable",
+      "note": "misspelt Canadian province name",
+      "rule": "R3"
+    },
+    "rt_bench:1119:3973e022e93220f9": {
+      "label": "not_determinable",
+      "note": "dash sentinel in a player-name column",
+      "rule": "N1"
+    },
+    "rt_bench:1158:e624a9c5b3c60275": {
+      "label": "correctable",
+      "note": "misspelt word in an account-description column",
+      "rule": "R3"
+    },
+    "rt_bench:1164:f7b3883ff17a1d38": {
+      "label": "not_determinable",
+      "note": "far-future sentinel date in an end-date column; the real end date is absent",
+      "rule": "N1"
+    },
+    "rt_bench:1168:9376611eed0d138e": {
+      "label": "correctable",
+      "note": "misspelt adjective in a product-name column",
+      "rule": "R3"
+    },
+    "rt_bench:139:73ffeb0f80bff7f3": {
+      "label": "correctable",
+      "note": "transposed letters in an Irish county name; unique nearest county",
+      "rule": "R3"
+    },
+    "rt_bench:139:74de07c4e919534b": {
+      "label": "not_determinable",
+      "note": "a business-function word appears in a city column; the actual city is absent",
+      "rule": "N1"
+    },
+    "rt_bench:157:099b0440a5eaa7b1": {
+      "label": "not_determinable",
+      "note": "a province designation from a different country's scheme; the intended province is not recoverable",
+      "rule": "N1"
+    },
+    "rt_bench:16:072627b45af04ef9": {
+      "label": "correctable",
+      "note": "misspelt continent name; the missing continent is unique",
+      "rule": "R3"
+    },
+    "rt_bench:199:1bad6b8cf97131fc": {
+      "label": "not_determinable",
+      "note": "negative sentinel in an alphanumeric flight-number column",
+      "rule": "N1"
+    },
+    "rt_bench:218:b4149faf1170d9e0": {
+      "label": "correctable",
+      "note": "an encyclopaedia maintenance banner is spliced into a currency amount; the amount is present and extractable",
+      "rule": "R2"
+    },
+    "rt_bench:226:d0c4f9bd39c0e1a4": {
+      "label": "not_determinable",
+      "note": "placeholder prose in a fiscal-year column",
+      "rule": "N1"
+    },
+    "rt_bench:255:c09d90a6f6a845ff": {
+      "label": "correctable",
+      "note": "transposed letters in a manufacturer name",
+      "rule": "R3"
+    },
+    "rt_bench:262:8d0488912646f4ee": {
+      "label": "correctable",
+      "note": "misspelt vehicle model; one nearest real model name",
+      "rule": "R3"
+    },
+    "rt_bench:268:352816ff1fac7333": {
+      "label": "correctable",
+      "note": "colour name missing its final letter",
+      "rule": "R3"
+    },
+    "rt_bench:285:043a718774c572bd": {
+      "label": "not_determinable",
+      "note": "single character in a city column; the city is absent",
+      "rule": "N1"
+    },
+    "rt_bench:309:b097ac93184cefb5": {
+      "label": "correctable",
+      "note": "misspelt Canadian region name",
+      "rule": "R3"
+    },
+    "rt_bench:369:1835cf80178d6cdb": {
+      "label": "correctable",
+      "note": "misspelt month name",
+      "rule": "R3"
+    },
+    "rt_bench:39:8e07f60b52105f12": {
+      "label": "correctable",
+      "note": "single omitted letter in a street name within a street address",
+      "rule": "R3"
+    },
+    "rt_bench:425:59691e06cb8d5014": {
+      "label": "correctable",
+      "note": "space-separated variant of a business-type value that also appears unspaced in the same column",
+      "rule": "R1"
+    },
+    "rt_bench:448:ac294997b479a601": {
+      "label": "correctable",
+      "note": "same misspelt job title as an earlier item, different column",
+      "rule": "R3"
+    },
+    "rt_bench:44:9223732276f2fd40": {
+      "label": "not_determinable",
+      "note": "spreadsheet broken-reference error token in a graded column; any of the six grades is equally plausible",
+      "rule": "N2"
+    },
+    "rt_bench:462:d052bed86c071356": {
+      "label": "correctable",
+      "note": "misspelt surname in a surname-then-forename display column",
+      "rule": "R3"
+    },
+    "rt_bench:485:2337c37f0721980b": {
+      "label": "correctable",
+      "note": "three-letter country code in a column of full country names; expansion is unique within the column",
+      "rule": "R1"
+    },
+    "rt_bench:488:19581e27de7ced00": {
+      "label": "not_determinable",
+      "note": "a bare numeric code in a survey column of labelled income bands; needs the survey codebook",
+      "rule": "N3"
+    },
+    "rt_bench:521:8a8de823d5ed3e12": {
+      "label": "not_determinable",
+      "note": "question-mark sentinel in a country column with no visible empty convention; the country is absent",
+      "rule": "N1"
+    },
+    "rt_bench:528:3c44c3e1b8b78447": {
+      "label": "correctable",
+      "note": "two-letter state code in a column of mostly full state names; expansion is unique",
+      "rule": "R1"
+    },
+    "rt_bench:571:3973e022e93220f9": {
+      "label": "not_determinable",
+      "note": "dash sentinel in a datetime column",
+      "rule": "N1"
+    },
+    "rt_bench:589:b5112ed3d4a93d67": {
+      "label": "correctable",
+      "note": "misspelt country name; unique nearest country",
+      "rule": "R3"
+    },
+    "rt_bench:5:9ecd7f264e593bc0": {
+      "label": "correctable",
+      "note": "misspelt industry-category term; one obvious in-domain spelling",
+      "rule": "R3"
+    },
+    "rt_bench:602:16837433443196b5": {
+      "label": "not_determinable",
+      "note": "the unit word alone in a column of N-months duration strings; the count is absent",
+      "rule": "N1"
+    },
+    "rt_bench:670:167e3f365a31eef8": {
+      "label": "correctable",
+      "note": "transposed letters in a city name; the nearest real city in that state is unique and much closer than any value present in the column",
+      "rule": "R3"
+    },
+    "rt_bench:805:a1e0f3cd542bf765": {
+      "label": "correctable",
+      "note": "transposed letters in a forename that also appears correctly spelt in the same column",
+      "rule": "R3"
+    },
+    "rt_bench:811:5feceb66ffc86f38": {
+      "label": "not_determinable",
+      "note": "zero sentinel in a column of month abbreviations",
+      "rule": "N1"
+    },
+    "rt_bench:848:5b61d6cf17ad92d2": {
+      "label": "correctable",
+      "note": "misspelt city inside a full postal address",
+      "rule": "R3"
+    },
+    "rt_bench:869:6142211c5554df29": {
+      "label": "correctable",
+      "note": "misspelt street-type term",
+      "rule": "R3"
+    },
+    "rt_bench:880:f29bcf58ecefe460": {
+      "label": "correctable",
+      "note": "misspelt beverage flavour term",
+      "rule": "R3"
+    },
+    "rt_bench:95:ac294997b479a601": {
+      "label": "correctable",
+      "note": "misspelt job-title word; one obvious spelling",
+      "rule": "R3"
+    },
+    "rt_bench:980:6323b3f5f91ec482": {
+      "label": "correctable",
+      "note": "misspelt US state name",
+      "rule": "R3"
+    },
+    "rt_bench:994:12de15b838776efc": {
+      "label": "correctable",
+      "note": "misspelt category word in a three-valued good/bad/average column",
+      "rule": "R3"
+    },
+    "st_bench:1001:9538842d146eb607": {
+      "label": "not_determinable",
+      "note": "the account handle is masked out of an otherwise well-formed status URL; the handle is not in the cell",
+      "rule": "N1"
+    },
+    "st_bench:1003:f20b2dfb5c950b70": {
+      "label": "correctable",
+      "note": "misspelt country name",
+      "rule": "R3"
+    },
+    "st_bench:1019:8a0f3fe0da063869": {
+      "label": "correctable",
+      "note": "misspelt dashboard term",
+      "rule": "R3"
+    },
+    "st_bench:1027:5feceb66ffc86f38": {
+      "label": "not_determinable",
+      "note": "zero sentinel in a town-name column",
+      "rule": "N1"
+    },
+    "st_bench:1060:0439edc9512f8145": {
+      "label": "not_determinable",
+      "note": "a non-English not-stated placeholder in an email column",
+      "rule": "N1"
+    },
+    "st_bench:1060:2d711642b726b044": {
+      "label": "not_determinable",
+      "note": "single-character placeholder in an email column",
+      "rule": "N1"
+    },
+    "st_bench:1064:9a44b074228ffd3e": {
+      "label": "not_determinable",
+      "note": "two URLs concatenated with the second truncated; which one belongs in the cell is not determined, so cruft removal is not unambiguous",
+      "rule": "N2"
+    },
+    "st_bench:1066:cac9bb5171d4b60a": {
+      "label": "correctable",
+      "note": "misspelt education-stage noun",
+      "rule": "R3"
+    },
+    "st_bench:1078:d45e2f932a0cf4bb": {
+      "label": "correctable",
+      "note": "misspelt county name",
+      "rule": "R3"
+    },
+    "st_bench:1084:8decf3567ce94165": {
+      "label": "correctable",
+      "note": "misspelt hygiene term that also appears correctly spelt elsewhere in the column",
+      "rule": "R3"
+    },
+    "st_bench:1170:0b45710e3ce3d343": {
+      "label": "correctable",
+      "note": "same transposed facility name as an earlier item, other column",
+      "rule": "R3"
+    },
+    "st_bench:121:d8156bae0c4243d3": {
+      "label": "not_determinable",
+      "note": "double-dash sentinel in a short-code column",
+      "rule": "N1"
+    },
+    "st_bench:154:3973e022e93220f9": {
+      "label": "not_determinable",
+      "note": "dash sentinel in a gene-name column",
+      "rule": "N1"
+    },
+    "st_bench:178:d8156bae0c4243d3": {
+      "label": "not_determinable",
+      "note": "double-dash sentinel in a short-code column",
+      "rule": "N1"
+    },
+    "st_bench:235:7b634ec04d434756": {
+      "label": "correctable",
+      "note": "misspelt language name",
+      "rule": "R3"
+    },
+    "st_bench:356:e12eb4ee1bd29d3c": {
+      "label": "correctable",
+      "note": "transposed and doubled letters in a surname",
+      "rule": "R3"
+    },
+    "st_bench:388:7f58ea3cec188296": {
+      "label": "correctable",
+      "note": "transposed letters in a payroll-category word",
+      "rule": "R3"
+    },
+    "st_bench:411:e4e64ffba29b0f07": {
+      "label": "not_determinable",
+      "note": "letters where the column's fixed code pattern requires digits; the code is absent",
+      "rule": "N1"
+    },
+    "st_bench:423:013b137dde3c748a": {
+      "label": "correctable",
+      "note": "wrong adverbial form of an adjective in definition prose",
+      "rule": "R3"
+    },
+    "st_bench:435:5feceb66ffc86f38": {
+      "label": "not_determinable",
+      "note": "zero sentinel in a vessel-name column",
+      "rule": "N1"
+    },
+    "st_bench:441:5feceb66ffc86f38": {
+      "label": "not_determinable",
+      "note": "zero sentinel in a purchase-order-reference column",
+      "rule": "N1"
+    },
+    "st_bench:45:49c38bd4ac2d295a": {
+      "label": "correctable",
+      "note": "misspelt component adjective",
+      "rule": "R3"
+    },
+    "st_bench:468:e9d6c4f45cd7a416": {
+      "label": "correctable",
+      "note": "misspelt job-title noun",
+      "rule": "R3"
+    },
+    "st_bench:471:6015840624bc6a61": {
+      "label": "correctable",
+      "note": "misspelt medical term in a cause-of-death description",
+      "rule": "R3"
+    },
+    "st_bench:503:1b8f6a03305579da": {
+      "label": "correctable",
+      "note": "misspelt funding-category noun",
+      "rule": "R3"
+    },
+    "st_bench:513:3973e022e93220f9": {
+      "label": "not_determinable",
+      "note": "dash sentinel in a scientific-notation numeric column",
+      "rule": "N1"
+    },
+    "st_bench:517:5feceb66ffc86f38": {
+      "label": "not_determinable",
+      "note": "zero sentinel in a short-code column",
+      "rule": "N1"
+    },
+    "st_bench:523:1fa707d09312e6d0": {
+      "label": "correctable",
+      "note": "misspelt status term in a three-valued endorsement column",
+      "rule": "R3"
+    },
+    "st_bench:619:dec7af493c4a25e1": {
+      "label": "not_determinable",
+      "note": "an employment-status word appears in a country column; the country is absent",
+      "rule": "N1"
+    },
+    "st_bench:651:1e9784f0df65885b": {
+      "label": "not_determinable",
+      "note": "an internal channel label appears in a geographic-region column; the region is absent",
+      "rule": "N1"
+    },
+    "st_bench:683:e01a4eba627dbc7d": {
+      "label": "correctable",
+      "note": "transposed letters in a forename",
+      "rule": "R3"
+    },
+    "st_bench:685:7e4cca33881ad417": {
+      "label": "ambiguous",
+      "note": "a bare number in a column of prefixed box references. R1 would add the prefix; N2 applies because the magnitude is far outside the column's range, so the number may be a different field's value rather than a malformed one. Both rules apply, so by the pre-registered taxonomy this resolves to ambiguous rather than to a guess.",
+      "rule": "R1/N2"
+    },
+    "st_bench:68:3973e022e93220f9": {
+      "label": "not_determinable",
+      "note": "dash sentinel in a scientific-notation numeric column",
+      "rule": "N1"
+    },
+    "st_bench:696:8a8de823d5ed3e12": {
+      "label": "not_determinable",
+      "note": "question-mark sentinel in a numeric column",
+      "rule": "N1"
+    },
+    "st_bench:697:6e400b13bb6ccb76": {
+      "label": "correctable",
+      "note": "misspelt profession adjective",
+      "rule": "R3"
+    },
+    "st_bench:701:b746cb41c4c2c3be": {
+      "label": "not_determinable",
+      "note": "explanatory prose in an inspection-date column; no date may even exist",
+      "rule": "N1"
+    },
+    "st_bench:707:3d9fc4bde7ceef05": {
+      "label": "not_determinable",
+      "note": "not-applicable sentinel in a variant-identifier column",
+      "rule": "N1"
+    },
+    "st_bench:748:02f56b6e7a125361": {
+      "label": "correctable",
+      "note": "misspelt noun in a budget-line description",
+      "rule": "R3"
+    },
+    "st_bench:75:5467d25f8dbcfcd8": {
+      "label": "correctable",
+      "note": "country name missing its final letter",
+      "rule": "R3"
+    },
+    "st_bench:761:d7f8fd451e7298ab": {
+      "label": "correctable",
+      "note": "misspelt noun in a control-description sentence",
+      "rule": "R3"
+    },
+    "st_bench:804:3a8b57c17f38a290": {
+      "label": "correctable",
+      "note": "a stray punctuation character inside a time range that is otherwise well formed",
+      "rule": "R1"
+    },
+    "st_bench:904:0b45710e3ce3d343": {
+      "label": "correctable",
+      "note": "transposed letters in a care-facility name",
+      "rule": "R3"
+    },
+    "st_bench:927:f9684001f99888e8": {
+      "label": "correctable",
+      "note": "misspelt word in a column-instruction label",
+      "rule": "R3"
+    },
+    "st_bench:932:43234ea77ca3ad9e": {
+      "label": "correctable",
+      "note": "transposed letters in an Indian state name inside a company name",
+      "rule": "R3"
+    },
+    "st_bench:941:1a33acd7989b2260": {
+      "label": "correctable",
+      "note": "final letter wrong in an Irish place name",
+      "rule": "R3"
+    },
+    "st_bench:975:b2c01c8a8a0d9a99": {
+      "label": "not_determinable",
+      "note": "a country name appears in a US-state-code column; the state is absent",
+      "rule": "N1"
+    },
+    "st_bench:978:50559b69cf25ccbe": {
+      "label": "not_determinable",
+      "note": "a plain six-digit number where the column uses a mixed letter-digit district code",
+      "rule": "N1"
+    }
+  },
+  "pre_registration": "eval/preregistration/wild_correction_determinability.md",
+  "schema_version": "dataforge_wild_correction_labels_v1"
+}

@@ -212,13 +212,22 @@ class ColumnBenchmarkMetadata(BaseModel):
     That is not a formality: with no licence there is no grant to redistribute, so
     the corpus must be fetched and hash-pinned at load time and must never be
     vendored into this repository or into a built artifact.
+
+    ``tier`` is **required with no default**, matching :class:`DatasetMetadata`. It
+    defaulted to ``"headline"`` until 2026-08-24, which is the denylist-fails-open
+    mistake ``CONSTRAINT_CHECKABLE_DETECTORS`` exists to avoid, one level up: a newly
+    registered corpus that simply forgot the field inherited permission to source a
+    published claim, and only an equality assertion in
+    ``tests/unit/test_corpus_tiering.py`` stood between that and a headline number.
+    The argument is written out in ``tests/support/corpora.py`` -- a wrong default must
+    not be able to reach a published number -- and it applies here identically.
     """
 
     name: str = Field(min_length=1)
     kind: Literal["relational_tables", "spreadsheet_tables"]
     axis: Literal["detection"] = "detection"
     error_provenance: Literal["natural"] = "natural"
-    tier: Literal["headline", "tripwire", "diagnostic"] = "headline"
+    tier: Literal["headline", "tripwire", "diagnostic"]
     tier_reason: str = Field(min_length=1)
     # Rows the upstream file declares as content. rt_bench.csv is an Excel export
     # padded to the 1,048,575-row sheet limit; everything past this index is blank.
@@ -258,6 +267,7 @@ COLUMN_BENCHMARK_REGISTRY: dict[str, ColumnBenchmarkMetadata] = {
         name="rt_bench",
         kind="relational_tables",
         declared_columns=1200,
+        tier="headline",
         tier_reason=(
             "Real errors on real relational columns, manually labelled, with a debatable "
             "class so principled abstention is scored neutrally. Headline for DETECTION "
@@ -274,6 +284,7 @@ COLUMN_BENCHMARK_REGISTRY: dict[str, ColumnBenchmarkMetadata] = {
         name="st_bench",
         kind="spreadsheet_tables",
         declared_columns=1200,
+        tier="headline",
         tier_reason=(
             "Real errors on real spreadsheet columns, manually labelled, with a debatable "
             "class. Headline for DETECTION only, as for rt_bench."

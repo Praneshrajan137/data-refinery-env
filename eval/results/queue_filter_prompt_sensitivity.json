@@ -1,0 +1,33 @@
+{
+  "arms": {
+    "guarded": {
+      "discrimination": 0.025,
+      "keep_false": 0.0,
+      "keep_false_n": 60,
+      "keep_true": 0.025,
+      "keep_true_n": 80
+    },
+    "neutral": {
+      "discrimination": -0.7625,
+      "keep_false": 0.8,
+      "keep_false_n": 60,
+      "keep_true": 0.0375,
+      "keep_true_n": 80
+    }
+  },
+  "calls": 280,
+  "dataset": "rayyan",
+  "estimated_usd": 0.33755,
+  "failed_calls": 0,
+  "generated_at": "2026-08-24T07:52:09.176477+00:00",
+  "model": "gpt-5.6-sol",
+  "paired": "identical cells in identical order; only the system prompt differs",
+  "prompts": {
+    "guarded": "You are a data-quality auditor for a table of bibliographic records from a systematic-review screening tool. A specific cell has been flagged as possibly erroneous. Using the whole row as context, decide whether the flagged cell's value is actually erroneous. An empty or absent value in an optional field is NOT an error. Respond with ONLY 'yes' (erroneous) or 'no' (fine). No prose.",
+    "neutral": "You are a data-quality auditor for a table of bibliographic records from a systematic-review screening tool. A specific cell has been flagged as possibly erroneous. Using the whole row as context, decide whether the flagged cell's value is actually erroneous. Respond with ONLY 'yes' (erroneous) or 'no' (fine). No prose."
+  },
+  "question": "Is the near-constant 'no' in queue_filter_rayyan.json a property of the model or of the guarded system prompt's hint about empty optional fields?",
+  "run_id": "queue-filter-42ee0aea",
+  "schema_version": "dataforge_queue_filter_prompt_sensitivity_v1",
+  "seed": 0
+}

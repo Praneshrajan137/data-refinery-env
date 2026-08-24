@@ -153,23 +153,64 @@ def test_training_config_pinning_debt_does_not_grow() -> None:
     )
 
 
+# Which upstream each registered corpus is pinned to. Keyed by corpus name so a corpus
+# from a third upstream can be registered without weakening the assertion.
+#
+# This was `assert metadata.source_revision == RAHA_GIT_REVISION` over the whole registry
+# until 2026-08-24 -- correct while every corpus shared one upstream, and a hard blocker
+# the moment one does not. The failure mode it invited is the dangerous direction: the
+# cheapest way to make a third corpus pass is to delete the assertion, which would remove
+# commit pinning from every corpus at once.
+#
+# A corpus absent from this map fails rather than being skipped, so adding one is a
+# deliberate act recorded in review.
+_EXPECTED_DATASET_REVISION: dict[str, str] = dict.fromkeys(
+    ("hospital", "flights", "rayyan", "tax"), RAHA_GIT_REVISION
+)
+_EXPECTED_COLUMN_BENCHMARK_REVISION: dict[str, str] = dict.fromkeys(
+    ("rt_bench", "st_bench"), AUTOTEST_GIT_REVISION
+)
+
+
 @pytest.mark.parametrize("name", sorted(DATASET_REGISTRY))
 def test_registry_entries_pin_a_commit_sha(name: str) -> None:
     metadata = DATASET_REGISTRY[name]
-    assert metadata.source_revision == RAHA_GIT_REVISION
+    expected = _EXPECTED_DATASET_REVISION.get(name)
+    assert expected is not None, (
+        f"{name} has no expected upstream revision. Add it to "
+        "_EXPECTED_DATASET_REVISION rather than relaxing this test; a corpus whose "
+        "pinning nobody declared is a corpus whose pinning nobody checked."
+    )
+    assert metadata.source_revision == expected
     assert len(metadata.source_revision) == 40, "a short ref is ambiguous across forks"
     for url in metadata.source_urls:
-        assert RAHA_GIT_REVISION in url
+        assert metadata.source_revision in url
         assert "refs/heads/" not in url
 
 
 @pytest.mark.parametrize("name", sorted(COLUMN_BENCHMARK_REGISTRY))
 def test_column_benchmarks_pin_a_commit_sha(name: str) -> None:
     metadata = COLUMN_BENCHMARK_REGISTRY[name]
-    assert metadata.source_revision == AUTOTEST_GIT_REVISION
+    expected = _EXPECTED_COLUMN_BENCHMARK_REVISION.get(name)
+    assert expected is not None, (
+        f"{name} has no expected upstream revision. Add it to "
+        "_EXPECTED_COLUMN_BENCHMARK_REVISION rather than relaxing this test."
+    )
+    assert metadata.source_revision == expected
     assert len(metadata.source_revision) == 40
-    assert AUTOTEST_GIT_REVISION in metadata.source_url
+    assert metadata.source_revision in metadata.source_url
     assert "refs/heads/" not in metadata.source_url
+
+
+def test_every_registered_corpus_has_a_declared_upstream() -> None:
+    """The maps above must cover the registries, or a corpus escapes the check.
+
+    Asserted separately from the parametrized tests because a parametrized test can only
+    fail for corpora that exist; this fails if the map and the registry drift apart in
+    either direction.
+    """
+    assert set(_EXPECTED_DATASET_REVISION) == set(DATASET_REGISTRY)
+    assert set(_EXPECTED_COLUMN_BENCHMARK_REVISION) == set(COLUMN_BENCHMARK_REGISTRY)
 
 
 class TestStandaloneJobDuplication:

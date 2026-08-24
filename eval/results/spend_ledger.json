@@ -596,6 +596,125 @@
         "fabricated.",
         "FIXED: scripts/bench/measure_label_noise_instrument.py now upserts a receipt."
       ]
+    },
+    {
+      "run_id": "azure-capability-probe-f4ba7b72",
+      "utc": "2026-08-24T04:09:23+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 4,
+      "prompt_tokens": 98,
+      "completion_tokens": 73,
+      "reasoning_tokens": 34,
+      "estimated_usd": 0.001585,
+      "cap_usd": 0.5,
+      "method": "capability_probe",
+      "dataset": null,
+      "git_sha": null,
+      "notes": [
+        "decision=structured_enum"
+      ]
+    },
+    {
+      "run_id": "contamination-f508e923",
+      "utc": "2026-08-24T05:56:34+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 454,
+      "prompt_tokens": 363328,
+      "completion_tokens": 120523,
+      "reasoning_tokens": 0,
+      "estimated_usd": 3.624485,
+      "cap_usd": 15.0,
+      "method": "contamination_audit",
+      "dataset": "rt_bench+st_bench",
+      "git_sha": null,
+      "notes": [
+        "C2=120cols",
+        "C3=172cols",
+        "C4=60synthetic",
+        "exchangeability_available=False"
+      ]
+    },
+    {
+      "run_id": "contamination-359f4694",
+      "utc": "2026-08-24T06:45:35+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 453,
+      "prompt_tokens": 362246,
+      "completion_tokens": 120024,
+      "reasoning_tokens": 0,
+      "estimated_usd": 3.61159,
+      "cap_usd": 15.0,
+      "method": "contamination_audit",
+      "dataset": "rt_bench+st_bench",
+      "git_sha": null,
+      "notes": [
+        "C2=120cols",
+        "C3=172cols",
+        "C4=60synthetic",
+        "exchangeability_available=False"
+      ]
+    },
+    {
+      "run_id": "queue-filter-5c34820a",
+      "utc": "2026-08-24T07:34:47+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 480,
+      "prompt_tokens": 113363,
+      "completion_tokens": 2400,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.602815,
+      "cap_usd": 10.0,
+      "method": "queue_filter_probe",
+      "dataset": "rayyan",
+      "git_sha": null,
+      "notes": [
+        "strata=5",
+        "Q2_recall_retained=0.01",
+        "detection triage only"
+      ]
+    },
+    {
+      "run_id": "queue-filter-42ee0aea",
+      "utc": "2026-08-24T07:52:09+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 280,
+      "prompt_tokens": 63310,
+      "completion_tokens": 1400,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.33755,
+      "cap_usd": 5.0,
+      "method": "queue_filter_prompt_sensitivity",
+      "dataset": "rayyan",
+      "git_sha": null,
+      "notes": [
+        "diagnostic",
+        "paired prompt variants"
+      ]
+    },
+    {
+      "run_id": "wild-column-1986ee53",
+      "utc": "2026-08-24T12:50:34+00:00",
+      "provider": "azure",
+      "model": "gpt-5.6-sol",
+      "calls": 415,
+      "prompt_tokens": 140752,
+      "completion_tokens": 3232,
+      "reasoning_tokens": 0,
+      "estimated_usd": 0.75224,
+      "cap_usd": 20.0,
+      "method": "wild_column_detection",
+      "dataset": "rt_bench+st_bench",
+      "git_sha": null,
+      "notes": [
+        "unlabelled_sample=120/corpus",
+        "max_values_shown=60",
+        "detection only"
+      ]
     }
   ]
 }

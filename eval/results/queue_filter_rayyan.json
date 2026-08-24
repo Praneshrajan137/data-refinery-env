@@ -1,0 +1,170 @@
+{
+  "api_version": "2025-04-01-preview",
+  "baseline": {
+    "flagged": 2314,
+    "precision": 0.3453,
+    "recall_of_table": 0.8428,
+    "true": 799
+  },
+  "calls": 480,
+  "dataset": "rayyan",
+  "debatable_class_available": false,
+  "estimated_usd": 0.602815,
+  "failed_calls": 0,
+  "generated_at": "2026-08-24T07:34:46.983745+00:00",
+  "limitations": [
+    "L1: ONE corpus. rayyan is the worst case for the heuristic ensemble and the same detector scores 1.0000 on flights against 0.0649 here. Nothing transfers to another table; that swing is the reason.",
+    "L2: two-way labels. RAHA ships no ground_truth_debatable class, so a cell the model plausibly regards as arguable is scored as a hard error or a hard non-error.",
+    "L3: the filter sees ONE ROW. A detector whose evidence is the column's distribution is judged by an instrument that cannot see that evidence.",
+    "L4: the projection assumes sampled keep-rates transfer to the unsampled remainder of each stratum. With 1,080 false missing_value cells represented by 125 draws, that assumption is doing real work.",
+    "L5: uncovered strata are carried UNFILTERED, neither dropped nor assumed rejected. They are named in uncovered_strata.",
+    "Detection triage only. Nothing here proposes a value and nothing auto-applies."
+  ],
+  "model": "gpt-5.6-sol",
+  "per_stratum": [
+    {
+      "baseline_precision": 0.0649,
+      "covered": true,
+      "keep_false_ci": [
+        0.0014,
+        0.0439
+      ],
+      "keep_false_rate": 0.008,
+      "keep_true_ci": [
+        0.0,
+        0.0487
+      ],
+      "keep_true_rate": 0.0,
+      "name": "missing_value",
+      "note": "",
+      "population": 1155,
+      "projected_false_kept": 8.64,
+      "projected_true_kept": 0.0,
+      "true_errors_lost": 75.0
+    },
+    {
+      "baseline_precision": 1.0,
+      "covered": true,
+      "keep_false_ci": [
+        0.0,
+        1.0
+      ],
+      "keep_false_rate": null,
+      "keep_true_ci": [
+        0.0018,
+        0.0545
+      ],
+      "keep_true_rate": 0.01,
+      "name": "date_transposition",
+      "note": "",
+      "population": 637,
+      "projected_false_kept": 0.0,
+      "projected_true_kept": 6.37,
+      "true_errors_lost": 630.63
+    },
+    {
+      "baseline_precision": 0.2436,
+      "covered": true,
+      "keep_false_ci": [
+        0.0,
+        0.0602
+      ],
+      "keep_false_rate": 0.0,
+      "keep_true_ci": [
+        0.0,
+        0.0602
+      ],
+      "keep_true_rate": 0.0,
+      "name": "format_violation",
+      "note": "",
+      "population": 349,
+      "projected_false_kept": 0.0,
+      "projected_true_kept": 0.0,
+      "true_errors_lost": 85.0
+    },
+    {
+      "baseline_precision": 0.0,
+      "covered": true,
+      "keep_false_ci": [
+        0.0029,
+        0.0886
+      ],
+      "keep_false_rate": 0.0167,
+      "keep_true_ci": [
+        0.0,
+        1.0
+      ],
+      "keep_true_rate": null,
+      "name": "zero_precision_tail",
+      "note": "",
+      "population": 109,
+      "projected_false_kept": 1.82,
+      "projected_true_kept": 0.0,
+      "true_errors_lost": 0.0
+    },
+    {
+      "baseline_precision": 0.0312,
+      "covered": false,
+      "keep_false_ci": [
+        0.0,
+        1.0
+      ],
+      "keep_false_rate": null,
+      "keep_true_ci": [
+        0.0,
+        1.0
+      ],
+      "keep_true_rate": null,
+      "name": "type_mismatch",
+      "note": "true cells present but none sampled; carried unfiltered",
+      "population": 64,
+      "projected_false_kept": 62.0,
+      "projected_true_kept": 2.0,
+      "true_errors_lost": 0.0
+    }
+  ],
+  "projected": {
+    "false_kept": 72.46,
+    "precision": 0.1036,
+    "recall_retained": 0.0105,
+    "true_errors_lost": 790.63,
+    "true_kept": 8.37
+  },
+  "provenance": {
+    "dirty_sha256": "7e25e6db262b0c72ca2d9735d5959599cf5a582e1c705459507c7b45d0d1d174",
+    "git_commit": "5a660688e7f76b161ca67c12d29c13dbe9909684",
+    "git_worktree_dirty": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "provider": "azure",
+  "reasoning_effort": "none",
+  "run_id": "queue-filter-5c34820a",
+  "schema_version": "dataforge_queue_filter_v1",
+  "scoring_unit": "cell",
+  "seed": 0,
+  "thresholds": {
+    "Q1_min_missing_value_precision": 0.2,
+    "Q2_min_date_transposition_recall": 0.95,
+    "Q3_min_queue_recall_retained": 0.9,
+    "Q4_min_tail_rejection": 0.5,
+    "pre_registration": "eval/preregistration/queue_filter_rayyan.md"
+  },
+  "uncovered_strata": [
+    "type_mismatch"
+  ],
+  "verdicts": {
+    "Q1_missing_value_precision_after_filter": 0.0,
+    "Q1_supported": false,
+    "Q1_threshold": 0.2,
+    "Q2_date_transposition_recall_retained": 0.01,
+    "Q2_supported": false,
+    "Q2_threshold": 0.95,
+    "Q3_queue_recall_retained": 0.0105,
+    "Q3_supported": false,
+    "Q3_threshold": 0.9,
+    "Q4_supported": true,
+    "Q4_tail_rejection_rate": 0.9833,
+    "Q4_threshold": 0.5
+  }
+}

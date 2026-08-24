@@ -415,6 +415,111 @@ def score_repairs(
     )
 
 
+class RepairScoreBreakdown(BaseModel):
+    """Decomposition of :class:`RepairScore`'s ``fp`` and ``fn`` into distinguishable failures.
+
+    ``RepairScore.fp`` merges two failures with different blast radii, and ``fn`` merges two
+    more. On the injected corpora that merge was tolerable, because almost every flagged cell
+    was a real error. On a corpus of real errors it destroys the measurement:
+
+    * **Repairing a clean cell** writes over data that was correct. On a revision-history
+      corpus this term is also *bounded by survivorship* -- an error nobody ever fixed is
+      labelled clean, so a correct repair of it is counted here as a failure. The term is
+      therefore an upper bound on real damage, not a measurement of it.
+    * **Writing a wrong value on a real error** is a genuine capability failure with no such
+      caveat, and it is the one a corrector should be judged on.
+    * **Abstaining on a real error** costs nothing but coverage. It is the safe failure, and
+      `dataforge/calibration.py` ships every corrector class at the unreachable ``1.01``
+      threshold precisely to prefer it.
+
+    This class changes nothing about ``RepairScore``: committed artifacts and
+    :func:`dataforge.bench.corrector_promotion_verdict` depend on those fields, and the two
+    decomposed terms sum back to them exactly, asserted in
+    ``tests/unit/test_repair_score_breakdown.py``.
+
+    Note ``wrong_value_on_a_real_error`` appears in **both** sums. That is not an error in the
+    decomposition, it is a property of ``score_repairs``: a wrong value on a real error is
+    counted once as a false positive and again as a false negative, so ``fp + fn`` double-counts
+    those cells. Naming the term makes the double-count visible rather than leaving it implicit.
+    """
+
+    repaired_a_clean_cell: int = Field(ge=0)
+    wrong_value_on_a_real_error: int = Field(ge=0)
+    abstained_on_a_real_error: int = Field(ge=0)
+    correct: int = Field(ge=0)
+
+    model_config = {"frozen": True}
+
+    @property
+    def false_positives(self) -> int:
+        """Must equal ``RepairScore.fp``."""
+        return self.repaired_a_clean_cell + self.wrong_value_on_a_real_error
+
+    @property
+    def false_negatives(self) -> int:
+        """Must equal ``RepairScore.fn``."""
+        return self.abstained_on_a_real_error + self.wrong_value_on_a_real_error
+
+    @property
+    def cells_touched(self) -> int:
+        """Predictions actually made, after last-write-wins collapsing."""
+        return self.correct + self.false_positives
+
+    @property
+    def damage_rate(self) -> float | None:
+        """Share of writes that landed on a cell no label says was wrong.
+
+        ``None`` when nothing was written -- a corrector that abstained everywhere has no
+        damage rate, and reporting 0.0 would read as a safety result rather than as silence.
+        """
+        if self.cells_touched == 0:
+            return None
+        return round(self.repaired_a_clean_cell / self.cells_touched, 4)
+
+
+def decompose_repair_score(
+    ground_truth: tuple[GroundTruthCell, ...] | list[GroundTruthCell],
+    repairs: list[BenchmarkRepair],
+) -> RepairScoreBreakdown:
+    """Split repair outcomes into the four distinguishable cases.
+
+    Uses the same :func:`normalize_repairs` collapsing and the same ``(row, column)`` join as
+    :func:`score_repairs`, so the terms reconcile exactly rather than approximately.
+
+    Args:
+        ground_truth: The corpus's error cells, with their clean values.
+        repairs: Predictions, before last-write-wins collapsing.
+
+    Returns:
+        The :class:`RepairScoreBreakdown`.
+    """
+    normalized = normalize_repairs(repairs)
+    ground_truth_map = {(cell.row, cell.column): cell.clean_value for cell in ground_truth}
+
+    correct = 0
+    repaired_clean = 0
+    wrong_value = 0
+    touched_error_cells: set[tuple[int, str]] = set()
+    for repair in normalized:
+        key = (repair.row, repair.column)
+        clean_value = ground_truth_map.get(key)
+        if clean_value is None:
+            repaired_clean += 1
+        elif repair.new_value == clean_value:
+            correct += 1
+            touched_error_cells.add(key)
+        else:
+            wrong_value += 1
+            touched_error_cells.add(key)
+
+    return RepairScoreBreakdown(
+        repaired_a_clean_cell=repaired_clean,
+        wrong_value_on_a_real_error=wrong_value,
+        abstained_on_a_real_error=len(ground_truth_map) - len(touched_error_cells),
+        correct=correct,
+    )
+
+
 def quota_units(*, llm_calls: int, prompt_tokens: int, completion_tokens: int) -> float:
     """Compute free-tier quota units consumed by one episode."""
     request_fraction = llm_calls / 1000 if llm_calls else 0.0

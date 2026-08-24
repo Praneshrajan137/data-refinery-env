@@ -12,7 +12,59 @@ Format for every entry:
 
 ---
 
-## 2026-08-21 - The certification procedure penalises purity, and the guarantee had no term for the human
+## 2026-08-24 - Audited gpt-5.6-sol for memorisation of RT/ST-bench before measuring on them, and found the audit's own first design would have decided it on an unpinned choice
+
+**Context**: RT-bench and ST-bench are a public GitHub corpus with published labels. Any LLM
+detection number measured on them is a capability claim only if the model has not seen them.
+The audit was sequenced **first** so a contaminated result could cancel the expensive
+measurement, rather than being discovered after paying for it. Total spend for this entry:
+**$7.25** across two runs plus $0.0016 for a capability re-confirmation.
+
+**Alternatives**:
+1. *Skip the audit and caveat the result.* Cheapest, and the caveat would have been unfalsifiable
+   -- a reader cannot weigh "possibly contaminated" without a number.
+2. *One probe.* The standard for a contamination claim is converging evidence across independent
+   methods (arXiv:2603.16197 audits with three); one probe cannot distinguish a real signal from
+   its own prompt design.
+3. *Three published methods with a negative control.* Chosen.
+
+**Decision**: `CLEAN`. Zero of two available probes flagged, the negative control passed, and
+the result replicated across two runs. The wild-column LLM measurement proceeds with
+`contamination_suspected: false`.
+
+**Reasoning**: measured deltas are *negative* in both probes and both runs -- naming the corpus
+made the model slightly worse (C2 -0.0030, C3 -0.0581). A memorising model should improve when
+told which corpus it is reading. C3 reproduced to within 0.006 across runs.
+
+Three findings beyond the verdict:
+
+- **Oren et al.'s exchangeability test, the only provable method, is unavailable.** The
+  deployment rejects `logprobs` (HTTP 400 `unsupported_parameter`), and chat-completions logprobs
+  cover *generated* tokens, so the log-likelihood of a provided ordering is unobtainable even
+  where the parameter is accepted. Recorded as a limit and **excluded from the flag count, never
+  scored as a pass**.
+- **The first design would have decided this on an estimator nobody pinned.** Comparing absolute
+  label recovery against a base rate flags contamination at one defensible base rate (0.5174,
+  p = 0.00008) and not at another (0.5769, p = 0.0131). Worse, the arm that *never names the
+  corpus* flags hardest -- incoherent as a contamination claim, and visible only because a paired
+  arm exists. Amendment 1 replaced the base-rate comparison with a paired guided-vs-general
+  contrast, which removes the estimator entirely. The redesign was driven by measuring the corpus
+  first: only 3 of 175 labelled columns contain both an unambiguous error and a debatable value,
+  making the original within-column task ~98% answerable by guessing homogeneity.
+- **The SDC-overlap asymmetry does not predict LLM memorisation.** RT-bench shares 19 of 59
+  embedded SDC training examples against ST-bench's 3, yet per-corpus deltas are within 0.001 on
+  both probes. This converts the spec's assertion that the two contaminations are independent
+  questions into evidence.
+
+**Reviewed with**: nobody. Single-maintainer project; the pre-registration and its dated
+amendment are the review surface.
+
+**Reversal criteria**: a model refresh or api-version change invalidates the verdict outright --
+it is bound to `(model, seed, reference_sha256)`. Re-run if `logprobs` becomes available, since
+that would admit the provable method and could overturn a `CLEAN` reached on two behavioural
+probes of modest power. `CLEAN` means **not detected**, not absent.
+
+---
 
 **Context**: a next-phase investigation was asked to verify the project's own claims rather than
 inherit them. Nine defects had been alleged against the dataset layer, the certification result
@@ -3150,3 +3202,52 @@ and skips the whole deep-verification block.
 named concept rather than parameterising these two -- the names carry the disposition, and a
 fixture whose disposition depends on an argument reintroduces exactly the ambiguity this
 removed.
+
+## 2026-08-24 - Stratifying the label-noise beta kills human-labelled per-table certification
+
+**Context**: `docs/trust/local-certification-result.md` recorded that the two planted-control
+classes are "not interchangeable, and pooling them is not defensible" -- `column_distribution`
+2/30 = 0.0667 against `corrector_generated` 4/8 = 0.5000, a 7.5x gap. The project carried a
+`beta_scope_note` on the artifact instead of fixing the arithmetic.
+`eval/preregistration/human_label_noise.md` had pre-registered the kill criterion
+`beta_upper > 0.35`: above it, human-labelled per-table certification at alpha=0.05 is dead.
+
+**Measured**: pooled `beta_upper` = **0.3125**, which does NOT fire the criterion. Stratified with
+a union correction across the two classes, the binding `corrector_generated` bound is **0.8712**,
+which fires it decisively. Adjusted bound moves 0.1153 -> **0.8953**; the inflation factor
+1/(1-0.8712) = 7.76 puts 0.05 out of reach at any sample size.
+
+**Options**: (a) keep pooling and keep the scope note - rejected, it suppresses a pre-registered
+decision; (b) stratify and let the worst class bind - CHOSEN; (c) stratify but average the classes -
+rejected, averaging assumes a mixture the deployment does not promise, and the items the deployment
+presents are corrector-generated ones; (d) enlarge the `corrector_generated` class first and defer
+the decision - rejected, the raw rate is 0.5000 and would have to fall very far to stop firing, so
+this defers a conclusion already visible.
+
+**Decision**: add `label_noise_adjusted_bound_stratified` returning `StratifiedLabelNoiseBound`.
+The worst class binds. `delta` splits `delta/2` for the measured bound and `delta/2` across K
+classes, so adding a class COSTS power and subdividing controls cannot soften a result. A class with
+zero controls raises rather than being dropped, because a dropped class cannot bind and its absence
+reads as evidence of low noise. `pooled_beta_upper` is carried for comparison only and may not
+enter a decision. `label_noise_adjusted_bound` keeps its signature -- it is correct for a single
+control group -- and a test asserts the new `pooled_beta_upper` reproduces the old figure exactly.
+
+**Consequence published**: **human-labelled per-table certification at alpha=0.05 is DEAD.** The
+blind-elicitation arm (H2 in the pre-registration), which elicits the correct value before revealing
+the machine's proposal, is now the only live route to certification and its priority rises
+accordingly. No write gate changes: every corrector class already ships at the unreachable 1.01
+threshold, so this explains why that posture is correct rather than merely cautious.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: if the `corrector_generated` class is enlarged and its bound falls below
+0.35, re-run and republish -- the criterion is a threshold on a bound, not a permanent verdict. If a
+blind-elicitation protocol measures its own `beta` below 0.35, certification reopens under that
+protocol only, and the two must never be pooled either.
+
+**Recorded bug**: my first `heterogeneity_ratio` divided the stratified bound by the pooled one and
+reported 1.41 on two IDENTICAL classes, because pooling gains sample size while stratifying pays a
+union correction. My own test caught it. Split into `heterogeneity_ratio` (widest/narrowest class
+bound at equal alpha, so the correction cancels; 3.56 here, exactly 1.0 on identical classes) and
+`stratified_vs_pooled_ratio` (2.79, the publication delta, explicitly not a heterogeneity measure).
+A metric overstating disagreement inside a document arguing for stratification is worth recording.

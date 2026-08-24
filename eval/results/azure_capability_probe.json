@@ -26,8 +26,8 @@
       "content": "{\"value\":\"NONE\",\"confidence\":1}",
       "content_is_empty": false,
       "prompt_tokens": 59,
-      "completion_tokens": 69,
-      "reasoning_tokens": 45,
+      "completion_tokens": 58,
+      "reasoning_tokens": 34,
       "expectation": "accept",
       "matches_documentation": true,
       "enum_honoured": true
@@ -76,6 +76,6 @@
   },
   "decision": "structured_enum",
   "decision_note": "structured_enum: the candidate pool becomes a hard decode-time enum and the model-confidence field becomes real. prompt_json_fallback: instruct JSON in the prompt and validate locally; pool membership stays a post-filter.",
-  "estimated_usd": 0.00175,
+  "estimated_usd": 0.001585,
   "calls": 4
 }

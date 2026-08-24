@@ -20,10 +20,13 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from dataforge.datasets.registry import (
     COLUMN_BENCHMARK_REGISTRY,
     DATASET_REGISTRY,
+    ColumnBenchmarkMetadata,
+    DatasetMetadata,
     headline_corpora,
     non_headline_corpora,
 )
@@ -130,6 +133,74 @@ class TestCorpusTiering:
         metadata = COLUMN_BENCHMARK_REGISTRY[name]
         assert metadata.axis == "detection"
         assert "DETECTION" in metadata.tier_reason or "detection" in metadata.tier_reason
+
+
+class TestTierIsFailClosed:
+    """A corpus must state its tier. It may not inherit one.
+
+    `ColumnBenchmarkMetadata.tier` defaulted to `"headline"` until 2026-08-24. A new
+    corpus that simply omitted the field became headline-tier -- permitted to source a
+    published claim -- and the only thing standing in the way was an equality assertion
+    listing the two corpora that existed at the time.
+
+    That is the denylist-fails-open mistake `CONSTRAINT_CHECKABLE_DETECTORS` exists to
+    avoid, one level up, and `tests/support/corpora.py` already writes the argument out:
+    a wrong default must not be able to reach a published number.
+    """
+
+    def test_column_benchmark_metadata_requires_a_tier(self) -> None:
+        """Omitting `tier` must raise, not silently produce a headline corpus."""
+        with pytest.raises(ValidationError):
+            ColumnBenchmarkMetadata(
+                name="unstated",
+                kind="relational_tables",
+                declared_columns=1,
+                tier_reason=(
+                    "a corpus with no declared tier must not construct at all, whatever "
+                    "its reason says about DETECTION"
+                ),
+                source_url="https://example.invalid/x.csv",
+                source_revision="0" * 40,
+                sha256="0" * 64,
+                citation="fixture",
+                scoring_spec="specs/SPEC_abstention_scoring.md",
+            )
+
+    def test_dataset_metadata_requires_a_tier(self) -> None:
+        """The same invariant on the dirty/clean side, which was always correct."""
+        with pytest.raises(ValidationError):
+            DatasetMetadata(
+                name="unstated",
+                domain="fixture",
+                n_rows=1,
+                n_columns=1,
+                source_urls=("dirty", "clean"),
+                source_revision="0" * 40,
+                dirty_sha256="0" * 64,
+                clean_sha256="1" * 64,
+                citation="fixture",
+                error_provenance="injected",
+                tier_reason="a corpus with no declared tier must not construct at all",
+            )
+
+    def test_a_stated_tier_still_constructs(self) -> None:
+        """Precondition: the two tests above must fail for the missing field only."""
+        metadata = ColumnBenchmarkMetadata(
+            name="stated",
+            kind="relational_tables",
+            declared_columns=1,
+            tier="diagnostic",
+            tier_reason=(
+                "a fixture corpus that states its tier constructs normally; DETECTION "
+                "axis only, and it is never a source of a published claim"
+            ),
+            source_url="https://example.invalid/x.csv",
+            source_revision="0" * 40,
+            sha256="0" * 64,
+            citation="fixture",
+            scoring_spec="specs/SPEC_abstention_scoring.md",
+        )
+        assert metadata.tier == "diagnostic"
 
 
 class TestNoImpossibleRemediations:

@@ -1,0 +1,232 @@
+{
+  "api_version": "2025-04-01-preview",
+  "axis": "detection",
+  "baseline_detectors": [
+    "DateTranspositionDetector",
+    "FormatViolationDetector",
+    "MissingValueDetector",
+    "SemanticDomainDetector",
+    "TimeFormatCruftDetector",
+    "TypeMismatchDetector"
+  ],
+  "calls": 415,
+  "contamination_audit": {
+    "contamination_suspected": false,
+    "exchangeability_available": false,
+    "status": "CLEAN"
+  },
+  "estimated_usd": 0.75224,
+  "excluded_detectors": [
+    "CategoricalNormalizationDetector",
+    "DecimalShiftDetector",
+    "DuplicateRowDetector",
+    "EntityConsensusDetector",
+    "FDViolationDetector",
+    "OutlierDetector"
+  ],
+  "failed_calls": 0,
+  "generated_at": "2026-08-24T12:50:33.953799+00:00",
+  "limitations": [
+    "L1: dist_val holds DISTINCT values. These are not cell-level metrics and are NOT comparable to the cell-level figures in cell_detection_*.json; the measured gap between units runs up to total (docs/trust/scoring-unit-reconciliation.md).",
+    "L2: ground_truth contains only unambiguous errors, so recall is an UPPER bound on recall over all real errors.",
+    "L3: no clean values ship with these corpora. Detection only. Any correction number sourced from here would be fabricated.",
+    "L4: unlabelled values are scored as clean, but the corpus labels only errors annotators found. An unlabelled-but-erroneous value counts against BOTH arms, so the absolute precision is a LOWER bound while the comparison stays fair.",
+    "L5: the false-positive projection assumes unlabelled columns are exchangeable draws. Zero-flag columns are retained in the sample so the per-column rate is not inflated.",
+    "L6: long columns are truncated to 60 shown values. All labelled values are always retained, so truncation cannot depress recall; it can only reduce the false-positive surface, which flatters both arms equally.",
+    "L7: the heuristic baseline excludes frequency-dependent detectors, which cannot be evaluated on a deduplicated corpus. It is therefore not the full ensemble."
+  ],
+  "model": "gpt-5.6-sol",
+  "per_corpus": {
+    "rt_bench": {
+      "census_columns": 69,
+      "columns_truncated": 48,
+      "heuristic_evaluable": {
+        "available": true,
+        "census": {
+          "abstention_rate": 0.985,
+          "columns_scored": 69,
+          "coverage": 0.015,
+          "debatable_missed": 26,
+          "debatable_predicted": 9,
+          "f1": 0.2333,
+          "fn": 34,
+          "fp": 12,
+          "n_distinct_values": 1871,
+          "n_predicted": 28,
+          "precision": 0.3684,
+          "recall": 0.1707,
+          "tp": 7
+        },
+        "projected": {
+          "census_columns": 69,
+          "census_debatable_predicted": 9,
+          "census_fn": 34,
+          "census_fp": 12,
+          "census_tp": 7,
+          "population_columns": 1131,
+          "projected_fp": 37.7,
+          "projected_fp_ci": [
+            0.0,
+            111.59
+          ],
+          "sampled_columns": 120,
+          "sampled_fp": 4
+        },
+        "projected_fp_total": 49.7,
+        "projected_precision": 0.1235,
+        "projected_precision_ci95": [
+          0.0536,
+          0.3684
+        ],
+        "recall_exact": 0.1707,
+        "scale": 9.425
+      },
+      "llm": {
+        "available": true,
+        "census": {
+          "abstention_rate": 0.9701,
+          "columns_scored": 69,
+          "coverage": 0.0299,
+          "debatable_missed": 21,
+          "debatable_predicted": 14,
+          "f1": 0.6747,
+          "fn": 13,
+          "fp": 14,
+          "n_distinct_values": 1871,
+          "n_predicted": 56,
+          "precision": 0.6667,
+          "recall": 0.6829,
+          "tp": 28
+        },
+        "projected": {
+          "census_columns": 69,
+          "census_debatable_predicted": 14,
+          "census_fn": 13,
+          "census_fp": 14,
+          "census_tp": 28,
+          "population_columns": 1131,
+          "projected_fp": 169.65,
+          "projected_fp_ci": [
+            0.0,
+            380.59
+          ],
+          "sampled_columns": 120,
+          "sampled_fp": 18
+        },
+        "projected_fp_total": 183.65,
+        "projected_precision": 0.1323,
+        "projected_precision_ci95": [
+          0.0663,
+          0.6667
+        ],
+        "recall_exact": 0.6829,
+        "scale": 9.425
+      },
+      "max_values_shown": 60,
+      "unlabelled_population": 1131,
+      "unlabelled_sampled": 120
+    },
+    "st_bench": {
+      "census_columns": 106,
+      "columns_truncated": 61,
+      "heuristic_evaluable": {
+        "available": true,
+        "census": {
+          "abstention_rate": 0.9805,
+          "columns_scored": 106,
+          "coverage": 0.0195,
+          "debatable_missed": 51,
+          "debatable_predicted": 26,
+          "f1": 0.3334,
+          "fn": 33,
+          "fp": 23,
+          "n_distinct_values": 3223,
+          "n_predicted": 63,
+          "precision": 0.3784,
+          "recall": 0.2979,
+          "tp": 14
+        },
+        "projected": {
+          "census_columns": 106,
+          "census_debatable_predicted": 26,
+          "census_fn": 33,
+          "census_fp": 23,
+          "census_tp": 14,
+          "population_columns": 1091,
+          "projected_fp": 200.02,
+          "projected_fp_ci": [
+            0.0,
+            408.67
+          ],
+          "sampled_columns": 120,
+          "sampled_fp": 22
+        },
+        "projected_fp_total": 223.02,
+        "projected_precision": 0.0591,
+        "projected_precision_ci95": [
+          0.0314,
+          0.3784
+        ],
+        "recall_exact": 0.2979,
+        "scale": 9.0917
+      },
+      "llm": {
+        "available": true,
+        "census": {
+          "abstention_rate": 0.9767,
+          "columns_scored": 106,
+          "coverage": 0.0233,
+          "debatable_missed": 47,
+          "debatable_predicted": 30,
+          "f1": 0.6522,
+          "fn": 17,
+          "fp": 15,
+          "n_distinct_values": 3223,
+          "n_predicted": 75,
+          "precision": 0.6667,
+          "recall": 0.6383,
+          "tp": 30
+        },
+        "projected": {
+          "census_columns": 106,
+          "census_debatable_predicted": 30,
+          "census_fn": 17,
+          "census_fp": 15,
+          "census_tp": 30,
+          "population_columns": 1091,
+          "projected_fp": 154.56,
+          "projected_fp_ci": [
+            52.4,
+            256.72
+          ],
+          "sampled_columns": 120,
+          "sampled_fp": 17
+        },
+        "projected_fp_total": 169.56,
+        "projected_precision": 0.1503,
+        "projected_precision_ci95": [
+          0.0994,
+          0.308
+        ],
+        "recall_exact": 0.6383,
+        "scale": 9.0917
+      },
+      "max_values_shown": 60,
+      "unlabelled_population": 1091,
+      "unlabelled_sampled": 120
+    }
+  },
+  "provenance": {
+    "git_commit": "5a660688e7f76b161ca67c12d29c13dbe9909684",
+    "git_worktree_dirty": true,
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10"
+  },
+  "provider": "azure",
+  "reasoning_effort": "none",
+  "run_id": "wild-column-1986ee53",
+  "schema_version": "dataforge_wild_column_detection_v1",
+  "scoring_spec": "specs/SPEC_abstention_scoring.md",
+  "scoring_unit": "distinct_value",
+  "seed": 0
+}

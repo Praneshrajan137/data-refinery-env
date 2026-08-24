@@ -134,6 +134,18 @@ MUTANTS: tuple[Mutant, ...] = (
             "either alone suffices, so a single-line mutant survives by design)"
         ),
     ),
+    Mutant(
+        name="M10-corpus-tier-default-restored",
+        target="dataforge/datasets/registry.py",
+        old='    tier: Literal["headline", "tripwire", "diagnostic"]\n    tier_reason',
+        new='    tier: Literal["headline", "tripwire", "diagnostic"] = "headline"\n    tier_reason',
+        tests=("tests/unit/test_corpus_tiering.py",),
+        why=(
+            "a corpus that omits its tier silently becomes headline-tier, i.e. permitted "
+            "to source a published claim. This is the denylist-fails-open mistake one "
+            "level up from the write allowlist, and it shipped for a day"
+        ),
+    ),
 )
 
 

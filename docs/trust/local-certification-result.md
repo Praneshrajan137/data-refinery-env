@@ -194,6 +194,14 @@ not interchangeable, and pooling them is not defensible.** A `beta` estimated on
 That is precisely the category error [human-label-noise.md](human-label-noise.md) is designed
 around, and it now has a number attached rather than a warning.
 
+**Resolved, and the consequence is larger than a widened interval.** The pooling defect this
+section identified has been fixed by `label_noise_adjusted_bound_stratified`, and stratifying
+**fires the pre-registered kill criterion that pooling was suppressing**: pooled `beta_upper` is
+0.3125, below the 0.35 threshold; the binding `corrector_generated` class gives 0.8712, above it.
+Human-labelled per-table certification at `alpha = 0.05` is dead. See
+[stratified-label-noise-result.md](stratified-label-noise-result.md). The `beta_scope_note` this
+document carried in place of a fix was concealing a decision, not just a caveat.
+
 
 ## Independent validation
 
