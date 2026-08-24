@@ -160,3 +160,45 @@ One chat completion against `praneshrajan15-3599-resource` returned HTTP 200,
 `DECISIONS.md` recorded that gpt-5.6-sol "cannot be reproduced on this subscription" — true of the
 older `...-9819` resource under a Free Trial with zero premium quota, and **stale** for the current
 one. Retracted in place there.
+
+## Amendment 1, 2026-08-24: H2 carries a labeller-independence precondition
+
+**Nothing above is edited.** This section is appended after the fact and is not part of the
+pre-registration; it records a precondition the original H2 definition omitted, discovered by
+attempting to measure H2.
+
+`B_blind` above is specified entirely in terms of **when** the proposal is revealed: hidden at
+elicitation, compared afterwards. It says nothing about **who** labels. A separate pre-registration,
+`eval/preregistration/blind_elicitation.md`, ran that arm with an LLM standing in for the labeller
+and returned VOID on its own capability floor -- see `docs/trust/blind-elicitation-result.md`. The
+informative part was not the VOID:
+
+> the blind arm reproduced the corrector's **exact wrong value** on 81.94% of items.
+
+Ordering cannot help when the labeller independently emits the same wrong value. Hiding the proposal
+removes the anchor, which is what `B_blind` claims to do, and still leaves `beta` high because the
+anchor was never the only path to agreement. So H2 as written is **incomplete**, not wrong:
+
+> **H2 (amended)** Blind elicitation reduces `beta` **provided the labeller's errors are independent
+> of the corrector's.** Where that independence fails, `B_blind` and `A_ratify` converge and the
+> ordering condition buys nothing.
+
+Consequences for this pre-registration, if it is ever executed:
+
+1. **The falsifier in the table is unchanged** and remains binding. A human labeller satisfies the
+   independence precondition by construction, which is why H2 stays live and why the amendment costs
+   this design nothing.
+2. **H2 may not be pre-tested with the corrector's own model.** Measuring `beta` conditions on the
+   proposal being wrong; if the labeller is the same process that generated the proposal, that
+   condition collapses into "the labeller already got this wrong" and the arm runs only on items it
+   has already failed. That is an instrument defect, not low power, and no increase in `n` repairs it.
+3. **Report the labeller's unconditional accuracy on the same cells** alongside `beta`. Had the
+   earlier design carried that number, the collapse in point 2 would have been visible before
+   spending anything rather than after.
+
+The kill criterion and H1 are untouched. H1 has since been **decided independently** of this
+document: stratifying `beta` by control class puts the binding bound at 0.8712 against the 0.35
+threshold, so human-labelled per-table certification at alpha=0.05 is dead and this pre-registration
+is no longer on the critical path for it. See `docs/trust/stratified-label-noise-result.md`, whose
+limitation 1 also records that the `corrector_generated` class supplied 8 controls rather than the
+15 specified above.
