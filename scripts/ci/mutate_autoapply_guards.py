@@ -175,6 +175,24 @@ MUTANTS: tuple[Mutant, ...] = (
             "not default to the branch that assumes beta = 0"
         ),
     ),
+    Mutant(
+        name="M13-certificate-provenance-check-removed",
+        target="dataforge/calibration_session.py",
+        old="        if not tallies:\n            raise ValueError(\n"
+        '                "beta_upper recorded with no per-class control tallies',
+        new="        if tallies and not tallies:\n            raise ValueError(\n"
+        '                "beta_upper recorded with no per-class control tallies',
+        tests=("tests/unit/test_label_noise_certification.py",),
+        why=(
+            "a certificate carrying a bare scalar beta_upper with no per-class provenance is "
+            "readable again, which is exactly the pooled shape the stratified bound retired. "
+            "Nothing this module builds can reach that state, so the check looks dead -- but a "
+            "hand-edited or older artifact on disk reaches it, and by shape alone it is "
+            "indistinguishable from a sound certificate while licensing auto-apply against an "
+            "error budget nothing measured. Measured stakes: pooled reads 0.3125 where the "
+            "binding class reads 0.8712"
+        ),
+    ),
 )
 
 

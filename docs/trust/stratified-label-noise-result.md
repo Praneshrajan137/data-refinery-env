@@ -128,6 +128,50 @@ artifact can show the gap rather than leaving it to prose -- the failure mode
 A class with zero controls **raises** rather than being dropped. A dropped class cannot bind, and
 its absence would read as evidence of low noise.
 
+## The certificate carries its own provenance
+
+Fixing the estimator was not enough, because the artifact it produced still recorded the bound as a
+bare scalar beside *pooled* control totals. A reader of `SessionCertification` saw
+`label_noise_controls = 38`, `label_noise_false_accepts = 6` and `beta_upper = 0.8712` — three true
+numbers arranged so that the first two look like the cause of the third. They are not: 6/38 implies
+0.3125, and 0.8712 came from 4/8 in one class. The CLI printed exactly that sentence.
+
+`SessionCertification` now carries `label_noise_controls_by_class` (a per-class tally of controls,
+false accepts and that class's own bound), `binding_control_class`, and `pooled_beta_upper` marked
+non-decisional. The pooled scalars survive only as a **checkable summary**: a validator refuses any
+certificate whose totals do not equal the sum of its tallies.
+
+The property this buys is that the bound is recomputable from the certificate alone:
+
+```python
+recomputed = label_noise_adjusted_bound_stratified(
+    0, 1,
+    controls_by_class={n: (t.false_accepts, t.controls)
+                       for n, t in cert.label_noise_controls_by_class.items()},
+    delta=cert.delta,
+)
+assert recomputed.beta_upper == cert.beta_upper
+```
+
+That reads nothing from the session that produced the certificate — no samples, no controls, only
+the certificate's own fields. It is asserted in
+`tests/unit/test_label_noise_certification.py::TestCertificateIsSelfChecking`, and it is the same
+standard `label_source` already enforced: a certificate that does not say cannot be checked.
+
+Four further validators refuse a read-back that has lost the property — no tallies behind a stated
+`beta_upper`, a binding class not among the recorded classes, a binding class that is not the worst
+one, and a headline `beta_upper` disagreeing with its own stated source. None of these can be
+reached by anything this module constructs. They exist for artifacts on disk: an older file that
+pooled its controls, or a hand-edited one, is indistinguishable from a sound certificate by shape
+alone, and would licence auto-apply against an error budget nothing measured. Mutant `M13` removes
+the first of them and dies.
+
+`beta_scope_note` is **kept**, against the original plan to retire it in favour of the structured
+field. The structured tallies make the arithmetic auditable; they cannot say whether the plants were
+representative of the corrector's real errors, which is the limitation most likely to be forgotten
+and the one no number here carries. Retiring a correct warning to satisfy a checkbox would have
+traded a real caveat for a tidier schema.
+
 ## What this means for the roadmap
 
 The kill criterion firing is a real result, and it closes a direction rather than blocking one.

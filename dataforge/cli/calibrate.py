@@ -245,12 +245,34 @@ def _render_certification(certification: SessionCertification) -> None:
         )
     Console().print(table)
     if certification.label_noise_adjusted:
-        _console.print(
-            f"[dim]Label-noise adjusted: {certification.label_noise_false_accepts} of "
-            f"{certification.label_noise_controls} planted controls were wrongly accepted, so "
-            f"your false-accept rate is bounded at beta <= {certification.beta_upper:.4f} and "
-            f"the error bound is inflated by 1/(1-beta).[/dim]"
-        )
+        binding = certification.binding_control_class
+        tallies = certification.label_noise_controls_by_class
+        # Attribute the bound to the class that actually produced it. Printing the pooled
+        # totals beside a stratified beta reads as though those totals produced it: on measured
+        # data the pooled 6-of-38 implies beta <= 0.3125, while the bound shown is 0.8712 from
+        # 4-of-8 in one class. Same two numbers, and the wrong one looks like the cause.
+        if binding is not None and binding in tallies:
+            tally = tallies[binding]
+            _console.print(
+                f"[dim]Label-noise adjusted: the binding control class is {binding!r}, where "
+                f"{tally.false_accepts} of {tally.controls} planted controls were wrongly "
+                f"accepted, so your false-accept rate is bounded at beta <= "
+                f"{tally.beta_upper:.4f} and the error bound is inflated by "
+                f"1/(1-beta) = {1.0 / (1.0 - tally.beta_upper):.2f}x.[/dim]"
+            )
+        if len(tallies) > 1:
+            others = ", ".join(
+                f"{name}: {t.false_accepts}/{t.controls} -> {t.beta_upper:.4f}"
+                for name, t in sorted(tallies.items())
+                if name != binding
+            )
+            pooled = certification.pooled_beta_upper
+            pooled_text = f" Pooled, for reference only: {pooled:.4f}." if pooled else ""
+            _console.print(
+                f"[dim]Other control classes ({others}) do NOT relax the bound; the worst class "
+                f"binds. Adding an easier class cannot lower beta, and because each class pays a "
+                f"share of the union correction it slightly raises it.{pooled_text}[/dim]"
+            )
         _console.print(f"[dim]{certification.beta_scope_note}[/dim]")
     else:
         _console.print(

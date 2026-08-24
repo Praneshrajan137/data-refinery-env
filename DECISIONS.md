@@ -3321,3 +3321,49 @@ move the call into `main()` first.
 proposals sourced from a different generator than the elicit labeller; the VOID is a property of
 this instrument, not of H2. If `label_source="llm_probe"` is ever needed for a non-certifying
 report, extend the artifact rather than relaxing the refusal.
+
+## 2026-08-24 - The certificate must recompute its own bound, not just report it
+
+**Context**: stratifying beta fixed the estimator but not the artifact. `SessionCertification`
+carried `label_noise_controls = 38`, `label_noise_false_accepts = 6` and `beta_upper = 0.8712` --
+three true numbers arranged so the first two read as the cause of the third. They are not: 6/38
+implies 0.3125, and 0.8712 came from 4/8 in a single class. The CLI printed exactly that false
+sentence. The file's own comment on `label_source` says "a certificate that does not say cannot be
+checked"; the number the certificate is *about* was held to a lower standard than the metadata.
+
+**Decision**: add `label_noise_controls_by_class` (per-class controls, false accepts and that class's
+own bound), `binding_control_class`, and `pooled_beta_upper` marked non-decisional. Keep the pooled
+scalars only as a **checkable summary** - a validator refuses any certificate whose totals do not
+equal the sum of its tallies. The property earned is that the bound is recomputable from the
+certificate alone, reading nothing from the session that produced it, asserted in
+`TestCertificateIsSelfChecking`.
+
+**Five validators that cannot fire on anything this module builds.** They are for artifacts on disk:
+an older file that pooled its controls, or a hand-edited one, is indistinguishable from a sound
+certificate by shape alone and would licence auto-apply against an error budget nothing measured.
+Mutant M13 removes the first and dies. Writing validators for unreachable states is usually waste;
+here the state is reachable by the read path, which is the path that grants auto-apply.
+
+**Deviation from the plan, deliberate**: step 10 said to retire `beta_scope_note` in favour of the
+structured field. Kept instead. The tallies make the arithmetic auditable but cannot say whether the
+plants were representative of real corrector errors - the limitation most likely to be forgotten and
+the one no number carries. Retiring a correct warning to satisfy a checkbox trades a real caveat for
+a tidier schema. Step 10 also said to keep a pooled path behind an explicit flag; not done, because a
+flag that selects the anti-conservative bound is a fail-open switch. Pooled is computed and recorded
+always, and can never be selected.
+
+**Also fixed**: the CLI now attributes the bound to the class that produced it and states that other
+classes cannot relax it - adding an easier class raises beta slightly, because each class pays a
+share of the union correction. Asserted at certificate level, not just in the helper, so the
+incentive to pad the control set with easy plants is closed where it ships.
+
+**Verified**: certificate reproduces the published numbers exactly - binding `corrector_generated`
+4/8 -> 0.8712332766265144, `column_distribution` 2/30 -> 0.2445, pooled 0.3125, inflation 7.77x.
+2248 passed / 6 skipped, mypy --strict clean on 165 files, ruff clean, 13/13 mutants killed, docs
+truth 20 claims, readme truth, release gate exit 0.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: if a certificate ever legitimately needs a control class with a single
+labelled item, the per-class `controls >= 1` floor and the union correction both need revisiting
+before relaxing any validator here.

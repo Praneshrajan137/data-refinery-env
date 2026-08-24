@@ -37,7 +37,9 @@ from pydantic import ValidationError
 
 from dataforge.calibration_session import (
     CalibrationSessionArtifact,
+    ControlClassTally,
     PlantedControl,
+    SessionCertification,
     build_calibration_session,
     certify_from_session,
     label_repair_sample,
@@ -46,6 +48,7 @@ from dataforge.conformal import (
     certify_threshold,
     certify_threshold_under_label_noise,
     label_noise_adjusted_bound,
+    label_noise_adjusted_bound_stratified,
     min_samples_under_label_noise,
 )
 from dataforge.detectors.base import Issue, Severity
@@ -545,3 +548,162 @@ class TestAnLlmLabellerCannotCertify:
             _human_session(labels=120, controls=30).model_copy(update={"label_source": "oracle"})
         )
         assert oracle.beta_upper is None, "oracle labels carry no false-accept rate"
+
+
+def _two_class_session(
+    *,
+    easy_accepts: int = 2,
+    easy_controls: int = 30,
+    hard_accepts: int = 4,
+    hard_controls: int = 8,
+) -> CalibrationSessionArtifact:
+    """A session whose controls mirror the measured rayyan split.
+
+    The defaults are the real numbers: 2/30 on ``column_distribution`` against 4/8 on
+    ``corrector_generated``, a 7.5x gap that pools to 6/38 and hides the binding class.
+    """
+    artifact = _human_session(labels=120, controls=0)
+    planted: list[PlantedControl] = []
+    for i in range(easy_controls):
+        planted.append(_control(30_000 + i, accepted=i < easy_accepts))
+    for i in range(hard_controls):
+        planted.append(
+            _control(40_000 + i, accepted=i < hard_accepts).model_copy(
+                update={"origin": "corrector_generated"}
+            )
+        )
+    return artifact.model_copy(update={"planted_controls": planted})
+
+
+class TestCertificateIsSelfChecking:
+    """The certificate must let a reader re-derive its own bound.
+
+    ``label_source`` exists because "a certificate that does not say cannot be checked". The
+    same standard applies to the number the certificate is *about*: a scalar ``beta_upper``
+    with no per-class provenance is an assertion the reader has to take on faith, and it is
+    bit-identical in shape to the pooled bound that let a pre-registered kill criterion read
+    as unfired.
+    """
+
+    def test_per_class_tallies_are_recorded_and_name_the_binding_class(self) -> None:
+        cert = certify_from_session(_two_class_session())
+        assert set(cert.label_noise_controls_by_class) == {
+            "column_distribution",
+            "corrector_generated",
+        }
+        assert cert.binding_control_class == "corrector_generated", (
+            "the 4/8 class must bind, not the 2/30 one"
+        )
+        tallies = cert.label_noise_controls_by_class
+        assert tallies["corrector_generated"].false_accepts == 4
+        assert tallies["corrector_generated"].controls == 8
+        assert tallies["column_distribution"].false_accepts == 2
+        assert tallies["column_distribution"].controls == 30
+        assert tallies["corrector_generated"].beta_upper > tallies["column_distribution"].beta_upper
+
+    def test_the_bound_is_recomputable_from_the_certificate_alone(self) -> None:
+        """Reconstruct ``beta_upper`` using only fields the certificate carries.
+
+        This is the property that makes the artifact evidence rather than testimony. It reads
+        nothing from the session that produced it -- no samples, no controls, only the
+        certificate's own ``delta`` and per-class counts.
+        """
+        cert = certify_from_session(_two_class_session())
+        assert cert.beta_upper is not None
+        recomputed = label_noise_adjusted_bound_stratified(
+            0,
+            1,
+            controls_by_class={
+                name: (tally.false_accepts, tally.controls)
+                for name, tally in cert.label_noise_controls_by_class.items()
+            },
+            delta=cert.delta,
+        )
+        assert recomputed.beta_upper == cert.beta_upper
+        assert recomputed.binding_class == cert.binding_control_class
+        assert recomputed.beta_by_class == {
+            name: tally.beta_upper for name, tally in cert.label_noise_controls_by_class.items()
+        }
+
+    def test_pooled_totals_are_kept_only_as_a_checkable_summary(self) -> None:
+        cert = certify_from_session(_two_class_session())
+        assert cert.label_noise_controls == 38
+        assert cert.label_noise_false_accepts == 6
+        assert cert.pooled_beta_upper is not None
+        assert cert.pooled_beta_upper < cert.beta_upper, (
+            "pooling must be recorded as the anti-conservative direction it is"
+        )
+
+    def test_a_certificate_that_pooled_its_controls_is_refused_on_read_back(self) -> None:
+        """An older or hand-edited artifact carrying only the scalar cannot be revalidated.
+
+        This is the case the validators exist for: nothing this module builds can reach it, but
+        a file on disk can, and by shape alone it is indistinguishable from a sound one.
+        """
+        payload = certify_from_session(_two_class_session()).model_dump()
+        payload["label_noise_controls_by_class"] = {}
+        payload["binding_control_class"] = None
+        with pytest.raises(ValidationError, match="cannot be recomputed"):
+            SessionCertification.model_validate(payload)
+
+    def test_binding_class_cannot_be_reattributed_to_the_easier_class(self) -> None:
+        payload = certify_from_session(_two_class_session()).model_dump()
+        easy = payload["label_noise_controls_by_class"]["column_distribution"]
+        payload["binding_control_class"] = "column_distribution"
+        payload["beta_upper"] = easy["beta_upper"]
+        with pytest.raises(ValidationError, match="is not the worst class"):
+            SessionCertification.model_validate(payload)
+
+    def test_binding_class_must_exist_among_the_recorded_classes(self) -> None:
+        payload = certify_from_session(_two_class_session()).model_dump()
+        payload["binding_control_class"] = "a_class_that_was_never_labelled"
+        with pytest.raises(ValidationError, match="is not among the recorded classes"):
+            SessionCertification.model_validate(payload)
+
+    def test_headline_beta_cannot_disagree_with_its_stated_source(self) -> None:
+        payload = certify_from_session(_two_class_session()).model_dump()
+        payload["beta_upper"] = 0.05
+        with pytest.raises(ValidationError, match="disagrees with the binding class"):
+            SessionCertification.model_validate(payload)
+
+    def test_pooled_totals_cannot_drift_from_the_tallies(self) -> None:
+        payload = certify_from_session(_two_class_session()).model_dump()
+        payload["label_noise_controls"] = 300
+        with pytest.raises(ValidationError, match="does not equal the sum of per-class controls"):
+            SessionCertification.model_validate(payload)
+
+    def test_tallies_without_a_bound_are_refused(self) -> None:
+        """Controls labelled but not used to adjust anything must not read as noise control."""
+        payload = certify_from_session(_two_class_session()).model_dump()
+        payload["beta_upper"] = None
+        with pytest.raises(ValidationError, match="without a beta_upper"):
+            SessionCertification.model_validate(payload)
+
+    def test_oracle_certificates_carry_no_tallies_at_all(self) -> None:
+        oracle = certify_from_session(
+            _two_class_session().model_copy(update={"label_source": "oracle"})
+        )
+        assert oracle.beta_upper is None
+        assert oracle.label_noise_controls_by_class == {}
+        assert oracle.binding_control_class is None
+        assert oracle.pooled_beta_upper is None
+
+    def test_a_tally_cannot_accept_more_plants_than_it_labelled(self) -> None:
+        with pytest.raises(ValidationError, match="exceeds controls"):
+            ControlClassTally(controls=8, false_accepts=9, beta_upper=0.9)
+
+    def test_adding_an_easy_class_cannot_lower_the_certified_bound(self) -> None:
+        """The incentive property, asserted where it ships rather than in the helper.
+
+        If padding the control set with easy plants relaxed the bound, the cheapest way to earn
+        a certificate would be to plant more of what the labeller already catches. Each class
+        pays a share of the union correction, so a class can only ever raise beta.
+        """
+        alone = certify_from_session(_two_class_session(easy_controls=0, easy_accepts=0))
+        padded = certify_from_session(_two_class_session(easy_controls=30, easy_accepts=0))
+        assert alone.beta_upper is not None
+        assert padded.beta_upper is not None
+        assert padded.beta_upper > alone.beta_upper, (
+            "a flawless easy class must not buy a looser bound on the hard one"
+        )
+        assert padded.binding_control_class == alone.binding_control_class == "corrector_generated"

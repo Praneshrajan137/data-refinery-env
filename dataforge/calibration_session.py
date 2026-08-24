@@ -40,7 +40,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
     from dataforge.detectors.base import Issue
@@ -558,6 +558,36 @@ CERTIFICATION_GRID: tuple[float, ...] = (
 )
 
 
+class ControlClassTally(BaseModel):
+    """One planted-control class's contribution to the label-noise bound.
+
+    Recorded per class rather than pooled because the classes measure different things and
+    their false-accept rates differ by 7.5x on measured data -- 0.0667 on
+    ``column_distribution`` against 0.5000 on ``corrector_generated``. Pooling them is not a
+    weaker bound but a different and anti-conservative quantity, and it let a pre-registered
+    kill criterion read as unfired. See ``docs/trust/stratified-label-noise-result.md``.
+    """
+
+    controls: int = Field(ge=1)
+    false_accepts: int = Field(ge=0)
+    #: Clopper-Pearson upper bound for **this class alone**, at the union-corrected level
+    #: ``delta / 2 / len(classes)``. Not comparable across certificates with a different
+    #: number of classes, which is why the divisor is reconstructible from the artifact.
+    beta_upper: float
+
+    model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def _accepts_cannot_exceed_controls(self) -> ControlClassTally:
+        if self.false_accepts > self.controls:
+            raise ValueError(
+                f"false_accepts {self.false_accepts} exceeds controls {self.controls}; a tally "
+                "that accepts more plants than it labelled is a counting bug, and it would "
+                "understate beta by inflating the denominator's implied difficulty"
+            )
+        return self
+
+
 class SessionCertification(BaseModel):
     """The outcome of certifying auto-apply from a user's own repair labels."""
 
@@ -577,12 +607,30 @@ class SessionCertification(BaseModel):
     #: only permitted for ``oracle`` labels.
     label_noise_controls: int = Field(default=0, ge=0)
     label_noise_false_accepts: int = Field(default=0, ge=0)
-    #: Clopper-Pearson upper bound on the labeller's false-accept rate at ``delta/2``.
-    #: ``None`` for oracle labels, where there is no labeller to bound.
+    #: Clopper-Pearson upper bound on the labeller's false-accept rate, taken over the
+    #: **worst** control class rather than pooled. ``None`` for oracle labels, where there is
+    #: no labeller to bound.
     beta_upper: float | None = None
+    #: Per-class tallies, keyed by control origin. Present whenever ``beta_upper`` is, so the
+    #: bound is **recomputable from the certificate alone** rather than only from the session
+    #: that produced it. A certificate whose own numbers cannot be re-derived is an assertion,
+    #: not evidence -- the same standard ``label_source`` exists to enforce.
+    label_noise_controls_by_class: dict[str, ControlClassTally] = Field(default_factory=dict)
+    #: Which class supplied ``beta_upper``. Naming it stops a reader assuming the bound came
+    #: from the class they happen to care about, and makes "add easy plants to dilute the hard
+    #: class" visible instead of silent.
+    binding_control_class: str | None = None
+    #: The pooled bound, carried for the publication delta only. It **may not enter a
+    #: decision**: pooling is the anti-conservative direction. Kept in the artifact because a
+    #: reader comparing this certificate against pre-stratification numbers needs to see the
+    #: gap rather than guess it.
+    pooled_beta_upper: float | None = None
     #: Whether the certified thresholds were tested against the noise-adjusted bound.
     label_noise_adjusted: bool = False
-    #: The scope caveat, carried in the artifact rather than left to the reader's memory.
+    #: The one caveat no number in this certificate carries: that ``beta`` is measured on
+    #: plants, not on the corrector's real error distribution. Kept as prose deliberately --
+    #: the per-class tallies above make the arithmetic auditable, but they cannot say whether
+    #: the plants were representative, and that is the limitation most likely to be forgotten.
     beta_scope_note: str | None = None
     source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     table_fingerprint: str
@@ -592,6 +640,67 @@ class SessionCertification(BaseModel):
     corrector_model: str | None = None
 
     model_config = ConfigDict(strict=True, extra="forbid", frozen=True)
+
+    @model_validator(mode="after")
+    def _beta_must_be_recomputable(self) -> SessionCertification:
+        """Refuse a certificate whose stated ``beta_upper`` cannot be re-derived from itself.
+
+        Every check here is an equality that held at construction time, so none of them can
+        fail on a certificate this module built. They exist for the certificates it *reads*
+        back: an artifact edited by hand, merged across runs, or written by an older version
+        that pooled its controls. Such a file is indistinguishable from a sound one by shape
+        alone, and it would licence auto-apply against an error budget nothing measured.
+        """
+        tallies = self.label_noise_controls_by_class
+        if self.beta_upper is None:
+            if tallies or self.binding_control_class is not None:
+                raise ValueError(
+                    "per-class control tallies recorded without a beta_upper. Either the bound "
+                    "was dropped while its inputs survived, or controls were labelled and then "
+                    "not used to adjust anything -- both read as evidence of noise control that "
+                    "was never applied"
+                )
+            return self
+        if not tallies:
+            raise ValueError(
+                "beta_upper recorded with no per-class control tallies, so the bound cannot be "
+                "recomputed from this certificate. This is the pooled shape the stratified "
+                "bound retired: a single scalar whose provenance the reader has to trust"
+            )
+        if self.binding_control_class not in tallies:
+            raise ValueError(
+                f"binding_control_class {self.binding_control_class!r} is not among the "
+                f"recorded classes {sorted(tallies)}. A bound attributed to a class the "
+                "certificate does not describe cannot be audited"
+            )
+        widest = max(tallies, key=lambda name: tallies[name].beta_upper)
+        if tallies[self.binding_control_class].beta_upper < tallies[widest].beta_upper:
+            raise ValueError(
+                f"binding_control_class {self.binding_control_class!r} at beta "
+                f"{tallies[self.binding_control_class].beta_upper} is not the worst class; "
+                f"{widest!r} is worse at {tallies[widest].beta_upper}. Binding on anything but "
+                "the worst class is the anti-conservative direction"
+            )
+        if self.beta_upper != tallies[self.binding_control_class].beta_upper:
+            raise ValueError(
+                f"beta_upper {self.beta_upper} disagrees with the binding class's own bound "
+                f"{tallies[self.binding_control_class].beta_upper}. The headline number and its "
+                "stated source must be the same number"
+            )
+        if self.label_noise_controls != sum(t.controls for t in tallies.values()):
+            raise ValueError(
+                f"label_noise_controls {self.label_noise_controls} does not equal the sum of "
+                f"per-class controls {sum(t.controls for t in tallies.values())}. The pooled "
+                "totals are kept only as a checkable summary; drift between them and the "
+                "tallies means one of the two is describing a different control set"
+            )
+        if self.label_noise_false_accepts != sum(t.false_accepts for t in tallies.values()):
+            raise ValueError(
+                f"label_noise_false_accepts {self.label_noise_false_accepts} does not equal the "
+                f"sum of per-class false accepts "
+                f"{sum(t.false_accepts for t in tallies.values())}"
+            )
+        return self
 
 
 def repair_labelled_samples(
@@ -820,6 +929,7 @@ def certify_from_session(
     """
     from dataforge.conformal import (
         ABSTAIN_THRESHOLD,
+        StratifiedLabelNoiseBound,
         certification_reason,
         certify_threshold,
         certify_threshold_under_label_noise,
@@ -882,6 +992,7 @@ def certify_from_session(
             (sample.repair_confidence, sample.repair_decision == "correct")
         )
 
+    stratified: StratifiedLabelNoiseBound | None = None
     beta_upper: float | None = None
     if human:
         # n is irrelevant to the beta half of the bound; pass 1 for a valid call. The bound is
@@ -889,9 +1000,10 @@ def certify_from_session(
         # things and their false-accept rates differ by 7.5x on measured data, and pooling them
         # understates beta by enough to change a published decision. See
         # docs/trust/stratified-label-noise-result.md.
-        beta_upper = label_noise_adjusted_bound_stratified(
+        stratified = label_noise_adjusted_bound_stratified(
             0, 1, controls_by_class=controls_by_origin, delta=delta
-        ).beta_upper
+        )
+        beta_upper = stratified.beta_upper
 
     thresholds: dict[str, float] = {}
     reasons: dict[str, str] = {}
@@ -958,6 +1070,18 @@ def certify_from_session(
         label_noise_controls=controls,
         label_noise_false_accepts=false_accepts,
         beta_upper=beta_upper,
+        label_noise_controls_by_class={
+            name: ControlClassTally(
+                controls=controls_by_origin[name][1],
+                false_accepts=controls_by_origin[name][0],
+                beta_upper=class_beta,
+            )
+            for name, class_beta in stratified.beta_by_class.items()
+        }
+        if stratified is not None
+        else {},
+        binding_control_class=stratified.binding_class if stratified is not None else None,
+        pooled_beta_upper=stratified.pooled_beta_upper if stratified is not None else None,
         label_noise_adjusted=human,
         beta_scope_note=(
             "beta is estimated on the PLANTED-CONTROL distribution, not on the corrector's real "
