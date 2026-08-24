@@ -1,0 +1,33 @@
+{
+  "alpha": 0.01,
+  "beta_elicit": 0.8194,
+  "beta_elicit_wilson": [
+    0.7152,
+    0.8913
+  ],
+  "beta_ratify": 0.9583,
+  "beta_ratify_wilson": [
+    0.8845,
+    0.9857
+  ],
+  "calls": 237,
+  "capability_floor": 0.1,
+  "corpus": "rayyan",
+  "elicited_matches_neither": 0.1528,
+  "elicited_matches_truth": 0.0278,
+  "harvest": {
+    "correct_proposals": 21,
+    "empty_replies": 0,
+    "sampled": 93,
+    "wrong_proposals": 72
+  },
+  "kill_criterion_fires": false,
+  "label_source": "llm_probe",
+  "labeller": "gpt-5.6-sol",
+  "may_certify": false,
+  "n_controls": 72,
+  "p1_blind_elicitation_reduces_beta": false,
+  "paired_p_value": 0.9992500374981251,
+  "usd": 0.0891,
+  "void": true
+}

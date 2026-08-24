@@ -150,7 +150,7 @@ MUTANTS: tuple[Mutant, ...] = (
         name="M11-label-noise-beta-repooled",
         target="dataforge/calibration_session.py",
         old="            0, 1, controls_by_class=controls_by_origin, delta=delta",
-        new="            0, 1, controls_by_class={\"p\": (false_accepts, controls)}, delta=delta",
+        new='            0, 1, controls_by_class={"p": (false_accepts, controls)}, delta=delta',
         tests=("tests/unit/test_label_noise_certification.py",),
         why=(
             "re-pooling the two planted-control origins drops the certified beta from 0.8712 "
@@ -158,6 +158,21 @@ MUTANTS: tuple[Mutant, ...] = (
             "kill criterion firing and not firing. Pooling is not a weaker bound, it is a "
             "different and anti-conservative quantity, and it lets a dirty control class be "
             "hidden by padding the control set with easy plants"
+        ),
+    ),
+    Mutant(
+        name="M12-label-source-dispatch-defaulted",
+        target="dataforge/calibration_session.py",
+        old='    match artifact.label_source:\n        case "oracle":\n            human = False',
+        new='    match artifact.label_source:\n        case "llm_probe" | "oracle":\n'
+        "            human = False",
+        tests=("tests/unit/test_label_noise_certification.py",),
+        why=(
+            "an LLM label source falling through to the oracle path certifies with NO noise "
+            "adjustment at all. Measured: an LLM ratifier accepts 95.83% of wrong proposals, so "
+            "this is the fails-open shape of `label_source == 'human'` that the exhaustive match "
+            "replaced -- a source the function was never taught to reason about must refuse, "
+            "not default to the branch that assumes beta = 0"
         ),
     ),
 )

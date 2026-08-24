@@ -3260,3 +3260,64 @@ parameters were REMOVED rather than deprecated, because a pooled bound is not a 
 the honest one but a different and anti-conservative quantity - three test call sites migrated.
 Single-origin sets are bit-identical (delta/2 divided by 1), asserted to 1e-12, so blast radius is
 exactly the genuinely-pooled case. Mutant M11 kills a revert to pooling. 2217 passed, 11/11 mutants.
+
+## 2026-08-24 - Blind elicitation VOIDs; H2 needs an independent labeller, not just late revelation
+
+**Context**: `docs/trust/stratified-label-noise-result.md` killed human-labelled per-table
+certification at alpha=0.05 and named one surviving route: arm H2 of `human_label_noise.md`, a
+protocol that elicits the correct value BEFORE revealing the machine's proposal so acquiescence bias
+cannot operate. That was an argument, never a measurement. Pre-registered in
+`eval/preregistration/blind_elicitation.md` with a capability floor and a kill criterion, then run
+on rayyan with 72 controls for \.0891.
+
+**Measured**: beta_ratify 0.9583 (Wilson 0.8845-0.9857), beta_elicit 0.8194 (0.7152-0.8913),
+`elicited_matches_truth` **0.0278** against a pre-registered floor of 0.10 -> **VOID**.
+beta_elicit came out BELOW beta_ratify; without the pre-registered floor this would have read as a
+clean win for H2's mechanism. The floor is why it does not.
+
+**The finding**: the blind arm reproduced the corrector's EXACT wrong value on **81.94%** of items.
+Revealing the proposal later cannot protect against a labeller who produces the same wrong value
+anyway. `human_label_noise.md` specifies WHEN the proposal is revealed and says nothing about WHO
+labels; on this evidence labeller-corrector independence is load-bearing and belongs in the protocol
+definition beside the ordering condition. H2 is not refuted - it is unmeasured, and now carries a
+precondition it did not have this morning. A human labeller satisfies it by construction, which is
+why H2 stays live and why it CANNOT be simulated cheaply with the corrector's own model.
+
+**My own design flaw, recorded**: proposals were harvested with the same model, prompt and effort
+the ELICIT arm then used as labeller. Measuring beta requires conditioning on the proposal being
+wrong, so that condition became identical to "the ELICIT labeller already got this wrong". The arm
+ran only on items it had already failed. The 0.0278 capability is the arithmetic consequence, not a
+property of the labeller. The instrument is wrong rather than underpowered, so the probe is NOT
+re-run at a larger n - that would buy a tighter estimate of an uninformative quantity.
+
+**Options**: (a) report beta_elicit < beta_ratify as support for H2 - rejected, the pre-registered
+floor voids it and reporting it anyway is the failure this project has retracted claims for;
+(b) re-run larger - rejected, wrong instrument; (c) publish VOID plus the independence precondition
+and the design flaw - CHOSEN; (d) fix independence by using a second model - not available.
+
+**Decision**: add `label_source="llm_probe"` which **cannot certify**, enforced by an exhaustive
+`match` in `certify_session`. The previous `label_source == "human"` test was an allowlist of
+one written as a denylist: any new source fell through to the oracle path and certified with NO noise
+adjustment. Mutant M12 kills that regression. Also fixed a real leak: the probe called
+`load_dotenv` at module level, and its test imports the module, so importing it read the live Azure
+key into `os.environ` for the whole pytest session and broke
+`test_hosted_without_key_fails_clearly` - a failure visible only in the full run. Credentials now
+load inside `main()`, pinned by a structural test and a clean-subprocess test.
+
+**Also measured, and standing**: an LLM ratifier accepts 95.83% of wrong proposals shown to it
+(human `corrector_generated` was 0.5000 at n=8). Self-consistency on cells it gets wrong is 81.94%,
+which bounds what any self-critique or resample-and-compare scheme can detect here. The corrector
+answered 22.6% of rayyan real errors correctly (21/93) at `reasoning_effort="none"`.
+
+**Known hazard, not fixed**: four other `scripts/bench/probe_*.py` still call `load_dotenv` at
+module level. None is imported by a test, so none leaks today. They are one-shot probes with
+published artifacts; editing them to pre-empt a hypothetical future test would risk breaking
+reproducible paid measurements for no present benefit. Anyone adding a test that imports them must
+move the call into `main()` first.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: if a second, genuinely independent labeller becomes available, re-run with
+proposals sourced from a different generator than the elicit labeller; the VOID is a property of
+this instrument, not of H2. If `label_source="llm_probe"` is ever needed for a non-certifying
+report, extend the artifact rather than relaxing the refusal.

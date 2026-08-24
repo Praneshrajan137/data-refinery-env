@@ -1,0 +1,15 @@
+{
+  "corpus": "rayyan",
+  "errors_by_column": {
+    "article_jcreated_at": 722,
+    "article_jissue": 53,
+    "article_jvolumn": 22,
+    "article_pagination": 32,
+    "article_title": 14,
+    "author_list": 84,
+    "journal_issn": 12,
+    "journal_title": 9
+  },
+  "note": "Census of real errors with retained truth. Corrector proposals are added by the labelling probe, which runs the corrector itself so the proposal and the verdict come from the same run.",
+  "total_real_errors_with_retained_truth": 948
+}

@@ -498,3 +498,50 @@ class TestTheLivePathStratifiesRatherThanPooling:
         single = certify_from_session(_human_session(labels=120, controls=30, false_accepts=2))
         expected = label_noise_adjusted_bound(0, 1, false_accepts=2, controls=30)[1]
         assert single.beta_upper == pytest.approx(expected, abs=1e-12)
+
+
+class TestAnLlmLabellerCannotCertify:
+    """label_source='llm_probe' must refuse, and the refusal must be exhaustive.
+
+    Measured in docs/trust/blind-elicitation-result.md: an LLM ratifier accepted 95.83% of wrong
+    proposals, and a blind LLM labeller reproduced the corrector's exact wrong value 81.94% of the
+    time. Correlated labeller/corrector errors push beta DOWN, so an LLM beta is not a conservative
+    proxy for a human one but an unbounded understatement of it.
+    """
+
+    def test_an_llm_probe_session_refuses_to_certify(self) -> None:
+        artifact = _human_session(labels=120, controls=30, false_accepts=0)
+        llm = artifact.model_copy(update={"label_source": "llm_probe"})
+        with pytest.raises(ValueError, match="cannot certify"):
+            certify_from_session(llm)
+
+    def test_the_refusal_explains_the_correlation_not_just_the_policy(self) -> None:
+        """A refusal that does not say why invites someone to route around it."""
+        artifact = _human_session(labels=120, controls=30, false_accepts=0)
+        llm = artifact.model_copy(update={"label_source": "llm_probe"})
+        with pytest.raises(ValueError) as excinfo:
+            certify_from_session(llm)
+        message = str(excinfo.value)
+        assert "correlated" in message
+        assert "anti-conservative" in message
+
+    def test_controls_do_not_rescue_an_llm_probe_session(self) -> None:
+        """Adding planted controls must not make an LLM session certifiable.
+
+        The failure is the labeller's independence, not a missing measurement, so no quantity of
+        controls fixes it. This pins that the refusal is unconditional.
+        """
+        artifact = _human_session(labels=120, controls=30, false_accepts=0)
+        llm = artifact.model_copy(update={"label_source": "llm_probe"})
+        assert len(llm.labelled_controls()) == 30
+        with pytest.raises(ValueError, match="cannot certify"):
+            certify_from_session(llm)
+
+    def test_oracle_and_human_still_dispatch(self) -> None:
+        """The exhaustive match must not have broken the two live paths."""
+        human = certify_from_session(_human_session(labels=120, controls=30, false_accepts=0))
+        assert human.beta_upper is not None, "human labels must carry a measured beta"
+        oracle = certify_from_session(
+            _human_session(labels=120, controls=30).model_copy(update={"label_source": "oracle"})
+        )
+        assert oracle.beta_upper is None, "oracle labels carry no false-accept rate"

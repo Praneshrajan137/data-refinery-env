@@ -61,8 +61,11 @@ SamplingStrategy = Literal["random_within_class"]
 #: Who produced the verdicts. This is **not** cosmetic metadata: it decides whether a
 #: label-noise adjustment is required. ``oracle`` labels come from retained ground truth and
 #: carry no false-accept rate; ``human`` labels do, and certifying them without a measured bound
-#: on that rate advertises an error budget the certificate cannot support.
-LabelSource = Literal["human", "oracle"]
+#: on that rate advertises an error budget the certificate cannot support. ``llm_probe`` labels
+#: come from a model and **cannot certify at all** -- see the refusal in ``certify_session`` and
+#: ``eval/preregistration/blind_elicitation.md`` for why a measured LLM ``beta`` may not stand in
+#: for a human one.
+LabelSource = Literal["human", "oracle", "llm_probe"]
 
 #: How a planted control's wrong value was produced. Kept explicit because the two classes have
 #: different claims to being distributionally like a real corrector error.
@@ -835,7 +838,33 @@ def certify_from_session(
     controls = len(artifact.labelled_controls())
     controls_by_origin = artifact.controls_by_origin()
     false_accepts = artifact.observed_false_accepts()
-    human = artifact.label_source == "human"
+
+    # Exhaustive dispatch, deliberately not ``label_source == "human"``. That form is an
+    # allowlist of one written as a denylist: any label source added later falls through to the
+    # oracle path and certifies with NO noise adjustment whatsoever. That is the same fails-open
+    # shape as the corpus tier default (mutant M10) and the write allowlist, one level up. A
+    # source this function has not been taught to reason about must refuse, not default.
+    match artifact.label_source:
+        case "oracle":
+            human = False
+        case "human":
+            human = True
+        case "llm_probe":
+            raise ValueError(
+                "label_source='llm_probe' cannot certify. A model labelling a model's proposals "
+                "has correlated errors with the corrector, and correlated errors push beta DOWN "
+                "-- the anti-conservative direction. So a measured LLM false-accept rate is not "
+                "a conservative proxy for a human one, it is an unbounded understatement of it. "
+                "These verdicts are for the protocol contrast in "
+                "eval/preregistration/blind_elicitation.md and may not source a certificate."
+            )
+        case unknown:  # pragma: no cover - unreachable while LabelSource is exhaustive
+            raise ValueError(
+                f"unhandled label_source {unknown!r}. Certification must refuse a source it has "
+                "not been taught to reason about rather than defaulting to the no-adjustment "
+                "path, which would advertise an unmeasured error budget."
+            )
+
     if human and controls == 0:
         raise ValueError(
             "human labels cannot certify without labelled planted controls. The measured error "
