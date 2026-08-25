@@ -59,7 +59,7 @@ mutation and every revert must restore the exact original bytes.
 ## 5. Prior decisions (locked — require new spec to change)
 
 - Transaction-first ordering is non-negotiable for applied repairs.
-- `type_mismatch` and `decimal_shift` repairers are deterministic; only `fd_violation` may use the LLM.
+- All deterministic repairers are deterministic-provenance; only `fd_violation` may use the LLM as a fallback. Deterministic provenance means the PROCEDURE is deterministic, not that the write is permitted: write authority is `CONSTRAINT_CHECKABLE_DETECTORS`, currently `fd_violation` and `missing_value`.
 - Revert must refuse if the current file hash does not match the recorded post-state hash.
 - Byte-identical restore is guaranteed by restoring an immutable snapshot of the source bytes.
 

@@ -21,8 +21,9 @@ it does not claim design-partner or customer validation evidence yet.
 - `dataforge profile`, `dataforge repair`, `dataforge revert`,
   `dataforge watch`, `dataforge audit`, `dataforge bench`, and
   `dataforge constraints review`.
-- Detector families for type mismatches, decimal shifts, and functional
-  dependency violations.
+- Eight detector families. Two of them, `fd_violation` and `missing_value`, may
+  auto-apply a repair and only from a declared functional dependency; the rest are
+  detection-only or calibration-bound. See [detectors](detectors.md).
 - Reviewable `constraint_review_v1` artifacts with explicit accept/reject
   decisions before inferred constraints affect repair.
 - Deterministic repairers wired through `SafetyFilter` and `SMTVerifier`.

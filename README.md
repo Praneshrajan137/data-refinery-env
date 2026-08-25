@@ -45,9 +45,11 @@ internal repair runs: the safety constitution, the differential SMT verifier, a
 reversible hash-chained transaction, and a self-verifying `repair_receipt_v1`
 certificate. External values are treated as **untrusted**: a fix is auto-applied
 only when it (a) clears the unconfirmed-write confirmation and (b) is *proven* —
-verified against an authoritative schema. Without a schema it is held for review;
-nothing untrusted is ever silently written, and every applied change reverts
-byte-for-byte.
+verified against a schema that actually **constrains the column being written**.
+Declaring a column `str` is not a constraint: every CSV cell is already a string, so
+such a column confers no authority and its fixes are held. Without a discriminating
+premise nothing is applied at all; nothing untrusted is ever silently written, and
+every applied change reverts byte-for-byte.
 
 An optional `expected_old_value` per fix is a compare-and-set precondition that
 rejects stale writes (lost-update protection). Held and rejected proposals come
@@ -75,7 +77,7 @@ result = verify_and_apply(
         source_path="data.csv",
         fixes=[ExternalFix(row=0, column="score", new_value="15")],
         mode="apply",
-        schema=my_schema,            # proven only under an authoritative schema
+        schema=my_schema,            # proven only where the schema constrains the column
         confirm_escalations=True,
         proposer="my-agent",
     )
@@ -99,11 +101,16 @@ Shipped in the current worktree:
 - `dataforge profile`, `dataforge repair`, `dataforge verify-apply`,
   `dataforge revert`, `dataforge watch`, `dataforge audit`, `dataforge bench`,
   and `dataforge quickstart`
-- Eight detector families across an additive ensemble: `type_mismatch`,
-  `decimal_shift`, `fd_violation` (auto-correcting, tier 0), plus
-  `missing_value`, `format_violation`, `categorical_normalization`, `outlier`,
-  and `duplicate_row` (tier 1, additive). Detection-only families surface issues
-  without auto-correcting where a correct value is not derivable.
+- Eight detector families across an additive ensemble. **Two may auto-apply**:
+  `fd_violation` and `missing_value`, and only from a declared functional dependency.
+  The other six — `type_mismatch`, `decimal_shift`, `format_violation`,
+  `categorical_normalization`, `outlier`, `duplicate_row` — surface issues for review and
+  their repairs are calibration-bound. `decimal_shift` and `type_mismatch` were each
+  removed from the auto-apply set on measurement, not on taste; see
+  [docs/trust/bypass-allowlist-evidence.md](docs/trust/bypass-allowlist-evidence.md).
+  Cell ownership is separate from write authority: tier 0 owns its cells in the queue,
+  which is why a detector can be high-precision at *detection* and still not permitted
+  to write.
 - Reviewable schema inference in `profile --json`, including inferred column
   types, domains, regex candidates, uniqueness, and FD candidates
 - Pending constraint review artifacts via `profile --constraints-out`, which
@@ -143,18 +150,26 @@ python -m pip install -e ".[dev]"
 dataforge profile fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml
 dataforge profile fixtures/hospital_10rows.csv --constraints-out constraints.json
 dataforge constraints review constraints.json
-dataforge repair fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --dry-run
+# Repairs are earned by a premise that constrains the column. premised_fd_10rows
+# declares `state -> city`, so a repair is proven; hospital's schema declares mostly
+# `str` columns and therefore proves nothing.
+dataforge repair fixtures/premised_fd_10rows.csv \
+  --schema fixtures/premised_fd_10rows.schema.yaml --dry-run
 dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --dry-run
-# Measure precision on YOUR table: draw a random sample, label it, get exact intervals.
+# Measure YOUR labelling quality: draw a random sample, label it, get exact intervals.
+# Advisory only -- these thresholds are not consumed by `repair`. See
+# docs/trust/stratified-label-noise-result.md.
 dataforge calibrate fixtures/hospital_10rows.csv --per-class 8
 dataforge calibrate fixtures/hospital_10rows.csv --label 3:City=error --label 7:City=correct
-# Inferred FDs raise recall but can flood review; keep the queue to declared FDs only.
+# Inferred FDs raise recall but can flood review AND authorize writes; keep the queue
+# to declared FDs only.
 dataforge repair fixtures/hospital_10rows.csv --constraints constraints.json --fd-detection declared --dry-run
 dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.yaml --once --json
 dataforge bench --methods random,heuristic --datasets hospital,flights --seeds 3 --seed-list 0,1,2
 ```
 
-Or just run the zero-config demo (works from any install, no files needed):
+Or run the bundled demo (works from any install, no files needed). It ships a schema,
+because nothing in this product repairs without a declared premise:
 
 ```bash
 dataforge quickstart
@@ -174,6 +189,15 @@ reproduce with `dataforge bench --quick`):
 | -------- | ---------------- | ---- | ------------- | ------------------------------------------------------- |
 | hospital | injected         | tripwire   | 0.7926  | value_format 1.00, text_normalization 0.87, other 1.00  |
 | flights  | contested        | diagnostic | 0.0000  | missing_value 1.00 (2370 cells)                         |
+
+**Provenance note, 2026-08-25.** The hospital correction F1 above was measured with a
+deterministic stack that included `type_mismatch` and `decimal_shift` in the auto-apply
+set. Both have since been removed from it on measurement, so this figure is a record of
+what that stack scored and is **not** currently reproducible by `dataforge bench --quick`.
+Per-detector unconditional write measurements now replace it, including how many
+already-correct cells each detector would overwrite; they are reported in
+[docs/trust/bypass-allowlist-evidence.md](docs/trust/bypass-allowlist-evidence.md) rather
+than here.
 
 Neither row is a headline claim, and the two middle columns say why:
 
@@ -209,7 +233,11 @@ The single most important measured fact for anyone deciding whether to use this:
 detector's precision swings by more than an order of magnitude across corpora** -- perfect on
 one table, near-useless on another -- and nothing observable at runtime predicts which case a
 given table resembles. That is why `dataforge calibrate` measures your table rather than
-quoting a benchmark, and it is the strongest argument for the write gate not being relaxed.
+quoting a benchmark. Read it as a measurement of your labelling, not as a licence: its
+thresholds are advisory and are **not** consumed by `repair`, and human-labelled
+certification at alpha=0.05 is measured unreachable inside a realistic budget — see
+[docs/trust/stratified-label-noise-result.md](docs/trust/stratified-label-noise-result.md).
+The argument the swing actually supports is that the write gate must not be relaxed.
 
 How to read this honestly:
 
@@ -219,15 +247,17 @@ How to read this honestly:
   detection only and `tax` only on a sample, so neither is an auto-apply target and their
   results are reported in
   [docs/trust/accuracy-frontier.md](docs/trust/accuracy-frontier.md) rather than here.
-- It only **auto-corrects** where a value is derivable and provable
-  (decimal-shift inverse, FD majority/lookup), which is why correction F1 is
-  high on hospital (FD/typo-dominated) and low on flights (dominated by
-  missing values and free-form formatting with no derivable canonical).
+- It only **auto-corrects** where a value is derivable from a declared dependency and
+  provable (FD majority, FD lookup for a missing cell), which is why correction F1 is
+  higher on hospital (FD/typo-dominated) and low on flights (dominated by missing
+  values and free-form formatting with no derivable canonical).
 - Auto-correctable classes pass an SMT proof and the safety constitution before
-  being applied inside a reversible transaction. Format and categorical
-  *correction* are currently detection-only (their repairers exist and are
-  unit-tested, but are withheld from auto-apply until calibration proves they do
-  not regress precision).
+  being applied inside a reversible transaction. Everything else is calibration-bound:
+  `type_mismatch`, `decimal_shift`, `format_violation` and `categorical_normalization`
+  repairers exist and are unit-tested, but are withheld from auto-apply until a committed
+  measurement earns it. `decimal_shift` (precision 0.0000 on three datasets, 263,428 false
+  rewrites on an error-free table) and `type_mismatch` (156 flags and zero proposals across
+  three corpora) were each judged against that rule and failed it.
 
 ### Optional LLM corrector (opt-in, propose-not-apply)
 
@@ -265,15 +295,20 @@ trustworthy rather than impressive:
   recorded in `receipt.limitations` rather than printed, so a withdrawn certificate
   leaves durable evidence. The SMT verifier and safety constitution remain the hard
   floor beneath all of this.
-- **Locally certifiable, even though it is not globally certified.** The reason no class
-  ships auto-apply-enabled is not squeamishness: conformal risk control requires the
+- **Locally measurable, and measured to be insufficient.** The reason no class ships
+  auto-apply-enabled is not squeamishness: conformal risk control requires the
   calibration data to be exchangeable with the target, and no benchmark can establish
-  that against a table it has never seen. `dataforge calibrate` closes that gap from the
-  other side. You label a small random sample of *your* table, and because the
-  calibration data then *is* the table, exchangeability holds by construction rather
-  than by assumption. Certification consumes **repair** verdicts ("is this proposed value
-  right?"), never detection verdicts ("was this flag right?") — the two come apart, and
-  certifying writes on the latter would authorize overwriting cells nobody validated.
+  that against a table it has never seen. `dataforge calibrate` attacks that from the
+  other side — you label a small random sample of *your* table, so exchangeability holds
+  by construction rather than by assumption. Certification consumes **repair** verdicts
+  ("is this proposed value right?"), never detection verdicts ("was this flag right?").
+  **What the measurement then showed is that this route does not close.** A human
+  labeller's false-accept rate is bounded at 0.8712 on the binding control class, which
+  puts alpha=0.05 at 572 error-free labels against a pre-registered budget of ~200, and a
+  `SessionCertification` has no consumer: it is printed and discarded, and `repair` reads a
+  different artifact whose schema it cannot satisfy. The honest product is the premise-based
+  write gate plus reversibility, not a certified threshold. See
+  [docs/trust/stratified-label-noise-result.md](docs/trust/stratified-label-noise-result.md).
 
 Cost is explicit: the corrector spends `k` LLM calls per detected issue. The
 `llm_corrector` benchmark method reports per-class correction F1, calibration

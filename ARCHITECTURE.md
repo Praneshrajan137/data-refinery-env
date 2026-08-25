@@ -34,13 +34,18 @@ flowchart LR
   accepted before repair or verifier use. Pending and rejected candidates never
   affect repair behavior.
 - **Detectors**: pandas-based scanners organized as an additive ensemble. Tier 0
-  (`type_mismatch`, `decimal_shift`, `fd_violation`) are the established,
-  high-precision detectors that own their cells. Tier 1 (`missing_value`,
-  `format_violation`, `categorical_normalization`, `outlier`, `duplicate_row`)
-  are strictly additive - they only claim cells no tier-0 detector flagged, so a
-  new detector can never regress the proven floor. `run_all_detectors` returns
-  one issue per cell, ranked by (tier, severity, confidence, registration order).
-  Detectors emit typed issues and never mutate data.
+  (`type_mismatch`, `decimal_shift`, `fd_violation`) own their cells in the queue. Tier 1
+  (`missing_value`, `format_violation`, `categorical_normalization`, `outlier`,
+  `duplicate_row`) are strictly additive - they only claim cells no tier-0 detector
+  flagged, so a new detector can never enlarge what the queue already covered.
+  `run_all_detectors` returns one issue per cell, ranked by (tier, severity, confidence,
+  registration order). Detectors emit typed issues and never mutate data.
+  **Tier is cell-ownership precedence, not write authority, and the two do not align.**
+  Write authority is `CONSTRAINT_CHECKABLE_DETECTORS`, currently `fd_violation` and
+  `missing_value` only - one tier-0 member and one tier-1 member. Two tier-0 detectors
+  (`type_mismatch`, `decimal_shift`) were each removed from it on measurement. Reading tier
+  as trustworthiness is the mistake that let `decimal_shift` bypass calibration; see
+  `docs/trust/deterministic-is-not-sound.md`.
 - **Detection vs correction**: detection (flagging an error) and correction
   (producing the exact value) are tracked separately. A class can be
   well-detected yet not auto-correctable when no correct value is derivable; such

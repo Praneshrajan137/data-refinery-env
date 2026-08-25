@@ -55,6 +55,29 @@ PUBLIC_CLAIM_TRUTH_DOCS = [
 CUSTOM_DOMAIN_TRUTH_DOCS = sorted(
     set(RELEASE_TRUTH_DOCS + DESIGN_PARTNER_TRUTH_DOCS + PUBLIC_CLAIM_TRUTH_DOCS)
 )
+#: Documents whose auto-apply claims are checked against the runtime allowlist. Wider than
+#: PUBLIC_CLAIM_TRUTH_DOCS because the staleness of 2026-08-25 reached the architecture and
+#: file-structure documents too, not only the marketing surface.
+AUTOAPPLY_TRUTH_DOCS = [
+    README,
+    PROJECT_ROOT / "PRODUCT.md",
+    PROJECT_ROOT / "ARCHITECTURE.md",
+    PROJECT_ROOT / "FILE_STRUCTURE.md",
+    PROJECT_ROOT / "docs" / "docs" / "index.md",
+    PROJECT_ROOT / "docs" / "docs" / "quickstart.md",
+    PROJECT_ROOT / "docs" / "docs" / "detectors.md",
+    PROJECT_ROOT / "docs" / "docs" / "architecture.md",
+]
+#: Phrases that assert write authority for a detector. A line merely naming a detector is
+#: not a claim about what it may do, so the policed set is deliberately narrow.
+_AUTHORITY_CLAIM_PHRASES = (
+    "auto-correcting",
+    "auto-corrects",
+    "auto-applies",
+    "auto-applied",
+    "constraint-checkable",
+    "may auto-apply",
+)
 PUBLISHED_DISTS = (
     "dataforge_07",
     "dataforge_07_dbt",
@@ -801,6 +824,129 @@ def check_corpus_tier_claims(docs: list[Path]) -> list[str]:
     return errors
 
 
+def check_autoapply_membership_claims(docs: list[Path]) -> list[str]:
+    """Refuse a user-facing claim that a detector auto-applies unless the code agrees.
+
+    Why this exists, dated 2026-08-25. `type_mismatch` was removed from
+    ``CONSTRAINT_CHECKABLE_DETECTORS`` and TEN user-facing claims went stale in one commit.
+    `README.md` described `type_mismatch` and `decimal_shift` as "auto-correcting" while
+    withholding that label from `missing_value`, the only repairer measured at write
+    precision 1.0000 -- wrong in both directions at once. `docs/docs/detectors.md` published
+    a three-family table with a "Typical repair" column where two of the three could not
+    write. None of it was caught by any gate, because this file checked that CLI commands
+    exist and nothing checked what the product claims to *do*.
+
+    Two directions, because the failure occurred in both. This function checks the first;
+    :func:`check_autoapply_members_are_documented` checks the second. They are separate
+    because they have different scopes -- a claim is wrong on the line it appears on, whereas
+    coverage is only meaningful across the whole published set.
+
+    Deliberately keyed on the small set of phrases that assert write authority rather than
+    on any mention of a detector. Detectors must stay freely discussable -- the point is
+    that claiming one *writes* is checkable against the code that decides whether it does.
+
+    Args:
+        docs: Public documents to check.
+
+    Returns:
+        One error string per contradicted claim.
+    """
+    from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
+
+    all_detectors = {
+        "type_mismatch",
+        "decimal_shift",
+        "fd_violation",
+        "missing_value",
+        "format_violation",
+        "categorical_normalization",
+        "outlier",
+        "duplicate_row",
+    }
+    non_writers = sorted(all_detectors - set(CONSTRAINT_CHECKABLE_DETECTORS))
+    # Phrases that assert write authority. A line merely naming a detector is not a claim.
+    authority_claims = _AUTHORITY_CLAIM_PHRASES
+    # A line that names a non-writer alongside an authority phrase is acceptable when it is
+    # explicitly denying or historicising the claim. Without this, correcting a doc would
+    # trip the very check that demanded the correction.
+    negations = (
+        "no |",
+        "| no",
+        "not ",
+        "never",
+        "removed",
+        "withheld",
+        "calibration-bound",
+        "detection-only",
+        "cannot",
+        "no longer",
+        "until",
+        "would ",
+    )
+
+    errors: list[str] = []
+    for path in docs:
+        if not path.exists():
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            lowered = line.lower()
+            if not any(phrase in lowered for phrase in authority_claims):
+                continue
+            if any(negation in lowered for negation in negations):
+                continue
+            named = sorted(name for name in non_writers if name in lowered)
+            if named:
+                errors.append(
+                    f"{path.name}:{number} claims write authority for {named}, which is "
+                    f"not in CONSTRAINT_CHECKABLE_DETECTORS "
+                    f"({sorted(CONSTRAINT_CHECKABLE_DETECTORS)}). Either the claim is "
+                    "stale or the allowlist changed without the docs. See "
+                    "docs/trust/bypass-allowlist-evidence.md."
+                )
+    return errors
+
+
+def check_autoapply_members_are_documented(docs: list[Path]) -> list[str]:
+    """Refuse a detector that may auto-apply while no public document says so.
+
+    The other half of the 2026-08-25 failure. `missing_value` holds the strongest measured
+    write precision in the project and `README.md` listed it as merely "additive", implying
+    it could not write. A detector that gains write authority silently is worse than one
+    that loses it noisily.
+
+    Scoped to a whole published set rather than a single file, because no one document has to
+    name every member -- the union of them does.
+
+    Args:
+        docs: The full set of published documents.
+
+    Returns:
+        One error string naming every member no document mentions beside a write claim.
+    """
+    from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
+
+    documented: set[str] = set()
+    for path in docs:
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
+            lowered = line.lower()
+            if not any(phrase in lowered for phrase in _AUTHORITY_CLAIM_PHRASES):
+                continue
+            documented.update(
+                member for member in CONSTRAINT_CHECKABLE_DETECTORS if member in lowered
+            )
+
+    undocumented = sorted(set(CONSTRAINT_CHECKABLE_DETECTORS) - documented)
+    if not undocumented:
+        return []
+    return [
+        f"these detectors may auto-apply but no public doc says so: {undocumented}. "
+        "A detector that gains write authority silently is the failure this check "
+        "exists to prevent; name it in README.md or docs/docs/detectors.md."
+    ]
+
+
 def main() -> None:
     """Run all README truth checks."""
     readme_text = README.read_text(encoding="utf-8")
@@ -851,6 +997,8 @@ def main() -> None:
     errors.extend(check_claim_ledger())
     errors.extend(check_evidence_ledger())
     errors.extend(check_corpus_tier_claims(PUBLIC_CLAIM_TRUTH_DOCS))
+    errors.extend(check_autoapply_membership_claims(AUTOAPPLY_TRUTH_DOCS))
+    errors.extend(check_autoapply_members_are_documented(AUTOAPPLY_TRUTH_DOCS))
 
     if errors:
         print("README truth check FAILED:", file=sys.stderr)

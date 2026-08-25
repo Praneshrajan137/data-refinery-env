@@ -328,3 +328,113 @@ def test_unqualified_model_family_claim_fails(tmp_path: Path) -> None:
 
     assert errors
     assert "outside a generated evidence block" in errors[0]
+
+
+class TestAutoApplyMembershipClaims:
+    """The gate that did not exist when ten claims went stale in one commit.
+
+    `type_mismatch` left CONSTRAINT_CHECKABLE_DETECTORS and README.md went on describing it
+    as auto-correcting while withholding that label from `missing_value`, the only repairer
+    measured at unconditional write precision 1.0000 -- wrong in both directions at once.
+    Nothing caught it, because this module checked that CLI commands exist and nothing
+    checked what the product claims to DO.
+
+    These tests exist because a gate nobody has seen fail is not a gate.
+    """
+
+    def _doc(self, tmp_path: Path, text: str) -> Path:
+        path = tmp_path / "claim.md"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def test_a_stale_auto_correcting_claim_fails(self, tmp_path: Path) -> None:
+        """The exact sentence README.md carried for a day."""
+        doc = self._doc(
+            tmp_path,
+            "Eight detector families: `type_mismatch`, `decimal_shift`, "
+            "`fd_violation` (auto-correcting, tier 0).\n",
+        )
+
+        errors = readme_truth.check_autoapply_membership_claims([doc])
+
+        assert errors
+        assert "type_mismatch" in errors[0]
+        assert "decimal_shift" in errors[0]
+        assert "CONSTRAINT_CHECKABLE_DETECTORS" in errors[0]
+
+    def test_a_truthful_claim_passes(self, tmp_path: Path) -> None:
+        """Non-vacuity: the check must accept the corrected wording, or it blocks the fix."""
+        doc = self._doc(
+            tmp_path,
+            "Two detectors may auto-apply: `fd_violation` and `missing_value`, and only "
+            "from a declared functional dependency.\n",
+        )
+
+        assert readme_truth.check_autoapply_membership_claims([doc]) == []
+
+    def test_denying_the_claim_is_allowed(self, tmp_path: Path) -> None:
+        """Correcting a doc must not trip the check that demanded the correction.
+
+        A table row reading `type_mismatch | ... | no | removed on measurement` names a
+        non-writer beside an authority phrase, and is exactly what an honest doc looks like.
+        """
+        doc = self._doc(
+            tmp_path,
+            "| `type_mismatch` | Values that mismatch | no | removed from the allowlist |\n",
+        )
+
+        assert readme_truth.check_autoapply_membership_claims([doc]) == []
+
+    def test_an_undocumented_allowlist_member_fails(self, tmp_path: Path) -> None:
+        """The other direction: write authority must not be gained silently.
+
+        A doc that names only one of the two members leaves the other undocumented, which is
+        how `missing_value` came to hold the strongest measured write precision in the
+        project while no public page said it could write at all.
+        """
+        doc = self._doc(
+            tmp_path,
+            "Only `fd_violation` may auto-apply, from a declared dependency.\n",
+        )
+
+        errors = readme_truth.check_autoapply_members_are_documented([doc])
+
+        assert errors
+        assert "missing_value" in errors[-1]
+        assert "no public doc says so" in errors[-1]
+
+    def test_documenting_both_members_satisfies_the_coverage_check(self, tmp_path: Path) -> None:
+        """Non-vacuity for the test above."""
+        doc = self._doc(
+            tmp_path,
+            "`fd_violation` and `missing_value` may auto-apply from a declared dependency.\n",
+        )
+
+        assert readme_truth.check_autoapply_members_are_documented([doc]) == []
+
+    def test_naming_a_detector_without_claiming_authority_is_not_a_claim(
+        self, tmp_path: Path
+    ) -> None:
+        """Detectors must stay freely discussable; only write claims are policed.
+
+        The two sentences are on separate lines because the check is line-scoped: a detector
+        name sharing a line with an authority phrase does read as a claim about it, which is
+        the behaviour that catches the stale README table row.
+        """
+        doc = self._doc(
+            tmp_path,
+            "`decimal_shift` finds numeric values off by powers of ten.\n"
+            "`fd_violation` and `missing_value` may auto-apply.\n",
+        )
+
+        assert readme_truth.check_autoapply_membership_claims([doc]) == []
+
+    def test_the_shipped_docs_satisfy_the_check(self) -> None:
+        """The live documents, not a fixture. This is the assertion that rots if docs drift."""
+        assert (
+            readme_truth.check_autoapply_membership_claims(readme_truth.AUTOAPPLY_TRUTH_DOCS) == []
+        )
+        assert (
+            readme_truth.check_autoapply_members_are_documented(readme_truth.AUTOAPPLY_TRUTH_DOCS)
+            == []
+        )
