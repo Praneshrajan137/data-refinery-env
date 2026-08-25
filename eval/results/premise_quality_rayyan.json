@@ -1,0 +1,50 @@
+{
+  "arms": {
+    "c1_and_c2": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "C1 and C2 together",
+      "true_dependencies_retained": null
+    },
+    "c1_only": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "C1: confidence > majority_share(dependent)",
+      "true_dependencies_retained": null
+    },
+    "c2_only": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "C2: tested_confidence >= floor",
+      "true_dependencies_retained": null
+    },
+    "candidate_total": 0,
+    "incumbent": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "everything the miner emits today",
+      "true_dependencies_retained": null
+    },
+    "true_total": 0
+  },
+  "clean_sha256": "23159f43c0706782388ed8957ad0c74eb7b88bc98f34d65bd49296e186d4673f",
+  "corpus": "rayyan",
+  "dependencies": [],
+  "dirty_sha256": "7e25e6db262b0c72ca2d9735d5959599cf5a582e1c705459507c7b45d0d1d174",
+  "emission_floor": 0.9,
+  "replication_mismatches": 0,
+  "rows": 1000,
+  "schema": "dataforge_premise_quality_v1"
+}

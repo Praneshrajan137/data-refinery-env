@@ -1,0 +1,111 @@
+{
+  "arms": {
+    "c1_and_c2": {
+      "admitted": 4,
+      "admitted_false": 0,
+      "admitted_true": 4,
+      "false_admitted_names": [],
+      "fd_set_precision": 1.0,
+      "rule": "C1 and C2 together",
+      "true_dependencies_retained": 1.0
+    },
+    "c1_only": {
+      "admitted": 4,
+      "admitted_false": 0,
+      "admitted_true": 4,
+      "false_admitted_names": [],
+      "fd_set_precision": 1.0,
+      "rule": "C1: confidence > majority_share(dependent)",
+      "true_dependencies_retained": 1.0
+    },
+    "c2_only": {
+      "admitted": 4,
+      "admitted_false": 0,
+      "admitted_true": 4,
+      "false_admitted_names": [],
+      "fd_set_precision": 1.0,
+      "rule": "C2: tested_confidence >= floor",
+      "true_dependencies_retained": 1.0
+    },
+    "candidate_total": 4,
+    "incumbent": {
+      "admitted": 4,
+      "admitted_false": 0,
+      "admitted_true": 4,
+      "false_admitted_names": [],
+      "fd_set_precision": 1.0,
+      "rule": "everything the miner emits today",
+      "true_dependencies_retained": 1.0
+    },
+    "true_total": 4
+  },
+  "clean_sha256": "201290927ae92e65b3940d776b3df5b4d953c5dfd9abb231715a2e65ecca87b0",
+  "corpus": "tax",
+  "dependencies": [
+    {
+      "c1_beats_majority_baseline": true,
+      "c2_tested_confidence_clears_floor": true,
+      "dependency": "area_code -> state",
+      "emitted_confidence": 0.997,
+      "groups": 273,
+      "holds_on_clean": true,
+      "majority_share_of_dependent": 0.0201,
+      "multi_row_groups": 273,
+      "rows_in_multi_row_groups": 200000,
+      "shipped_confidence": 0.997,
+      "tested_confidence": 0.997,
+      "tested_row_fraction": 1.0,
+      "violations": 600
+    },
+    {
+      "c1_beats_majority_baseline": true,
+      "c2_tested_confidence_clears_floor": true,
+      "dependency": "f_name -> gender",
+      "emitted_confidence": 1.0,
+      "groups": 10000,
+      "holds_on_clean": true,
+      "majority_share_of_dependent": 0.5034,
+      "multi_row_groups": 10000,
+      "rows_in_multi_row_groups": 200000,
+      "shipped_confidence": 1.0,
+      "tested_confidence": 1.0,
+      "tested_row_fraction": 1.0,
+      "violations": 0
+    },
+    {
+      "c1_beats_majority_baseline": true,
+      "c2_tested_confidence_clears_floor": true,
+      "dependency": "zip -> city",
+      "emitted_confidence": 0.9978,
+      "groups": 39062,
+      "holds_on_clean": true,
+      "majority_share_of_dependent": 0.019,
+      "multi_row_groups": 33740,
+      "rows_in_multi_row_groups": 194678,
+      "shipped_confidence": 0.9978,
+      "tested_confidence": 0.9977,
+      "tested_row_fraction": 0.9734,
+      "violations": 449
+    },
+    {
+      "c1_beats_majority_baseline": true,
+      "c2_tested_confidence_clears_floor": true,
+      "dependency": "zip -> state",
+      "emitted_confidence": 0.9958,
+      "groups": 39062,
+      "holds_on_clean": true,
+      "majority_share_of_dependent": 0.0201,
+      "multi_row_groups": 33740,
+      "rows_in_multi_row_groups": 194678,
+      "shipped_confidence": 0.9958,
+      "tested_confidence": 0.9957,
+      "tested_row_fraction": 0.9734,
+      "violations": 834
+    }
+  ],
+  "dirty_sha256": "8dd3429ec4791b2ed1a688c308a57a9f3d1a94f77d1f4e98294a67273270b973",
+  "emission_floor": 0.9,
+  "replication_mismatches": 0,
+  "rows": 200000,
+  "schema": "dataforge_premise_quality_v1"
+}

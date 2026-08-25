@@ -1,0 +1,50 @@
+{
+  "arms": {
+    "c1_and_c2": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "C1 and C2 together",
+      "true_dependencies_retained": null
+    },
+    "c1_only": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "C1: confidence > majority_share(dependent)",
+      "true_dependencies_retained": null
+    },
+    "c2_only": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "C2: tested_confidence >= floor",
+      "true_dependencies_retained": null
+    },
+    "candidate_total": 0,
+    "incumbent": {
+      "admitted": 0,
+      "admitted_false": 0,
+      "admitted_true": 0,
+      "false_admitted_names": [],
+      "fd_set_precision": null,
+      "rule": "everything the miner emits today",
+      "true_dependencies_retained": null
+    },
+    "true_total": 0
+  },
+  "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+  "corpus": "flights",
+  "dependencies": [],
+  "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+  "emission_floor": 0.9,
+  "replication_mismatches": 0,
+  "rows": 2376,
+  "schema": "dataforge_premise_quality_v1"
+}
