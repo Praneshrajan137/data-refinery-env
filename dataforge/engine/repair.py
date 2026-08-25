@@ -37,6 +37,7 @@ from dataforge.domain.vocabulary import (
     UNTRUSTED_PROVENANCE,
     ReviewReason,
     VerificationStrength,
+    type_discriminates,
 )
 from dataforge.domain.vocabulary import (
     verification_strength_for as _domain_verification_strength_for,
@@ -1216,13 +1217,23 @@ def authoritative_columns(schema: Schema | None) -> frozenset[str]:
     threshold. That is a truthfulness violation, not merely an unproven write.
 
     Authority is therefore scoped to the columns the schema speaks about. A column counts
-    as covered when the schema declares its type or names it in any constraint. A
-    functional dependency covers its determinant AND its dependent, because a value in
-    either position is checked by the FD.
+    as covered when the schema declares a **discriminating** type for it or names it in any
+    constraint. A functional dependency covers its determinant AND its dependent, because a value
+    in either position is checked by the FD.
+
+    **A declared type is not automatically a constraint.** Listing a column as ``str`` says
+    nothing that can reject a value, and counting it as authority was the next instance of the
+    same defect one level down. Measured on ``eval/results/trust_ledger_adversarial.json``:
+    declaring every column ``str`` let **10 of 14** constraint-violating attacks be written and
+    stamped ``proven``, against 0 of 14 under a premise that actually constrained. See
+    :func:`~dataforge.domain.vocabulary.type_discriminates` and
+    ``eval/preregistration/entailment_strength.md``.
     """
     if schema is None:
         return frozenset()
-    covered: set[str] = set(schema.columns)
+    covered: set[str] = {
+        column for column, declared in schema.columns.items() if type_discriminates(declared)
+    }
     covered |= set(schema.pii_columns)
     covered |= set(schema.primary_key_columns)
     covered |= set(schema.not_null_columns)

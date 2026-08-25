@@ -300,12 +300,23 @@ def test_authority_does_not_leak_across_columns(source: Path) -> None:
     assert "city" not in result.receipt.authoritative_columns
 
 
-def test_a_permissive_premise_measurably_weakens_the_guarantee(source: Path) -> None:
+def test_a_permissive_premise_costs_the_ability_to_write_not_the_guarantee(source: Path) -> None:
     """How much of the guarantee comes from the premise rather than the gate.
 
-    Both schemas cover every column, so the gate reports ``proven`` under both. The gap is
-    the measured cost of a premise that constrains nothing -- which is what schema inference
-    produces from dirty data, and what a hurried operator accepts.
+    This test previously asserted the opposite of what it asserts now, and the change is the
+    finding. It used to require ``len(permissive_bad) > 0`` -- pinning as *required behaviour*
+    that a schema declaring every column ``str`` admitted 10 of 14 constraint-violating writes,
+    because both premises "cover" every column and the gate stamped ``proven`` under both.
+
+    ``eval/preregistration/entailment_strength.md`` predicted that requiring a premise to
+    *discriminate* rather than merely *exist* would take that number to zero while leaving the
+    tight premise's one legitimate repair intact. It did. So the premise still measurably matters,
+    but the axis has moved: a weak premise now loses the ability to **write at all** instead of
+    gaining the ability to **corrupt**.
+
+    The non-vacuity teeth are kept and pointed the other way. This fails if a permissive premise
+    ever writes anything again, and it fails if the tight premise stops writing -- which would mean
+    the fix had destroyed the verification-layer feature rather than corrected it.
     """
     corpus = {attack.name: attack for attack in build_corpus()}
     discriminable_total = sum(1 for attack in corpus.values() if attack.discriminable)
@@ -325,18 +336,26 @@ def test_a_permissive_premise_measurably_weakens_the_guarantee(source: Path) -> 
         f"{len(permissive_bad)} written, upper95="
         f"{clopper_pearson_upper(len(permissive_bad), discriminable_total):.4f}"
     )
-    if permissive_bad:
-        print(f"  admitted only because the premise was weak: {permissive_bad}")
 
     assert len(tight_bad) == 0
     assert len(tight_bad) <= len(permissive_bad), (
         "a tighter schema admitted more constraint-violating writes, which would mean the "
         "premise is being applied incorrectly"
     )
-    # The finding this test exists to record: a str-only premise is not a premise.
-    assert len(permissive_bad) > 0, (
-        "a schema that constrains nothing blocked every attack anyway, which would "
-        "contradict the documented limit that covering a column is not constraining it"
+    assert len(permissive_bad) == 0, (
+        "a premise declaring every column str admitted a constraint-violating write again. "
+        "authoritative_columns must not count a non-discriminating declared type as authority; "
+        "see dataforge.domain.vocabulary.type_discriminates"
+    )
+    # Non-vacuity, pointed at the fix rather than at the defect: the weak premise must be unable
+    # to write, and the strong one must still be able to.
+    assert permissive.applied == 0, (
+        "a premise that constrains nothing wrote a cell; it has no authority to write anything"
+    )
+    assert tight.applied > 0, (
+        "the tight premise stopped writing its one legitimate repair, so the discriminating-"
+        "premise rule is too strict and has destroyed the verification-layer feature rather "
+        "than corrected it. Do not relax this assertion; revert the rule"
     )
 
 

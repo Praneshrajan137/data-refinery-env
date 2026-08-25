@@ -165,14 +165,25 @@ def main() -> int:
             if detail["corrupting_attacks"]:
                 print(f"    written despite being wrong: {detail['corrupting_attacks']}")
 
+    # The headline is generated rather than written, so it cannot drift from the numbers. It now
+    # reports BOTH corruptions and writes, because after 2026-08-25 the corruption counts alone no
+    # longer distinguish the premises -- both are zero -- and a sentence quoting only corruptions
+    # would read as "the premise does not matter", which is the opposite of the finding.
     headline = (
         "Under a tight premise, "
         f"{results['tight']['discriminable']['corruptions']} of "
         f"{results['tight']['discriminable']['attacks']} constraint-violating attacks were "
-        "written. Under a premise that declares every column str and therefore constrains "
-        f"nothing, {results['permissive']['discriminable']['corruptions']} of "
-        f"{results['permissive']['discriminable']['attacks']} were written. The gate is "
-        "identical in both runs; only the premise differs."
+        f"written, and {results['tight']['discriminable']['cells_applied']} cell(s) applied in "
+        "total. Under a premise that declares every column str and therefore constrains nothing, "
+        f"{results['permissive']['discriminable']['corruptions']} of "
+        f"{results['permissive']['discriminable']['attacks']} were written, and "
+        f"{results['permissive']['discriminable']['cells_applied']} cell(s) applied in total. The "
+        "gate is identical in both runs; only the premise differs. Until 2026-08-25 the permissive "
+        "premise wrote 10 of 14, because declaring a column str counted as authority over it; "
+        "requiring a premise to discriminate before it confers proof "
+        "(dataforge.domain.vocabulary.type_discriminates) took that to zero while leaving the "
+        "tight premise's one legitimate repair intact. The premise still decides the outcome -- it "
+        "now decides whether anything may be written at all, rather than whether corruption occurs."
     )
 
     payload = {

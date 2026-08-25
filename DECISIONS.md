@@ -537,18 +537,28 @@ now splits on `discriminable`, and the two halves carry different promises: cons
 violations must be blocked; constraint-satisfying falsehoods are written, labelled, and
 reversible.
 
-**The premise matters more than the gate.** Both schemas below cover every column, so the
-gate labels every write `proven` under both:
+**The premise matters more than the gate.** Both schemas below cover every column, and until
+2026-08-25 the gate labelled every write `proven` under both:
 
-| Premise | Constraint-violating attacks written |
-| --- | --- |
-| typed, bounded, patterned, enumerated | **0 of 14** |
-| every column declared `str` | **10 of 14** |
+| Premise | Constraint-violating attacks written, as measured 2026-08-20 | After the fix |
+| --- | --- | --- |
+| typed, bounded, patterned, enumerated | **0 of 14** | 0 of 14, and its 1 legitimate repair still applies |
+| every column declared `str` | **10 of 14** | **0 of 14**, and it can now write nothing at all |
 
-The ten include a Cyrillic homoglyph, a zero-width space, CSV newline and quote injection,
+The ten included a Cyrillic homoglyph, a zero-width space, CSV newline and quote injection,
 a type violation, and an out-of-bounds value. `docs/trust/authority-is-mutable.md` predicted
-this in prose -- *"Covering a column is not the same as constraining the value"* -- and it is
-now a committed measurement in `eval/results/trust_ledger_adversarial.json`.
+this in prose -- *"Covering a column is not the same as constraining the value"* -- and it became
+a committed measurement in `eval/results/trust_ledger_adversarial.json`.
+
+**Retraction in place, 2026-08-25.** The 10-of-14 column is now history rather than behaviour.
+`authoritative_columns` counted a declared type of `str` as authority over the column, so the
+permissive premise was granted the same standing as the tight one. `type_discriminates` now requires
+a declared type to be able to reject something before it confers proof, and the permissive premise
+drops to 0 of 14 while the tight premise keeps its one legitimate write. Pre-registered with both
+numbers predicted in advance in `eval/preregistration/entailment_strength.md`; the artifact carries
+the new figures and its generated headline records the old ones. The finding stands unchanged --
+the strength of a proof is the strength of its premise -- but the gate no longer misreports which
+premises are strong.
 
 **Mutation testing found that the corpus tested the wrong layer.** All four mutants survived
 the first run: because the corpus always supplied a schema, every attack was stopped by

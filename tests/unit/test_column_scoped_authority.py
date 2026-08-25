@@ -27,7 +27,16 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-from dataforge.detectors.base import DomainBound, FunctionalDependency, Schema
+from dataforge.detectors.base import (
+    DomainBound,
+    FunctionalDependency,
+    RegexConstraint,
+    Schema,
+)
+from dataforge.domain.vocabulary import (
+    NON_DISCRIMINATING_COLUMN_TYPES,
+    type_discriminates,
+)
 from dataforge.engine.repair import (
     ExternalFix,
     VerifyAndApplyRequest,
@@ -50,13 +59,77 @@ _CSV = (
 )
 
 
+class TestTypeDiscriminates:
+    """The set of non-narrowing type spellings is pinned, because its drift is silent.
+
+    This is a denylist, and the module's own contract warns denylists fail open. Here the
+    enumeration is over types meaning "no constraint", so an unrecognised type name confers
+    authority. That direction is deliberate -- ``decimal`` and ``timestamp`` genuinely narrow, and
+    revoking authority from every schema using an unlisted type would be a regression with no
+    evidence behind it -- but it means an added synonym for "anything" would silently grant
+    authority. Hence the explicit test.
+    """
+
+    def test_string_spellings_do_not_narrow(self) -> None:
+        for spelling in ("str", "string", "text", "object", "any", ""):
+            assert not type_discriminates(spelling), f"{spelling!r} must not confer authority"
+
+    def test_real_types_narrow(self) -> None:
+        for spelling in ("int", "integer", "float", "bool", "date", "datetime", "decimal"):
+            assert type_discriminates(spelling), f"{spelling!r} narrows and must confer authority"
+
+    def test_absent_type_does_not_narrow(self) -> None:
+        """The absence of information is not authority."""
+        assert not type_discriminates(None)
+
+    def test_spelling_is_normalised(self) -> None:
+        """A schema written by hand should not gain authority from capitalisation or whitespace."""
+        for spelling in ("STR", " str ", "String", "TEXT"):
+            assert not type_discriminates(spelling)
+
+    def test_the_denylist_is_exactly_what_is_documented(self) -> None:
+        assert (
+            frozenset({"", "str", "string", "text", "object", "any"})
+            == NON_DISCRIMINATING_COLUMN_TYPES
+        )
+
+
 class TestAuthoritativeColumns:
     """The covered set must include every column the schema speaks about, and no others."""
 
-    def test_declared_types_are_covered(self) -> None:
+    def test_a_discriminating_declared_type_is_covered(self) -> None:
+        """``int`` can reject a value, so declaring it grants authority over that column."""
         schema = Schema(columns={"a": "int", "b": "str"})
 
-        assert authoritative_columns(schema) == frozenset({"a", "b"})
+        assert authoritative_columns(schema) == frozenset({"a"})
+
+    def test_a_str_declaration_alone_does_not_grant_authority(self) -> None:
+        """Listing a column as ``str`` says nothing that can reject a value.
+
+        This is the next instance of the defect this module already fixed once. Authority was
+        narrowed from table-level to per-column after narrow evidence granted blanket authority;
+        it is narrowed again here because *mentioning* a column is not *constraining* it.
+        Measured on ``eval/results/trust_ledger_adversarial.json``: a premise declaring every
+        column ``str`` admitted 10 of 14 constraint-violating writes and stamped every one
+        ``proven``, against 0 of 14 under a premise that actually constrained. Every CSV cell is
+        already a string and ``read_csv`` is called with ``dtype=str``, so ``str`` is the absence
+        of a type rather than a type.
+        """
+        assert authoritative_columns(Schema(columns={"b": "str", "c": "text"})) == frozenset()
+
+    def test_a_str_column_is_still_covered_by_any_real_constraint(self) -> None:
+        """The rule removes free authority, not the ability to declare authority over strings.
+
+        A string column with a regex, an enum, a not-null or an FD is genuinely constrained, and
+        the tight adversarial premise depends on exactly this: ``zip`` is ``str`` plus a regex.
+        """
+        schema = Schema(
+            columns={"zip": "str", "city": "str"},
+            regex_constraints=(RegexConstraint(column="zip", pattern=r"^\d{5}$"),),
+            not_null_columns=frozenset({"city"}),
+        )
+
+        assert authoritative_columns(schema) == frozenset({"zip", "city"})
 
     def test_constraint_only_columns_are_covered(self) -> None:
         schema = Schema(

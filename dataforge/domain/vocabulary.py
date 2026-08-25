@@ -133,6 +133,40 @@ UNTRUSTED_PROVENANCE: Final[frozenset[str]] = frozenset(
 
 ALL_PROVENANCE: Final[frozenset[str]] = TRUSTED_PROVENANCE | UNTRUSTED_PROVENANCE
 
+# --- Which declared types actually narrow anything ----------------------------
+# A declared type confers authority only if it can reject a value. These spellings cannot:
+# every CSV cell is already a string, `read_csv` is called with `dtype=str`, and an
+# auto-generated schema emits `str` precisely when it could not determine anything.
+#
+# Measured consequence of treating `str` as authority, from
+# `eval/results/trust_ledger_adversarial.json`: under a tight premise 0 of 14
+# constraint-violating attacks were written; under a premise declaring every column `str`,
+# **10 of 14** were written, and the gate labelled every write `proven` in both runs. The
+# premise's mere presence was doing the work its power was supposed to do.
+#
+# **Direction of the residual risk, stated plainly.** This is a denylist, and this module's
+# contract warns that denylists fail open. Here the enumeration is over types meaning "no
+# constraint", so an unrecognised type name confers authority. That is deliberate: the only
+# measured harm comes from `str`, and a novel type name is far likelier to be `decimal` or
+# `timestamp` -- which genuinely narrow -- than a new synonym for "anything". Silently
+# revoking authority from every real schema using an unlisted type would be a regression with
+# no evidence behind it. The set is pinned by test rather than left to drift.
+NON_DISCRIMINATING_COLUMN_TYPES: Final[frozenset[str]] = frozenset(
+    {"", "str", "string", "text", "object", "any"}
+)
+
+
+def type_discriminates(declared_type: str | None) -> bool:
+    """Return whether a declared column type can reject any value at all.
+
+    ``None`` reads as non-discriminating: a column with no declared type constrains nothing,
+    and treating the absence of information as authority is the defect this exists to close.
+    """
+    if declared_type is None:
+        return False
+    return declared_type.strip().lower() not in NON_DISCRIMINATING_COLUMN_TYPES
+
+
 # --- Which deterministic repairs may bypass the calibration gate --------------
 # A deterministic fix historically auto-applied unconditionally: `partition_auto_apply`
 # read `if deterministic or policy.action_for(...)`, so `enabled_classes == []` gave no

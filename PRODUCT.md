@@ -58,11 +58,17 @@ protocol.
   constraints* and is reversible. A value that satisfies every declared constraint and
   is nonetheless false will be written. Measured: 3 of 3 such proposals in the
   adversarial corpus. The guarantee covering them is reversibility, not correctness.
-- **Not that a schema makes a proof strong.** A schema declaring every column `str`
-  covers every column, so the gate labels its writes `proven` — and admits 10 of 14
-  constraint-violating proposals that a typed, bounded, patterned schema refuses. The
-  strength of a proof is the strength of its premise, and that gap is now measured in
-  `eval/results/trust_ledger_adversarial.json` rather than described in prose.
+- **Not that a schema makes a proof strong.** The strength of a proof is the strength of its
+  premise. A schema declaring every column `str` covers every column and, until 2026-08-25, was
+  therefore granted authority over all of them: it admitted 10 of 14 constraint-violating
+  proposals that a typed, bounded, patterned schema refused, and labelled every one `proven`. A
+  declared type must now be able to reject something before it confers proof, so that premise
+  admits 0 of 14 and can write nothing at all, while the typed premise keeps writing its
+  legitimate repairs. Measured both before and after in
+  `eval/results/trust_ledger_adversarial.json`; predicted in advance in
+  `eval/preregistration/entailment_strength.md`. What has **not** changed is the limit itself: a
+  weak premise still yields a weak proof, and the gate cannot judge whether the constraints you
+  declared are the right ones.
 - **Not authenticity without a key.** Signing is optional and proves a keyholder
   produced the payload. Key distribution and trust roots are deployment policy and out
   of scope; an unsigned attestation is reported `unsigned`, never `verified`.
