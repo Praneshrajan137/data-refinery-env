@@ -73,6 +73,34 @@ protocol.
   produced the payload. Key distribution and trust roots are deployment policy and out
   of scope; an unsigned attestation is reported `unsigned`, never `verified`.
 
+### 1.3 The same lesson, learned twice (2026-08-25)
+
+Section 1.1 quotes `docs/STRATEGY.md`: *"A certificate with a named consumer is a product; one
+without is a log line."* That principle was then violated by a second certificate.
+
+`SessionCertification` -- the artifact carrying per-table calibrated auto-apply thresholds -- is
+printed to stdout and discarded. No serializer, no loader, and `dataforge repair` reads a different
+artifact whose schema it cannot satisfy. **No certified threshold has ever influenced a byte.** It
+was hardened over several commits with a stratified label-noise bound, self-checking per-class
+tallies and five validators, while the code path that actually writes was labelling proposals
+`proven` because a column had been declared `str`. That premise was measured admitting 10 of 14
+constraint-violating writes.
+
+Two durable rules follow, and they belong here rather than in a decision log because they are about
+where effort goes, not about a single fix:
+
+- **Before hardening a component, name its consumer.** If nothing reads it, rigour there buys
+  correctness of a report, not of the product. The check is one grep for the type name.
+- **Measure the path that writes, unconditionally.** The label-free repairer reported precision
+  1.0000 on hospital when scored only on cells that were already errors, and corrupted 86
+  previously-correct cells when scored over everything it touched. Conditional precision cannot show
+  a write path to be safe, because the failure that costs a user data is not in its denominator.
+
+What the label-free path is actually worth is now measured rather than asserted, in
+`docs/trust/deductive-coverage-result.md`: write precision between 0.5618 and 1.0000 and coverage
+between 0.0 and 0.8861, jointly determined by corpus, premise source and decision rule. There is no
+single number, and quoting one would be quoting the corpus it came from.
+
 ---
 
 ## 2. Purpose

@@ -172,6 +172,39 @@ representative of the corrector's real errors, which is the limitation most like
 and the one no number here carries. Retiring a correct warning to satisfy a checkbox would have
 traded a real caveat for a tidier schema.
 
+## The certificate has no consumer, and that was not stated
+
+Recorded 2026-08-25, after tracing the write path end to end rather than assuming it.
+
+`SessionCertification` is **not persisted anywhere**. `dataforge/cli/calibrate.py` dumps it to
+stdout, renders a table, and exits. There is no serializer, no loader, and no on-disk format.
+`dataforge repair` accepts `--corrector-calibration <artifact.json>`, which is a **different**
+artifact validated by `AbstentionPolicy.model_validate(raw["policy"])` -- a schema this object cannot
+satisfy. The two threshold systems never meet, so **no certified threshold has ever influenced a
+byte on disk.**
+
+That absence had been mistaken for a product route, including by the author while hardening this
+subsystem across three commits. The trust documents were phrased as though certification were a live
+path being closed; it was a measurement being reported. Both readings kill the same route, but only
+one of them is true.
+
+Three consequences, and the third is the reason this section exists:
+
+1. **The composition hole was never a live safety hole.** A session planting only easy controls
+   yields `beta` 0.1157 and certifies at 82 labels, which is a real understatement -- but it could
+   not reach a write. It is now refused anyway (`CERTIFYING_CONTROL_ORIGIN`, mutant M14), because the
+   refusal costs nothing and the moment anyone wires the certificate the understatement becomes
+   write-affecting with no independent guard in the path.
+2. **The CLI now says so.** `calibrate --certify` prints that the certificate is advisory and is not
+   consumed by `dataforge repair`. A user reading a table of certified thresholds had no way to know
+   they were inert.
+3. **Effort was misallocated, and the record should say that.** While this subsystem was being given
+   stratified bounds, self-checking artifacts and five validators, the path that *does* write was
+   labelling LLM proposals `proven` on the strength of a column being declared `str` -- measured at
+   10 of 14 constraint-violating writes. Rigour applied to the component with no consumers is not
+   rigour. See `eval/preregistration/entailment_strength.md` and
+   `docs/trust/deductive-coverage-result.md`.
+
 ## What this means for the roadmap
 
 The kill criterion firing is a real result, and it closes a direction rather than blocking one.

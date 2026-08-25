@@ -193,6 +193,59 @@ MUTANTS: tuple[Mutant, ...] = (
             "binding class reads 0.8712"
         ),
     ),
+    Mutant(
+        name="M14-control-class-composition-floor-removed",
+        target="dataforge/calibration_session.py",
+        old="    if human and CERTIFYING_CONTROL_ORIGIN not in controls_by_origin:",
+        new="    if False and CERTIFYING_CONTROL_ORIGIN not in controls_by_origin:",
+        tests=("tests/unit/test_label_noise_certification.py",),
+        why=(
+            "stratifying beta stopped two declared control classes being POOLED and never stopped "
+            "one being OMITTED, which is the reachable case: plant_controls hardcodes "
+            "origin='column_distribution' and is the only PlantedControl construction site in "
+            "dataforge/, so the harder class exists only in a docstring's promise. Measured, the "
+            "easy class bounds beta at 0.2445 against 0.8712 for the hard one, and a single-class "
+            "session of 30 clean easy plants certifies at 82 labels on a beta of 0.1157. Omission "
+            "is doubly rewarded: the binding class disappears and the survivor stops paying its "
+            "share of the union correction"
+        ),
+    ),
+    Mutant(
+        name="M15-str-declaration-confers-authority-again",
+        target="dataforge/domain/vocabulary.py",
+        old="    return declared_type.strip().lower() not in NON_DISCRIMINATING_COLUMN_TYPES",
+        new="    return True",
+        tests=(
+            "tests/adversarial/test_corpus_gate.py",
+            "tests/unit/test_column_scoped_authority.py",
+        ),
+        why=(
+            "a premise that merely NAMES a column is treated as authority over it again. Every CSV "
+            "cell is already a string and read_csv runs with dtype=str, so 'str' is the absence of "
+            "a type. Measured in eval/results/trust_ledger_adversarial.json: declaring every column "
+            "str admitted 10 of 14 constraint-violating attacks against 0 of 14 under a premise "
+            "that actually constrained, and the gate stamped every write 'proven' in both runs. "
+            "This is the same defect authoritative_columns was already narrowed once to fix, when "
+            "one accepted column_type on 'id' granted blanket authority over 'city'"
+        ),
+    ),
+    Mutant(
+        name="M16-fd-majority-reverted-to-plurality",
+        target="dataforge/repairers/fd_violation.py",
+        old="        if top_count * 2 > sum(counts.values()):",
+        new="        if top_count > (ranked[1][1] if len(ranked) > 1 else 0):",
+        tests=("tests/unit/test_repairers.py",),
+        why=(
+            "2 votes of 5 across four distinct values writes again, with 'deterministic' "
+            "provenance that bypasses calibration entirely, so no threshold downstream can catch "
+            "it. The function's docstring claimed strict majority throughout while the code "
+            "implemented a plurality. Measured in eval/results/deductive_coverage_flights.json: "
+            "the rules diverge on 1732 cells and plurality is worse on every axis -- write "
+            "precision 0.5618 against 0.6602, clean cells corrupted 731 against 344, net cells "
+            "improved +404 against +579. Hospital cannot see this mutant at all, which is why it "
+            "sat undetected"
+        ),
+    ),
 )
 
 
