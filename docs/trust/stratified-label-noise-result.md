@@ -178,8 +178,52 @@ The kill criterion firing is a real result, and it closes a direction rather tha
 
 **Closed:** certifying auto-apply at `alpha = 0.05` from human ratification of corrector proposals,
 at any realistic labelling budget. `min_samples_under_label_noise` already put the floor at 82 real
-items plus 30 controls, i.e. 112 human judgements; with `beta_upper = 0.8712` the adjusted bound
-cannot reach 0.05 at any sample size, because the inflation factor is `1/(1 - 0.8712) = 7.76`.
+items plus 30 controls, i.e. 112 human judgements; with `beta_upper = 0.8712` that floor becomes
+**572** error-free labels.
+
+### Correction, 2026-08-25: the inflation factor does not create an asymptote
+
+This document previously read *"the adjusted bound cannot reach 0.05 at any sample size, because the
+inflation factor is 1/(1 - 0.8712) = 7.76"*. **That is wrong, and it was wrong when written.** An
+inflation factor multiplies the *sample cost*; it never puts a target out of reach. The measured
+bound `1 - (delta/2)^(1/n)` tends to zero as `n` grows, so `measured / (1 - beta)` can be driven
+below any positive alpha. What 7.76 buys is roughly 7.76x the labels: the alpha=0.05 floor is **72**
+at a negligible beta and **572** at the binding one, a ratio of 7.94 -- the factor up to integer
+ceiling effects. (The 82 quoted below is the floor at the *easy-class* beta of 0.1157, not at zero;
+the three figures are 72, 82 and 572 for beta of 0, 0.1157 and 0.8712.)
+
+Computed with `_min_samples_given_beta` at `beta_upper = 0.8712`, `delta = 0.05`, zero observed
+errors:
+
+| alpha | error-free repair labels required |
+| --- | --- |
+| 0.01 | 2863 |
+| 0.05 | **572** |
+| 0.10 | 285 |
+| 0.20 | **142** |
+| 0.30 | 94 |
+| 0.50 | 56 |
+
+**The verdict is unchanged and the reason is now correct.** The kill criterion was pre-registered as
+`beta_upper > 0.35`, defined in `human_label_noise.md` as *"alpha=0.05 unreachable inside ~200
+judgements"*. 572 error-free labels plus controls exceeds 200, so the criterion fires exactly as
+recorded. The route is closed by **budget**, not by arithmetic impossibility -- a weaker and more
+honest statement than the one this document made, and one that survives someone checking it.
+
+### The alpha=0.20 fallback, finally computed
+
+`DECISIONS.md` has named "advisory triage at alpha=0.20" as the honest fallback since the kill
+criterion was written, and never evaluated it at the measured beta. It needs **142** error-free
+repair labels plus the controls -- against 49 under the small beta originally assumed, and inside the
+~200 budget. So the fallback is **arithmetically live**, which is more than could previously be
+claimed for it.
+
+Two caveats keep that from being good news. The 142 labels must contain **zero** observed errors, and
+they come from the same labeller whose measured false-accept rate is bounded at 0.8712; a labeller
+who accepted 4 of 8 planted wrong proposals is not a plausible source of 142 consecutive flawless
+verdicts. And the controls must include `corrector_generated` plants, which `plant_controls` cannot
+produce. So alpha=0.20 is reachable on paper and still blocked in practice, for a reason that has
+nothing to do with sample size.
 
 **Not closed:** everything that does not route through human ratification of machine proposals.
 The measured `beta` is a property of *that* labelling protocol -- acquiescence-biased ratification,

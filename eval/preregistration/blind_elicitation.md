@@ -152,3 +152,27 @@ different error distribution than the corrector. With one model available that i
 this probe is not re-run at a different sample size or threshold -- it is the wrong instrument, and
 re-running it would only buy a tighter estimate of an uninformative quantity. The pre-registered
 VOID stands.
+
+## Amendment 2, 2026-08-25: the premise in "Why this exists" was overstated
+
+**The body above is not edited.** This records an error in this document's motivation section, found
+while finally computing the alpha=0.20 fallback that `DECISIONS.md` had been naming for weeks.
+
+Lines 8-11 state that `beta_upper = 0.8712` and an inflation factor of 7.76 "puts 0.05 out of reach
+at any sample size". **That is false.** An inflation factor multiplies the required sample size; it
+cannot create an asymptote, because the measured Clopper-Pearson bound `1 - (delta/2)^(1/n)` tends to
+zero as `n` grows, so `measured / (1 - beta)` can be driven below any positive alpha. Computed at the
+measured beta with `delta = 0.05` and zero observed errors, alpha=0.05 needs **572** error-free
+labels rather than infinitely many -- roughly 7.76x the 82 required at a negligible beta, which is
+the inflation factor almost exactly.
+
+**Nothing in this pre-registration's design, predictions or verdict depends on the error.** The
+kill criterion it inherited was pre-registered as `beta_upper > 0.35`, defined as "alpha=0.05
+unreachable inside ~200 judgements", and 572 exceeds 200. Human ratification remains closed on
+budget. The reason this document existed -- that blind elicitation is a different protocol with a
+different `beta` -- is untouched, as is its VOID verdict and the labeller-independence precondition
+recorded in Amendment 1.
+
+Corrected in place in `docs/trust/stratified-label-noise-result.md` and `DECISIONS.md`, which also
+carry the full alpha table. Recorded here rather than edited above, because a pre-registration whose
+motivation can be quietly rewritten after the fact is not a pre-registration.

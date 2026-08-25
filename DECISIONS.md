@@ -3225,7 +3225,16 @@ classes are "not interchangeable, and pooling them is not defensible" -- `column
 **Measured**: pooled `beta_upper` = **0.3125**, which does NOT fire the criterion. Stratified with
 a union correction across the two classes, the binding `corrector_generated` bound is **0.8712**,
 which fires it decisively. Adjusted bound moves 0.1153 -> **0.8953**; the inflation factor
-1/(1-0.8712) = 7.76 puts 0.05 out of reach at any sample size.
+1/(1-0.8712) = 7.76 raises the alpha=0.05 label floor from 82 to **572** error-free labels.
+
+**Corrected 2026-08-25.** This entry originally read "the inflation factor 1/(1-0.8712) = 7.76 puts
+0.05 out of reach at any sample size". That was wrong when written. An inflation factor multiplies
+the sample cost; it cannot create an asymptote, because the measured bound `1 - (delta/2)^(1/n)`
+tends to zero and so `measured / (1 - beta)` can be driven below any positive alpha. The kill
+criterion still fires exactly as pre-registered -- it was defined as "alpha=0.05 unreachable inside
+~200 judgements", and 572 exceeds 200 -- so the verdict stands on budget rather than on
+impossibility. Full table and the alpha=0.20 evaluation are in
+`docs/trust/stratified-label-noise-result.md`.
 
 **Options**: (a) keep pooling and keep the scope note - rejected, it suppresses a pre-registered
 decision; (b) stratify and let the worst class bind - CHOSEN; (c) stratify but average the classes -
