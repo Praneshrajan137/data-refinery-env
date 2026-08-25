@@ -1,6 +1,6 @@
 {
   "arm_definitions": {
-    "mined": "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor; this is what fd_detection_source='accepted' keeps, and 'accepted' is the default",
+    "mined": "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor. NOT a default-reachable configuration: --fd-detection defaults to 'accepted', but that flag FILTERS dependencies already in the effective schema and does not mine any. A mined FD reaches the repairer only after profile --constraints-out, an explicit constraints review --accept over a printed queue-cost warning, and repair --constraints. This arm models a user who accepted the miner's output",
     "oracle": "single-column FDs holding exactly on the CLEAN frame; no user has this; the ceiling on the mechanism"
   },
   "arms": {

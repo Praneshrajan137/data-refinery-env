@@ -26,8 +26,12 @@ and **10 of 14** under a premise declaring every column ``str``, with every writ
   here, no amount of schema authoring rescues it.
 * **mined** -- functional dependencies from the product's own miner,
   :func:`dataforge.schema_inference.infer_verification_schema`, run on the **dirty** frame at its
-  shipped 0.95 confidence threshold. This is what ``fd_detection_source="accepted"`` keeps, and
-  that is the **default** in ``RepairRequest`` (``dataforge/engine/repair.py``:390).
+  shipped 0.95 confidence threshold. **This is not a default-reachable configuration.**
+  ``--fd-detection`` does default to ``accepted``, but that flag *filters* dependencies already in
+  the effective schema and mines nothing. A mined FD reaches the repairer only after
+  ``profile --constraints-out``, an explicit ``constraints review --accept`` over a printed
+  queue-cost warning, and ``repair --constraints``. This arm models a user who took those three
+  steps and accepted the miner's output.
 
 The mined arm is the one that matters for safety. An FD-derived repair carries ``deterministic``
 provenance, and ``partition_auto_apply`` lets ``deterministic`` fixes on allowlisted detectors
@@ -537,8 +541,12 @@ def measure(corpus: str, *, cache_root: Path | None) -> dict[str, Any]:
                 "ceiling on the mechanism"
             ),
             "mined": (
-                "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor; this is "
-                "what fd_detection_source='accepted' keeps, and 'accepted' is the default"
+                "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor. NOT a "
+                "default-reachable configuration: --fd-detection defaults to 'accepted', but that "
+                "flag FILTERS dependencies already in the effective schema and does not mine any. "
+                "A mined FD reaches the repairer only after profile --constraints-out, an explicit "
+                "constraints review --accept over a printed queue-cost warning, and repair "
+                "--constraints. This arm models a user who accepted the miner's output"
             ),
         },
         "arms": {

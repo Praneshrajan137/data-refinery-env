@@ -28,9 +28,9 @@ path in the product that writes to a user's data on its own authority.
 | hospital | oracle | plurality (former) | 393 | 393 | 0 | **0** | 1.0000 | +393 |
 | hospital | oracle | **majority (ships)** | 393 | 393 | 0 | **0** | 1.0000 | +393 |
 | hospital | oracle | unanimity (rejected) | 182 | 179 | 0 | **3** | 0.9835 | +176 |
-| hospital | mined (**default**) | plurality (former) | 537 | 451 | 0 | **86** | 0.8399 | +365 |
-| hospital | mined (**default**) | **majority (ships)** | 537 | 451 | 0 | **86** | 0.8399 | +365 |
-| hospital | mined (**default**) | unanimity (rejected) | 207 | 195 | 0 | **12** | 0.9420 | +183 |
+| hospital | mined (opt-in) | plurality (former) | 537 | 451 | 0 | **86** | 0.8399 | +365 |
+| hospital | mined (opt-in) | **majority (ships)** | 537 | 451 | 0 | **86** | 0.8399 | +365 |
+| hospital | mined (opt-in) | unanimity (rejected) | 207 | 195 | 0 | **12** | 0.9420 | +183 |
 | flights | oracle | plurality (former) | 3270 | 1837 | 702 | **731** | 0.5618 | +404 |
 | flights | oracle | **majority (ships)** | 1807 | 1193 | 270 | **344** | 0.6602 | **+579** |
 | flights | mined | any | 0 | 0 | 0 | 0 | n/a | 0 |
@@ -40,6 +40,33 @@ path in the product that writes to a user's data on its own authority.
 change a cell that was **already correct**. Every figure is per distinct cell, not per detector flag:
 with a mined premise the same cell is flagged once per FD naming its column, which inflated the flag
 count to 48,599 against 10,064 distinct cells and would have inflated every rate computed from it.
+
+## Correction, 2026-08-25: the mined arm is opt-in, not the default
+
+The first version of this document, and the artifacts it cites, described the mined premise as "what
+`fd_detection_source='accepted'` keeps, and `'accepted'` is the default". The second clause is true
+and the implication drawn from it was not. **`--fd-detection accepted` filters dependencies already
+present in the effective schema; it mines nothing.**
+
+A mined dependency reaches `FDViolationRepairer` only after all three of:
+
+1. `dataforge profile <csv> --constraints-out <artifact.json>`, which writes every candidate with
+   `decision="pending"` (`dataforge/schema_inference.py`:119);
+2. `dataforge constraints review <artifact.json> --accept <cnd-id>`, over the queue-cost warning
+   already printed at `dataforge/cli/constraints.py`:318-345;
+3. `dataforge repair <csv> --constraints <artifact.json>`.
+
+Without an artifact, `merge_schema_with_reviewed_constraints` returns the declared schema untouched
+(`schema_inference.py`:356-357); with one whose candidates are still pending, nothing is merged
+(`:363-366`). The only auto-mined schema on the repair path, `infer_verification_schema` at
+`dataforge/engine/repair.py`:1680, is routed exclusively to the SMT guard (`:661-670`) and can reach
+neither detection nor repair.
+
+**The 86 corruptions stand; their reachability was misdescribed.** They are the measured cost of a
+deliberate, warned opt-in rather than of a default. That lowers the severity and changes the remedy:
+the warning at acceptance time should carry this number, which is a cheaper and better-targeted fix
+than a new gate. It does not make the number less true, and it does not change that these writes
+carry `deterministic` provenance and bypass calibration entirely once accepted.
 
 ## The measurement everyone was reporting instead
 
