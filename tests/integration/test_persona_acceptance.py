@@ -11,12 +11,14 @@ acceptance criteria, so "the outcomes work" is verified, not asserted:
 
 from __future__ import annotations
 
+import re
 import time
 from pathlib import Path
 
 from typer.testing import CliRunner
 
 from dataforge.cli import app
+from tests.integration.test_quickstart import repair_count
 
 runner = CliRunner()
 _REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -40,15 +42,69 @@ class TestPriyaProfilesQuickly:
 
 
 class TestMarcusGetsValueInSeconds:
-    """Marcus wants pip-install-then-run value with zero setup."""
+    """Marcus wants pip-install-then-run value with zero setup.
 
-    def test_quickstart_zero_config(self) -> None:
+    This class was vacuous until 2026-08-25. It asserted that the quickstart printed the
+    words "verified, reversible repair" -- a sentence the command emits whether it repaired
+    seven cells or none. When ``type_mismatch`` left the calibration-bypass allowlist the
+    demo began reporting **zero** repairs and this test still passed, so the persona's
+    stated criterion ("gets value") was never actually verified.
+
+    It now checks the outcome Marcus was promised, end to end: a repair is found, applied,
+    audited, and reverted to byte identity. Every step is a command the README tells him to
+    run.
+    """
+
+    def test_quickstart_delivers_a_repair_not_just_a_sentence(self) -> None:
         started = time.perf_counter()
         result = runner.invoke(app, ["quickstart"])
         elapsed = time.perf_counter() - started
         assert result.exit_code == 0
         assert elapsed < 10.0
-        assert "verified, reversible repair" in result.output
+        assert repair_count(result.output) >= 1, (
+            "the quickstart promised a verified reversible repair and delivered none"
+        )
+
+    def test_the_promised_apply_audit_revert_journey_completes(self, tmp_path: Path) -> None:
+        """The documented walkthrough, run verbatim, including the txn-id handoff.
+
+        `docs/docs/quickstart.md` tells a user to apply, then audit the transaction id, then
+        revert it. Until this test existed, nothing checked that an id was ever produced --
+        and for a period it was not, because the fixture's only repair came from a detector
+        that had lost its write path. A documented step that cannot complete is worse than a
+        missing feature, so the handoff is asserted rather than assumed.
+        """
+        fixtures = _REPO_ROOT / "dataforge" / "fixtures"
+        source = tmp_path / "readings.csv"
+        source.write_bytes((fixtures / "premised_fd_10rows.csv").read_bytes())
+        schema = fixtures / "premised_fd_10rows.schema.yaml"
+        original = source.read_bytes()
+
+        applied = runner.invoke(app, ["repair", str(source), "--schema", str(schema), "--apply"])
+        assert applied.exit_code == 0, f"apply failed:\n{applied.output}"
+        assert source.read_bytes() != original, "apply reported success but wrote nothing"
+
+        match = re.search(r"(txn-[0-9a-zA-Z._-]+)", applied.output)
+        assert match is not None, (
+            "apply produced no transaction id, so the documented `audit <txn-id>` and "
+            f"`revert <txn-id>` steps cannot be run. Output was:\n{applied.output}"
+        )
+        txn_id = match.group(1)
+
+        # `--search-root` is required because the transaction journal is written beside the
+        # data, not under the process's working directory. The published walkthrough in
+        # `docs/docs/quickstart.md` applies to a file in /tmp and then runs a bare
+        # `audit <txn-id>`, which only works if the user happens to be sitting in /tmp.
+        # Discovered by writing this test; the docs are corrected alongside it.
+        audited = runner.invoke(app, ["audit", txn_id, "--search-root", str(tmp_path)])
+        assert audited.exit_code == 0, f"audit of {txn_id} failed:\n{audited.output}"
+
+        reverted = runner.invoke(app, ["revert", txn_id, "--search-root", str(tmp_path)])
+        assert reverted.exit_code == 0, f"revert of {txn_id} failed:\n{reverted.output}"
+        assert source.read_bytes() == original, (
+            "revert did not restore byte identity, which is the one guarantee this "
+            "product makes unconditionally"
+        )
 
 
 class TestShreyaReadsHonestEvidence:
