@@ -280,6 +280,18 @@ def _render_certification(certification: SessionCertification) -> None:
             "certificate is conditional on those verdicts being ground truth, and it does NOT "
             "transfer to human labelling.[/yellow]"
         )
+    # Stated because its absence was mistaken for a product route. `SessionCertification` is
+    # printed and discarded: there is no serializer, no loader, and `dataforge repair` reads a
+    # different artifact through `--corrector-calibration`, whose schema this object cannot
+    # satisfy. Nothing here has ever influenced a write, and the pre-registered kill criterion in
+    # docs/trust/stratified-label-noise-result.md fired on the measurement that would justify
+    # wiring it.
+    _console.print(
+        "[yellow]This certificate is advisory and is NOT consumed by `dataforge repair`. There is "
+        "no path from these thresholds to an applied fix; `--corrector-calibration` reads a "
+        "different artifact. Treat the numbers as a measurement of your labelling, not as a "
+        "licence to auto-apply.[/yellow]"
+    )
 
 
 def _render(

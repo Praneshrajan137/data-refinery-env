@@ -71,6 +71,23 @@ LabelSource = Literal["human", "oracle", "llm_probe"]
 #: different claims to being distributionally like a real corrector error.
 PlantedControlOrigin = Literal["column_distribution", "corrector_generated"]
 
+#: The control origin a human-label certificate must include before its ``beta`` means anything.
+#:
+#: Stratifying ``beta`` by origin protected against **pooling** two declared classes. It never
+#: protected against a class not being declared at all, and that is the reachable case:
+#: :func:`plant_controls` hardcodes ``column_distribution`` and is the only ``PlantedControl``
+#: construction site in ``dataforge/``. Its own docstring defers the harder class to "the proposal
+#: pass, which needs the model" -- a pass that does not exist. So the soundness of the stratified
+#: bound rested on a class only a docstring promised.
+#:
+#: The two classes are not interchangeable, and the gap is measured rather than assumed.
+#: ``docs/trust/stratified-label-noise-result.md`` records 2 of 30 accepted on
+#: ``column_distribution`` against 4 of 8 on ``corrector_generated``, giving ``beta`` bounds of
+#: 0.2445 and 0.8712. A single-class session of 30 clean easy plants yields ``beta`` 0.1157 and
+#: certifies at 82 labels. Omitting a class is doubly rewarded: the binding class disappears **and**
+#: the surviving class stops paying its share of the union correction.
+CERTIFYING_CONTROL_ORIGIN: PlantedControlOrigin = "corrector_generated"
+
 _DEFAULT_PER_CLASS = 12
 _DEFAULT_SEED = 20260806
 
@@ -983,6 +1000,25 @@ def certify_from_session(
             "beta = 0.5. Assuming beta = 0 for a human would advertise an error budget this "
             "certificate cannot support. Add planted controls (see PlantedControl) or record "
             "label_source='oracle' if these verdicts come from retained ground truth."
+        )
+
+    if human and CERTIFYING_CONTROL_ORIGIN not in controls_by_origin:
+        raise ValueError(
+            f"human labels cannot certify without {CERTIFYING_CONTROL_ORIGIN!r} controls. Only "
+            f"{sorted(controls_by_origin)} were labelled. Stratifying beta by origin stops two "
+            "declared classes being POOLED; it does nothing about a class that was never declared, "
+            "and that is the anti-conservative direction. Measured: the easy class bounds beta at "
+            "0.2445 while the hard one bounds it at 0.8712, so a certificate resting on easy plants "
+            "alone understates the labeller's false-accept rate by roughly 3.6x -- and omitting the "
+            "hard class also stops the easy one paying its share of the union correction, so the "
+            "understatement compounds. plant_controls() cannot produce this class: it needs real "
+            "wrong proposals from a real corrector, which is why the class is distributionally like "
+            "a genuine mistake and why it cannot be synthesised. See "
+            "docs/trust/stratified-label-noise-result.md. Note also that "
+            "docs/trust/stratified-label-noise-result.md records the pre-registered kill criterion "
+            "FIRING on this measurement: per-table certification from human labels at alpha=0.05 is "
+            "dead, so the honest response to this error is usually not to source the controls but "
+            "to stop seeking a certificate."
         )
 
     by_class: dict[str, list[tuple[float, bool]]] = {}

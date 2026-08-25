@@ -204,8 +204,8 @@ class TestTheAdjustmentOnlyTightens:
 
     def test_a_labeller_who_accepts_plants_blocks_certification(self) -> None:
         """The measurement that could embarrass us: bad controls must cost coverage."""
-        clean = _human_session(labels=120, controls=30, false_accepts=0)
-        sloppy = _human_session(labels=120, controls=30, false_accepts=8)
+        clean = _two_class_session(easy_accepts=0, hard_controls=30, hard_accepts=0)
+        sloppy = _two_class_session(easy_accepts=8, hard_controls=30, hard_accepts=0)
         assert certify_from_session(clean).certified_classes == ["type_mismatch"]
         result = certify_from_session(sloppy)
         assert result.certified_classes == []
@@ -325,14 +325,17 @@ class TestScopeTravelsInTheArtifact:
     """A guarantee that hides its own scope is how six claims got retracted."""
 
     def test_the_plant_distribution_caveat_is_recorded(self) -> None:
-        result = certify_from_session(_human_session())
+        result = certify_from_session(_two_class_session())
         assert result.beta_scope_note is not None
         assert "PLANTED-CONTROL distribution" in result.beta_scope_note
         assert "anti-conservative" in result.beta_scope_note
 
     def test_control_counts_are_recorded(self) -> None:
-        result = certify_from_session(_human_session(controls=30, false_accepts=2))
-        assert result.label_noise_controls == 30
+        """Pooled totals are kept as a checkable summary of the per-class tallies."""
+        result = certify_from_session(
+            _two_class_session(easy_controls=30, easy_accepts=2, hard_controls=8, hard_accepts=0)
+        )
+        assert result.label_noise_controls == 38, "30 easy plus 8 hard"
         assert result.label_noise_false_accepts == 2
         assert result.label_noise_adjusted is True
 
@@ -364,7 +367,7 @@ class TestPlantsNeverEnterCertification:
     """A plant is known-wrong by construction. Certifying on one would be circular."""
 
     def test_planted_controls_are_not_counted_as_repair_labels(self) -> None:
-        artifact = _human_session(labels=120, controls=30)
+        artifact = _two_class_session()
         result = certify_from_session(artifact)
         assert result.repair_labels_used == 120, "plants must not inflate the label count"
 
@@ -497,10 +500,18 @@ class TestTheLivePathStratifiesRatherThanPooling:
         With one class the union correction divides delta/2 by 1, so the stratified bound is
         bit-identical to the pooled one. That keeps the blast radius exactly at genuinely
         pooled multi-origin sets.
+
+        Asserted at the arithmetic helper rather than through ``certify_from_session``, because
+        the product path now **refuses** a single-origin control set: a bound measured only on
+        easy plants understates beta, and the equivalence proved here is precisely why that
+        refusal is needed. The arithmetic is innocent; using it on one class is not.
         """
-        single = certify_from_session(_human_session(labels=120, controls=30, false_accepts=2))
+        stratified = label_noise_adjusted_bound_stratified(
+            0, 1, controls_by_class={"column_distribution": (2, 30)}
+        )
         expected = label_noise_adjusted_bound(0, 1, false_accepts=2, controls=30)[1]
-        assert single.beta_upper == pytest.approx(expected, abs=1e-12)
+        assert stratified.beta_upper == pytest.approx(expected, abs=1e-12)
+        assert stratified.beta_upper == pytest.approx(stratified.pooled_beta_upper, abs=1e-12)
 
 
 class TestAnLlmLabellerCannotCertify:
@@ -542,7 +553,9 @@ class TestAnLlmLabellerCannotCertify:
 
     def test_oracle_and_human_still_dispatch(self) -> None:
         """The exhaustive match must not have broken the two live paths."""
-        human = certify_from_session(_human_session(labels=120, controls=30, false_accepts=0))
+        human = certify_from_session(
+            _two_class_session(easy_accepts=0, hard_controls=30, hard_accepts=0)
+        )
         assert human.beta_upper is not None, "human labels must carry a measured beta"
         oracle = certify_from_session(
             _human_session(labels=120, controls=30).model_copy(update={"label_source": "oracle"})
@@ -707,3 +720,68 @@ class TestCertificateIsSelfChecking:
             "a flawless easy class must not buy a looser bound on the hard one"
         )
         assert padded.binding_control_class == alone.binding_control_class == "corrector_generated"
+
+
+class TestTheHardControlClassIsMandatory:
+    """Stratifying beta stopped pooling; it did not stop omitting.
+
+    The stratified bound rigorously refuses a class declared with zero members and rigorously
+    refuses a bound attributed to anything but the worst declared class. Both checks are satisfied
+    by a single-key dict containing only ``column_distribution`` -- which is the **only** dict
+    ``plant_controls`` can produce, because it hardcodes that origin and the proposal pass that
+    would produce the other one does not exist. The soundness of the whole stratification therefore
+    rested on a control class only a docstring promised.
+    """
+
+    def test_easy_plants_alone_cannot_certify(self) -> None:
+        artifact = _human_session(labels=120, controls=30, false_accepts=0)
+        assert set(artifact.controls_by_origin()) == {"column_distribution"}
+        with pytest.raises(ValueError, match="corrector_generated"):
+            certify_from_session(artifact)
+
+    def test_the_refusal_names_the_measured_gap_not_just_the_rule(self) -> None:
+        """An error that states a policy teaches nothing; one that states the number does."""
+        with pytest.raises(ValueError) as caught:
+            certify_from_session(_human_session(labels=120, controls=30))
+        message = str(caught.value)
+        assert "0.2445" in message and "0.8712" in message, (
+            "the refusal must carry the two measured bounds, because the reader's next question "
+            "is how much the omission actually costs"
+        )
+        assert "union correction" in message, (
+            "omitting a class is doubly rewarded and the message must say so"
+        )
+        assert "stratified-label-noise-result" in message
+
+    def test_a_session_carrying_both_classes_still_certifies(self) -> None:
+        """Non-vacuity: the floor must block the unsound case, not certification itself."""
+        result = certify_from_session(
+            _two_class_session(easy_accepts=0, hard_controls=30, hard_accepts=0)
+        )
+        assert result.certified_classes == ["type_mismatch"]
+        assert set(result.label_noise_controls_by_class) == {
+            "column_distribution",
+            "corrector_generated",
+        }
+
+    def test_oracle_labels_are_exempt_because_they_have_no_labeller(self) -> None:
+        """The floor bounds a human's false-accept rate. Retained truth has none to bound."""
+        oracle = _human_session(labels=120, controls=30).model_copy(
+            update={"label_source": "oracle"}
+        )
+        result = certify_from_session(oracle)
+        assert result.beta_upper is None
+        assert result.label_noise_controls_by_class == {}
+
+    def test_the_hard_class_alone_is_accepted(self) -> None:
+        """The floor requires the hard class, not a mixture.
+
+        Nothing about the easy class is load-bearing: it is the cheap one to produce and the one
+        that understates beta. A session carrying only hard controls is strictly better evidence
+        than one carrying only easy controls, so it must not be refused.
+        """
+        result = certify_from_session(
+            _two_class_session(easy_controls=0, easy_accepts=0, hard_controls=30, hard_accepts=0)
+        )
+        assert set(result.label_noise_controls_by_class) == {"corrector_generated"}
+        assert result.binding_control_class == "corrector_generated"
