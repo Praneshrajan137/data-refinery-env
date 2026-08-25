@@ -1,0 +1,472 @@
+{
+  "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+  "corpus": "flights",
+  "detectors": {
+    "fd_violation": {
+      "mined": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "fd_count_holding_on_clean": 0,
+          "fd_set_precision": null,
+          "functional_dependencies": [],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      },
+      "oracle": {
+        "abstained_on_flag": 6666,
+        "corrupted_a_clean_cell": 344,
+        "coverage_of_all_table_errors": 0.2425,
+        "detector_flags": 8473,
+        "distinct_cells_flagged": 8473,
+        "examples": {
+          "corrupted_a_clean_cell": [
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 0,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 537,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 811,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 989,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1758,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1858,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 2050,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 2321,
+              "truth": "9:32 a.m.",
+              "was": "9:32 a.m.",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 12,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 566,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 841,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1013,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1602,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1788,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1887,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 2080,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 2337,
+              "truth": "11:56 a.m.",
+              "was": "11:56 a.m.",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1430,
+              "truth": "12:21 a.m.",
+              "was": "12:21 a.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1441,
+              "truth": "6:40 p.m.",
+              "was": "6:40 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_dep_time",
+              "provenance": "deterministic",
+              "row": 4,
+              "truth": "12:41 p.m.",
+              "was": "12:41 p.m.",
+              "would_be_written": "12:42 p.m."
+            }
+          ],
+          "wrong_value_on_a_real_error": [
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 250,
+              "truth": "9:32 a.m.",
+              "was": "",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1170,
+              "truth": "9:32 a.m.",
+              "was": "",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1323,
+              "truth": "9:32 a.m.",
+              "was": "9:32aDec 1",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1637,
+              "truth": "9:32 a.m.",
+              "was": "",
+              "would_be_written": "9:22 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 55,
+              "truth": "10:30 p.m.",
+              "was": "10:31 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 155,
+              "truth": "10:30 p.m.",
+              "was": "10:39 p.m.&nbsp(Estimated)",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 342,
+              "truth": "10:30 p.m.",
+              "was": "10:31 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 542,
+              "truth": "10:30 p.m.",
+              "was": "10:30 p.m. (Estimated)",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 730,
+              "truth": "10:30 p.m.",
+              "was": "10:28 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 993,
+              "truth": "10:30 p.m.",
+              "was": "10:30 p.m.*",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1228,
+              "truth": "10:30 p.m.",
+              "was": "10:31 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1464,
+              "truth": "10:30 p.m.",
+              "was": "10:30 p.m. (Estimated)",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1492,
+              "truth": "10:30 p.m.",
+              "was": "10:31 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1665,
+              "truth": "10:30 p.m.",
+              "was": "10:28 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1863,
+              "truth": "10:30 p.m.",
+              "was": "10:30 p.m. (Estimated)",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 2259,
+              "truth": "10:30 p.m.",
+              "was": "10:28 p.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 2324,
+              "truth": "10:30 p.m.",
+              "was": "10:30 p.m. (Estimated)",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 1353,
+              "truth": "11:56 a.m.",
+              "was": "11:56aDec 1",
+              "would_be_written": "11:50 a.m."
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 112,
+              "truth": "5:50 a.m.",
+              "was": "5:52 a.m.",
+              "would_be_written": ""
+            },
+            {
+              "column": "act_arr_time",
+              "provenance": "deterministic",
+              "row": 301,
+              "truth": "5:50 a.m.",
+              "was": "5:49 a.m.",
+              "would_be_written": ""
+            }
+          ]
+        },
+        "harmful_write_rate": 0.3398,
+        "net_cells_improved": 579,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 4,
+          "fd_count_holding_on_clean": 4,
+          "fd_set_precision": 1.0,
+          "functional_dependencies": [
+            "flight -> act_arr_time",
+            "flight -> act_dep_time",
+            "flight -> sched_arr_time",
+            "flight -> sched_dep_time"
+          ],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 1807,
+        "repaired_a_real_error": 1193,
+        "write_precision": 0.6602,
+        "wrong_value_on_a_real_error": 270
+      }
+    },
+    "missing_value": {
+      "mined": {
+        "abstained_on_flag": 2370,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 2370,
+        "distinct_cells_flagged": 2370,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "fd_count_holding_on_clean": 0,
+          "fd_set_precision": null,
+          "functional_dependencies": [],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      },
+      "oracle": {
+        "abstained_on_flag": 1943,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0868,
+        "detector_flags": 2370,
+        "distinct_cells_flagged": 2370,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": 0.0,
+        "net_cells_improved": 427,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 4,
+          "fd_count_holding_on_clean": 4,
+          "fd_set_precision": 1.0,
+          "functional_dependencies": [
+            "flight -> act_arr_time",
+            "flight -> act_dep_time",
+            "flight -> sched_arr_time",
+            "flight -> sched_dep_time"
+          ],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 427,
+        "repaired_a_real_error": 427,
+        "write_precision": 1.0,
+        "wrong_value_on_a_real_error": 0
+      }
+    },
+    "type_mismatch": {
+      "no_premise": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    }
+  },
+  "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+  "note": "Unconditional write exposure for every detector whose deterministic fixes bypass the calibration threshold. Per distinct cell, not per flag. Pre-registered in eval/preregistration/bypass_allowlist_evidence.md.",
+  "real_errors_in_table": 4920,
+  "rows": 2376,
+  "schema": "dataforge_bypass_allowlist_evidence_v1"
+}

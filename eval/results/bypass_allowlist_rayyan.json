@@ -1,0 +1,140 @@
+{
+  "clean_sha256": "23159f43c0706782388ed8957ad0c74eb7b88bc98f34d65bd49296e186d4673f",
+  "corpus": "rayyan",
+  "detectors": {
+    "fd_violation": {
+      "mined": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "fd_count_holding_on_clean": 0,
+          "fd_set_precision": null,
+          "functional_dependencies": [],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      },
+      "oracle": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "fd_count_holding_on_clean": 0,
+          "fd_set_precision": null,
+          "functional_dependencies": [],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    },
+    "missing_value": {
+      "mined": {
+        "abstained_on_flag": 1155,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 1155,
+        "distinct_cells_flagged": 1155,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "fd_count_holding_on_clean": 0,
+          "fd_set_precision": null,
+          "functional_dependencies": [],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      },
+      "oracle": {
+        "abstained_on_flag": 1155,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 1155,
+        "distinct_cells_flagged": 1155,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "fd_count_holding_on_clean": 0,
+          "fd_set_precision": null,
+          "functional_dependencies": [],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    },
+    "type_mismatch": {
+      "no_premise": {
+        "abstained_on_flag": 64,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 64,
+        "distinct_cells_flagged": 64,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    }
+  },
+  "dirty_sha256": "7e25e6db262b0c72ca2d9735d5959599cf5a582e1c705459507c7b45d0d1d174",
+  "note": "Unconditional write exposure for every detector whose deterministic fixes bypass the calibration threshold. Per distinct cell, not per flag. Pre-registered in eval/preregistration/bypass_allowlist_evidence.md.",
+  "real_errors_in_table": 948,
+  "rows": 1000,
+  "schema": "dataforge_bypass_allowlist_evidence_v1"
+}

@@ -1,0 +1,385 @@
+{
+  "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+  "corpus": "hospital",
+  "detectors": {
+    "fd_violation": {
+      "mined": {
+        "abstained_on_flag": 9527,
+        "corrupted_a_clean_cell": 86,
+        "coverage_of_all_table_errors": 0.8861,
+        "detector_flags": 48599,
+        "distinct_cells_flagged": 10064,
+        "examples": {
+          "corrupted_a_clean_cell": [
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 666,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 667,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 668,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 669,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 670,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 671,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 672,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 673,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 674,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 675,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 676,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 677,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 678,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 680,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 681,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 682,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 683,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 684,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 686,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            },
+            {
+              "column": "HospitalName",
+              "provenance": "deterministic",
+              "row": 687,
+              "truth": "university of alabama hospital",
+              "was": "university of alabama hospital",
+              "would_be_written": "callahan eye foundation hospital"
+            }
+          ],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": 0.1601,
+        "net_cells_improved": 365,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 115,
+          "fd_count_holding_on_clean": 103,
+          "fd_set_precision": 0.8957,
+          "functional_dependencies": [
+            "HospitalName -> Address1",
+            "PhoneNumber -> Address1",
+            "ProviderNumber -> Address1",
+            "Address1 -> Address2",
+            "City -> Address2",
+            "Condition -> Address2",
+            "CountyName -> Address2",
+            "EmergencyService -> Address2",
+            "HospitalName -> Address2",
+            "HospitalOwner -> Address2",
+            "HospitalType -> Address2",
+            "MeasureCode -> Address2",
+            "MeasureName -> Address2",
+            "PhoneNumber -> Address2",
+            "ProviderNumber -> Address2",
+            "Sample -> Address2",
+            "Score -> Address2",
+            "State -> Address2",
+            "Stateavg -> Address2",
+            "ZipCode -> Address2"
+          ],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 537,
+        "repaired_a_real_error": 451,
+        "write_precision": 0.8399,
+        "wrong_value_on_a_real_error": 0
+      },
+      "oracle": {
+        "abstained_on_flag": 7512,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.7721,
+        "detector_flags": 28679,
+        "distinct_cells_flagged": 7905,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": 0.0,
+        "net_cells_improved": 393,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 53,
+          "fd_count_holding_on_clean": 53,
+          "fd_set_precision": 1.0,
+          "functional_dependencies": [
+            "HospitalName -> Address1",
+            "PhoneNumber -> Address1",
+            "ProviderNumber -> Address1",
+            "Address1 -> City",
+            "HospitalName -> City",
+            "PhoneNumber -> City",
+            "ProviderNumber -> City",
+            "ZipCode -> City",
+            "MeasureCode -> Condition",
+            "MeasureName -> Condition",
+            "Stateavg -> Condition",
+            "Address1 -> CountyName",
+            "City -> CountyName",
+            "HospitalName -> CountyName",
+            "PhoneNumber -> CountyName",
+            "ProviderNumber -> CountyName",
+            "ZipCode -> CountyName",
+            "Address1 -> EmergencyService",
+            "City -> EmergencyService",
+            "CountyName -> EmergencyService"
+          ],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 393,
+        "repaired_a_real_error": 393,
+        "write_precision": 1.0,
+        "wrong_value_on_a_real_error": 0
+      }
+    },
+    "missing_value": {
+      "mined": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 115,
+          "fd_count_holding_on_clean": 103,
+          "fd_set_precision": 0.8957,
+          "functional_dependencies": [
+            "HospitalName -> Address1",
+            "PhoneNumber -> Address1",
+            "ProviderNumber -> Address1",
+            "Address1 -> Address2",
+            "City -> Address2",
+            "Condition -> Address2",
+            "CountyName -> Address2",
+            "EmergencyService -> Address2",
+            "HospitalName -> Address2",
+            "HospitalOwner -> Address2",
+            "HospitalType -> Address2",
+            "MeasureCode -> Address2",
+            "MeasureName -> Address2",
+            "PhoneNumber -> Address2",
+            "ProviderNumber -> Address2",
+            "Sample -> Address2",
+            "Score -> Address2",
+            "State -> Address2",
+            "Stateavg -> Address2",
+            "ZipCode -> Address2"
+          ],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      },
+      "oracle": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 53,
+          "fd_count_holding_on_clean": 53,
+          "fd_set_precision": 1.0,
+          "functional_dependencies": [
+            "HospitalName -> Address1",
+            "PhoneNumber -> Address1",
+            "ProviderNumber -> Address1",
+            "Address1 -> City",
+            "HospitalName -> City",
+            "PhoneNumber -> City",
+            "ProviderNumber -> City",
+            "ZipCode -> City",
+            "MeasureCode -> Condition",
+            "MeasureName -> Condition",
+            "Stateavg -> Condition",
+            "Address1 -> CountyName",
+            "City -> CountyName",
+            "HospitalName -> CountyName",
+            "PhoneNumber -> CountyName",
+            "ProviderNumber -> CountyName",
+            "ZipCode -> CountyName",
+            "Address1 -> EmergencyService",
+            "City -> EmergencyService",
+            "CountyName -> EmergencyService"
+          ],
+          "kind": "declared_all_str_plus_fds"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    },
+    "type_mismatch": {
+      "no_premise": {
+        "abstained_on_flag": 92,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 92,
+        "distinct_cells_flagged": 92,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    }
+  },
+  "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+  "note": "Unconditional write exposure for every detector whose deterministic fixes bypass the calibration threshold. Per distinct cell, not per flag. Pre-registered in eval/preregistration/bypass_allowlist_evidence.md.",
+  "real_errors_in_table": 509,
+  "rows": 1000,
+  "schema": "dataforge_bypass_allowlist_evidence_v1"
+}
