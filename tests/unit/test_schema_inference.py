@@ -8,8 +8,10 @@ from pathlib import Path
 import pytest
 
 from dataforge.schema_inference import (
+    ConstraintCandidate,
     ConstraintReviewError,
     build_constraint_review_artifact,
+    constraint_candidate_id,
     dump_constraint_review_artifact,
     infer_schema,
     load_constraint_review_artifact,
@@ -208,3 +210,166 @@ def test_constraint_review_atomic_write_round_trips(tmp_path: Path) -> None:
     assert loaded == artifact
     assert loaded_sha256 == written_sha256
     assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == "constraint_review_v1"
+
+
+class TestConstantDependentsAreNotEmitted:
+    """A single-valued column is determined by everything, so the dependency is vacuous.
+
+    This is the rule scripts/bench/measure_deductive_coverage.py's oracle already applied,
+    with the rationale "a single-valued column is determined by everything", while the miner
+    that feeds it did not. On hospital that asymmetry produced 34 vacuous candidates of 119 --
+    every one with RAHA's constant 'empty' token as the dependent -- each costing a human a
+    review decision for no possible repair.
+
+    It is NOT a precision improvement and must not be described as one: it lowers measured
+    FD-set precision from 0.8655 to 0.8118 by removing candidates that are true-but-vacuous.
+    See docs/trust/premise-quality-result.md.
+    """
+
+    def _table(self, dependent: list[str]) -> Table:
+        determinant = ["a", "a", "b", "b", "c", "c"]
+        return Table(
+            ["det", "dep"],
+            [{"det": d, "dep": p} for d, p in zip(determinant, dependent, strict=True)],
+        )
+
+    def test_a_constant_dependent_is_rejected(self) -> None:
+        table = self._table(["x"] * 6)
+
+        fds = [
+            c
+            for c in infer_schema(table).candidates
+            if c.kind == "functional_dependency" and c.dependent == "dep"
+        ]
+
+        assert fds == [], (
+            "a constant dependent is determined by everything; emitting it asks a human to adjudicate a tautology"
+        )
+
+    def test_a_two_valued_dependent_is_still_emitted(self) -> None:
+        """Non-vacuity for the test above: the guard must reject only the degenerate case."""
+        table = self._table(["x", "x", "y", "y", "y", "y"])
+
+        fds = [
+            c
+            for c in infer_schema(table).candidates
+            if c.kind == "functional_dependency" and c.dependent == "dep"
+        ]
+
+        assert len(fds) == 1
+        assert fds[0].confidence == 1.0
+
+
+class TestSupportStatisticsAreReportedNotGated:
+    """The statistics were computed and then discarded into an English sentence.
+
+    tested_confidence separates true from false dependencies perfectly on hospital where
+    confidence does not (false at most 0.9554, true at least 0.9599). It is deliberately NOT
+    a gate: the separating threshold is fitted to one corpus and no second corpus with false
+    dependencies exists to validate it, so shipping a constant chosen that way is the
+    overfitting docs/trust/constraint-circularity.md forbids.
+
+    These tests pin that it is carried as a field, and that it is computed on the denominator
+    that can actually falsify the dependency.
+    """
+
+    def test_tested_confidence_uses_only_rows_that_can_violate(self) -> None:
+        """Singleton groups supply no evidence, so they must not dilute the violation rate.
+
+        Four rows in two-row groups with one violation between them, plus eight singleton
+        rows. The shipped score divides that one violation by all twelve rows and reports
+        0.9167; the tested score divides by the four rows that can actually violate and
+        reports 0.75. The gap is the inflation.
+
+        The eight singletons are also what keeps the fixture above the miner's existing 0.9
+        floor -- which is itself the point: padding a table with rows that cannot falsify a
+        dependency raises its shipped confidence.
+        """
+        table = Table(
+            ["det", "dep"],
+            [
+                {"det": "a", "dep": "x"},
+                {"det": "a", "dep": "y"},  # the only violation
+                {"det": "b", "dep": "z"},
+                {"det": "b", "dep": "z"},
+            ]
+            + [{"det": f"s{i}", "dep": f"v{i}"} for i in range(8)],
+        )
+
+        fd = next(
+            c
+            for c in infer_schema(table).candidates
+            if c.kind == "functional_dependency" and c.dependent == "dep"
+        )
+
+        assert fd.violations == 1
+        assert fd.rows_in_multi_row_groups == 4
+        assert fd.confidence == round(1 - 1 / 12, 4)
+        assert fd.tested_confidence == round(1 - 1 / 4, 4)
+        assert fd.tested_confidence < fd.confidence, (
+            "singleton groups inflate the shipped confidence; that is the whole point of "
+            "the tested denominator"
+        )
+
+    def test_majority_share_of_dependent_is_reported(self) -> None:
+        """The reviewer needs to know whether the mode would have been right anyway."""
+        table = Table(
+            ["det", "dep"],
+            [
+                {"det": "a", "dep": "x"},
+                {"det": "a", "dep": "x"},
+                {"det": "b", "dep": "x"},
+                {"det": "b", "dep": "x"},
+                {"det": "c", "dep": "y"},
+                {"det": "c", "dep": "y"},
+            ],
+        )
+
+        fd = next(
+            c
+            for c in infer_schema(table).candidates
+            if c.kind == "functional_dependency" and c.dependent == "dep"
+        )
+
+        assert fd.dependent_majority_share == round(4 / 6, 4)
+
+    def test_the_statistics_do_not_gate_emission(self) -> None:
+        """A low tested_confidence is reported, not suppressed.
+
+        If this ever starts filtering, the change has silently acquired the fitted threshold
+        the pre-registration's K3 forbade.
+        """
+        table = Table(
+            ["det", "dep"],
+            [
+                {"det": "a", "dep": "x"},
+                {"det": "a", "dep": "y"},
+                {"det": "b", "dep": "z"},
+                {"det": "b", "dep": "z"},
+            ]
+            + [{"det": f"s{i}", "dep": f"v{i}"} for i in range(8)],
+        )
+
+        fds = [
+            c
+            for c in infer_schema(table).candidates
+            if c.kind == "functional_dependency" and c.dependent == "dep"
+        ]
+
+        assert fds, "the candidate must still be emitted"
+        assert fds[0].tested_confidence is not None
+        assert fds[0].tested_confidence < fds[0].confidence
+
+    def test_the_fields_are_optional_so_older_artifacts_still_load(self) -> None:
+        """Adding the fields rotates cnd- ids; it must not break reading an old artifact."""
+        candidate = ConstraintCandidate(
+            kind="functional_dependency",
+            columns=("det",),
+            dependent="dep",
+            confidence=0.95,
+            evidence="written before the support statistics existed",
+        )
+
+        assert candidate.tested_confidence is None
+        assert candidate.rows_in_multi_row_groups is None
+        assert constraint_candidate_id(candidate).startswith("cnd-")

@@ -53,7 +53,18 @@ _UPPER_CODE_RE = re.compile(r"^[A-Z0-9_-]+$")
 
 
 class ConstraintCandidate(BaseModel):
-    """One inferred constraint candidate that must be reviewed before adoption."""
+    """One inferred constraint candidate that must be reviewed before adoption.
+
+    The functional-dependency support statistics below are **reported, never gated**. They
+    were previously computed and then discarded into the English ``evidence`` sentence,
+    which meant a reviewer could read them but nothing downstream could.
+
+    ``tested_confidence`` in particular separates true from false dependencies perfectly on
+    hospital where ``confidence`` does not, but a threshold on it would be fitted to one
+    corpus with no second corpus available to validate it. Carrying it as a field puts the
+    number in front of the human who accepts the constraint without turning it into a
+    parameter. See ``docs/trust/premise-quality-result.md``.
+    """
 
     kind: ConstraintKind
     columns: tuple[str, ...] = Field(min_length=1)
@@ -63,6 +74,19 @@ class ConstraintCandidate(BaseModel):
     min_value: float | None = None
     max_value: float | None = None
     confidence: float = Field(ge=0.0, le=1.0)
+    #: ``1 - violations / rows_in_multi_row_groups``: confidence measured only on rows that
+    #: can actually falsify the dependency. Singleton determinant groups are consistent with
+    #: any dependent value, so counting them inflates ``confidence``.
+    tested_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: Rows living in a determinant group of two or more - the evidence that actually tests
+    #: the dependency, as opposed to the row count ``confidence`` divides by.
+    rows_in_multi_row_groups: int | None = Field(default=None, ge=0)
+    multi_row_groups: int | None = Field(default=None, ge=0)
+    violations: int | None = Field(default=None, ge=0)
+    determinant_distinct: int | None = Field(default=None, ge=0)
+    #: Share of rows holding the dependent's most common value. A dependency that does not
+    #: beat this is less informative than ignoring the determinant and emitting the mode.
+    dependent_majority_share: float | None = Field(default=None, ge=0.0, le=1.0)
     evidence: str = Field(min_length=1)
     provenance: str = "profile_inference_v1"
 
@@ -193,7 +217,21 @@ def _canonical_candidate_payload(candidate: ConstraintCandidate) -> str:
 
 
 def constraint_candidate_id(candidate: ConstraintCandidate) -> str:
-    """Return the stable id for one inferred constraint candidate."""
+    """Return the stable id for one inferred constraint candidate.
+
+    "Stable" means stable for a given candidate *schema*: the digest covers every field, so
+    adding a field rotates the ids of the candidates that populate it. Adding the
+    functional-dependency support statistics on 2026-08-25 rotated every FD ``cnd-`` id.
+
+    That is safe here, and deliberately not hidden behind a ``schema_version`` bump. A review
+    artifact stores its own ids alongside the decisions keyed to them, so an artifact written
+    before the change still loads and still resolves - the new fields are optional and default
+    to ``None``. Nothing compares an id across a regeneration boundary, because an artifact is
+    pinned to ``source_sha256`` and is regenerated whenever the source changes anyway.
+
+    What would be unsafe is treating these ids as durable external references. They are
+    content addresses for a candidate, not names.
+    """
     digest = hashlib.sha256(_canonical_candidate_payload(candidate).encode("utf-8")).hexdigest()
     return f"cnd-{digest[:16]}"
 
@@ -594,6 +632,19 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
             dependent_values = values_by_column[dependent]
             if len(dependent_values) != total_rows:
                 continue
+            # Reject constant dependents. A single-valued column is determined by
+            # everything, so the dependency is vacuous: it can never derive a repair, and
+            # it costs a human a review decision for no possible benefit. This is the rule
+            # scripts/bench/measure_deductive_coverage.py's oracle already applied, now
+            # applied by the miner that feeds it. On hospital it removes 34 of 119
+            # candidates, all with RAHA's constant 'empty' token as the dependent.
+            #
+            # It does NOT improve measured FD-set precision -- it lowers it from 0.8655 to
+            # 0.8118 by removing candidates that are true-but-vacuous -- and it is not
+            # claimed to. See docs/trust/premise-quality-result.md.
+            dependent_unique = len(set(dependent_values))
+            if dependent_unique < 2:
+                continue
             groups: dict[str, list[str]] = defaultdict(list)
             for det_value, dep_value in zip(determinant_values, dependent_values, strict=True):
                 groups[det_value].append(dep_value)
@@ -612,17 +663,46 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
             confidence = round(1.0 - (violations / total_rows), 4)
             if confidence < 0.9:
                 continue
+
+            # Rows that can actually falsify the dependency. A singleton determinant group
+            # is consistent with any dependent value, so it supplies no evidence; dividing
+            # violations by all rows therefore inflates `confidence`. This is reported, not
+            # gated: on hospital it separates true from false dependencies perfectly where
+            # `confidence` does not, but the separating threshold is fitted to a single
+            # corpus and no second corpus with false dependencies exists to validate it.
+            # Shipping a constant chosen that way is the overfitting
+            # docs/trust/constraint-circularity.md forbids, so the number goes to the human
+            # who accepts the constraint instead of to a gate.
+            rows_in_multi_row_groups = sum(
+                len(group_values) for group_values in groups.values() if len(group_values) >= 2
+            )
+            tested_confidence = (
+                round(1.0 - (violations / rows_in_multi_row_groups), 4)
+                if rows_in_multi_row_groups
+                else 0.0
+            )
+            majority_share = round(Counter(dependent_values).most_common(1)[0][1] / total_rows, 4)
             candidates.append(
                 ConstraintCandidate(
                     kind="functional_dependency",
                     columns=(determinant,),
                     dependent=dependent,
                     confidence=confidence,
+                    tested_confidence=tested_confidence,
+                    rows_in_multi_row_groups=rows_in_multi_row_groups,
+                    multi_row_groups=multi_row_groups,
+                    violations=violations,
+                    determinant_distinct=determinant_unique,
+                    dependent_majority_share=majority_share,
                     evidence=(
                         f"{determinant} determined {dependent} in "
                         f"{total_rows - violations}/{total_rows} rows "
                         f"(support: {multi_row_groups} repeated-determinant group(s); "
                         f"determinant distinct {determinant_unique}/{total_rows}). "
+                        f"Measured on the {rows_in_multi_row_groups} row(s) that can "
+                        f"actually violate it, confidence is {tested_confidence}; "
+                        f"always emitting {dependent}'s most common value would be right "
+                        f"{majority_share} of the time. "
                         f"Approximate FDs (<1.0) may overwrite legitimate variation on "
                         f"acceptance; review support before accepting."
                     ),
