@@ -128,6 +128,49 @@ it was a *fourth* dataset where it would have rewritten 263,428 values. A detect
 population is absent from your corpora has not been shown to be safe; it has been shown to be
 unreachable by your evidence. Treat the two differently.
 
+### 1.4 The premise is the product, and I found a signal I chose not to ship
+
+The write gate turned out not to be what determines corruption. Under a premise whose dependencies
+all hold, `fd_violation` overwrote **0** already-correct hospital cells. Under the product's own
+mined premise it overwrote **86**, and all 25 sampled corruptions traced to dependencies that are
+false on ground truth -- 23 of them to `ZipCode -> HospitalName`. A zip code does not determine a
+hospital name.
+
+So the miner's precision was measured for the first time: **0.8655** on hospital, **1.0000** on tax,
+and **no candidates at all** on flights or rayyan. Every false dependency this project has ever
+measured comes from one corpus.
+
+Then the uncomfortable part. Confidence measured only on the rows that can actually falsify a
+dependency -- excluding singleton determinant groups, which are consistent with any value and
+therefore inflate the shipped score -- separates true from false dependencies **perfectly** on
+hospital: false at most 0.9554, true at least 0.9599, with every true dependency retained. The
+shipped confidence overlaps and cannot do this at any threshold.
+
+**I did not ship it as a gate.** The separating constant is fitted to 85 candidates from a single
+corpus, and there is nothing to validate it against, because the other three corpora produce
+either no candidates or no false ones. The pre-registered kill criterion forbade introducing the
+parameter and I abided by it. The number is instead reported to the human who accepts the
+constraint.
+
+This is the discipline the rest of this file argues for, applied at the one moment it was expensive:
+the change would have looked like a clean win in any table I published, and the reason to refuse it
+is only visible if you insist on asking what would have validated it.
+
+It also **vindicates** an earlier decision made on reasoning alone. `docs/trust/constraint-circularity.md`
+recorded 696-708 false-positive corrections with zero correct ones on tax, and argued the defense had
+to be architectural. That was measured before the miner's determinant guards existed. On the same
+200,000-row corpus the miner now emits four candidates and all four are true.
+
+Two smaller things followed. The miner stopped emitting dependencies whose dependent is a **constant
+column** -- a single-valued column is determined by everything, so the dependency is vacuous, and 34
+of hospital's 119 candidates were of that kind. It is justified on reviewer burden, not precision:
+it *lowers* the measured figure, because the candidates it removes were true-but-vacuous and the
+truth label had been rewarding them. And `missing_value`'s mined-premise arm, which had no test at
+all, turns out to be **unreachable on every corpus** -- hospital mines 85 dependencies but has zero
+missing values, flights and rayyan mine none, and tax's four do not overlap its missing columns. All
+427 writes behind that repairer's precision of 1.0000 came from the declared arm. The path is live
+for users and unmeasured by evidence, which is the worst combination and why it is now unit-tested.
+
 ---
 
 ## 2. Purpose

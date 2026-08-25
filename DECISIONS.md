@@ -12,6 +12,102 @@ Format for every entry:
 
 ---
 
+## 2026-08-25 - Found a signal that separates true from false mined dependencies perfectly, and declined to ship it as a gate
+
+**Context**: 86 already-correct hospital cells were overwritten under the product's own mined
+premise, versus 0 under a premise whose dependencies all hold, and all 25 sampled corruptions
+traced to mined dependencies that are false on ground truth — 23 to `ZipCode -> HospitalName`.
+The miner's own precision had never been measured. `docs/trust/constraint-circularity.md`
+foreclosed the obvious response by asserting that no in-table signal separates a genuine
+approximate dependency from a coincidental one.
+
+**Alternatives**:
+1. *Accept the document's claim and change nothing.* Cheap, and defers to a decision made on
+   reasoning rather than measurement. Leaves 86 corruptions unexplained by anything actionable.
+2. *Ship a confidence threshold that separates the corpora at hand.* Would have reached
+   precision 1.0000 on hospital while retaining every true dependency. Requires choosing a
+   constant after seeing the data.
+3. *Derive parameter-free criteria, pre-register them with a kill criterion, and abide by the
+   result.* More work, and likely to fail — as it did.
+4. *Report the better signal to the human instead of gating on it.* Keeps the measured
+   improvement without acquiring a fitted parameter.
+
+**Decision**: 3, then 4. Both pre-registered corrections were reverted when their kill criteria
+fired. `tested_confidence` — confidence measured only on rows that can actually falsify the
+dependency, excluding singleton determinant groups — ships as a **reported field** on
+`ConstraintCandidate`, never as a gate. Separately, the miner stopped emitting dependencies
+whose dependent is a constant column.
+
+**Reasoning**: option 2 was the tempting one and it is the mistake this project has already
+made and retracted once. The separation is real — false dependencies at most 0.9554, true ones
+at least 0.9599, no overlap — but it rests on 85 candidates from a single corpus, because
+flights and rayyan mine no dependencies at all and tax mines four that are all true. There is
+nothing to validate the constant against, so K3 of the pre-registration forbade introducing it.
+Reporting the number to the reviewer is `constraint-circularity.md`'s own "architectural, not a
+smarter score" applied literally: the score informs a decision rather than making one.
+
+The constant-dependent exclusion is justified on **reviewer burden, not precision**, and the
+code says so. It *lowers* measured FD-set precision from 0.8655 to 0.8118, because the 34
+candidates it removes were true-but-vacuous and the truth label had been rewarding them.
+
+Two of my own predictions were refuted by measurement and both errors were of the same kind. I
+predicted `State` and `Stateavg` were near-constant; `Stateavg` has 74 distinct values at a
+0.0400 modal share. I predicted `ZipCode` groups were mostly singletons; the median tested-row
+fraction is 0.9740. In both cases I inferred a distribution from a column name instead of
+computing it.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: a second corpus containing false mined dependencies with retained ground
+truth. If `tested_confidence` separates there too, at a threshold consistent with hospital's,
+the gate becomes defensible and should be revisited. Absent that, do not add the constant.
+
+---
+
+## 2026-08-25 - The release gate was smoke-testing the write chain through the least-evidenced detector
+
+**Context**: `dataforge quickstart` reported "0 have a verified, reversible repair" while still
+printing that every fix passed an SMT proof and would be applied inside a reversible
+transaction. Its fixture's only auto-appliable fix came from `type_mismatch`, which had just
+left the calibration-bypass allowlist for want of a committed measurement. Two tests guarded
+the sentence and neither guarded the number, including the persona test whose stated criterion
+was that a new user "gets value".
+
+**Alternatives**:
+1. *Restore `type_mismatch` to the allowlist so the demo works again.* Fastest. Restores a write
+   path on a detector measured at 156 flags and zero proposals across three corpora, for the
+   sake of a demo.
+2. *Keep the fixture and let the demo report zero.* Honest about the count, but ships a page
+   that describes proofs and reversible transactions for something that never happens.
+3. *Move the demo to a fixture with a declared functional dependency, and assert the count.*
+   Gives up the "zero-config" framing.
+
+**Alternatives considered and rejected for the tests**: asserting on output substrings, which
+is what already existed and what failed.
+
+**Decision**: 3. The demo, the release gate's write smoke test, and the published walkthrough
+all moved to `premised_fd_10rows`, and the tests now assert the repair count, that detected
+exceeds repaired, and the full apply → audit → revert → byte-identity journey.
+
+**Reasoning**: the zero-config framing was the thing that had to go, because nothing in this
+product writes without a declared premise and a demo implying otherwise misrepresents its
+central rule. Choosing the fixture by which detector could write without a premise is how the
+release gate came to depend on the least-evidenced detector in the system, so the fix is to
+pick the fixture by what is *provable*, not by what is *permitted*.
+
+Writing the journey test found a second defect nothing had caught: the published walkthrough
+told users to run `audit <txn-id>` after applying to a file in `/tmp`, but the journal is
+written beside the data, so the documented command only worked if the user happened to be
+sitting in that directory.
+
+**Reviewed with**: nobody. Sole author.
+
+**Reversal criteria**: if a detector ever earns allowlist membership on a measurement that
+covers unpremised writes, a zero-config demo becomes honest again and the fixture choice should
+be revisited. Do not revisit it to make a demo look better.
+
+---
+
 ## 2026-08-24 - Audited gpt-5.6-sol for memorisation of RT/ST-bench before measuring on them, and found the audit's own first design would have decided it on an unpinned choice
 
 **Context**: RT-bench and ST-bench are a public GitHub corpus with published labels. Any LLM

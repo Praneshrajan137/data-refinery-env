@@ -214,3 +214,78 @@ claims:
       Real corrector errors are ratified 7.5x more readily than column-resampled plants (n=8, so
       the magnitude is unestablished; upper bound 0.843). Evidence that the two control classes
       cannot be pooled -- a plant-only beta understates the false-accept rate.
+
+  # --- Premise quality: the miner's own precision, measured 2026-08-25 ---
+  # These are load-bearing because they are the basis on which a perfectly separating
+  # threshold was DECLINED. If the miner's precision or the corpus candidate counts change,
+  # the argument in docs/trust/premise-quality-result.md has to be re-made, not just edited.
+  - id: premise_hospital_fd_set_precision
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_hospital.json
+    pointer: /arms/incumbent/fd_set_precision
+    format: "{:.4f}"
+    expect: "0.8655"
+    note: >-
+      FD-set precision of everything the miner emits on hospital. The denominator the
+      86 measured clean-cell corruptions must be read against.
+
+  - id: premise_hospital_candidates
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_hospital.json
+    pointer: /arms/candidate_total
+    format: "{:d}"
+    expect: "119"
+    note: >-
+      Candidate count BEFORE the constant-dependent exclusion shipped. 34 of these had a
+      single-valued dependent, which is why the post-change count is 85.
+
+  - id: premise_hospital_false_dependencies
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_hospital.json
+    pointer: /arms/incumbent/admitted_false
+    format: "{:d}"
+    expect: "16"
+    note: >-
+      Mined dependencies that do NOT hold on ground truth. ZipCode -> HospitalName is one
+      of these and accounted for 23 of the 25 sampled corruptions.
+
+  - id: premise_tax_fd_set_precision
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_tax.json
+    pointer: /arms/incumbent/fd_set_precision
+    format: "{:.4f}"
+    expect: "1.0000"
+    note: >-
+      The vindication. constraint-circularity.md recorded 696-708 false-positive corrections
+      on tax before the determinant guards existed; the miner now emits 4 candidates here and
+      all 4 are true.
+
+  - id: premise_tax_candidates
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_tax.json
+    pointer: /arms/candidate_total
+    format: "{:d}"
+    expect: "4"
+    note: >-
+      Four candidates on 200,000 rows. The reason tax cannot validate a threshold fitted to
+      hospital: it contains no false dependency to separate.
+
+  - id: premise_flights_candidates
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_flights.json
+    pointer: /arms/candidate_total
+    format: "{:d}"
+    expect: "0"
+    note: >-
+      The miner emits nothing on flights. Half of why the separating threshold found on
+      hospital has nothing to validate it against.
+
+  - id: premise_rayyan_candidates
+    doc: docs/trust/premise-quality-result.md
+    artifact: eval/results/premise_quality_rayyan.json
+    pointer: /arms/candidate_total
+    format: "{:d}"
+    expect: "0"
+    note: >-
+      The miner emits nothing on rayyan either. With flights at 0 and tax at 4-of-4 true,
+      no corpus can confirm or refute hospital's separation.

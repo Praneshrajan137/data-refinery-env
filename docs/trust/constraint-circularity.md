@@ -40,6 +40,48 @@ external knowledge. So a confidence threshold cannot separate them; tuning one t
 fit two datasets would be overfitting, which the honesty doctrine forbids. The
 defense must therefore be **architectural**, not a smarter score.
 
+> ### Amendment, 2026-08-25: this paragraph was too broad, and is narrowed here
+>
+> The conclusion above survives measurement. The reason given for it does not, and the
+> difference matters to anyone who reads this section and concludes the search is futile.
+>
+> The paragraph conflates two questions:
+>
+> - **Q1.** Given a dependency that holds on the true data, are these particular violations
+>   errors to fix or legitimate variation to keep? **Undecidable in-table. The paragraph is
+>   correct about Q1 and nothing below weakens it.**
+> - **Q2.** Does the dependency hold on the true data *at all*? `ZipCode -> HospitalName` is
+>   not an approximate FD violated by dirty cells — a zip code does not determine a hospital
+>   name. It is simply **false**, and it caused 23 of the 25 sampled clean-cell corruptions
+>   measured in [bypass-allowlist-evidence.md](bypass-allowlist-evidence.md).
+>
+> On Q2 the claim "no in-table signal separates" is **refuted**.
+> [premise-quality-result.md](premise-quality-result.md) measured that on hospital's 85
+> non-vacuous mined candidates, confidence computed on the rows that can actually falsify the
+> dependency — excluding singleton determinant groups, which are consistent with any value —
+> separates true from false dependencies **perfectly**: false at most 0.9554, true at least
+> 0.9599. The shipped `confidence` overlaps and cannot do this at any threshold.
+>
+> **The threshold is still not shipped, for this section's own reason.** It is fitted to one
+> corpus and there is nothing to validate it against: flights and rayyan mine no dependencies
+> at all, and tax mines four that are all true. So the honest statement is not that no signal
+> exists, but that **the separation is unvalidatable with the corpora available** — a claim
+> about evidence rather than about signal. The pre-registered kill criterion
+> (`eval/preregistration/premise_quality.md`, K3) forbade introducing the constant, and it was
+> not introduced. `tested_confidence` is instead reported to the human who accepts the
+> constraint, which is this section's "architectural, not a smarter score" applied literally:
+> the score informs a decision, it does not make one.
+>
+> Two things also changed on the strength of that measurement. The miner no longer emits
+> dependencies whose dependent is a **constant column** — a single-valued column is determined
+> by everything, so the dependency is vacuous, and 34 of hospital's 119 candidates were of
+> that kind. And this document's own tax result is now **vindicated by measurement**: the
+> 696-708 false-positive corrections below were produced before
+> `_MAX_DETERMINANT_UNIQUE_FRACTION` and `_MIN_FD_SUPPORT_GROUPS` existed. On that same
+> 200,000-row corpus the miner today emits **four** candidates and **all four are true**.
+> The architectural defense this section argued for on theory has now been shown to work on
+> the corpus that motivated it.
+
 ## DataForge's layered defenses (the proof)
 
 1. **Inferred constraints are pending-until-reviewed.** The product `effective_schema`
