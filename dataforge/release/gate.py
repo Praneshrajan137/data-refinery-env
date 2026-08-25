@@ -469,6 +469,18 @@ def _copy_packaged_fixtures(venv_python: Path, smoke_dir: Path, *, cwd: Path) ->
         "fixtures = files('dataforge') / 'fixtures'\n"
         "shutil.copyfile(fixtures / 'hospital_10rows.csv', target / 'hospital_10rows.csv')\n"
         "shutil.copyfile(fixtures / 'hospital_schema.yaml', target / 'hospital_schema.yaml')\n"
+        # The repair lifecycle below runs on this pair rather than the hospital one. Until
+        # 2026-08-25 it ran on hospital_10rows, whose only auto-appliable fix came from
+        # `type_mismatch` -- the one allowlist member that had never been measured, and which
+        # has since been removed from the calibration bypass for that reason. The gate was
+        # therefore smoke-testing the write path through the least-evidenced detector in the
+        # product. `state -> city` on this fixture is a declared dependency with a 9-to-1
+        # majority, so the write comes from `fd_violation`, whose write precision is measured
+        # in `docs/trust/bypass-allowlist-evidence.md`.
+        "shutil.copyfile(fixtures / 'premised_fd_10rows.csv', target / 'premised_fd_10rows.csv')\n"
+        "shutil.copyfile("
+        "fixtures / 'premised_fd_10rows.schema.yaml', target / 'premised_fd_10rows.schema.yaml'"
+        ")\n"
     )
     step, _result = _run_command(
         "copy_packaged_fixtures",
@@ -651,8 +663,10 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
         if not _append_step(steps, step):
             return ReleaseGateReport(ok=False, steps=steps, artifact_sha256=artifact_hashes)
 
-        source_path = smoke_dir / "hospital_10rows.csv"
-        schema_path = smoke_dir / "hospital_schema.yaml"
+        # Deliberately the premised-FD pair, not the hospital pair: the lifecycle must
+        # exercise a detector with a committed write measurement. See _copy_packaged_fixtures.
+        source_path = smoke_dir / "premised_fd_10rows.csv"
+        schema_path = smoke_dir / "premised_fd_10rows.schema.yaml"
         constraints_path = smoke_dir / "constraints.json"
         original_sha256 = _file_sha256(source_path)
         lifecycle_commands: list[tuple[str, list[str | os.PathLike[str]]]] = [

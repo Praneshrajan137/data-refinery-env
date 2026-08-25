@@ -484,12 +484,39 @@ def test_analyze_surfaces_trust_certificate_and_verification_strength(
     )
     assert all(check["ok"] for check in certificate["checks"])
 
-    # Per-fix proof strength is honest: deterministic hospital fixes are proven.
-    assert body["repairs"], "hospital sample should produce verified deterministic fixes"
-    for fix in body["repairs"]:
-        assert "verification_strength" in fix
-        assert "review_reason" in fix
-        assert fix["verification_strength"] == "proven"
+    # Per-fix proof strength is honest, and there is nothing to prove here.
+    #
+    # This assertion was inverted on 2026-08-25. It previously required
+    # `body["repairs"]` to be non-empty, and the one fix it was relying on was
+    # `type_mismatch` rewriting `'not available' -> ''` on `phone_number` -- reachable
+    # only because this sample carries no declared schema. That detector left the
+    # calibration-bypass allowlist for lack of evidence (156 flags and zero proposals
+    # across three real corpora; see docs/trust/bypass-allowlist-evidence.md), so the
+    # schema-free auto-apply path is now genuinely empty.
+    #
+    # A sample with no declared premise having nothing provable to auto-apply is the
+    # product working as stated, not a regression. The user has lost no visibility:
+    # findings still surface as issues, and unproven proposals surface as candidates
+    # and failures. Only the unsupervised write is gone.
+    assert body["repairs"] == [], (
+        "a sample with no declared schema must not auto-apply anything; if this passes "
+        "again, some detector has regained a bypass it has no measurement for"
+    )
+    # Teeth, so the inversion above cannot become vacuous: the fix must still be found and
+    # still be shown to the user, just not applied. This is the applied-versus-suggested
+    # split, which is exactly what this test's docstring claims to guard.
+    assert body["issues"], "the sample must still surface findings for review"
+    receipt = body["receipt"]
+    assert receipt["applied_fixes"] == [], "nothing may be applied without a declared premise"
+    suggested = receipt["suggested_fixes"]
+    assert suggested, (
+        "the refusal must not be silent: the proposal has to reach the user as a "
+        "suggestion even though it was not applied"
+    )
+    assert any(fix["detector_id"] == "type_mismatch" for fix in suggested), (
+        "the type_mismatch proposal should still be offered for review; removing its "
+        "calibration bypass was meant to stop it writing, not to stop it being seen"
+    )
 
     # Receipt trust fields: honest independent-verification + applied/suggested split.
     receipt = body["receipt"]

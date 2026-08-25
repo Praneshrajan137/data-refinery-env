@@ -187,9 +187,39 @@ def type_discriminates(declared_type: str | None) -> bool:
 # three benchmark datasets and 263,428 false rewrites on a table with no errors in it.
 # A schema does not rescue it either -- `113120` satisfies every plausible numeric
 # constraint on a price column, so the premise cannot catch this class of wrongness.
+#
+# `type_mismatch` was REMOVED 2026-08-25, and the reason is the absence of evidence rather
+# than evidence of harm. Measured in `docs/trust/bypass-allowlist-evidence.md`: across
+# hospital, rayyan and flights -- 4,376 rows and 6,377 real errors -- it flagged 156 cells
+# and proposed on **zero** of them. All 156 fail its sentinel test, correctly. So no
+# committed measurement of a single real write exists, and the rule two paragraphs up says
+# membership requires one.
+#
+# Zero writes is not a safety result, and `decimal_shift` is why. That rule was
+# benchmark-quiet too (39, 92 and 112 flags at precision 0.0000); what removed it was a
+# FOURTH dataset, error-free TPC-H. `type_mismatch`'s firing population is a missing
+# sentinel in a mostly-numeric column; all three corpora encode missingness as empty
+# strings or `x`-substitutions, so that population is absent here while `N/A` in a numeric
+# column is among the commonest shapes of real dirty data. These corpora do not measure this
+# repairer -- they fail to reach it.
+#
+# Three further properties, each disqualifying on this module's own terms: its trigger is
+# `_is_predominantly_numeric`, a hardcoded 0.65 on the column's own distribution, which the
+# paragraph above names as requiring a calibrated threshold; it discards the schema entirely
+# (`del schema`), so it has no premise to grade and the discriminating-premise rule cannot
+# reach it; and it writes `""`, destroying the value present rather than copying one that
+# exists elsewhere in the table.
+#
+# Removal does NOT disable the repairer. Its fixes now face the calibration threshold like
+# every other fallible source, which is the fail-closed direction, and measured cost on all
+# three corpora is exactly zero because it wrote nothing there. Pre-registered in
+# `eval/preregistration/bypass_allowlist_evidence.md`, whose third outcome branch this is.
+#
+# `missing_value` and `fd_violation` earned their entries on the same measurement:
+# `missing_value` 427 writes / 427 repaired / 0 harmful (precision 1.0000), `fd_violation`
+# 0.6602 to 1.0000 with 2037 repaired against 700 harmful.
 CONSTRAINT_CHECKABLE_DETECTORS: Final[frozenset[str]] = frozenset(
     {
-        "type_mismatch",
         "fd_violation",
         "missing_value",
     }

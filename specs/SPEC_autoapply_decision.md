@@ -70,30 +70,41 @@ that agreement is itself asserted, and is the property whose absence was the byp
 | 3 | `missing_value` | deterministic | declared FD | **WRITE** | Fill derived from the declared dependency |
 | 4 | `missing_value` | deterministic | `not_null` only | ABSTAIN | Knowing a value is required does not say what it is |
 | 5 | `missing_value` | deterministic | none | ABSTAIN | `schema is None` → immediate abstain |
-| 6 | `type_mismatch` | deterministic | none | **WRITE** | Proposes `'N/A' → ''`; no declared type forbids it |
+| 6 | `type_mismatch` | deterministic | none | **HELD** | Not constraint-checkable as of 2026-08-25. Removed from the bypass allowlist for lack of evidence: 156 flags and **zero** proposals across three corpora |
 | 7 | `type_mismatch` | deterministic | declared `integer` | **HELD** | The proposed `''` would violate the declared type, so the verifier refuses |
 | 8 | `decimal_shift` | deterministic | none | **HELD** | Not constraint-checkable |
 | 9 | `decimal_shift` | deterministic | declared `float` | **HELD** | Not constraint-checkable. **A schema does not rescue it** |
 | 10 | any | `llm_cache` / `llm_live` | any | HELD | `NO_UNCONFIRMED_LLM_WRITE`; separate gate |
 
-### Row 7 deserves attention: the premise makes the product *stricter*
+### Rows 6 and 7 after 2026-08-25: both held, for different reasons
 
-`type_mismatch` writes **without** a schema and is **held with** one. That reads as an
-inversion, and inversions are how the agent bypass happened — so it was checked rather
-than assumed. It is sound, and in the opposite direction:
+Row 6 used to **write**, and the pairing with row 7 was the interesting case: `type_mismatch` wrote
+*without* a schema and was held *with* one. That inversion was checked rather than assumed and found
+sound in the opposite direction:
 
 - With no declared type, `'N/A' → ''` violates nothing that was declared.
-- With `age: integer` declared, `''` is not an integer, so the declared premise *catches
-  that the repair produces an invalid value* and the fix is refused.
+- With `age: integer` declared, `''` is not an integer, so the declared premise *catches that the
+  repair produces an invalid value* and the fix is refused.
 
-Supplying a premise can only narrow what gets written. That is the correct direction, and
-it is the exact opposite of rows 8/9's relationship to the bypass, where the *absence* of
-a premise made the agent looser. Both are recorded here so the next reader does not have
-to rediscover which inversions are safe.
+Supplying a premise can only narrow what gets written. That is the correct direction, and it is the
+exact opposite of rows 8/9's relationship to the bypass, where the *absence* of a premise made the
+agent looser. Both are recorded here so the next reader does not have to rediscover which inversions
+are safe.
 
-A consequence worth stating: `dataforge/fixtures/hospital_10rows.csv` reaches its
-deterministic floor of 1 (`'not available' → ''` on `phone_number`) **only because it has
-no declared schema**. Declaring one would reduce that floor to zero.
+**Row 6 now holds too**, because `type_mismatch` was removed from `CONSTRAINT_CHECKABLE_DETECTORS`.
+The reason is absence of evidence rather than evidence of harm: measured across hospital, rayyan and
+flights -- 4,376 rows and 6,377 real errors -- it flagged 156 cells and proposed on **zero**, so no
+committed measurement of a single real write exists. See `docs/trust/bypass-allowlist-evidence.md`
+and `eval/preregistration/bypass_allowlist_evidence.md`. The observation above still stands as the
+reason row 7 held even while row 6 wrote; it is kept because the inversion argument is what makes the
+direction of premise strength legible.
+
+**Consequence, and it is the point.** `dataforge/fixtures/hospital_10rows.csv` used to reach a
+deterministic floor of 1 (`'not available' → ''` on `phone_number`) **only because it had no declared
+schema**; declaring one reduced that floor to zero. That floor is now zero either way, and the
+schema-free auto-apply path is **genuinely empty** -- which is what
+`docs/trust/deterministic-is-not-sound.md` already claimed and, until today, was wrong about. Nothing
+in this product now writes without a declared premise. The cost is the only zero-configuration write.
 
 ## Invariants (asserted, not aspirational)
 

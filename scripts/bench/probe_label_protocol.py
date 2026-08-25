@@ -1,4 +1,4 @@
-﻿"""Measure whether blind elicitation reduces the false-accept rate.
+"""Measure whether blind elicitation reduces the false-accept rate.
 
 Pre-registered in `eval/preregistration/blind_elicitation.md`. Read that first: it fixes the
 sample, the arms, the capability control, the kill criterion and the VOID condition before any
@@ -359,7 +359,9 @@ def main() -> int:
     print(f"VOID                  {void}")
     print(f"P1 (elicit < ratify)  {payload['p1_blind_elicitation_reduces_beta']}")
     print(f"kill criterion fires  {payload['kill_criterion_fires']}")
-    print(f"spend                 ${client.meter.cumulative_usd:.4f} over {client.meter.calls} calls")
+    print(
+        f"spend                 ${client.meter.cumulative_usd:.4f} over {client.meter.calls} calls"
+    )
     return 0
 
 

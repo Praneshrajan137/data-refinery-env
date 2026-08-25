@@ -128,8 +128,9 @@ _CASES: tuple[DecisionRow, ...] = (
         "no-premise",
         _TYPE_CSV,
         None,
-        "write",
-        "proposes 'N/A' -> '' and no declared type forbids it",
+        "no_write",
+        "type_mismatch left the bypass allowlist 2026-08-25: 156 flags and zero proposals "
+        "measured across three corpora, so no committed evidence of a real write exists",
     ),
     DecisionRow(
         7,
