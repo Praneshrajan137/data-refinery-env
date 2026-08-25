@@ -247,10 +247,12 @@ def _schema_for(dirty: pd.DataFrame, fds: tuple[FunctionalDependency, ...]) -> S
 def _rule_choice(rule: str, counts: Counter[str], old_value: str) -> str | None:
     """What each candidate decision rule would write, before the no-change check.
 
-    ``shipped`` mirrors ``FDViolationRepairer._deterministic_choice`` exactly, including its
-    plurality semantics. ``majority`` is what that function's docstring claims. ``unanimity``
-    requires every other row in the group to agree, which is the only one of the three under which
-    the premise plus the data entail a unique value rather than merely favouring one.
+    ``majority`` is what ``FDViolationRepairer._deterministic_choice`` implements as of
+    2026-08-25, and it is what its docstring always claimed. ``plurality`` is what that function
+    actually did until then, kept as a counterfactual so the cost of the change stays measurable
+    rather than becoming folklore. ``unanimity`` requires every other row in the group to agree,
+    which is the only one of the three under which the premise plus the data entail a unique value
+    rather than merely favouring one -- and which measured worse than both.
     """
     ranked = counts.most_common()
     if not ranked:
@@ -259,7 +261,7 @@ def _rule_choice(rule: str, counts: Counter[str], old_value: str) -> str | None:
     top_value, top_count = ranked[0]
     second_count = ranked[1][1] if len(ranked) > 1 else 0
 
-    if rule == "shipped":
+    if rule == "plurality":
         if len(ranked) < 2:
             return top_value
         return top_value if top_count > second_count else None
@@ -273,7 +275,9 @@ def _rule_choice(rule: str, counts: Counter[str], old_value: str) -> str | None:
     raise ValueError(f"unknown rule {rule!r}")
 
 
-_RULES = ("shipped", "majority", "unanimity")
+#: ``majority`` is the shipped rule; the other two are counterfactuals measured on the same flags.
+_RULES = ("plurality", "majority", "unanimity")
+_SHIPPED_RULE = "majority"
 
 
 def _write_exposure(
@@ -338,7 +342,7 @@ def _write_exposure(
 
         shipped_value: str | None = None
         if acting is not None:
-            candidate = _rule_choice("shipped", acting[1], old_value)
+            candidate = _rule_choice(_SHIPPED_RULE, acting[1], old_value)
             shipped_value = None if candidate == old_value else candidate
         real_value = proposal.fix.new_value if proposal is not None else None
         if shipped_value != real_value:
@@ -368,7 +372,7 @@ def _write_exposure(
                 tally["no_op_on_a_clean_cell"] += 1
             else:
                 tally["corrupted_a_clean_cell"] += 1
-                if rule == "shipped" and len(corruption_examples) < 25:
+                if rule == _SHIPPED_RULE and len(corruption_examples) < 25:
                     corruption_examples.append(
                         {
                             "row": issue.row,
@@ -457,7 +461,8 @@ def _summarise_arm(
             "real_errors_in_fd_columns": len(records),
             "fd_column_share_of_errors": _rate(len(records), total_errors),
         },
-        "shipped_plurality_rule": {
+        "shipped_rule": {
+            "rule": _SHIPPED_RULE,
             "proposed": len(proposed),
             "correct": len(correct),
             "wrong": len(wrong),
@@ -556,7 +561,7 @@ def main() -> int:
     print(f"corpus {payload['corpus']}  rows {payload['rows']}")
     for name, arm in payload["arms"].items():
         premise = arm["premise"]
-        shipped = arm["shipped_plurality_rule"]
+        shipped = arm["shipped_rule"]
         shape = arm["vote_shape"]
         majority = arm["true_majority_counterfactual"]
         unanimity = arm["unanimity_counterfactual"]

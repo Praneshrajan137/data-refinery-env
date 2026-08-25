@@ -107,14 +107,14 @@ class TestDecisionRules:
     def test_plurality_and_majority_diverge_on_a_split_group(self) -> None:
         """Three distinct values, top holds 2 of 5: a plurality but not a majority.
 
-        This is the case that occurs 1732 times on flights, where the shipped plurality rule
-        writes and a majority rule holds.
+        This is the case that occurs 1732 times on flights, where the old plurality rule
+        wrote and the strict-majority rule that now ships holds.
         """
         counts = Counter({"A": 2, "B": 2, "C": 1})
-        assert _rule_choice("shipped", counts, "C") is None, "a tie is not a plurality"
+        assert _rule_choice("plurality", counts, "C") is None, "a tie is not a plurality"
 
         counts = Counter({"A": 2, "B": 1, "C": 1, "D": 1})
-        assert _rule_choice("shipped", counts, "D") == "A"
+        assert _rule_choice("plurality", counts, "D") == "A"
         assert _rule_choice("majority", counts, "D") is None, "2 of 5 is not a majority"
 
     def test_majority_requires_more_than_half(self) -> None:
@@ -135,14 +135,15 @@ class TestDecisionRules:
         assert _rule_choice("unanimity", counts, "CLEAN_BUT_RARE") == "A"
         # Plurality and majority agree here, so unanimity's extra corruption is not from the
         # choice of winner but from the cells it is willing to act on at all.
-        assert _rule_choice("shipped", counts, "CLEAN_BUT_RARE") == "A"
+        assert _rule_choice("plurality", counts, "CLEAN_BUT_RARE") == "A"
 
-    def test_a_uniform_group_is_returned_by_the_shipped_rule(self) -> None:
-        """Mirrors ``_deterministic_choice``'s ``len(ranked) < 2`` branch."""
-        assert _rule_choice("shipped", Counter({"A": 3}), "A") == "A"
+    def test_a_uniform_group_is_returned_by_every_rule(self) -> None:
+        """A group with one distinct value is trivially a majority."""
+        assert _rule_choice("plurality", Counter({"A": 3}), "A") == "A"
+        assert _rule_choice("majority", Counter({"A": 3}), "A") == "A"
 
     def test_empty_counts_choose_nothing(self) -> None:
-        for rule in ("shipped", "majority", "unanimity"):
+        for rule in ("plurality", "majority", "unanimity"):
             assert _rule_choice(rule, Counter(), "x") is None
 
     def test_unknown_rule_refuses_rather_than_defaulting(self) -> None:

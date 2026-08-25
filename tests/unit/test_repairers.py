@@ -129,6 +129,64 @@ class TestFDViolationRepairer:
         assert proposed.fix.new_value == "Alpha"
         assert proposed.provenance == "deterministic"
 
+    def test_a_plurality_that_is_not_a_majority_does_not_repair(self) -> None:
+        """The rule is a strict majority, as the docstring always claimed.
+
+        Until 2026-08-25 ``_deterministic_choice`` returned ``ranked[0] > ranked[1]``, so ``Alpha``
+        with 2 of 5 votes across four distinct values was written -- and written with
+        ``deterministic`` provenance, which bypasses calibration entirely. Measured on
+        ``eval/results/deductive_coverage_flights.json``: plurality and majority diverge on 1732
+        cells, and majority is better on every axis (write precision 0.6602 against 0.5618,
+        corruptions 344 against 731, net cells improved +579 against +404). On hospital the two
+        rules are identical, so this costs nothing there.
+        """
+        df = pd.DataFrame(
+            {
+                "code": ["A", "A", "A", "A", "A"],
+                "name": ["Alpha", "Alpha", "Beta", "Gamma", "Delta"],
+            }
+        )
+        schema = Schema(
+            functional_dependencies=[FunctionalDependency(determinant=["code"], dependent="name")]
+        )
+        issue = Issue(
+            row=4,
+            column="name",
+            issue_type="fd_violation",
+            severity=Severity.UNSAFE,
+            confidence=0.95,
+            actual="Delta",
+            reason="Functional dependency violated",
+        )
+
+        proposed = FDViolationRepairer(cache_dir=None, allow_llm=False).propose(issue, df, schema)
+
+        assert proposed is None, (
+            "2 of 5 is a plurality, not a majority; a deterministic write here bypasses "
+            "calibration on the strength of 40% of a determinant group"
+        )
+
+    def test_a_bare_majority_still_repairs(self) -> None:
+        """Non-vacuity for the test above: the threshold must not have become unreachable."""
+        df = pd.DataFrame({"code": ["A", "A", "A"], "name": ["Alpha", "Alpha", "Beta"]})
+        schema = Schema(
+            functional_dependencies=[FunctionalDependency(determinant=["code"], dependent="name")]
+        )
+        issue = Issue(
+            row=2,
+            column="name",
+            issue_type="fd_violation",
+            severity=Severity.UNSAFE,
+            confidence=0.95,
+            actual="Beta",
+            reason="Functional dependency violated",
+        )
+
+        proposed = FDViolationRepairer(cache_dir=None, allow_llm=False).propose(issue, df, schema)
+
+        assert proposed is not None, "2 of 3 is a majority and must still repair"
+        assert proposed.fix.new_value == "Alpha"
+
     def test_tied_group_uses_cached_llm_on_second_run(self, tmp_path: Path) -> None:
         df = pd.DataFrame({"code": ["A", "A"], "name": ["Alpha", "Beta"]})
         schema = Schema(

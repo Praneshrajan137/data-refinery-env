@@ -17,13 +17,14 @@
         "fd_set_precision": null,
         "functional_dependencies": []
       },
-      "shipped_plurality_rule": {
+      "shipped_rule": {
         "abstained": 0,
         "correct": 0,
         "coverage_of_all_table_errors": 0.0,
         "coverage_of_fd_column_errors": null,
         "precision": null,
         "proposed": 0,
+        "rule": "majority",
         "wrong": 0
       },
       "true_majority_counterfactual": {
@@ -60,7 +61,7 @@
             "write_precision": null,
             "wrong_value_on_a_real_error": 0
           },
-          "shipped": {
+          "plurality": {
             "corrupted_a_clean_cell": 0,
             "coverage_of_all_table_errors": 0.0,
             "harmful_write_rate": null,
@@ -104,13 +105,14 @@
         "fd_set_precision": null,
         "functional_dependencies": []
       },
-      "shipped_plurality_rule": {
+      "shipped_rule": {
         "abstained": 0,
         "correct": 0,
         "coverage_of_all_table_errors": 0.0,
         "coverage_of_fd_column_errors": null,
         "precision": null,
         "proposed": 0,
+        "rule": "majority",
         "wrong": 0
       },
       "true_majority_counterfactual": {
@@ -147,7 +149,7 @@
             "write_precision": null,
             "wrong_value_on_a_real_error": 0
           },
-          "shipped": {
+          "plurality": {
             "corrupted_a_clean_cell": 0,
             "coverage_of_all_table_errors": 0.0,
             "harmful_write_rate": null,

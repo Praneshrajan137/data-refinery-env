@@ -142,12 +142,37 @@ class FDViolationRepairer:
 
     @staticmethod
     def _deterministic_choice(counts: Counter[str]) -> str | None:
-        """Return a strict majority value, if one exists."""
+        """Return a strict majority value, if one exists.
+
+        "Strict majority" means more than half the determinant group, and until 2026-08-25 this
+        function did not implement that. It returned ``ranked[0] > ranked[1]``, a **plurality**, so
+        2 votes out of 5 across four distinct values was enough to write. The docstring had claimed
+        majority throughout.
+
+        The gap was assumed cosmetic. It is not, and the difference is measured in
+        ``eval/results/deductive_coverage_flights.json``: plurality and majority diverge on 1732
+        cells there, and majority is better on every axis -- write precision 0.6602 against 0.5618,
+        wrong values 270 against 702, clean cells corrupted 344 against 731, and net cells improved
+        +579 against +404 despite lower coverage. On hospital the two rules are bit-identical
+        (``plurality_only_not_majority`` is 0 in both premise arms), so this costs nothing there.
+
+        Why it matters more than an ordinary precision trade: this value carries ``deterministic``
+        provenance, and ``partition_auto_apply`` lets deterministic fixes on allowlisted detectors
+        bypass calibration entirely. There is no threshold downstream to catch a bad vote.
+
+        Counting the target cell's **own** value is deliberate and load-bearing. Excluding it --
+        requiring every *other* row to agree -- was measured before being implemented and is worse:
+        on hospital it halves coverage and introduces 3 corruptions where this rule causes none,
+        because when a group is split the cell's own vote is what prevents a confident overwrite.
+        See ``eval/preregistration/entailment_strength.md``.
+        """
         ranked = counts.most_common()
-        if len(ranked) < 2:
-            return ranked[0][0] if ranked else None
-        if ranked[0][1] > ranked[1][1]:
-            return ranked[0][0]
+        if not ranked:
+            return None
+        top_value, top_count = ranked[0]
+        # Subsumes the single-distinct-value case: there top_count == group_size.
+        if top_count * 2 > sum(counts.values()):
+            return top_value
         return None
 
     def _choose_with_cache(

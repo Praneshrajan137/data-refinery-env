@@ -25,14 +25,14 @@ path in the product that writes to a user's data on its own authority.
 
 | corpus | premise | rule | writes | repaired | wrong | **corrupted a clean cell** | write precision | net cells improved |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| hospital | oracle | plurality (shipped) | 393 | 393 | 0 | **0** | 1.0000 | +393 |
-| hospital | oracle | majority | 393 | 393 | 0 | **0** | 1.0000 | +393 |
-| hospital | oracle | unanimity | 182 | 179 | 0 | **3** | 0.9835 | +176 |
-| hospital | mined (**default**) | plurality (shipped) | 537 | 451 | 0 | **86** | 0.8399 | +365 |
-| hospital | mined (**default**) | majority | 537 | 451 | 0 | **86** | 0.8399 | +365 |
-| hospital | mined (**default**) | unanimity | 207 | 195 | 0 | **12** | 0.9420 | +183 |
-| flights | oracle | plurality (shipped) | 3270 | 1837 | 702 | **731** | 0.5618 | +404 |
-| flights | oracle | majority | 1807 | 1193 | 270 | **344** | 0.6602 | **+579** |
+| hospital | oracle | plurality (former) | 393 | 393 | 0 | **0** | 1.0000 | +393 |
+| hospital | oracle | **majority (ships)** | 393 | 393 | 0 | **0** | 1.0000 | +393 |
+| hospital | oracle | unanimity (rejected) | 182 | 179 | 0 | **3** | 0.9835 | +176 |
+| hospital | mined (**default**) | plurality (former) | 537 | 451 | 0 | **86** | 0.8399 | +365 |
+| hospital | mined (**default**) | **majority (ships)** | 537 | 451 | 0 | **86** | 0.8399 | +365 |
+| hospital | mined (**default**) | unanimity (rejected) | 207 | 195 | 0 | **12** | 0.9420 | +183 |
+| flights | oracle | plurality (former) | 3270 | 1837 | 702 | **731** | 0.5618 | +404 |
+| flights | oracle | **majority (ships)** | 1807 | 1193 | 270 | **344** | 0.6602 | **+579** |
 | flights | mined | any | 0 | 0 | 0 | 0 | n/a | 0 |
 | rayyan | either | any | 0 | 0 | 0 | 0 | n/a | 0 |
 
@@ -99,8 +99,15 @@ It is not:
   net cells improved **+579 against +404** despite lower coverage.
 
 So the honest reading is not "a harmless naming slip". Implementing what the docstring already
-claims **halves harmful writes on flights** (614 against 1433) and improves the net outcome. It was
+claimed **halves harmful writes on flights** (614 against 1433) and improves the net outcome. It was
 found by measuring a documentation defect rather than tidying it.
+
+**Shipped 2026-08-25.** `_deterministic_choice` now requires `top_count * 2 > group_size`. The
+artifacts above carry both rules: `majority` is what runs, `plurality` is retained as a
+counterfactual so the cost of the change stays measurable instead of becoming folklore. The
+measurement script's `replication_mismatches` field is 0 on all three corpora, which is a check that
+the reimplemented rule matches the real repairer -- it read 1463 on flights in the interval between
+changing the repairer and renaming the script's arms, which is exactly what it exists to catch.
 
 ## Unanimity is worse, and the reason is instructive
 
@@ -156,8 +163,8 @@ decision rule, and it ranges from **0.0** to **0.8861** with write precision fro
 precision between 0.5618 and 1.0000 on retained ground truth, and that its corruption count is
 governed by premise provenance rather than by anything the write gate currently inspects.
 
-**Authorises** implementing true majority in `_deterministic_choice`: zero measured cost on hospital,
-strictly better on flights.
+**Authorises** the strict-majority rule in `_deterministic_choice`, now shipped: zero measured cost
+on hospital, strictly better on flights.
 
 **Authorises** refusing calibration bypass for repairs derived from *mined* dependencies, on the
 grounds that all attributed corruption came from mined dependencies that are false.

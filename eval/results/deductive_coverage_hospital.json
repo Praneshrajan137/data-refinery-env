@@ -151,13 +151,14 @@
           "ProviderNumber -> ZipCode"
         ]
       },
-      "shipped_plurality_rule": {
+      "shipped_rule": {
         "abstained": 4,
         "correct": 451,
         "coverage_of_all_table_errors": 0.8861,
         "coverage_of_fd_column_errors": 0.9912,
         "precision": 1.0,
         "proposed": 451,
+        "rule": "majority",
         "wrong": 0
       },
       "true_majority_counterfactual": {
@@ -194,7 +195,7 @@
             "write_precision": 0.8399,
             "wrong_value_on_a_real_error": 0
           },
-          "shipped": {
+          "plurality": {
             "corrupted_a_clean_cell": 86,
             "coverage_of_all_table_errors": 0.8861,
             "harmful_write_rate": 0.1601,
@@ -507,13 +508,14 @@
           "ProviderNumber -> ZipCode"
         ]
       },
-      "shipped_plurality_rule": {
+      "shipped_rule": {
         "abstained": 3,
         "correct": 393,
         "coverage_of_all_table_errors": 0.7721,
         "coverage_of_fd_column_errors": 0.9924,
         "precision": 1.0,
         "proposed": 393,
+        "rule": "majority",
         "wrong": 0
       },
       "true_majority_counterfactual": {
@@ -550,7 +552,7 @@
             "write_precision": 1.0,
             "wrong_value_on_a_real_error": 0
           },
-          "shipped": {
+          "plurality": {
             "corrupted_a_clean_cell": 0,
             "coverage_of_all_table_errors": 0.7721,
             "harmful_write_rate": 0.0,
