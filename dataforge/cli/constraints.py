@@ -329,6 +329,16 @@ def _warn_accepted_fd_queue_cost(artifact: ConstraintReviewArtifact) -> None:
     artifact operation do file IO, and the artifact cannot guarantee the CSV is still
     present. ``dataforge profile --constraints-out`` reports the measured cell cost, and
     ``repair --fd-detection declared`` is the control.
+
+    A second cost, measured 2026-08-25 and added here because the queue figure alone understates
+    it: an accepted dependency does not only enlarge the review queue, it authorises **writes**.
+    ``docs/trust/bypass-allowlist-evidence.md`` measures the FD repairer under exactly this premise
+    on hospital -- 537 writes, 451 real errors repaired and **86 cells that were already correct
+    overwritten**, a harmful write rate of 0.1601. Under a premise whose dependencies all hold the
+    same repairer corrupts nothing. Every one of those 86 traces to a mined dependency that is false
+    on ground truth, 23 of them to ``ZipCode -> HospitalName``; a zip code does not determine a
+    hospital name. These writes carry ``deterministic`` provenance and therefore bypass the
+    calibration threshold entirely, so nothing downstream holds them back.
     """
     accepted_fds = [
         entry
@@ -339,10 +349,14 @@ def _warn_accepted_fd_queue_cost(artifact: ConstraintReviewArtifact) -> None:
         return
     _console.print(
         f"[yellow]{len(accepted_fds)} accepted functional dependencies will be able to "
-        "RAISE ISSUES, not just authorize repairs. Inferred FDs raise recall but can flood "
-        "review (measured: 19x on hospital, 1.78 -> 22.80 cells per real error). Use "
+        "RAISE ISSUES and AUTHORIZE WRITES. Inferred FDs raise recall but can flood "
+        "review (measured: 19x on hospital, 1.78 -> 22.80 cells per real error), and a false "
+        "one lets the repairer overwrite cells that were already correct: measured 86 such "
+        "cells on hospital, a 0.1601 harmful write rate, against zero under a premise whose "
+        "dependencies all hold. Those writes bypass the calibration threshold. Use "
         "'dataforge repair --fd-detection declared' to keep the queue reviewable, and see "
-        "docs/trust/constraint-circularity.md.[/yellow]"
+        "docs/trust/bypass-allowlist-evidence.md and docs/trust/constraint-circularity.md."
+        "[/yellow]"
     )
 
 

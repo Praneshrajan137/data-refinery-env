@@ -188,6 +188,29 @@ proposed anything without a declared schema.** `type_mismatch`, `fd_violation` a
 `missing_value` all return `None` absent a declared type or dependency. So with `decimal_shift`
 correctly removed from the bypass, **the schema-free auto-apply path is now empty**.
 
+### Correction, 2026-08-25: that was false when written, and is true now
+
+The sentence above was wrong on its own terms, and this document contradicted itself 115 lines
+earlier by recording schema-free deterministic floors of 1 on `hospital_10rows.csv` and 2 on
+`dirty.csv` -- both from `type_mismatch`.
+
+The error is in the middle clause. `type_mismatch` does **not** return `None` absent a declared type:
+it discards the schema entirely on its first line (`del schema`, `dataforge/repairers/type_mismatch.py`:44)
+and fires on a sentinel value in a mostly-numeric column with no premise at all. Decision-table row 6
+wrote `'N/A' -> ''` with `schema_text=None`, asserted against bytes on disk, for as long as this
+paragraph claimed the path was empty. `specs/SPEC_autoapply_decision.md` recorded the same floor of 1
+and even explained it occurred *"only because it has no declared schema"*.
+
+**It became true on 2026-08-25.** `type_mismatch` was removed from
+`CONSTRAINT_CHECKABLE_DETECTORS` after measurement found 156 flags and **zero** proposals across
+hospital, rayyan and flights, so no committed evidence of a real write existed -- see
+`docs/trust/bypass-allowlist-evidence.md` and `eval/preregistration/bypass_allowlist_evidence.md`.
+Row 6 now holds. Nothing in the product writes without a declared premise.
+
+Worth stating plainly because it is the more useful lesson: this claim was **not** caught by any test,
+gate or review for weeks. It was caught by measuring the detector it depended on. A sentence asserting
+that a path is empty is unfalsifiable unless something counts what travels down it, and nothing did.
+
 That is the correct fail-closed behaviour -- no declared premise, no proof, no write -- and it is
 what `PRODUCT.md` already implied. But it must be stated rather than discovered, because it makes
 several existing tests **vacuous rather than merely failing**: INV1 ("a correct cell is never
