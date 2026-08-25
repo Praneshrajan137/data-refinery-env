@@ -246,6 +246,28 @@ MUTANTS: tuple[Mutant, ...] = (
             "sat undetected"
         ),
     ),
+    Mutant(
+        name="M17-type-mismatch-regains-its-bypass",
+        target="dataforge/domain/vocabulary.py",
+        old='        "fd_violation",\n        "missing_value",\n    }\n)',
+        new='        "fd_violation",\n        "missing_value",\n        "type_mismatch",\n    }\n)',
+        tests=(
+            "tests/integration/test_autoapply_decision_table.py",
+            "tests/integration/test_playground_smoke.py",
+        ),
+        why=(
+            "a detector with no committed write measurement regains the right to skip the "
+            "calibration threshold. Measured in docs/trust/bypass-allowlist-evidence.md: 156 flags "
+            "and ZERO proposals across hospital, rayyan and flights -- 4,376 rows and 6,377 real "
+            "errors -- so nothing establishes what it does when it writes. Zero writes is not a "
+            "safety result: decimal_shift was benchmark-quiet too at 39, 92 and 112 flags with "
+            "precision 0.0000, and what removed it was a fourth dataset where it would have "
+            "rewritten 263,428 values. This detector's firing population, a missing sentinel in a "
+            "mostly-numeric column, is absent from all three corpora while being among the "
+            "commonest shapes of real dirty data. Restoring it also re-fills the schema-free write "
+            "path, so 'no declared premise, no write' stops holding"
+        ),
+    ),
 )
 
 

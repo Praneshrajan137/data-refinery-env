@@ -98,6 +98,38 @@ on a detector that never proposes, and *silence is not evidence*.
 | `missing_value` | no (1.0000) | no (0 harmful, 427 repaired) | **retained, measured** |
 | `type_mismatch` | vacuous -- proposes nowhere | vacuous | **unmeasured** |
 
+## Decision taken
+
+`type_mismatch` was **removed** from `CONSTRAINT_CHECKABLE_DETECTORS` on 2026-08-25. `fd_violation`
+and `missing_value` are retained, now with the measurements their entries always required.
+
+Removal does **not** disable the repairer. Its fixes now face the calibration threshold like every
+other fallible source, which is the fail-closed direction. Measured cost across all three corpora is
+exactly zero, because it wrote nothing on any of them.
+
+Three consequences, all accepted rather than avoided:
+
+1. **Decision-table row 6 now holds.** `'N/A' -> ''` with no premise was the last unpremised write in
+   the product, and it is gone. Two write rows remain -- `fd_violation` and `missing_value` under
+   declared dependencies -- so the table is not vacuous.
+2. **The schema-free auto-apply path is genuinely empty.** `deterministic-is-not-sound.md` had claimed
+   this for weeks while being wrong; it is true as of this change, and that document now records both
+   facts. **Nothing in the product writes without a declared premise.**
+3. **The release gate got stronger, not weaker.** Its repair-audit-revert lifecycle had been running
+   on `hospital_10rows.csv`, whose only auto-appliable fix came from `type_mismatch` -- so the gate
+   was smoke-testing the entire write chain through the least-evidenced detector in the product. It
+   now runs on `premised_fd_10rows.csv`, where `state -> city` is a declared dependency with a 9-to-1
+   majority and the write comes from `fd_violation`.
+
+Mutant `M17` restores the bypass and dies against both the decision table and the playground smoke
+test.
+
+**What would bring it back.** A committed measurement of its writes on a corpus that actually contains
+its firing population -- missing sentinels in mostly-numeric columns, with retained ground truth. That
+is a corpus this project does not currently have, and building one is the honest route to
+re-admission. Restoring the entry without it would repeat exactly the reasoning that let
+`decimal_shift` sit in the trusted set.
+
 ## Limits
 
 1. **Three corpora, and they do not span the failure populations.** `type_mismatch`'s trigger

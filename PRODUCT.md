@@ -101,6 +101,33 @@ What the label-free path is actually worth is now measured rather than asserted,
 between 0.0 and 0.8861, jointly determined by corpus, premise source and decision rule. There is no
 single number, and quoting one would be quoting the corpus it came from.
 
+### 1.4 No premise, no unsupervised write (2026-08-25)
+
+This is now literally true, and it was not before.
+
+The three detectors whose `deterministic` fixes skip the calibration threshold were audited against
+the rule the allowlist sets for itself -- that a member is calibration-bound "until it earns an entry
+here with a committed measurement". Two of the three had never earned one.
+`docs/trust/bypass-allowlist-evidence.md` supplies all three:
+
+- `missing_value` -- **427 writes, 427 repaired, 0 harmful, precision 1.0000.** The strongest measured
+  result of any repairer here, bought with unanimity rather than majority and therefore with low
+  coverage.
+- `fd_violation` -- write precision 0.6602 to 1.0000; 2037 repaired against 700 harmful.
+- `type_mismatch` -- **156 flags, zero proposals** across 4,376 rows and 6,377 real errors. Removed
+  from the bypass.
+
+Removing it emptied the last unpremised write path in the product. That was the only
+zero-configuration write, and losing it is the right trade: it had no measurement, its trigger was a
+hardcoded threshold on the column's own distribution, it discarded the schema so no premise rule could
+reach it, and it erased values rather than copying them.
+
+**Zero writes is not a safety result**, and the reason belongs in this file because it generalises.
+`decimal_shift` was benchmark-quiet too -- 39, 92 and 112 flags at precision 0.0000 -- and what removed
+it was a *fourth* dataset where it would have rewritten 263,428 values. A detector whose failure
+population is absent from your corpora has not been shown to be safe; it has been shown to be
+unreachable by your evidence. Treat the two differently.
+
 ---
 
 ## 2. Purpose
