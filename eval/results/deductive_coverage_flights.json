@@ -1,0 +1,839 @@
+{
+  "arm_definitions": {
+    "mined": "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor; this is what fd_detection_source='accepted' keeps, and 'accepted' is the default",
+    "oracle": "single-column FDs holding exactly on the CLEAN frame; no user has this; the ceiling on the mechanism"
+  },
+  "arms": {
+    "mined": {
+      "population": {
+        "fd_column_share_of_errors": 0.0,
+        "real_errors_in_fd_columns": 0,
+        "real_errors_in_table": 4920
+      },
+      "premise": {
+        "fd_count": 0,
+        "fd_count_holding_on_clean": 0,
+        "fd_covered_columns": [],
+        "fd_set_precision": null,
+        "functional_dependencies": []
+      },
+      "shipped_plurality_rule": {
+        "abstained": 0,
+        "correct": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "coverage_of_fd_column_errors": null,
+        "precision": null,
+        "proposed": 0,
+        "wrong": 0
+      },
+      "true_majority_counterfactual": {
+        "dropped_that_were_wrong": 0,
+        "note": "Make the code match its docstring: require more than half the group. Cells the shipped plurality rule proposes on but a majority rule would not.",
+        "proposals_dropped": 0,
+        "proposals_kept": 0
+      },
+      "unanimity_counterfactual": {
+        "coverage_of_all_table_errors": 0.0,
+        "note": "Propose only when every other row in the determinant group agrees -- the condition under which premise plus data entail a unique value rather than merely favouring one.",
+        "precision": null,
+        "would_be_correct": 0,
+        "would_be_wrong": 0,
+        "would_propose": 0
+      },
+      "vote_shape": {
+        "cells_with_a_visible_conflict": 0,
+        "others_unanimous": 0,
+        "plurality_only_not_majority": 0,
+        "true_majority": 0
+      },
+      "write_exposure": {
+        "abstained_on_flag": 0,
+        "by_rule": {
+          "majority": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "shipped": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "unanimity": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          }
+        },
+        "corruption_examples": [],
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "note": "Unconditional on error status. This is what a user's data is exposed to, and the only figure here that can go badly wrong.",
+        "replication_mismatches": 0
+      },
+      "wrong_proposals": []
+    },
+    "oracle": {
+      "population": {
+        "fd_column_share_of_errors": 1.0,
+        "real_errors_in_fd_columns": 4920,
+        "real_errors_in_table": 4920
+      },
+      "premise": {
+        "fd_count": 4,
+        "fd_count_holding_on_clean": 4,
+        "fd_covered_columns": [
+          "act_arr_time",
+          "act_dep_time",
+          "sched_arr_time",
+          "sched_dep_time"
+        ],
+        "fd_set_precision": 1.0,
+        "functional_dependencies": [
+          "flight -> act_arr_time",
+          "flight -> act_dep_time",
+          "flight -> sched_arr_time",
+          "flight -> sched_dep_time"
+        ]
+      },
+      "shipped_plurality_rule": {
+        "abstained": 2168,
+        "correct": 2050,
+        "coverage_of_all_table_errors": 0.4167,
+        "coverage_of_fd_column_errors": 0.4167,
+        "precision": 0.7449,
+        "proposed": 2752,
+        "wrong": 702
+      },
+      "true_majority_counterfactual": {
+        "dropped_that_were_wrong": 432,
+        "note": "Make the code match its docstring: require more than half the group. Cells the shipped plurality rule proposes on but a majority rule would not.",
+        "proposals_dropped": 1076,
+        "proposals_kept": 1676
+      },
+      "unanimity_counterfactual": {
+        "coverage_of_all_table_errors": 0.0,
+        "note": "Propose only when every other row in the determinant group agrees -- the condition under which premise plus data entail a unique value rather than merely favouring one.",
+        "precision": null,
+        "would_be_correct": 0,
+        "would_be_wrong": 0,
+        "would_propose": 0
+      },
+      "vote_shape": {
+        "cells_with_a_visible_conflict": 4920,
+        "others_unanimous": 0,
+        "plurality_only_not_majority": 1732,
+        "true_majority": 2810
+      },
+      "write_exposure": {
+        "abstained_on_flag": 5203,
+        "by_rule": {
+          "majority": {
+            "corrupted_a_clean_cell": 344,
+            "coverage_of_all_table_errors": 0.2425,
+            "harmful_write_rate": 0.3398,
+            "net_cells_improved": 579,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 1807,
+            "repaired_a_real_error": 1193,
+            "write_precision": 0.6602,
+            "wrong_value_on_a_real_error": 270
+          },
+          "shipped": {
+            "corrupted_a_clean_cell": 731,
+            "coverage_of_all_table_errors": 0.3734,
+            "harmful_write_rate": 0.4382,
+            "net_cells_improved": 404,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 3270,
+            "repaired_a_real_error": 1837,
+            "write_precision": 0.5618,
+            "wrong_value_on_a_real_error": 702
+          },
+          "unanimity": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          }
+        },
+        "corruption_examples": [
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 0,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 537,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 811,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 989,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 1758,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 1858,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 2050,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 27,
+            "row": 2321,
+            "was_already_correct": "9:32 a.m.",
+            "would_be_written": "9:22 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 93,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 380,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 972,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 1266,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 1530,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 1692,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 28,
+            "row": 2286,
+            "was_already_correct": "7:25 p.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 25,
+            "row": 1666,
+            "was_already_correct": "6:55 a.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 25,
+            "row": 2260,
+            "was_already_correct": "6:55 a.m.",
+            "would_be_written": ""
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 12,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 566,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 841,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 1013,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 1602,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 1788,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 1887,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          },
+          {
+            "acting_fd": "flight -> act_arr_time",
+            "column": "act_arr_time",
+            "group_size": 26,
+            "row": 2080,
+            "was_already_correct": "11:56 a.m.",
+            "would_be_written": "11:50 a.m."
+          }
+        ],
+        "detector_flags": 8473,
+        "distinct_cells_flagged": 8473,
+        "note": "Unconditional on error status. This is what a user's data is exposed to, and the only figure here that can go badly wrong.",
+        "replication_mismatches": 0
+      },
+      "wrong_proposals": [
+        {
+          "acting_fd": "flight -> sched_arr_time",
+          "column": "sched_arr_time",
+          "dirty": "12/02/2011 6:55 a.m.",
+          "group_size": 25,
+          "is_true_majority": false,
+          "proposed": "6:55 a.m. Dec 02",
+          "row": 5,
+          "top_count": 6,
+          "truth": "6:55 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "",
+          "group_size": 24,
+          "is_true_majority": false,
+          "proposed": "9:11 p.m.",
+          "row": 37,
+          "top_count": 8,
+          "truth": "9:20 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 23,
+          "is_true_majority": false,
+          "proposed": "7:42 p.m.",
+          "row": 51,
+          "top_count": 9,
+          "truth": "7:14 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "10:31 p.m.",
+          "group_size": 27,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 55,
+          "top_count": 14,
+          "truth": "10:30 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "11:29 p.m.",
+          "group_size": 25,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 60,
+          "top_count": 13,
+          "truth": "11:25 p.m."
+        },
+        {
+          "acting_fd": "flight -> sched_arr_time",
+          "column": "sched_arr_time",
+          "dirty": "",
+          "group_size": 25,
+          "is_true_majority": false,
+          "proposed": "6:55 a.m. Dec 02",
+          "row": 60,
+          "top_count": 6,
+          "truth": "6:55 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "12/2/11 6:35 a.m.",
+          "group_size": 25,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 60,
+          "top_count": 12,
+          "truth": "6:55 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 20,
+          "is_true_majority": false,
+          "proposed": "7:56 a.m.",
+          "row": 64,
+          "top_count": 9,
+          "truth": "7:29 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "",
+          "group_size": 20,
+          "is_true_majority": false,
+          "proposed": "9:09 a.m.",
+          "row": 64,
+          "top_count": 7,
+          "truth": "9:14 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 22,
+          "is_true_majority": false,
+          "proposed": "12:06 p.m.",
+          "row": 75,
+          "top_count": 8,
+          "truth": "11:56 a.m."
+        },
+        {
+          "acting_fd": "flight -> sched_dep_time",
+          "column": "sched_dep_time",
+          "dirty": "",
+          "group_size": 24,
+          "is_true_majority": true,
+          "proposed": "12:00 p.m.",
+          "row": 86,
+          "top_count": 18,
+          "truth": "12:00 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "12:07 p.m.",
+          "group_size": 24,
+          "is_true_majority": false,
+          "proposed": "12:08 p.m.",
+          "row": 86,
+          "top_count": 7,
+          "truth": "3:11 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 21,
+          "is_true_majority": false,
+          "proposed": "5:38 p.m.",
+          "row": 87,
+          "top_count": 10,
+          "truth": "5:22 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "6:47 p.m.",
+          "group_size": 28,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 93,
+          "top_count": 13,
+          "truth": "6:30 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "2:04 p.m.",
+          "group_size": 21,
+          "is_true_majority": false,
+          "proposed": "2:38 p.m.",
+          "row": 97,
+          "top_count": 7,
+          "truth": "2:10 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "7:30 a.m.",
+          "group_size": 21,
+          "is_true_majority": false,
+          "proposed": "7:31 a.m.",
+          "row": 107,
+          "top_count": 7,
+          "truth": "7:05 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "10:43 a.m.",
+          "group_size": 21,
+          "is_true_majority": false,
+          "proposed": "10:45 a.m.",
+          "row": 107,
+          "top_count": 7,
+          "truth": "10:47 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 21,
+          "is_true_majority": false,
+          "proposed": "2:01 p.m.",
+          "row": 111,
+          "top_count": 8,
+          "truth": "1:48 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "12:11 a.m.",
+          "group_size": 23,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 112,
+          "top_count": 13,
+          "truth": "11:55 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "5:52 a.m.",
+          "group_size": 23,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 112,
+          "top_count": 13,
+          "truth": "5:50 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "4:28 p.m.",
+          "group_size": 27,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 113,
+          "top_count": 11,
+          "truth": "4:25 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "12/2/11 12:01 a.m.",
+          "group_size": 27,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 113,
+          "top_count": 11,
+          "truth": "12:29 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "9:06 p.m.",
+          "group_size": 26,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 114,
+          "top_count": 13,
+          "truth": "9:00 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "11:49 p.m.",
+          "group_size": 26,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 114,
+          "top_count": 13,
+          "truth": "12:15 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "8:29 p.m.",
+          "group_size": 27,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 115,
+          "top_count": 13,
+          "truth": "8:25 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "11:35 p.m.",
+          "group_size": 27,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 115,
+          "top_count": 13,
+          "truth": "11:50 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "1:41 p.m.",
+          "group_size": 22,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 119,
+          "top_count": 12,
+          "truth": "1:30 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "3:29 p.m.",
+          "group_size": 22,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 119,
+          "top_count": 12,
+          "truth": "3:50 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "5:38 p.m.",
+          "group_size": 22,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 123,
+          "top_count": 13,
+          "truth": "5:30 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "6:19 p.m.",
+          "group_size": 22,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 123,
+          "top_count": 13,
+          "truth": "6:40 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "1:52 p.m.",
+          "group_size": 21,
+          "is_true_majority": false,
+          "proposed": "2:02 p.m.",
+          "row": 125,
+          "top_count": 8,
+          "truth": "2:00 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "9:12 p.m.",
+          "group_size": 24,
+          "is_true_majority": false,
+          "proposed": "9:11 p.m.",
+          "row": 126,
+          "top_count": 8,
+          "truth": "9:20 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 17,
+          "is_true_majority": false,
+          "proposed": "9:43 a.m.",
+          "row": 129,
+          "top_count": 8,
+          "truth": "9:16 a.m."
+        },
+        {
+          "acting_fd": "flight -> sched_dep_time",
+          "column": "sched_dep_time",
+          "dirty": "9:05 a.m. (-00:00)",
+          "group_size": 20,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 135,
+          "top_count": 9,
+          "truth": "9:05 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "10:39 p.m.&nbsp(Estimated)",
+          "group_size": 27,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 155,
+          "top_count": 14,
+          "truth": "10:30 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "Not Available",
+          "group_size": 25,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 160,
+          "top_count": 13,
+          "truth": "11:25 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "Not Available",
+          "group_size": 25,
+          "is_true_majority": false,
+          "proposed": "",
+          "row": 160,
+          "top_count": 12,
+          "truth": "6:55 a.m."
+        },
+        {
+          "acting_fd": "flight -> act_arr_time",
+          "column": "act_arr_time",
+          "dirty": "3:19 p.m.",
+          "group_size": 25,
+          "is_true_majority": false,
+          "proposed": "3:13 p.m.",
+          "row": 181,
+          "top_count": 8,
+          "truth": "3:30 p.m."
+        },
+        {
+          "acting_fd": "flight -> act_dep_time",
+          "column": "act_dep_time",
+          "dirty": "",
+          "group_size": 20,
+          "is_true_majority": false,
+          "proposed": "1:43 p.m.",
+          "row": 190,
+          "top_count": 9,
+          "truth": "1:32 p.m."
+        },
+        {
+          "acting_fd": "flight -> sched_arr_time",
+          "column": "sched_arr_time",
+          "dirty": "4:52 p.m.",
+          "group_size": 20,
+          "is_true_majority": true,
+          "proposed": "",
+          "row": 190,
+          "top_count": 12,
+          "truth": "5:15 p.m."
+        }
+      ]
+    }
+  },
+  "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
+  "corpus": "flights",
+  "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
+  "rows": 2376,
+  "schema": "dataforge_deductive_coverage_v2"
+}

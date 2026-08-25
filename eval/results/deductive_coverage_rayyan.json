@@ -1,0 +1,187 @@
+{
+  "arm_definitions": {
+    "mined": "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor; this is what fd_detection_source='accepted' keeps, and 'accepted' is the default",
+    "oracle": "single-column FDs holding exactly on the CLEAN frame; no user has this; the ceiling on the mechanism"
+  },
+  "arms": {
+    "mined": {
+      "population": {
+        "fd_column_share_of_errors": 0.0,
+        "real_errors_in_fd_columns": 0,
+        "real_errors_in_table": 948
+      },
+      "premise": {
+        "fd_count": 0,
+        "fd_count_holding_on_clean": 0,
+        "fd_covered_columns": [],
+        "fd_set_precision": null,
+        "functional_dependencies": []
+      },
+      "shipped_plurality_rule": {
+        "abstained": 0,
+        "correct": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "coverage_of_fd_column_errors": null,
+        "precision": null,
+        "proposed": 0,
+        "wrong": 0
+      },
+      "true_majority_counterfactual": {
+        "dropped_that_were_wrong": 0,
+        "note": "Make the code match its docstring: require more than half the group. Cells the shipped plurality rule proposes on but a majority rule would not.",
+        "proposals_dropped": 0,
+        "proposals_kept": 0
+      },
+      "unanimity_counterfactual": {
+        "coverage_of_all_table_errors": 0.0,
+        "note": "Propose only when every other row in the determinant group agrees -- the condition under which premise plus data entail a unique value rather than merely favouring one.",
+        "precision": null,
+        "would_be_correct": 0,
+        "would_be_wrong": 0,
+        "would_propose": 0
+      },
+      "vote_shape": {
+        "cells_with_a_visible_conflict": 0,
+        "others_unanimous": 0,
+        "plurality_only_not_majority": 0,
+        "true_majority": 0
+      },
+      "write_exposure": {
+        "abstained_on_flag": 0,
+        "by_rule": {
+          "majority": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "shipped": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "unanimity": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          }
+        },
+        "corruption_examples": [],
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "note": "Unconditional on error status. This is what a user's data is exposed to, and the only figure here that can go badly wrong.",
+        "replication_mismatches": 0
+      },
+      "wrong_proposals": []
+    },
+    "oracle": {
+      "population": {
+        "fd_column_share_of_errors": 0.0,
+        "real_errors_in_fd_columns": 0,
+        "real_errors_in_table": 948
+      },
+      "premise": {
+        "fd_count": 0,
+        "fd_count_holding_on_clean": 0,
+        "fd_covered_columns": [],
+        "fd_set_precision": null,
+        "functional_dependencies": []
+      },
+      "shipped_plurality_rule": {
+        "abstained": 0,
+        "correct": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "coverage_of_fd_column_errors": null,
+        "precision": null,
+        "proposed": 0,
+        "wrong": 0
+      },
+      "true_majority_counterfactual": {
+        "dropped_that_were_wrong": 0,
+        "note": "Make the code match its docstring: require more than half the group. Cells the shipped plurality rule proposes on but a majority rule would not.",
+        "proposals_dropped": 0,
+        "proposals_kept": 0
+      },
+      "unanimity_counterfactual": {
+        "coverage_of_all_table_errors": 0.0,
+        "note": "Propose only when every other row in the determinant group agrees -- the condition under which premise plus data entail a unique value rather than merely favouring one.",
+        "precision": null,
+        "would_be_correct": 0,
+        "would_be_wrong": 0,
+        "would_propose": 0
+      },
+      "vote_shape": {
+        "cells_with_a_visible_conflict": 0,
+        "others_unanimous": 0,
+        "plurality_only_not_majority": 0,
+        "true_majority": 0
+      },
+      "write_exposure": {
+        "abstained_on_flag": 0,
+        "by_rule": {
+          "majority": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "shipped": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "unanimity": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          }
+        },
+        "corruption_examples": [],
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "note": "Unconditional on error status. This is what a user's data is exposed to, and the only figure here that can go badly wrong.",
+        "replication_mismatches": 0
+      },
+      "wrong_proposals": []
+    }
+  },
+  "clean_sha256": "23159f43c0706782388ed8957ad0c74eb7b88bc98f34d65bd49296e186d4673f",
+  "corpus": "rayyan",
+  "dirty_sha256": "7e25e6db262b0c72ca2d9735d5959599cf5a582e1c705459507c7b45d0d1d174",
+  "rows": 1000,
+  "schema": "dataforge_deductive_coverage_v2"
+}
