@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.ci import docs_truth
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CHECKER = PROJECT_ROOT / "scripts" / "ci" / "docs_truth.py"
 LEDGER = PROJECT_ROOT / "docs" / "quantitative_claims.yaml"
@@ -92,7 +94,7 @@ class TestCheckerDetectsDivergence:
             doc.write_text(original.decode("utf-8").replace("0.2722", "0.9500"), encoding="utf-8")
             result = _run()
             assert result.returncode == 1, "a falsified prose number was not detected"
-            assert "does not contain" in result.stderr
+            assert "does not state" in result.stderr
         finally:
             doc.write_bytes(original)
         assert _run().returncode == 0, "checker did not recover after restore"
@@ -112,6 +114,127 @@ class TestCheckerDetectsDivergence:
             assert result.returncode == 1, "a removed artifact field was not detected"
         finally:
             artifact.write_bytes(original)
+
+
+class TestShortValuesCannotBeSatisfiedIncidentally:
+    """The correction of 2026-08-26, and the case that motivated it.
+
+    Direction B was ``expected not in doc.read_text()`` -- a raw substring over the whole file. So a
+    claim whose rendered value was ``"0"`` was satisfied by the document containing ``2026-08-26``.
+    Fourteen of forty-six claims had an ``expect`` of two characters or fewer, and **six were
+    verifiable in name only**: the prose could be edited to contradict them and CI would still pass.
+    One of the six was a control arm that its own document described as the number making the claim
+    precise. So ``"Verified 46 quantitative claims"`` was itself an overclaim -- the exact defect
+    this checker exists to prevent, committed by the checker.
+
+    These tests are about the TOKEN and CONTEXT rules that replaced it. They are written against
+    the real failing inputs rather than invented ones, because the whole point is that the old
+    check passed on these.
+    """
+
+    def test_a_digit_inside_a_date_does_not_satisfy_a_claim(self) -> None:
+        """The literal case. ``0`` occurs in ``2026-08-26`` and must not count."""
+        pattern = docs_truth._token_pattern("0")
+
+        assert pattern.search("2026-08-26") is None
+        assert pattern.search("An **LF** source has **0** lines re-terminated") is not None
+
+    def test_a_digit_inside_a_filename_does_not_satisfy_a_claim(self) -> None:
+        """``1`` occurs in ``premised_fd_10rows.csv``."""
+        pattern = docs_truth._token_pattern("1")
+
+        assert pattern.search("dataforge/fixtures/premised_fd_10rows.csv") is None
+        assert pattern.search("| Cells changed | - | 1 |") is not None
+
+    def test_a_value_inside_a_longer_number_does_not_satisfy_a_claim(self) -> None:
+        """Both boundaries, including the asymmetric right-hand one.
+
+        A rendered number may legitimately end a sentence with a full stop, but must not be
+        followed by one that continues a number.
+        """
+        pattern = docs_truth._token_pattern("0.6189")
+
+        assert pattern.search("10.6189") is None
+        assert pattern.search("0.61890") is None
+        assert pattern.search("write precision is 0.6189.") is not None
+        assert docs_truth._token_pattern("11").search("110 rows") is None
+
+    def test_every_short_claim_declares_context(self) -> None:
+        """The class-level gate, so the six instances cannot recur as a seventh."""
+        yaml = pytest.importorskip("yaml")
+        payload = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
+
+        missing = [
+            str(claim["id"])
+            for claim in payload["claims"]
+            if len(str(claim["expect"])) <= docs_truth.CONTEXT_REQUIRED_MAX_LENGTH
+            and not claim.get("context")
+        ]
+
+        assert missing == [], f"short-value claims without 'context': {missing}"
+
+    def test_a_short_claim_without_context_is_refused(self, tmp_path: Path) -> None:
+        """Non-vacuity for the gate above: it must actually fire."""
+        errors = docs_truth._prose_errors(
+            "probe",
+            {"doc": "DECISIONS.md", "artifact": "a.json", "pointer": "/x"},
+            "0",
+        )
+
+        assert any("must declare 'context'" in error for error in errors)
+
+    def test_context_on_the_wrong_line_is_refused(self, tmp_path: Path) -> None:
+        """The number must appear beside the claim it supports, not merely in the same file.
+
+        This is the failure the token rule alone cannot catch: a document can legitimately contain
+        a standalone ``0`` somewhere while the sentence that is supposed to state the claim says
+        something else entirely.
+        """
+        doc = tmp_path / "claim.md"
+        doc.write_text(
+            "The count of things is 0 in general.\nThe LF control arm reported 7 lines.\n",
+            encoding="utf-8",
+        )
+
+        errors = docs_truth._prose_errors(
+            "probe",
+            {
+                "doc": str(doc),
+                "pointer": "/x",
+                "artifact": "a.json",
+                "context": "LF control arm",
+            },
+            "0",
+        )
+
+        assert any("never on a line containing" in error for error in errors)
+
+    def test_the_previously_vacuous_claims_are_now_falsifiable(self) -> None:
+        """The decisive test: contradict a claim that used to pass, and require a failure.
+
+        ``line_ending_lf_control`` is the sharpest of the six. Its value is ``0`` and its document
+        contains a date, so under the old substring rule the sentence could say any number at all.
+        """
+        doc = PROJECT_ROOT / "docs" / "trust" / "apply-rewrites-line-endings.md"
+        original = doc.read_bytes()
+        try:
+            falsified = original.decode("utf-8").replace(
+                "An **LF** source has **0** lines re-terminated",
+                "An **LF** source has **7** lines re-terminated",
+            )
+            assert falsified != original.decode("utf-8"), "the sentence under test moved"
+            doc.write_text(falsified, encoding="utf-8")
+
+            result = _run()
+
+            assert result.returncode == 1, (
+                "contradicting the LF control arm did not fail the checker; "
+                "Direction B is vacuous again"
+            )
+            assert "line_ending_lf_control" in result.stderr
+        finally:
+            doc.write_bytes(original)
+        assert _run().returncode == 0, "checker did not recover after restore"
 
 
 class TestCheckerIsWiredIntoCi:

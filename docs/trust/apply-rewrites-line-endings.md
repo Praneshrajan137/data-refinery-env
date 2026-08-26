@@ -15,6 +15,8 @@ On `dataforge/fixtures/premised_fd_10rows.csv` — 11 lines, one provable `fd_vi
 | CRLF terminators | 11 | 0 |
 | LF terminators | 0 | 11 |
 | File size (bytes) | 147 | 135 |
+| Bytes removed | — | 12 |
+| Lines re-terminated | — | 11 |
 | Cells changed | — | 1 |
 
 So changing one cell modified 11 lines and 12 bytes. The cause is that the apply path

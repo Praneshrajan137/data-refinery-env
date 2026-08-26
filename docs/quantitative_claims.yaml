@@ -245,6 +245,7 @@ claims:
     pointer: /arms/incumbent/admitted_false
     format: "{:d}"
     expect: "16"
+    context: "false dependencies"
     note: >-
       Mined dependencies that do NOT hold on ground truth. ZipCode -> HospitalName is one
       of these and accounted for 23 of the 25 sampled corruptions.
@@ -266,6 +267,7 @@ claims:
     pointer: /arms/candidate_total
     format: "{:d}"
     expect: "4"
+    context: "200000"
     note: >-
       Four candidates on 200,000 rows. The reason tax cannot validate a threshold fitted to
       hospital: it contains no false dependency to separate.
@@ -276,6 +278,7 @@ claims:
     pointer: /arms/candidate_total
     format: "{:d}"
     expect: "0"
+    context: "flights"
     note: >-
       The miner emits nothing on flights. Half of why the separating threshold found on
       hospital has nothing to validate it against.
@@ -286,6 +289,7 @@ claims:
     pointer: /arms/candidate_total
     format: "{:d}"
     expect: "0"
+    context: "rayyan"
     note: >-
       The miner emits nothing on rayyan either. With flights at 0 and tax at 4-of-4 true,
       no corpus can confirm or refute hospital's separation.
@@ -299,6 +303,7 @@ claims:
     pointer: /crlf/lines_reterminated
     format: "{:d}"
     expect: "11"
+    context: "Lines re-terminated"
     note: >-
       Every line of an 11-line CRLF file is re-terminated to change one cell. The count is the
       table's ROW COUNT, not a constant, so the collateral scales with the table while the repair
@@ -310,6 +315,7 @@ claims:
     pointer: /crlf/cells_changed
     format: "{:d}"
     expect: "1"
+    context: "Cells changed"
     note: >-
       The denominator of the 11-to-1 ratio. Exactly one cell was repaired, which is why the fixture
       was chosen: its repair is provable from a declared functional dependency.
@@ -320,6 +326,7 @@ claims:
     pointer: /crlf/bytes_delta
     format: "{:d}"
     expect: "12"
+    context: "Bytes removed"
     note: >-
       11 carriage returns removed plus one byte from bostonn -> boston.
 
@@ -329,6 +336,7 @@ claims:
     pointer: /crlf/crlf_before
     format: "{:d}"
     expect: "11"
+    context: "CRLF terminators"
     note: >-
       The before column of the published table.
 
@@ -356,6 +364,7 @@ claims:
     pointer: /summary/lf_lines_reterminated
     format: "{:d}"
     expect: "0"
+    context: "source has"
     note: >-
       The control arm, and it is what makes the claim precise. An LF source has ZERO lines
       re-terminated, so the defect is dialect CONVERSION and not unconditional rewriting -- a
@@ -370,6 +379,7 @@ claims:
     pointer: /detectors/format_violation/no_premise/proposals
     format: "{:d}"
     expect: "99"
+    context: "hospital *(injected"
     note: >-
       format_violation on hospital. Every one of these is a clean cell, via the leading-zero branch
       padding the row index.
@@ -380,6 +390,7 @@ claims:
     pointer: /detectors/format_violation/no_premise/corrupted_a_clean_cell
     format: "{:d}"
     expect: "99"
+    context: "hospital *(injected"
     note: >-
       Equal to the write count: nothing it wrote on hospital was a real error.
 
@@ -429,6 +440,7 @@ claims:
     pointer: /detectors/format_violation/no_premise/repaired_a_real_error
     format: "{:d}"
     expect: "0"
+    context: "10148"
     note: >-
       Zero real errors repaired on the largest corpus. K1 fires.
 
@@ -438,6 +450,7 @@ claims:
     pointer: /detectors/categorical_normalization/no_premise/corrupted_a_clean_cell
     format: "{:d}"
     expect: "25"
+    context: "rayyan *(natural"
     note: >-
       0-for-25 on rayyan. The companion figure to tax's 0.6189, and the reason neither may be
       quoted alone.
@@ -478,5 +491,6 @@ claims:
     pointer: /detectors/categorical_normalization/no_premise/wrong_value_on_a_real_error
     format: "{:d}"
     expect: "77"
+    context: "majority is a third"
     note: >-
       Where the majority is a third, also-wrong form.
