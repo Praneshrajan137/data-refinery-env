@@ -60,10 +60,29 @@ def build_repairers(
     by default (propose-not-apply) they surface as reviewable suggestions.
 
     When ``allow_llm`` is False the registry is exactly the four deterministic
-    repairers, keeping deterministic runs byte-identical. ``format_violation``
-    and ``categorical_normalization`` deterministic repairers remain withheld
-    from auto-apply (they regressed benchmark precision); the corrector replaces
-    them as the calibrated, gated correction path for those classes.
+    repairers, keeping deterministic runs byte-identical.
+
+    ``format_violation`` and ``categorical_normalization`` deterministic repairers are
+    deliberately absent, and as of 2026-08-26 that exclusion is **measured rather than
+    asserted**. It previously read "they regressed benchmark precision", which cited no
+    artifact -- an unmeasured claim justifying a withholding, which is a defect whichever
+    way the number falls. Both were then scored unconditionally over every cell they touch
+    on all four corpora, pre-registered in
+    ``eval/preregistration/withheld_repairer_coverage.md`` and published in
+    ``docs/trust/withheld-repairer-result.md``:
+
+    * ``format_violation`` -- **10,356 writes, 0 repaired, 10,356 clean cells corrupted**,
+      write precision 0.0000 on every corpus where it proposes. Both pre-registered kill
+      criteria fire. The whole failure is one branch: ``_canonicalize`` step 3 pads a
+      shorter all-digit value to the dominant column width, so it rewrites row indices,
+      record ids and salaries (``5000`` -> ``05000``). Permanently withheld.
+    * ``categorical_normalization`` -- neither kill criterion fires (604 repaired against
+      397 harmful), and it is **still** withheld. Its reference is a majority vote over the
+      column's own values, so it measures how corrupted the corpus is rather than what is
+      true: write precision 0.6189 on one corpus and 0.0000 on another. 38% of its writes
+      are harmful. Passing a *removal* criterion is not earning admission.
+
+    The corrector replaces both as the calibrated, gated correction path for those classes.
     """
     registry: dict[str, Repairer] = {
         "type_mismatch": TypeMismatchRepairer(),

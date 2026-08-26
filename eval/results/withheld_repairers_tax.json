@@ -1,0 +1,546 @@
+{
+  "clean_sha256": "201290927ae92e65b3940d776b3df5b4d953c5dfd9abb231715a2e65ecca87b0",
+  "corpus": "tax",
+  "detectors": {
+    "categorical_normalization": {
+      "no_premise": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 295,
+        "coverage_of_all_table_errors": 0.005,
+        "detector_flags": 976,
+        "distinct_cells_flagged": 976,
+        "examples": {
+          "corrupted_a_clean_cell": [
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 929,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 4849,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 18947,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 25942,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 61185,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 73449,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 74006,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 80421,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 103615,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 112694,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 120906,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 125783,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 135828,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 136881,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 143084,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 181068,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 183966,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 195370,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 197092,
+              "truth": "Raed",
+              "was": "Raed",
+              "would_be_written": "Ra''ed"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 3844,
+              "truth": "Liwu",
+              "was": "Liwu",
+              "would_be_written": "LiWu"
+            }
+          ],
+          "wrong_value_on_a_real_error": [
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 825,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 2652,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 3534,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 9234,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 24344,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 55829,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 73949,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 117775,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 130136,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 142610,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 143089,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 181720,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 185127,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 186275,
+              "truth": "Jun'ichi",
+              "was": "Jun''ichi",
+              "would_be_written": "Junichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 48851,
+              "truth": "Shun'ichi",
+              "was": "Shun''ichi",
+              "would_be_written": "Shunichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 51125,
+              "truth": "Shun'ichi",
+              "was": "Shun''ichi",
+              "would_be_written": "Shunichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 69965,
+              "truth": "Shun'ichi",
+              "was": "Shun''ichi",
+              "would_be_written": "Shunichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 75026,
+              "truth": "Shun'ichi",
+              "was": "Shun''ichi",
+              "would_be_written": "Shunichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 81401,
+              "truth": "Shun'ichi",
+              "was": "Shun''ichi",
+              "would_be_written": "Shunichi"
+            },
+            {
+              "column": "f_name",
+              "provenance": "deterministic",
+              "row": 83346,
+              "truth": "Shun'ichi",
+              "was": "Shun''ichi",
+              "would_be_written": "Shunichi"
+            }
+          ]
+        },
+        "harmful_write_rate": 0.3811,
+        "in_allowlist": false,
+        "net_cells_improved": 232,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 976,
+        "repaired_a_real_error": 604,
+        "write_precision": 0.6189,
+        "wrong_value_on_a_real_error": 77
+      }
+    },
+    "format_violation": {
+      "no_premise": {
+        "abstained_on_flag": 9870,
+        "corrupted_a_clean_cell": 10148,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 20018,
+        "distinct_cells_flagged": 20018,
+        "examples": {
+          "corrupted_a_clean_cell": [
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 53,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 60,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 84,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 111,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 177,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 188,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 197,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 213,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 227,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 231,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 278,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 280,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 290,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 327,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 357,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 379,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 380,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 404,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 405,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            },
+            {
+              "column": "salary",
+              "provenance": "deterministic",
+              "row": 416,
+              "truth": "5000",
+              "was": "5000",
+              "would_be_written": "05000"
+            }
+          ],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": 1.0,
+        "in_allowlist": false,
+        "net_cells_improved": -10148,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 10148,
+        "repaired_a_real_error": 0,
+        "write_precision": 0.0,
+        "wrong_value_on_a_real_error": 0
+      }
+    }
+  },
+  "dirty_sha256": "8dd3429ec4791b2ed1a688c308a57a9f3d1a94f77d1f4e98294a67273270b973",
+  "note": "Unconditional write exposure for every detector whose deterministic fixes bypass the calibration threshold. Per distinct cell, not per flag. Pre-registered in eval/preregistration/bypass_allowlist_evidence.md.",
+  "real_errors_in_table": 121219,
+  "rows": 200000,
+  "schema": "dataforge_bypass_allowlist_evidence_v1"
+}

@@ -1,0 +1,224 @@
+{
+  "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
+  "corpus": "hospital",
+  "detectors": {
+    "categorical_normalization": {
+      "no_premise": {
+        "abstained_on_flag": 0,
+        "corrupted_a_clean_cell": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "examples": {
+          "corrupted_a_clean_cell": [],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": null,
+        "in_allowlist": false,
+        "net_cells_improved": 0,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 0,
+        "repaired_a_real_error": 0,
+        "write_precision": null,
+        "wrong_value_on_a_real_error": 0
+      }
+    },
+    "format_violation": {
+      "no_premise": {
+        "abstained_on_flag": 29,
+        "corrupted_a_clean_cell": 99,
+        "coverage_of_all_table_errors": 0.0,
+        "detector_flags": 128,
+        "distinct_cells_flagged": 128,
+        "examples": {
+          "corrupted_a_clean_cell": [
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 0,
+              "truth": "1",
+              "was": "1",
+              "would_be_written": "001"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 1,
+              "truth": "2",
+              "was": "2",
+              "would_be_written": "002"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 2,
+              "truth": "3",
+              "was": "3",
+              "would_be_written": "003"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 3,
+              "truth": "4",
+              "was": "4",
+              "would_be_written": "004"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 4,
+              "truth": "5",
+              "was": "5",
+              "would_be_written": "005"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 5,
+              "truth": "6",
+              "was": "6",
+              "would_be_written": "006"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 6,
+              "truth": "7",
+              "was": "7",
+              "would_be_written": "007"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 7,
+              "truth": "8",
+              "was": "8",
+              "would_be_written": "008"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 8,
+              "truth": "9",
+              "was": "9",
+              "would_be_written": "009"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 9,
+              "truth": "10",
+              "was": "10",
+              "would_be_written": "010"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 10,
+              "truth": "11",
+              "was": "11",
+              "would_be_written": "011"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 11,
+              "truth": "12",
+              "was": "12",
+              "would_be_written": "012"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 12,
+              "truth": "13",
+              "was": "13",
+              "would_be_written": "013"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 13,
+              "truth": "14",
+              "was": "14",
+              "would_be_written": "014"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 14,
+              "truth": "15",
+              "was": "15",
+              "would_be_written": "015"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 15,
+              "truth": "16",
+              "was": "16",
+              "would_be_written": "016"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 16,
+              "truth": "17",
+              "was": "17",
+              "would_be_written": "017"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 17,
+              "truth": "18",
+              "was": "18",
+              "would_be_written": "018"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 18,
+              "truth": "19",
+              "was": "19",
+              "would_be_written": "019"
+            },
+            {
+              "column": "index",
+              "provenance": "deterministic",
+              "row": 19,
+              "truth": "20",
+              "was": "20",
+              "would_be_written": "020"
+            }
+          ],
+          "wrong_value_on_a_real_error": []
+        },
+        "harmful_write_rate": 1.0,
+        "in_allowlist": false,
+        "net_cells_improved": -99,
+        "no_op_on_a_clean_cell": 0,
+        "premise": {
+          "fd_count": 0,
+          "kind": "none",
+          "note": "no schema supplied; the shipped default"
+        },
+        "proposals": 99,
+        "repaired_a_real_error": 0,
+        "write_precision": 0.0,
+        "wrong_value_on_a_real_error": 0
+      }
+    }
+  },
+  "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+  "note": "Unconditional write exposure for every detector whose deterministic fixes bypass the calibration threshold. Per distinct cell, not per flag. Pre-registered in eval/preregistration/bypass_allowlist_evidence.md.",
+  "real_errors_in_table": 509,
+  "rows": 1000,
+  "schema": "dataforge_bypass_allowlist_evidence_v1"
+}

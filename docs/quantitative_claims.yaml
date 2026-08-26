@@ -360,3 +360,123 @@ claims:
       The control arm, and it is what makes the claim precise. An LF source has ZERO lines
       re-terminated, so the defect is dialect CONVERSION and not unconditional rewriting -- a
       different and much larger claim that this number refutes.
+  # --- The two withheld repairers (2026-08-26) ---
+  # Pre-registered in eval/preregistration/withheld_repairer_coverage.md. The totals in the trust
+  # document (10356 writes, 0 repaired) are arithmetic over the per-corpus numbers bound below, so
+  # any one of them drifting fails CI and forces the argument to be re-made.
+  - id: withheld_format_hospital_writes
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_hospital.json
+    pointer: /detectors/format_violation/no_premise/proposals
+    format: "{:d}"
+    expect: "99"
+    note: >-
+      format_violation on hospital. Every one of these is a clean cell, via the leading-zero branch
+      padding the row index.
+
+  - id: withheld_format_hospital_corrupted
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_hospital.json
+    pointer: /detectors/format_violation/no_premise/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "99"
+    note: >-
+      Equal to the write count: nothing it wrote on hospital was a real error.
+
+  - id: withheld_format_rayyan_corrupted
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_rayyan.json
+    pointer: /detectors/format_violation/no_premise/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "109"
+    note: >-
+      rayyan is the only corpus whose errors are natural rather than injected, and the repairer is
+      0-for-109 on it.
+
+  - id: withheld_format_tax_flagged
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/format_violation/no_premise/distinct_cells_flagged
+    format: "{:d}"
+    expect: "20018"
+    note: >-
+      The flag count behind the 211-minute extrapolation, on the synthetic diagnostic-tier corpus
+      measured unsampled at 200,000 rows.
+
+  - id: withheld_format_tax_abstained
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/format_violation/no_premise/abstained_on_flag
+    format: "{:d}"
+    expect: "9870"
+    note: >-
+      The abstention machinery works -- it declines half the queue. It simply does not abstain on
+      the branch that is wrong.
+
+  - id: withheld_format_tax_corrupted
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/format_violation/no_premise/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "10148"
+    note: >-
+      The number that decided it, and it exists only because tax was measured unsampled. Without
+      this arm the finding would have read 208 rather than 10356, a 50-fold understatement.
+
+  - id: withheld_format_tax_repaired
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/format_violation/no_premise/repaired_a_real_error
+    format: "{:d}"
+    expect: "0"
+    note: >-
+      Zero real errors repaired on the largest corpus. K1 fires.
+
+  - id: withheld_categorical_rayyan_corrupted
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_rayyan.json
+    pointer: /detectors/categorical_normalization/no_premise/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "25"
+    note: >-
+      0-for-25 on rayyan. The companion figure to tax's 0.6189, and the reason neither may be
+      quoted alone.
+
+  - id: withheld_categorical_tax_precision
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/categorical_normalization/no_premise/write_precision
+    format: "{:.4f}"
+    expect: "0.6189"
+    note: >-
+      Neither kill criterion fires on this. It is nonetheless not a property of the repairer -- it is
+      a property of how corrupted this synthetic diagnostic-tier corpus is, since the reference is a
+      majority vote over the column's own values.
+
+  - id: withheld_categorical_tax_repaired
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/categorical_normalization/no_premise/repaired_a_real_error
+    format: "{:d}"
+    expect: "604"
+    note: >-
+      Where the majority form happens to be the correct one.
+
+  - id: withheld_categorical_tax_corrupted
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/categorical_normalization/no_premise/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "295"
+    note: >-
+      Where the majority form is the corrupted one, so the vote writes corruption into cells that
+      were still correct. The mechanism cannot distinguish the two regimes.
+
+  - id: withheld_categorical_tax_wrong
+    doc: docs/trust/withheld-repairer-result.md
+    artifact: eval/results/withheld_repairers_tax.json
+    pointer: /detectors/categorical_normalization/no_premise/wrong_value_on_a_real_error
+    format: "{:d}"
+    expect: "77"
+    note: >-
+      Where the majority is a third, also-wrong form.

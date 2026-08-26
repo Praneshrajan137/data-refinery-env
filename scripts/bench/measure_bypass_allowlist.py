@@ -46,8 +46,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 import pandas as pd
 
@@ -58,12 +59,20 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from dataforge.datasets.real_world import load_real_world_dataset  # noqa: E402
 from dataforge.detectors.base import Issue, Schema  # noqa: E402
+from dataforge.detectors.categorical_normalization import (  # noqa: E402
+    CategoricalNormalizationDetector,
+)
 from dataforge.detectors.fd_violation import FDViolationDetector  # noqa: E402
+from dataforge.detectors.format_violation import FormatViolationDetector  # noqa: E402
 from dataforge.detectors.missing_value import MissingValueDetector  # noqa: E402
 from dataforge.detectors.type_mismatch import TypeMismatchDetector  # noqa: E402
 from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS  # noqa: E402
 from dataforge.repairers.base import ProposedFix  # noqa: E402
+from dataforge.repairers.categorical_normalization import (  # noqa: E402
+    CategoricalNormalizationRepairer,
+)
 from dataforge.repairers.fd_violation import FDViolationRepairer  # noqa: E402
+from dataforge.repairers.format_violation import FormatViolationRepairer  # noqa: E402
 from dataforge.repairers.missing_value import MissingValueRepairer  # noqa: E402
 from dataforge.repairers.type_mismatch import TypeMismatchRepairer  # noqa: E402
 from dataforge.table import TableLike  # noqa: E402
@@ -89,31 +98,121 @@ class _Repairer(Protocol):
     ) -> ProposedFix | None: ...
 
 
+#: Detectors this harness can score. A SUPERSET of the allowlist, deliberately: the two withheld
+#: repairers are not allowlist members and the whole point of measuring them is to find out what
+#: they would do if they were. Keyed on issue type, which is what ``detector_id`` carries.
+#:
+#: ``format_violation`` and ``categorical_normalization`` were added 2026-08-26. They are absent
+#: from ``build_repairers``' deterministic registry, so nothing in the product can reach them --
+#: this harness constructs them directly, which is the only way to measure a repairer that is
+#: withheld. Pre-registered in ``eval/preregistration/withheld_repairer_coverage.md``.
+MEASURABLE_DETECTORS: Final[tuple[str, ...]] = (
+    "categorical_normalization",
+    "fd_violation",
+    "format_violation",
+    "missing_value",
+    "type_mismatch",
+)
+
+#: Detectors whose repairer reads no premise, so a premised arm would be identical by construction.
+#: Reporting two arms for these would imply a premise sensitivity that does not exist:
+#: ``format_violation`` accepts a ``schema`` and never reads it, and
+#: ``categorical_normalization`` executes ``del retry_context, schema`` on its first line.
+UNPREMISED_DETECTORS: Final[frozenset[str]] = frozenset(
+    {"type_mismatch", "format_violation", "categorical_normalization"}
+)
+
+
+class _ProfileMemoRepairer:
+    """``FormatViolationRepairer`` with its column profile computed once per column.
+
+    Why this wrapper exists, dated 2026-08-26. ``FormatViolationRepairer._dominant_profile`` rescans
+    the ENTIRE column and recomputes ``value_shape`` for every value, once **per flag**. Measured on
+    tax (200,000 rows, 15 columns): the detector takes 5.7 seconds and emits 20,018 flags, and the
+    repairer costs 632 ms per flag -- **211 minutes** to propose on one corpus. The cost is
+    O(flags x rows), so it is invisible on the 1,000-row corpora and intractable on the one corpus
+    that has ever caught a repairer this project removed.
+
+    The pre-registration requires tax measured UNSAMPLED, because a head slice of tax is a biased
+    view of a different population rather than a weaker view of this one. This memo is how that arm
+    becomes reachable without violating it.
+
+    **It cannot change a single proposal.** ``_dominant_profile(df, column)`` is a pure function of
+    the dataframe and the column name, neither of which this harness mutates, so memoising it returns
+    the identical tuple. Equivalence is not argued, it is verified: with the memo enabled, hospital
+    still reports 99 writes / 99 corrupted and rayyan 109 / 109, asserted in
+    ``tests/unit/test_withheld_repairer_harness.py``.
+
+    Not fixed in the product deliberately. The repairer is unreachable -- absent from
+    ``build_repairers``' registry -- and this measurement is what records it as permanently
+    withheld. Optimising a component with no consumer is the error ``PRODUCT.md`` section 1.3 names:
+    rigour there buys correctness of a report, not of the product.
+    """
+
+    def __init__(self) -> None:
+        self._inner = FormatViolationRepairer()
+        self._cache: dict[str, tuple[str | None, list[str]]] = {}
+
+    def propose(
+        self,
+        issue: Issue,
+        df: TableLike,
+        schema: Schema | None,
+        retry_context: None = None,
+    ) -> ProposedFix | None:
+        """Delegate, with ``_dominant_profile`` served from a per-column cache."""
+        original = FormatViolationRepairer.__dict__["_dominant_profile"]
+        unwrapped = original.__func__
+        cache = self._cache
+
+        def _memoized(inner_df: TableLike, column: str) -> tuple[str | None, list[str]]:
+            if column not in cache:
+                cache[column] = unwrapped(inner_df, column)
+            return cache[column]
+
+        # Restored from ``__dict__`` and re-wrapped, not reassigned from the attribute. Accessing
+        # ``FormatViolationRepairer._dominant_profile`` yields the underlying FUNCTION, so assigning
+        # that back turns a staticmethod into an instance method and the next unmemoised call
+        # receives ``self`` as its first argument. That bug was caught by the cell-for-cell
+        # equivalence test and NOT by the test asserting the attribute was restored, which compared
+        # function identity and passed while the descriptor was wrong.
+        FormatViolationRepairer._dominant_profile = staticmethod(_memoized)  # type: ignore[method-assign]
+        try:
+            return self._inner.propose(issue, df, schema, retry_context)
+        finally:
+            FormatViolationRepairer._dominant_profile = original  # type: ignore[method-assign]
+
+
 def _build(detector_id: str) -> tuple[_Detector, _Repairer]:
-    """Return the shipped detector and repairer for an allowlisted detector id."""
+    """Return the shipped detector and repairer for a measurable detector id."""
     if detector_id == "fd_violation":
         return FDViolationDetector(), FDViolationRepairer(cache_dir=None, allow_llm=False)
     if detector_id == "missing_value":
         return MissingValueDetector(), MissingValueRepairer()
     if detector_id == "type_mismatch":
         return TypeMismatchDetector(), TypeMismatchRepairer()
+    if detector_id == "format_violation":
+        return FormatViolationDetector(), _ProfileMemoRepairer()
+    if detector_id == "categorical_normalization":
+        return CategoricalNormalizationDetector(), CategoricalNormalizationRepairer()
     raise ValueError(f"no harness wired for detector {detector_id!r}")
 
 
 def _premise_arms(dataset: Any, detector_id: str) -> dict[str, Schema | None]:
     """Return the premise arms appropriate to each detector.
 
-    ``type_mismatch`` gets a **no-premise** arm only. That is its shipped configuration: it calls
-    ``del schema`` on its first line, and decision-table row 6 writes with no schema at all. Row 7
-    shows a premise can only ever subtract writes here, so the unpremised arm is the widest one and
-    the only one that describes what actually runs.
+    Members of :data:`UNPREMISED_DETECTORS` get a **no-premise** arm only. That is their shipped
+    configuration rather than a simplification: each either calls ``del schema`` or accepts the
+    parameter and never reads it, so a premised arm would be identical by construction. For
+    ``type_mismatch``, decision-table row 6 writes with no schema at all and row 7 shows a premise
+    can only ever subtract writes, making the unpremised arm the widest one.
 
     The two FD-driven repairers get ``oracle`` and ``mined``. Neither proposes without a declared
     dependency, so a no-premise arm for them would measure nothing.
     """
     dirty, clean = dataset.dirty_df, dataset.clean_df
     columns = tuple(str(column) for column in dirty.columns)
-    if detector_id == "type_mismatch":
+    if detector_id in UNPREMISED_DETECTORS:
         return {"no_premise": None}
     return {
         "oracle": _schema(dirty, discover_oracle_fds(clean, columns=columns)),
@@ -216,16 +315,25 @@ def classify_writes(
     }
 
 
-def measure(corpus: str, *, cache_root: Path | None) -> dict[str, Any]:
-    """Measure every allowlisted detector on one corpus, across its premise arms."""
+def measure(
+    corpus: str, *, cache_root: Path | None, detectors: Sequence[str] | None = None
+) -> dict[str, Any]:
+    """Measure the requested detectors on one corpus, across their premise arms.
+
+    ``detectors`` defaults to the allowlist, so every existing invocation is unchanged. Passing an
+    explicit list is what lets a non-member be scored -- a repairer that is withheld cannot be
+    reached through the product, so measuring it requires naming it.
+    """
     dataset = load_real_world_dataset(corpus, cache_root=cache_root)
+    selected = sorted(detectors) if detectors else sorted(CONSTRAINT_CHECKABLE_DETECTORS)
     results: dict[str, Any] = {}
-    for detector_id in sorted(CONSTRAINT_CHECKABLE_DETECTORS):
+    for detector_id in selected:
         detector, repairer = _build(detector_id)
         arms: dict[str, Any] = {}
         for arm_name, schema in _premise_arms(dataset, detector_id).items():
             arms[arm_name] = {
                 "premise": _describe_premise(dataset, schema),
+                "in_allowlist": detector_id in CONSTRAINT_CHECKABLE_DETECTORS,
                 **classify_writes(dataset, detector, repairer, schema),
             }
         results[detector_id] = arms
@@ -271,9 +379,18 @@ def main() -> int:
     parser.add_argument("--corpus", default="hospital")
     parser.add_argument("--cache-root", type=Path, default=None)
     parser.add_argument("--artifact", type=Path, required=True)
+    parser.add_argument(
+        "--detector",
+        action="append",
+        choices=MEASURABLE_DETECTORS,
+        help=(
+            "score this detector instead of the allowlist; repeatable. Named explicitly because a "
+            "withheld repairer is not reachable through the product and must be asked for."
+        ),
+    )
     args = parser.parse_args()
 
-    payload = measure(args.corpus, cache_root=args.cache_root)
+    payload = measure(args.corpus, cache_root=args.cache_root, detectors=args.detector)
     args.artifact.parent.mkdir(parents=True, exist_ok=True)
     args.artifact.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -282,14 +399,14 @@ def main() -> int:
         f"real errors {payload['real_errors_in_table']}"
     )
     header = (
-        f"  {'detector':<15}{'arm':<11}{'flagged':>8}{'writes':>8}{'repaired':>10}"
+        f"  {'detector':<26}{'arm':<11}{'flagged':>8}{'writes':>8}{'repaired':>10}"
         f"{'WRONG':>7}{'CORRUPT':>9}{'no-op':>7}{'precision':>11}{'net':>7}"
     )
     print(header)
     for detector_id, arms in payload["detectors"].items():
         for arm_name, stats in arms.items():
             print(
-                f"  {detector_id:<15}{arm_name:<11}{stats['distinct_cells_flagged']:>8}"
+                f"  {detector_id:<26}{arm_name:<11}{stats['distinct_cells_flagged']:>8}"
                 f"{stats['proposals']:>8}{stats['repaired_a_real_error']:>10}"
                 f"{stats['wrong_value_on_a_real_error']:>7}"
                 f"{stats['corrupted_a_clean_cell']:>9}{stats['no_op_on_a_clean_cell']:>7}"

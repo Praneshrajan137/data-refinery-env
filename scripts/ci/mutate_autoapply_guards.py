@@ -250,7 +250,7 @@ MUTANTS: tuple[Mutant, ...] = (
         name="M18-abstention-policy-accepts-extra-fields-again",
         target="dataforge/calibration.py",
         old='    model_config = ConfigDict(extra="forbid", frozen=True)\n\n    def threshold_for',
-        new='    model_config = ConfigDict(frozen=True)\n\n    def threshold_for',
+        new="    model_config = ConfigDict(frozen=True)\n\n    def threshold_for",
         tests=("tests/unit/test_certificate_policy_gap.py",),
         why=(
             "a payload this model does not recognise is silently accepted instead of refused, "
