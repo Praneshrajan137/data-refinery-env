@@ -63,6 +63,106 @@ quantity.
 
 ---
 
+## 2026-08-26 - Withheld a per-dependency harm figure from the reviewer, on measurement
+
+**Context**: `constraints review` asks a human for N independent accept/reject decisions on mined
+functional dependencies, and accepting one authorises unsupervised writes. The obvious kindness is to
+annotate each candidate with the harm it would do — "this dependency would overwrite K correct cells" —
+so a reviewer can reason about a budget instead of guessing. It was the most requestable feature on the
+surface, and the data to compute it already existed.
+
+**Alternatives**:
+1. *Ship the per-candidate figure, measured per dependency in isolation.* Directly useful-looking, and
+   the measurement is cheap. It is what a reviewer would ask for.
+2. *Ship an ordering only, without absolute numbers.* Weaker claim, so harder to be wrong with.
+3. *Measure whether per-candidate harm composes before shipping any of it.*
+
+**Decision**: option 3, then withhold. Published in `docs/trust/constraint-additivity.md`, artifact
+`eval/results/constraint_additivity.json`.
+
+**Reasoning**: it does not compose. Summed over hospital's 85 candidates
+each measured **alone**, corruption is **330**; accepting all of them **together** it is **116** — a
+factor of **2.84**. The
+cause is masking: `_acting_group` picks the first matching dependency, so only one acts per cell and
+overlapping dependencies hide one another's damage.
+
+So a per-candidate figure would misstate harm by a factor that depends on what else the reviewer
+accepts — a number whose error is a function of the user's other choices, which is precisely the shape
+of claim this project exists not to make. Note the direction carefully: the aggregate is *smaller* than
+the sum, so the figure would err in the frightening direction. That is not a safe error. It trains a
+reviewer to discount the product's numbers, which costs exactly the trust the number was for.
+
+Two hypotheses that would have rescued a cheaper version of this feature were tested and **refuted**.
+Harm is not concentrated: the worst five candidates carry only **0.4333** of the exposure and **15 of
+16** false dependencies are harmful in isolation, so there is no short list to hand a reviewer.
+Determinant cardinality does not separate true from false: medians **72** and **66.5**, fully
+overlapping, with counterexamples in both directions. Both are recorded as *no signal in this quantity
+on hospital*, not as *no signal exists*.
+
+**Reviewed with**: nobody; recorded for review.
+
+**Reversal criteria**:
+- If the review interface can present harm **conditionally** on the current accept-set — recomputing as
+  the reviewer works rather than annotating candidates statically — the non-additivity objection does
+  not apply and this should be revisited. That is a real design, not a fig leaf.
+- If a second corpus with naturally-occurring false dependencies shows the factor near 1.0, the masking
+  effect is hospital-specific and a static figure becomes defensible. **One corpus produced every
+  number here**; flights and rayyan mine nothing.
+- An *ordering* was not measured and is not refused. Whether a ranking helps a reviewer belongs with
+  `eval/preregistration/reviewer_decision_quality.md`.
+
+---
+
+## 2026-08-26 - Treated printed strings as published claims, and gated the class
+
+**Context**: The warning `constraints review --accept` prints at what its own docstring calls "the
+moment of choice" — the point a human authorises unsupervised writes to their own data — said **86**
+cells overwritten at a **0.1601** harmful write rate. The premise that keystroke actually creates
+measures **116** and **0.2046**. The single sentence a user reads while making the decision understated
+the harm of that decision, in the direction that encourages it, and it went stale within hours of the
+correct number being published.
+
+`readme_truth.py` polices documents. `docs_truth.py` bound document prose. A number living in a Python
+string was bound by **nothing**, which made the least-guarded claim in the product the one with the most
+consequence attached.
+
+**Alternatives**:
+1. *Correct the two numbers.* Sufficient for this instance, and the instance is what a user sees. It
+   also leaves the mechanism that produced the staleness fully intact.
+2. *Build a new gate for source strings, parallel to the two document gates.* Symmetric-looking. It
+   would also have been the third gate policing claims, with three populations to keep in sync — the
+   exact shape of the frozen-population defect found earlier in this same codebase.
+3. *Widen the existing ledger to admit a `.py` file as a `doc`, then gate the class with a test.*
+
+**Decision**: option 3. `docs_truth.py`'s `doc` field is read as text and never cared about the file
+extension, so **the binding required no new code at all**. The gap was not in the instrument but in the
+belief about which claims were claims. `tests/unit/test_user_facing_numbers.py` gates the class.
+
+**Reasoning**: the ledger entries were added **before** the correction, so `docs_truth --check` failed
+on the live stale strings. A binding that has never failed on real drift is an assertion, not evidence.
+The gate was then mutation-checked by drifting 116 to 91.
+
+Gating the class rather than the two instances paid immediately: run against the sentence I had *just
+corrected by hand*, it found **four more** unbound measured numbers in it. It also found a rounded
+`19x` with no artifact field behind it, replaced by the two counts it was derived from — more
+informative **and** checkable.
+
+Scope was narrowed with the false positive that motivated it, per standing practice: scanning every
+string constant produced **68** hits, almost all docstrings, arXiv identifiers and dates. Narrowed to
+strings passed to a printing call it produced **2**, both real. Over-firing is the failure mode that
+matters most for a gate, because it trains readers to ignore it.
+
+**Reviewed with**: nobody; recorded for review.
+
+**Reversal criteria**:
+- If the printed-string scan produces a false positive that cannot be narrowed away without also losing
+  a real hit, the claim-word list is the wrong instrument and the gate should be replaced by explicit
+  registration at each print site rather than by inference.
+- If an exemption in `_EXEMPT` ever needs to cover a genuinely measured quantity, the exemption
+  mechanism has become an escape hatch and must be removed in favour of binding.
+
+---
+
 ## 2026-08-26 - Declined three changes: the certificate wiring, a synthetic false-FD corpus, and CRLF preservation
 
 **Context**: A session scoped to hardening the evidence infrastructure surfaced three changes that

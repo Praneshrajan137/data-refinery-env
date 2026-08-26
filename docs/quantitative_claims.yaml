@@ -760,3 +760,38 @@ claims:
     format: "{:.4f}"
     expect: "0.2046"
     context: "artifact-bound"
+  - id: decisions_additivity_isolated
+    doc: DECISIONS.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/isolated_corruption_sum
+    format: "{:d}"
+    expect: "330"
+    context: "alone"
+    note: >-
+      The decision to withhold a per-dependency harm figure rests on this pair; if either moves, the
+      decision must be re-argued rather than quietly inherited.
+
+  - id: decisions_additivity_combined
+    doc: DECISIONS.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/combined_corruption
+    format: "{:d}"
+    expect: "116"
+    context: "together"
+
+  - id: decisions_additivity_factor
+    doc: DECISIONS.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/non_additivity_factor
+    format: "{:.2f}"
+    expect: "2.84"
+
+  - id: decisions_additivity_top5
+    doc: DECISIONS.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/top_5_share_of_isolated_corruption
+    format: "{:.4f}"
+    expect: "0.4333"
+    note: >-
+      The refuted concentration hypothesis, recorded in the reversal criteria so a future reader knows
+      the cheap version of this feature was tested and not merely skipped.
