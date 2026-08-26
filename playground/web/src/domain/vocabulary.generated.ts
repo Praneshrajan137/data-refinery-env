@@ -2,7 +2,7 @@
  * GENERATED FILE -- DO NOT EDIT BY HAND.
  *
  * Source:      dataforge/domain/vocabulary.py
- * Source hash: sha256:3fa31f102e7b2477526e1242db2f438d1a1a752fba96b057a9438e155e4ec1e2
+ * Source hash: sha256:15d4d0e1fdb40fb7feb637f30f1236265431b8e16f3a6d792232a01b58decfbc
  * Generator:   scripts/ci/generate_domain_vocabulary.py
  * Verify:      python scripts/ci/generate_domain_vocabulary.py --check
  *              (or, without Python: npm run audit:vocabulary)

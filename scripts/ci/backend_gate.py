@@ -55,6 +55,10 @@ MYPY_PATHS = [
     "scripts/ci/openapi_contract.py",
     "scripts/ci/pypi_publish_report.py",
     "scripts/ci/backend_gate.py",
+    # Added 2026-08-26. This file plants 17 mutants against the write-authority guards and was
+    # invoked by nothing and type-checked by nothing -- a dead gate reads as coverage, which is
+    # worse than no gate. It is now run below and checked here.
+    "scripts/ci/mutate_autoapply_guards.py",
     "scripts/playground/build_samples.py",
     "scripts/playground/stage_space.py",
     "scripts/playground/verify_space_backend.py",
@@ -694,6 +698,17 @@ def main() -> int:
             _run("README truth", [PYTHON, "scripts/ci/readme_truth.py"]),
             _run("benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]),
             _run("docs truth", [PYTHON, "scripts/ci/docs_truth.py", "--check"]),
+            # Added 2026-08-26. Every guard on the write path is pinned by a mutant here, and
+            # until now nothing ran it: `make mutation` runs mutmut over `dataforge/`, and this
+            # hand-written suite was orphaned. All 17 mutants were killed on first invocation, so
+            # the gate was correct and merely unreachable -- the failure mode that let
+            # `type_mismatch` keep a bypass it had not earned is the same shape as a guard whose
+            # mutant nobody plants.
+            _run("auto-apply guard mutants", [PYTHON, "scripts/ci/mutate_autoapply_guards.py"]),
+            _run(
+                "vocabulary projection",
+                [PYTHON, "scripts/ci/generate_domain_vocabulary.py", "--check"],
+            ),
             _run("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
             _run(
                 "release doctor",

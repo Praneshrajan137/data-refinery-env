@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -438,3 +439,175 @@ class TestAutoApplyMembershipClaims:
             readme_truth.check_autoapply_members_are_documented(readme_truth.AUTOAPPLY_TRUTH_DOCS)
             == []
         )
+
+
+class TestDetectorFamilyCountClaims:
+    """The published count of detector families, gated against the closed vocabulary.
+
+    Why this class exists, dated 2026-08-26. FOUR documents said "Eight detector families" while
+    ``IssueTypeLiteral`` defined eleven, and the count was checkable by nothing. It went stale for
+    the same reason the write-authority check was blind: the population was frozen.
+
+    Two of these tests exist because running the check against the live docs refuted it before it
+    was trusted. It fired on "first-party GPT-5 family" (a claim about a model, not a detector) and
+    on the sub-count sentences written to correct the stale total. Both are pinned below, because a
+    gate that fires on unrelated prose or blocks its own remedy gets ignored rather than fixed.
+    """
+
+    def _doc(self, tmp_path: Path, text: str) -> Path:
+        path = tmp_path / "claim.md"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def _all_named(self) -> str:
+        """A line naming every issue type, so the coverage half of the check is satisfied."""
+        from dataforge.detectors.base import ALL_ISSUE_TYPES
+
+        return " ".join(sorted(ALL_ISSUE_TYPES)) + "\n"
+
+    def test_a_stale_total_fails(self, tmp_path: Path) -> None:
+        """The exact sentence four documents carried."""
+        doc = self._doc(tmp_path, "Eight detector families across an additive ensemble.\n")
+
+        errors = readme_truth.check_detector_family_count_claims([doc])
+
+        assert any("claims 8 detector families" in error for error in errors)
+        assert any("IssueTypeLiteral defines 11" in error for error in errors)
+
+    def test_the_correct_total_passes(self) -> None:
+        """Non-vacuity, against the live documents rather than a fixture."""
+        assert (
+            readme_truth.check_detector_family_count_claims(readme_truth.AUTOAPPLY_TRUTH_DOCS) == []
+        )
+
+    def test_a_digit_spelling_is_policed_too(self, tmp_path: Path) -> None:
+        """ "8 issue families" must fail identically to "Eight detector families"."""
+        doc = self._doc(tmp_path, "8 issue families ship.\n" + self._all_named())
+
+        assert readme_truth.check_detector_family_count_claims([doc])
+
+    def test_a_model_name_is_not_a_family_claim(self, tmp_path: Path) -> None:
+        """The false positive found on README.md before this check was trusted.
+
+        "first-party GPT-5 family" is a claim about an Azure OpenAI model. It matched because the
+        number was glued to a preceding token and the noun was singular and unqualified.
+        """
+        doc = self._doc(
+            tmp_path,
+            "For Azure OpenAI (first-party GPT-5 family, works on trial credit).\n"
+            + self._all_named(),
+        )
+
+        assert readme_truth.check_detector_family_count_claims([doc]) == []
+
+    @pytest.mark.parametrize(
+        "sentence",
+        [
+            "Ten families come from the eleven detectors in the default ensemble.",
+            "The three families below `duplicate_row` carry no write measurement.",
+            "Two of them may auto-apply.",
+            "Eight families are detection-only.",
+        ],
+    )
+    def test_a_sub_count_is_not_a_total_claim(self, tmp_path: Path, sentence: str) -> None:
+        """A partition is not a contradiction, and the check must not block its own remedy."""
+        doc = self._doc(tmp_path, sentence + "\n" + self._all_named())
+
+        assert readme_truth.check_detector_family_count_claims([doc]) == []
+
+    def test_an_undocumented_issue_type_fails(self, tmp_path: Path) -> None:
+        """The coverage half. A count alone cannot show a family was documented.
+
+        This is the check that matters more than the count: three shipped families
+        (`date_transposition`, `entity_consensus`, `semantic_domain_violation`) were absent from
+        the detectors table entirely, so the published review surface understated what a user
+        would actually be shown.
+        """
+        doc = self._doc(tmp_path, "Eleven issue families ship: `fd_violation`.\n")
+
+        errors = readme_truth.check_detector_family_count_claims([doc])
+
+        assert any("no public doc names them" in error for error in errors)
+        assert any("semantic_domain_violation" in error for error in errors)
+
+
+class TestTheAutoapplyGateSeesTheWholeUniverse:
+    """The gate polices a population. These tests are about the population, not the policy.
+
+    Why this class exists, dated 2026-08-26. ``check_autoapply_membership_claims`` imported the
+    allowlist from source of truth and then subtracted it from an eight-name set literal, while
+    ``IssueTypeLiteral`` had grown to eleven. Three issue types were therefore invisible to it in
+    both directions, and ``README.md`` said "Eight detector families" for the same reason -- the
+    doc and the gate agreed with each other and both disagreed with the code.
+
+    Nothing had exploited the blindness: with the population widened, the shipped docs still
+    pass. That is worth stating precisely, because it means the old gate's green was uninformative
+    rather than wrong, and "no stale claim was found" is not evidence a gate could have found one.
+
+    So these tests plant claims about the previously-invisible types. They fail against a frozen
+    population and pass against a derived one, which is the only way to demonstrate that the fix
+    is load-bearing rather than cosmetic.
+    """
+
+    def _doc(self, tmp_path: Path, text: str) -> Path:
+        path = tmp_path / "claim.md"
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    @pytest.mark.parametrize(
+        "issue_type",
+        ["date_transposition", "entity_consensus", "semantic_domain_violation"],
+    )
+    def test_a_claim_about_a_previously_invisible_type_now_fails(
+        self, tmp_path: Path, issue_type: str
+    ) -> None:
+        """Each of the three types the frozen population omitted.
+
+        ``semantic_domain_violation`` is the sharpest of the three: it is structurally
+        detection-only with no repairer at all, so a doc claiming it auto-applies asserts a write
+        path that does not exist anywhere in the product.
+        """
+        doc = self._doc(tmp_path, f"`{issue_type}` auto-applies once calibrated.\n")
+
+        errors = readme_truth.check_autoapply_membership_claims([doc])
+
+        assert errors, f"{issue_type} is invisible to the write-authority gate"
+        assert issue_type in errors[0]
+
+    def test_the_policed_population_is_derived_from_the_closed_vocabulary(self) -> None:
+        """The regression guard for the class of failure, not for the three instances.
+
+        Asserting the three names would go stale the moment a twelfth issue type ships -- the
+        exact mistake being corrected. This asserts the *relationship* instead: every member of
+        the closed vocabulary is either an allowlist member or policed as a non-writer, with no
+        third category. A future issue type is covered on the day it is added to the Literal.
+        """
+        from dataforge.detectors.base import ALL_ISSUE_TYPES
+        from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
+
+        policed_non_writers = {
+            issue_type
+            for issue_type in ALL_ISSUE_TYPES
+            if readme_truth.check_autoapply_membership_claims([self._write_probe(issue_type)])
+        }
+
+        assert policed_non_writers == ALL_ISSUE_TYPES - set(CONSTRAINT_CHECKABLE_DETECTORS)
+
+    def _write_probe(self, issue_type: str) -> Path:
+        """Write a one-line authority claim for ``issue_type`` to a temp file."""
+        probe = Path(tempfile.mkdtemp()) / "probe.md"
+        probe.write_text(f"`{issue_type}` auto-applies.\n", encoding="utf-8")
+        return probe
+
+    def test_an_allowlist_member_absent_from_the_vocabulary_fails_at_import(self) -> None:
+        """The structural invariant in ``dataforge/detectors/base.py``.
+
+        An allowlist entry naming an issue type no detector can emit is a write permission for
+        nothing -- or a typo that silently disables one somebody measured and earned. Asserted at
+        import so it cannot be reached at runtime.
+        """
+        from dataforge.detectors.base import ALL_ISSUE_TYPES
+        from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
+
+        assert set(CONSTRAINT_CHECKABLE_DETECTORS) <= ALL_ISSUE_TYPES
+        assert set(CONSTRAINT_CHECKABLE_DETECTORS)

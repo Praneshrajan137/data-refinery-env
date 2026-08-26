@@ -12,7 +12,7 @@ per-cell-deduplicated, severity-sorted issue list.
 
 from __future__ import annotations
 
-from dataforge.detectors.base import Detector, Issue, Schema, Severity
+from dataforge.detectors.base import ALL_ISSUE_TYPES, Detector, Issue, Schema, Severity
 from dataforge.detectors.categorical_normalization import CategoricalNormalizationDetector
 from dataforge.detectors.date_transposition import DateTranspositionDetector
 from dataforge.detectors.decimal_shift import DecimalShiftDetector
@@ -34,6 +34,7 @@ from dataforge.detectors.type_mismatch import TypeMismatchDetector
 from dataforge.table import TableLike
 
 __all__ = [
+    "ALL_ISSUE_TYPES",
     "CategoricalNormalizationDetector",
     "DateTranspositionDetector",
     "DecimalShiftDetector",

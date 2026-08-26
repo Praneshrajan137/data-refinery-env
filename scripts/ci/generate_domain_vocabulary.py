@@ -20,6 +20,7 @@ import argparse
 import hashlib
 import sys
 from pathlib import Path
+from typing import Final
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -28,6 +29,35 @@ from dataforge.domain import vocabulary as vocab  # noqa: E402
 
 TARGET = PROJECT_ROOT / "playground" / "web" / "src" / "domain" / "vocabulary.generated.ts"
 SOURCE = PROJECT_ROOT / "dataforge" / "domain" / "vocabulary.py"
+
+# Data constants in ``vocabulary.__all__`` that are deliberately NOT projected, each with the
+# reason. Every one must be listed: :func:`_projection_coverage_errors` refuses a constant that
+# is neither projected nor named here, so there is no third category and no silent omission.
+#
+# Why this exists, dated 2026-08-26. ``render()`` derives every projected *value* from the source
+# of truth, but the *population* of vocabularies it projects was a frozen sequence of hand-written
+# appends. The staleness fingerprint made adding a constant fail CI loudly -- and then resolve by
+# omission: run ``--write``, the hash updates, CI goes green, and the new vocabulary is silently
+# never projected. A frozen population that fails loudly and then disappears is still a frozen
+# population. This is the same defect corrected in ``scripts/ci/readme_truth.py`` the same day;
+# see ``dataforge/detectors/base.py`` for the general rule.
+_UNPROJECTED: Final[dict[str, str]] = {
+    "ALL_PROVENANCE": (
+        "Derived, not primitive: TRUSTED_PROVENANCE | UNTRUSTED_PROVENANCE, both projected. "
+        "Projecting the union would create a third place the partition could disagree with "
+        "itself, which is the failure this generator exists to prevent."
+    ),
+    "SEVERITIES": (
+        "Derived from the projected SEVERITY_ORDER, and the browser needs the order rather "
+        "than the unordered set. Reconstruct as new Set(SEVERITY_ORDER) at the use site."
+    ),
+    "CONSTRAINT_CHECKABLE_DETECTORS": (
+        "Write authority is decided server-side and must not be re-decided in a browser. "
+        "Projecting the allowlist would let a client compute an auto-apply decision, and a "
+        "client-side copy of a write permission is a copy that can be stale while looking "
+        "authoritative. The playground displays what the engine decided; it does not decide."
+    ),
+}
 
 
 def _source_fingerprint() -> str:
@@ -273,6 +303,60 @@ export function verificationStrengthFor(
     return "\n".join(parts)
 
 
+def _data_constants() -> dict[str, object]:
+    """Return every data constant exported by the vocabulary, keyed by name.
+
+    Data means a collection the browser could need. Type aliases and helper functions are
+    excluded: a ``Literal`` is projected as a union derived from the constant beside it, and a
+    function is behaviour rather than vocabulary.
+    """
+    return {
+        name: value
+        for name in vocab.__all__
+        if isinstance(value := getattr(vocab, name), frozenset | tuple | dict | set | list)
+    }
+
+
+def _projection_coverage_errors(rendered: str) -> list[str]:
+    """Refuse a vocabulary constant that is neither projected nor declared unprojected.
+
+    This is the population check, and it is deliberately separate from the byte-for-byte
+    staleness check in :func:`main`. They have different scopes: staleness asks whether the two
+    sides agree about what was projected, coverage asks whether everything that should have been
+    projected was. Conflating them is what let the frozen population resolve by omission -- the
+    byte compare passes the moment you regenerate, whatever was left out.
+
+    Returns:
+        One error string per unaccounted-for constant, in both directions.
+    """
+    errors: list[str] = []
+    constants = _data_constants()
+    projected = {name for name in constants if f"export const {name}" in rendered}
+
+    unaccounted = sorted(set(constants) - projected - set(_UNPROJECTED))
+    for name in unaccounted:
+        errors.append(
+            f"vocabulary.{name} is exported by dataforge/domain/vocabulary.py but is neither "
+            "projected into TypeScript nor listed in _UNPROJECTED. Project it in render(), or "
+            "add it to _UNPROJECTED with the reason it must not cross into the browser."
+        )
+
+    for name in sorted(set(_UNPROJECTED) - set(constants)):
+        errors.append(
+            f"_UNPROJECTED names {name!r}, which is not a data constant exported by "
+            "dataforge/domain/vocabulary.py. An exemption for something that no longer exists "
+            "hides the next real omission behind stale bookkeeping."
+        )
+
+    for name in sorted(projected & set(_UNPROJECTED)):
+        errors.append(
+            f"vocabulary.{name} is listed in _UNPROJECTED and is also projected. The exemption "
+            "and the projection disagree; delete whichever one is wrong."
+        )
+
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group(required=True)
@@ -281,6 +365,15 @@ def main() -> int:
     args = parser.parse_args()
 
     rendered = render()
+
+    # Checked before --write as well as before --check, so regenerating cannot be the act that
+    # buries an omission.
+    coverage_errors = _projection_coverage_errors(rendered)
+    if coverage_errors:
+        print("INCOMPLETE PROJECTION:")
+        for error in coverage_errors:
+            print(f"  - {error}")
+        return 1
 
     if args.write:
         TARGET.parent.mkdir(parents=True, exist_ok=True)
@@ -303,7 +396,11 @@ def main() -> int:
         print("Run: python scripts/ci/generate_domain_vocabulary.py --write")
         return 1
 
-    print("Domain vocabulary parity verified (TypeScript matches Python).")
+    print(
+        f"Domain vocabulary parity verified (TypeScript matches Python). "
+        f"{len(_data_constants()) - len(_UNPROJECTED)} constants projected, "
+        f"{len(_UNPROJECTED)} deliberately withheld."
+    )
     return 0
 
 

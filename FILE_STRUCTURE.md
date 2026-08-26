@@ -15,7 +15,7 @@ data_quality_env/
     causal/                  Causal DAG and root-cause analyzer.
     cli/                     Typer commands: profile, repair, revert, bench.
     datasets/                Embedded and real-world dataset loaders.
-    detectors/               Eight families; fd_violation and missing_value may auto-apply.
+    detectors/               Eleven issue families; fd_violation and missing_value may auto-apply.
     env/                     OpenEnv-compatible environment and HTTP server.
     integrations/            Early adapter placeholders.
     repairers/               Deterministic repair proposal generators.

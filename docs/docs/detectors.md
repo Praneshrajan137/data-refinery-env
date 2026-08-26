@@ -6,12 +6,17 @@ optional expected value.
 
 ## Shipped detector families
 
-Eight families ship. **Detection and write authority are separate**: only two detectors may
-auto-apply, and only from a declared functional dependency. The rest surface issues for
-review and their repairs are calibration-bound. "May auto-apply" below means membership of
+Eleven issue families ship. **Detection and write authority are separate**: only two detectors may
+auto-apply, and only from a declared functional dependency. The rest surface issues for review and
+their repairs are calibration-bound. "May auto-apply" below means membership of
 `CONSTRAINT_CHECKABLE_DETECTORS`, which
 [dataforge/domain/vocabulary.py](https://github.com/Praneshrajan137/dataforge/blob/main/dataforge/domain/vocabulary.py)
 treats as an allowlist a detector must earn with a committed measurement.
+
+The count is the size of the closed `IssueTypeLiteral` vocabulary and is checked against it by
+`scripts/ci/readme_truth.py`, so a new family cannot ship undocumented. Ten families come from the
+eleven detectors in the default ensemble — `time_format_cruft` and `format_violation` both emit
+`format_violation` — and `semantic_domain_violation` is the eleventh, opt-in.
 
 | Detector | Finds | May auto-apply | Repair, when permitted |
 | --- | --- | --- | --- |
@@ -23,9 +28,14 @@ treats as an allowlist a detector must earn with a committed measurement.
 | `categorical_normalization` | Case and spacing variants of one category | no | Detection-only |
 | `outlier` | Numeric values far from the column's distribution | no | Detection-only |
 | `duplicate_row` | Repeated rows | no | Detection-only |
+| `date_transposition` | Dates whose day and month appear swapped | no | Detection-only |
+| `entity_consensus` | Cells that disagree with other rows describing the same entity | no | Detection-only |
+| `semantic_domain_violation` | Values outside an externally learned column domain | no | Detection-only, and structurally so: no repairer exists, so it has no write path on any surface. Opt-in — construct the detector explicitly with a fetched, hash-verified constraint artifact |
 
 Per-detector write measurements, including the clean cells each would overwrite, are in
-`docs/trust/bypass-allowlist-evidence.md`.
+`docs/trust/bypass-allowlist-evidence.md`. The three families below `duplicate_row` carry no
+committed write measurement because they have never proposed a write; that is an absence of
+evidence, not evidence of safety.
 
 ## Contract
 

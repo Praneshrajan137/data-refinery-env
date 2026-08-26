@@ -824,6 +824,108 @@ def check_corpus_tier_claims(docs: list[Path]) -> list[str]:
     return errors
 
 
+def check_detector_family_count_claims(docs: list[Path]) -> list[str]:
+    """Refuse a published count of detector families that disagrees with the closed vocabulary.
+
+    Why this exists, dated 2026-08-26. `README.md` and `docs/docs/detectors.md` both said "Eight
+    detector families" while ``IssueTypeLiteral`` defined eleven. The claim was stale for as long
+    as :func:`check_autoapply_membership_claims` subtracted its allowlist from a hardcoded
+    eight-name population -- so the prose and the gate agreed with each other and both disagreed
+    with the code. Two mutually-consistent wrong artifacts read as verification.
+
+    The count alone is weak evidence, so this also checks coverage: every issue type in the closed
+    vocabulary must be named somewhere in the published set. A twelfth issue type is then
+    undocumentable-but-shipped for exactly as long as CI is red, which is the property the count
+    was supposed to provide and could not.
+
+    Args:
+        docs: Public documents to check.
+
+    Returns:
+        One error string per wrong count, plus one for any undocumented issue type.
+    """
+    from dataforge.detectors.base import ALL_ISSUE_TYPES
+
+    expected = len(ALL_ISSUE_TYPES)
+    words = {
+        "one": 1,
+        "two": 2,
+        "three": 3,
+        "four": 4,
+        "five": 5,
+        "six": 6,
+        "seven": 7,
+        "eight": 8,
+        "nine": 9,
+        "ten": 10,
+        "eleven": 11,
+        "twelve": 12,
+        "thirteen": 13,
+        "fourteen": 14,
+        "fifteen": 15,
+    }
+    # "Eight detector families", "Eight families ship", "11 issue families".
+    #
+    # Two deliberate narrowings, both found by running the check against the live docs before
+    # trusting it. The number must not be glued to a preceding token, and an unqualified
+    # "famil..." must be PLURAL: without either, "first-party GPT-5 family" in README.md parsed
+    # as a claim of five detector families. A gate that fires on prose about something else
+    # teaches its readers to ignore it.
+    counted = r"(?<![-\w])(\d+|" + "|".join(words) + r")\b"
+    pattern = re.compile(
+        counted + r"\s+(?:(?:detector|issue)\s+famil(?:y|ies)|families)\b",
+        re.IGNORECASE,
+    )
+    # Cues that the number counts a PART rather than the whole. Only a total can contradict the
+    # vocabulary size; "ten of them come from the default ensemble" is a partition and is true.
+    # Without this the check fired on the very sentences written to correct it -- the same failure
+    # the `negations` tuple in :func:`check_autoapply_membership_claims` exists to prevent, and it
+    # is worth stating twice: a gate that blocks its own remedy gets deleted rather than fixed.
+    subset_cues = (
+        "come from",
+        "of them",
+        "of these",
+        "of the",
+        "below",
+        "above",
+        "remain",
+        "rest",
+        "detection-only",
+        "opt-in",
+    )
+
+    errors: list[str] = []
+    documented: set[str] = set()
+    for path in docs:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        documented.update(issue_type for issue_type in ALL_ISSUE_TYPES if issue_type in text)
+        for number, line in enumerate(text.splitlines(), start=1):
+            for match in pattern.finditer(line):
+                trailing = line[match.end() : match.end() + 40].lower()
+                if any(cue in trailing for cue in subset_cues):
+                    continue
+                token = match.group(1).lower()
+                claimed = int(token) if token.isdigit() else words[token]
+                if claimed != expected:
+                    errors.append(
+                        f"{path.name}:{number} claims {claimed} detector families; the closed "
+                        f"vocabulary IssueTypeLiteral defines {expected}. Either the count is "
+                        "stale or a detector shipped without updating the docs. Derived from "
+                        "dataforge/detectors/base.py, never restated."
+                    )
+
+    undocumented = sorted(ALL_ISSUE_TYPES - documented)
+    if undocumented:
+        errors.append(
+            f"these issue types exist in IssueTypeLiteral but no public doc names them: "
+            f"{undocumented}. A detector families table that omits a shipped family understates "
+            "the review surface a user is signing up for."
+        )
+    return errors
+
+
 def check_autoapply_membership_claims(docs: list[Path]) -> list[str]:
     """Refuse a user-facing claim that a detector auto-applies unless the code agrees.
 
@@ -851,19 +953,16 @@ def check_autoapply_membership_claims(docs: list[Path]) -> list[str]:
     Returns:
         One error string per contradicted claim.
     """
+    from dataforge.detectors.base import ALL_ISSUE_TYPES
     from dataforge.domain.vocabulary import CONSTRAINT_CHECKABLE_DETECTORS
 
-    all_detectors = {
-        "type_mismatch",
-        "decimal_shift",
-        "fd_violation",
-        "missing_value",
-        "format_violation",
-        "categorical_normalization",
-        "outlier",
-        "duplicate_row",
-    }
-    non_writers = sorted(all_detectors - set(CONSTRAINT_CHECKABLE_DETECTORS))
+    # DERIVED, not restated. Until 2026-08-26 this was an eight-name set literal while
+    # `IssueTypeLiteral` had grown to eleven, so `date_transposition`, `entity_consensus` and
+    # `semantic_domain_violation` were invisible to this check -- a doc could claim any of them
+    # auto-applies and CI would pass. The allowlist was imported from source of truth and the
+    # population it is subtracted from was frozen, which is the failure this file's own docstring
+    # warns about, one level up. See dataforge/detectors/base.py for the general rule.
+    non_writers = sorted(ALL_ISSUE_TYPES - set(CONSTRAINT_CHECKABLE_DETECTORS))
     # Phrases that assert write authority. A line merely naming a detector is not a claim.
     authority_claims = _AUTHORITY_CLAIM_PHRASES
     # A line that names a non-writer alongside an authority phrase is acceptable when it is
@@ -997,6 +1096,7 @@ def main() -> None:
     errors.extend(check_claim_ledger())
     errors.extend(check_evidence_ledger())
     errors.extend(check_corpus_tier_claims(PUBLIC_CLAIM_TRUTH_DOCS))
+    errors.extend(check_detector_family_count_claims(AUTOAPPLY_TRUTH_DOCS))
     errors.extend(check_autoapply_membership_claims(AUTOAPPLY_TRUTH_DOCS))
     errors.extend(check_autoapply_members_are_documented(AUTOAPPLY_TRUTH_DOCS))
 

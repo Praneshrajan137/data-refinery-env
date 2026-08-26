@@ -101,10 +101,13 @@ Shipped in the current worktree:
 - `dataforge profile`, `dataforge repair`, `dataforge verify-apply`,
   `dataforge revert`, `dataforge watch`, `dataforge audit`, `dataforge bench`,
   and `dataforge quickstart`
-- Eight detector families across an additive ensemble. **Two may auto-apply**:
+- Eleven issue families across an additive ensemble — ten from the default detectors, plus
+  `semantic_domain_violation`, which is opt-in because it needs a fetched, hash-verified
+  constraint artifact. **Two may auto-apply**:
   `fd_violation` and `missing_value`, and only from a declared functional dependency.
-  The other six — `type_mismatch`, `decimal_shift`, `format_violation`,
-  `categorical_normalization`, `outlier`, `duplicate_row` — surface issues for review and
+  The other eight — `type_mismatch`, `decimal_shift`, `format_violation`,
+  `categorical_normalization`, `outlier`, `duplicate_row`, `date_transposition`,
+  `entity_consensus` — surface issues for review and
   their repairs are calibration-bound. `decimal_shift` and `type_mismatch` were each
   removed from the auto-apply set on measurement, not on taste; see
   [docs/trust/bypass-allowlist-evidence.md](docs/trust/bypass-allowlist-evidence.md).
