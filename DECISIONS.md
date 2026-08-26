@@ -12,6 +12,57 @@ Format for every entry:
 
 ---
 
+## 2026-08-26 - A zero-config door was already open, and every number about it described a narrower product
+
+**Context**: The framing for this work was three "doors" to the next level, one of which was safe
+zero-configuration. That framing assumed zero-config was closed. It is not. `profile` ->
+`constraints review --accept` -> `repair` is a shipped path from a table with **no declared schema**
+to an unsupervised write, and it had never been measured as it ships, nor tested end to end.
+
+Two floors govern it and they are different. The miner emits at confidence >= **0.90**;
+`ConstraintReviewArtifact.to_schema()` applies **no floor at all**, so acceptance is the only gate.
+Every published measurement of "the mined premise" used `infer_verification_schema`, which applies
+**0.95**. So the trust documents scored a strictly more conservative premise than the product ships.
+
+**Alternatives**:
+1. *Leave it, on the grounds that the published number is conservative.* Cheap, and defensible in
+   direction — understatement is the safe error. But it means the documents describe a product that
+   does not exist, and a buyer who runs the shipped commands gets a worse outcome than the evidence
+   promised. That is the failure mode this project's whole apparatus exists to prevent.
+2. *Raise the accept-path floor to 0.95 and re-measure.* Makes the documents true immediately. But the
+   constant would be chosen **after** seeing that it excludes four false dependencies, which is a fit
+   rather than a finding, and it would hide the gap rather than record it.
+3. *Measure the shipped path as it ships, publish, and amend the prior number in place.* Slower, and
+   it produces a worse-looking headline.
+
+**Decision**: option 3. Measured through the real artifact and merge rather than a reimplementation,
+pre-registered before the outcome was computed, published in
+`docs/trust/shipped-premise-result.md`, with `deductive-coverage-result.md` amended in place and its
+number left intact.
+
+**Reasoning**: the measured result is **116 clean cells corrupted on hospital, not 86** — and the
+number that did not move is the one that decides it. `repaired_a_real_error` is **451 in both arms**.
+The four dependencies the published measurement excluded are all false on ground truth, repaired
+nothing, and corrupted thirty more clean cells. There is no trade to accept; the added premise is
+pure harm.
+
+Option 2 is also refuted by a second finding, not just by principle. Two of the four false
+dependencies corrupted **nothing**, because a false dependency is inert where its determinant group
+holds no visible disagreement. So **FD-set precision does not predict corruption count** — half the
+added false dependencies were harmless — and a floor tuned on precision is tuned on the wrong
+quantity.
+
+**Reviewed with**: nobody; recorded for review.
+
+**Reversal criteria**:
+- If a corpus other than hospital shows the two arms coinciding, the severity of this finding is
+  hospital-specific and must be narrowed. flights and rayyan mine nothing and tax mines four true
+  dependencies, so **one corpus produced every number here**.
+- If a floor ships, it must be justified by something other than these four dependencies, and it must
+  be a *reported* change to the premise rather than a silent one.
+
+---
+
 ## 2026-08-26 - Declined three changes: the certificate wiring, a synthetic false-FD corpus, and CRLF preservation
 
 **Context**: A session scoped to hardening the evidence infrastructure surfaced three changes that

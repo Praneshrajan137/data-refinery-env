@@ -156,6 +156,29 @@ mined premise it overwrote **86**, and all 25 sampled corruptions traced to depe
 false on ground truth -- 23 of them to `ZipCode -> HospitalName`. A zip code does not determine a
 hospital name.
 
+**Corrected 2026-08-26, and the correction is worse than the original.** That 86 was measured against
+a premise at confidence >= 0.95, and no user is given one. `ConstraintReviewArtifact.to_schema()`
+applies **no floor at all**, so the premise a zero-config user actually accepts is the miner's full
+output at >= 0.90 -- 85 dependencies rather than 81. Measured through the real artifact and merge in
+`docs/trust/shipped-premise-result.md`: **116** clean cells corrupted, not 86.
+
+The decisive number is the one that did not move. `repaired_a_real_error` is **451 in both arms**: the
+four additional dependencies are all false on ground truth, repaired **nothing**, and corrupted thirty
+more clean cells. There was no trade to weigh.
+
+Two rules follow, and they belong here rather than in a decision log because they are about how
+evidence is built:
+
+- **An arm that models a user journey must be built from the code that journey runs.** The proxy here
+  erred conservative, which is the safe direction, and it still meant every published figure described
+  a product that does not exist. A measurement of something adjacent to the product is not a
+  measurement of the product.
+- **Premise precision does not predict corruption.** Two of the four added dependencies are equally
+  false and corrupted **nothing**, because a false dependency is inert where its determinant group
+  holds no visible disagreement. So FD-set precision is the wrong single quantity to optimise, and a
+  confidence floor tuned on it is tuned on the wrong axis. What determines harm is whether a false
+  premise meets a group that disagrees.
+
 So the miner's precision was measured for the first time: **0.8655** on hospital, **1.0000** on tax,
 and **no candidates at all** on flights or rayyan. Every false dependency this project has ever
 measured comes from one corpus.
