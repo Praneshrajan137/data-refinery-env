@@ -57,6 +57,7 @@ import argparse
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any, Final
 
@@ -90,13 +91,32 @@ def _resolve_pointer(payload: Any, pointer: str) -> Any:
 
 
 def _load_claims() -> list[dict[str, Any]]:
-    """Read the claim ledger."""
+    """Read the claim ledger, refusing duplicate ids.
+
+    The id is how a failure names itself and how a reader finds the entry that produced it. Two entries
+    sharing an id were found in this ledger on 2026-08-26, added in the same session by the same person,
+    and the checker reported "80 claims verified" without noticing -- so the count was right, every
+    individual check was right, and the ledger was still malformed in a way that makes a failure message
+    ambiguous about which entry it came from.
+
+    Refused at load rather than reported per claim, because a duplicate id is a defect in the ledger and
+    not a divergence between prose and evidence.
+    """
     import yaml
 
     raw = yaml.safe_load(LEDGER.read_text(encoding="utf-8"))
     if not isinstance(raw, dict) or not isinstance(raw.get("claims"), list):
         raise ValueError(f"{LEDGER.name} must be a mapping containing a 'claims' list.")
-    return [claim for claim in raw["claims"] if isinstance(claim, dict)]
+    claims = [claim for claim in raw["claims"] if isinstance(claim, dict)]
+
+    counted = Counter(str(claim.get("id")) for claim in claims)
+    duplicated = sorted(name for name, count in counted.items() if count > 1)
+    if duplicated:
+        raise ValueError(
+            f"{LEDGER.name} contains duplicate claim ids: {duplicated}. An id must identify exactly "
+            "one entry, or a failure message cannot say which entry failed."
+        )
+    return claims
 
 
 def _rendered(claim: dict[str, Any]) -> tuple[str, str | None]:

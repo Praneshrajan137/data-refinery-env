@@ -795,3 +795,38 @@ claims:
     note: >-
       The refuted concentration hypothesis, recorded in the reversal criteria so a future reader knows
       the cheap version of this feature was tested and not merely skipped.
+
+  # --- The FD repair path's cost at scale (2026-08-26) ---
+  # A product finding that arrived while investigating a harness question. Bound tightly because it is
+  # the first scalability claim this project has ever made, and because an earlier INFERRED attribution
+  # of the same cost was wrong.
+  - id: fd_scalability_propose_share
+    doc: docs/trust/fd-repair-scalability.md
+    artifact: eval/results/harness_cost.json
+    pointer: /stable/propose_share
+    format: "{:.0%}"
+    expect: "99%"
+    context: "99% of it"
+    note: >-
+      The attribution, and the number that matters most here. An inference from process CPU time had
+      charged this cost to the harness helper, which is the other 1 percent.
+
+  - id: fd_scalability_days
+    doc: docs/trust/fd-repair-scalability.md
+    artifact: eval/results/harness_cost.json
+    pointer: /stable/tax_oracle_days_rounded
+    format: "{:d}"
+    expect: "4"
+    context: "days for the"
+    note: >-
+      Replaces Amendment 1's twenty-minute estimate. Days rather than hours because hours do not
+      survive a re-run.
+
+  - id: fd_scalability_tax_flags
+    doc: docs/trust/fd-repair-scalability.md
+    artifact: eval/results/harness_cost.json
+    pointer: /projection/tax_oracle_flags
+    format: "{:,}"
+    expect: "164,718"
+    note: >-
+      Deterministic, unlike the timings, so it is bound exactly.

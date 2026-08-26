@@ -263,3 +263,42 @@ table, not just the elapsed clock.
 
 The `oracle` arm continues alone. Its status is unchanged from Amendment 2 -- in flight, no artifact
 committed, and **no claim about tax's ceiling may be made** until there is one.
+## Amendment 5 (2026-08-26): the arm is refused, not pending, and the cause is in the product
+
+The estimate in Amendment 1 was **twenty-three minutes**. Amendment 3 called the overrun five-fold.
+Amendment 4 corrected part of that to contention I had created. All three were reasoning about a cost
+none of them had measured.
+
+Measured, in `eval/results/harness_cost.json` and published in `docs/trust/fd-repair-scalability.md`:
+
+- `FDViolationRepairer.propose` costs about **2 seconds per flag** on a 200,000-row table.
+- `_acting_group`, the harness helper I had blamed, is about 23 ms -- **1%** of the cost.
+- Both are linear in table size and both are called once per flag, so the pass is **quadratic**.
+- tax's oracle arm flags **164,718** cells, so the write-exposure phase alone is about **4 days**.
+
+So the arm is not twenty minutes from completion, and no amount of waiting was going to produce it.
+**The `oracle` arm on tax is refused, with a measured reason, rather than left pending.**
+
+Two things follow that are larger than this deviation.
+
+**The cause is in the product, not the harness.** A user with a 200,000-row table who accepts mined
+dependencies and runs `repair --constraints` is starting a job measured in days. Nothing in this project
+said so, because every FD number here was measured at 1,000 to 2,376 rows, where the per-flag cost is
+about 50 ms and the problem is invisible. Had I published the inferred attribution, the recorded defect
+would have been mine to memoise and invisible to users; the remedy would have targeted 1% of the cost.
+
+**Timings are not bindable at the precision counts are.** Repeated runs moved the headline figure between
+roughly 1,950 and 2,210 ms. Only coarsened values are bound to the claim ledger -- "about 2 seconds",
+"99%", "about 4 days" -- and the millisecond table in the trust document is deliberately unbound and
+labelled as one run. A gate that fails on a re-run for no reason teaches people to ignore it.
+
+### Reversal criteria
+
+- Memoise the per-flag scan in `FDViolationRepairer.propose`, with equivalence verified cell-for-cell
+  against the committed hospital, flights and rayyan artifacts, as was required of the
+  `FormatViolationRepairer._dominant_profile` memo. If that lands, this arm becomes affordable and must
+  be run.
+- Or run it as-is and accept four days of compute. Legitimate, and it buys one number.
+
+Until one of those happens, **no claim about tax's ceiling may be made**, and the caveat that every FD
+result here was measured on tables of at most 2,376 rows must appear wherever those results are quoted.

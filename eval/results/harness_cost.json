@@ -1,0 +1,92 @@
+{
+  "calls_averaged": 40,
+  "corpus": "tax",
+  "function": "_acting_group + FDViolationRepairer.propose",
+  "largest": {
+    "acting_group_ms_per_call": 23.02,
+    "acting_group_seconds_per_call": 0.023024,
+    "ms_per_flag": 2148.81,
+    "propose_ms_per_call": 2125.78,
+    "propose_ms_per_call_random_rows": 2278.92,
+    "propose_seconds_per_call": 2.125782,
+    "propose_seconds_per_call_random_rows": 2.278921,
+    "propose_share": 0.9893,
+    "rows": 200000,
+    "seconds_per_flag": 2.148806
+  },
+  "note": "Both per-flag costs are linear in table size, so the arm is quadratic in table size. _acting_group builds a boolean mask over the ENTIRE frame per call; FDViolationRepairer.propose performs its own scan and dominates. The attribution is measured rather than inferred, because an inference from process CPU time attributed the whole cost to the harness and was wrong. This is the same shape of defect already recorded for FormatViolationRepairer._dominant_profile, which rescanned its column per flag and was solved with a harness-level memo whose equivalence was verified.",
+  "points": [
+    {
+      "acting_group_ms_per_call": 0.42,
+      "acting_group_seconds_per_call": 0.000417,
+      "ms_per_flag": 15.03,
+      "propose_ms_per_call": 14.61,
+      "propose_ms_per_call_random_rows": 14.08,
+      "propose_seconds_per_call": 0.014609,
+      "propose_seconds_per_call_random_rows": 0.014082,
+      "propose_share": 0.9723,
+      "rows": 5000,
+      "seconds_per_flag": 0.015026
+    },
+    {
+      "acting_group_ms_per_call": 1.06,
+      "acting_group_seconds_per_call": 0.001062,
+      "ms_per_flag": 59.3,
+      "propose_ms_per_call": 58.24,
+      "propose_ms_per_call_random_rows": 56.87,
+      "propose_seconds_per_call": 0.058243,
+      "propose_seconds_per_call_random_rows": 0.056873,
+      "propose_share": 0.9821,
+      "rows": 20000,
+      "seconds_per_flag": 0.059304
+    },
+    {
+      "acting_group_ms_per_call": 2.29,
+      "acting_group_seconds_per_call": 0.002294,
+      "ms_per_flag": 423.56,
+      "propose_ms_per_call": 421.26,
+      "propose_ms_per_call_random_rows": 507.57,
+      "propose_seconds_per_call": 0.421262,
+      "propose_seconds_per_call_random_rows": 0.507572,
+      "propose_share": 0.9946,
+      "rows": 50000,
+      "seconds_per_flag": 0.423556
+    },
+    {
+      "acting_group_ms_per_call": 11.99,
+      "acting_group_seconds_per_call": 0.011989,
+      "ms_per_flag": 1086.38,
+      "propose_ms_per_call": 1074.39,
+      "propose_ms_per_call_random_rows": 1010.37,
+      "propose_seconds_per_call": 1.074394,
+      "propose_seconds_per_call_random_rows": 1.010369,
+      "propose_share": 0.989,
+      "rows": 100000,
+      "seconds_per_flag": 1.086383
+    },
+    {
+      "acting_group_ms_per_call": 23.02,
+      "acting_group_seconds_per_call": 0.023024,
+      "ms_per_flag": 2148.81,
+      "propose_ms_per_call": 2125.78,
+      "propose_ms_per_call_random_rows": 2278.92,
+      "propose_seconds_per_call": 2.125782,
+      "propose_seconds_per_call_random_rows": 2.278921,
+      "propose_share": 0.9893,
+      "rows": 200000,
+      "seconds_per_flag": 2.148806
+    }
+  ],
+  "projection": {
+    "acting_group_only_hours": 1.1,
+    "caveat": "Excludes FDViolationDetector.detect and the replay phase, so it is a lower bound on the arm rather than a prediction of it.",
+    "hours_at_largest": 98.3,
+    "tax_oracle_flags": 164718
+  },
+  "schema": "dataforge_harness_cost_v1",
+  "stable": {
+    "propose_seconds_per_flag_rounded": 2,
+    "propose_share": 0.9893,
+    "tax_oracle_days_rounded": 4
+  }
+}
