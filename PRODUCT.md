@@ -173,11 +173,32 @@ evidence is built:
   erred conservative, which is the safe direction, and it still meant every published figure described
   a product that does not exist. A measurement of something adjacent to the product is not a
   measurement of the product.
+- **A reimplementation of a measurement reproduces the defect the vetted path exists to avoid.** This
+  is the generalisation of the rule above, and it was violated within the hour by whoever wrote it. The
+  first attempt at `docs/trust/constraint-additivity.md` reimplemented the write loop inline instead of
+  importing `_write_exposure`. It omitted the no-change filter, because `_rule_choice`'s docstring says
+  it returns values *"before the no-change check"* -- a caveat that is correct, easy to read, and easy
+  to not act on. Write counts came out **959 where the truth is 74**, and it nearly published a finding
+  that writes are 95% no-ops, which was entirely the bug. It was caught because the number looked
+  implausible, not by any gate. The measurement scripts therefore import the shipped path even when a
+  local loop would be shorter, and a shorter local loop is now evidence against a measurement rather
+  than for it.
 - **Premise precision does not predict corruption.** Two of the four added dependencies are equally
   false and corrupted **nothing**, because a false dependency is inert where its determinant group
   holds no visible disagreement. So FD-set precision is the wrong single quantity to optimise, and a
   confidence floor tuned on it is tuned on the wrong axis. What determines harm is whether a false
   premise meets a group that disagrees.
+
+A third rule arrived from the same corner of the codebase, and it is about where a claim lives rather
+than how it is built. **A number a user reads is a published claim regardless of the file extension it
+lives in.** `readme_truth.py` policed documents and `docs_truth.py` bound document prose, so the
+sentence printed at the moment a human authorises unsupervised writes -- the least-guarded claim in the
+product, with the most consequence attached -- was bound by nothing, and it went stale in the
+reassuring direction within hours of the correct number being published.
+It now states **116** and **0.2046**, both artifact-bound;
+`tests/unit/test_user_facing_numbers.py` gates the class, not
+the instance. No new gate was needed for the binding itself: `docs_truth.py` never cared about the file
+extension. The gap was not in the instrument but in the belief about which claims were claims.
 
 So the miner's precision was measured for the first time: **0.8655** on hospital, **1.0000** on tax,
 and **no candidates at all** on flights or rayyan. Every false dependency this project has ever

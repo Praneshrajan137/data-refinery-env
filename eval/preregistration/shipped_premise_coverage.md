@@ -176,3 +176,30 @@ The accept-path floor was not raised. `tested_confidence` was not promoted to a 
 separate reviewable decisions with named owners, and the reasoning for the second is unchanged: the
 threshold is still fitted to one corpus. This result makes the cost of that refusal visible without
 supplying the missing validation.
+## Amendment 2 (2026-08-26): the tax deviation, narrowed rather than excused
+
+Appended, not edited, per this project's rule that a pre-registration is a record and not a draft.
+
+Amendment 1 recorded that tax's arms were not computed, with a measured reason. On re-reading, that
+deviation conflated two different things, and only one of them was defensible.
+
+- The `mined` and `shipped_accept_all` arms on tax are **provably identical** by tuple equality. Not
+  running them separately is not a gap; it is declining to perform the same computation twice.
+- The `oracle` arm is **not** covered by that argument. It is the ceiling on the mechanism, and tax is
+  the only large corpus. Amendment 1 said so honestly and then left it, which made an unresolved gap
+  read as a closed one because it sat under a heading that had already been justified.
+
+So the instrument was extended rather than the excuse: `measure_deductive_coverage.py` gained
+`--arms`, letting the one informative arm run without the two redundant ones. The artifact it writes
+records `arms_measured` and `arms_skipped`, so a partial run cannot later be read as a whole one --
+the same failure mode as reading zero writes as a safety result.
+
+Verified behaviour-preserving before use: a full run on rayyan with the flag absent reproduces the
+committed artifact's arms exactly.
+
+**Status at commit time: the tax `oracle` run is in flight and its artifact is not yet present.** That
+is stated here rather than after the fact, so this amendment is a prediction and not a report. If it
+completes, `eval/results/deductive_coverage_tax_oracle.json` is committed and this line is superseded
+by a result. If it does not, the gap stands exactly as Amendment 1 described it, with the difference
+that the tooling no longer makes closing it expensive -- and no claim about tax's ceiling may be made
+in the meantime.

@@ -1,0 +1,619 @@
+{
+  "corpus": "hospital",
+  "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",
+  "note": "Per-candidate write exposure measured with a schema containing that dependency ALONE, against the same measurement with all of them. Overlapping dependencies mask one another because only one acts per cell, so the sum over candidates exceeds the combined result. Pre-registration not required: this measures a property of the harness's own arithmetic, with no threshold and no decision attached.",
+  "per_candidate": [
+    {
+      "corrupted_a_clean_cell": 52,
+      "dependency": "City -> HospitalOwner",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 21,
+      "writes": 74
+    },
+    {
+      "corrupted_a_clean_cell": 23,
+      "dependency": "ZipCode -> HospitalName",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 23,
+      "writes": 46
+    },
+    {
+      "corrupted_a_clean_cell": 23,
+      "dependency": "ZipCode -> HospitalOwner",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 25,
+      "writes": 48
+    },
+    {
+      "corrupted_a_clean_cell": 23,
+      "dependency": "ZipCode -> ProviderNumber",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 28,
+      "writes": 51
+    },
+    {
+      "corrupted_a_clean_cell": 22,
+      "dependency": "ZipCode -> PhoneNumber",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 33,
+      "writes": 56
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "Condition -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 25,
+      "writes": 45
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "EmergencyService -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 26,
+      "writes": 46
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "HospitalOwner -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 24,
+      "writes": 44
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "HospitalType -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 26,
+      "writes": 46
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "MeasureCode -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 26,
+      "writes": 46
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "Score -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 26,
+      "writes": 46
+    },
+    {
+      "corrupted_a_clean_cell": 20,
+      "dependency": "MeasureCode -> Stateavg",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 26,
+      "writes": 46
+    },
+    {
+      "corrupted_a_clean_cell": 18,
+      "dependency": "MeasureName -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 25,
+      "writes": 43
+    },
+    {
+      "corrupted_a_clean_cell": 18,
+      "dependency": "MeasureName -> Stateavg",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 27,
+      "writes": 45
+    },
+    {
+      "corrupted_a_clean_cell": 11,
+      "dependency": "Sample -> State",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 21,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> Address1",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 29,
+      "writes": 29
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> Address1",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> Address1",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ZipCode -> Address1",
+      "holds_on_clean": false,
+      "repaired_a_real_error": 29,
+      "writes": 29
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> City",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> City",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> City",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> City",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 33,
+      "writes": 33
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ZipCode -> City",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "MeasureCode -> Condition",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "MeasureName -> Condition",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Stateavg -> Condition",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> CountyName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 38,
+      "writes": 38
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "City -> CountyName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 36,
+      "writes": 36
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> CountyName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 38,
+      "writes": 38
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> CountyName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 39,
+      "writes": 39
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> CountyName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 39,
+      "writes": 39
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ZipCode -> CountyName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 39,
+      "writes": 39
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 26,
+      "writes": 26
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "City -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 27,
+      "writes": 27
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "CountyName -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 27,
+      "writes": 27
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 26,
+      "writes": 26
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 26,
+      "writes": 26
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 27,
+      "writes": 27
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ZipCode -> EmergencyService",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 25,
+      "writes": 25
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> HospitalName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 23,
+      "writes": 23
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> HospitalName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 24,
+      "writes": 24
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> HospitalName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 24,
+      "writes": 24
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> HospitalOwner",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 27,
+      "writes": 27
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> HospitalOwner",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 27,
+      "writes": 27
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> HospitalOwner",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 25,
+      "writes": 25
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> HospitalOwner",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 27,
+      "writes": 27
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 29,
+      "writes": 29
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "City -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Condition -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "CountyName -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "EmergencyService -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 29,
+      "writes": 29
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalOwner -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "MeasureCode -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "MeasureName -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Sample -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 21,
+      "writes": 21
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Score -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "State -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Stateavg -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 31,
+      "writes": 31
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ZipCode -> HospitalType",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "MeasureName -> MeasureCode",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Stateavg -> MeasureCode",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "MeasureCode -> MeasureName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 35,
+      "writes": 35
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Stateavg -> MeasureName",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 34,
+      "writes": 34
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> PhoneNumber",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 32,
+      "writes": 32
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> PhoneNumber",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 33,
+      "writes": 33
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> PhoneNumber",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 34,
+      "writes": 34
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> ProviderNumber",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> ProviderNumber",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> ProviderNumber",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 28,
+      "writes": 28
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 26,
+      "writes": 26
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "City -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 25,
+      "writes": 25
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "CountyName -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 26,
+      "writes": 26
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 25,
+      "writes": 25
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 24,
+      "writes": 24
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 25,
+      "writes": 25
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Stateavg -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 24,
+      "writes": 24
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ZipCode -> State",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 26,
+      "writes": 26
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "Address1 -> ZipCode",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "HospitalName -> ZipCode",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 29,
+      "writes": 29
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "PhoneNumber -> ZipCode",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    },
+    {
+      "corrupted_a_clean_cell": 0,
+      "dependency": "ProviderNumber -> ZipCode",
+      "holds_on_clean": true,
+      "repaired_a_real_error": 30,
+      "writes": 30
+    }
+  ],
+  "rows": 1000,
+  "rule": "majority",
+  "schema": "dataforge_constraint_additivity_v1",
+  "summary": {
+    "candidates": 85,
+    "combined_corruption": 116,
+    "combined_repaired": 451,
+    "combined_writes": 567,
+    "false_dependencies": 16,
+    "harmful_in_isolation": 15,
+    "isolated_corruption_sum": 330,
+    "isolated_writes_sum": 2779,
+    "non_additivity_factor": 2.84,
+    "top_1_share_of_isolated_corruption": 0.1576,
+    "top_3_share_of_isolated_corruption": 0.297,
+    "top_5_share_of_isolated_corruption": 0.4333
+  }
+}

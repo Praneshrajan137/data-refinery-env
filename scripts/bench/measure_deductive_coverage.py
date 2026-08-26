@@ -571,22 +571,41 @@ def _summarise_arm(
     }
 
 
-def measure(corpus: str, *, cache_root: Path | None) -> dict[str, Any]:
-    """Run both premise arms and return a single comparable artifact."""
+def measure(
+    corpus: str, *, cache_root: Path | None, arms_wanted: tuple[str, ...] | None = None
+) -> dict[str, Any]:
+    """Run the premise arms and return a single comparable artifact.
+
+    ``arms_wanted`` restricts which arms are computed. It exists because tax emits 169,208 FD flags
+    at ~8 ms each, so a full three-arm run is hours, while the two mined arms are **provably
+    identical** on tax by tuple equality -- recomputing them is the same computation twice rather
+    than additional evidence. The arm that carries real information there is ``oracle``.
+
+    A partial artifact records which arms were skipped, so a reader cannot mistake an absent arm for
+    a measured zero. That is the same failure mode as reading zero writes as a safety result.
+    """
     dataset = load_real_world_dataset(corpus, cache_root=cache_root)
     columns = tuple(str(column) for column in dataset.dirty_df.columns)
 
-    arms = {
-        "oracle": discover_oracle_fds(dataset.clean_df, columns=columns),
-        "mined": mined_fds(dataset.dirty_df),
-        "shipped_accept_all": shipped_accept_all_fds(dataset.dirty_df),
+    builders = {
+        "oracle": lambda: discover_oracle_fds(dataset.clean_df, columns=columns),
+        "mined": lambda: mined_fds(dataset.dirty_df),
+        "shipped_accept_all": lambda: shipped_accept_all_fds(dataset.dirty_df),
     }
+    selected = tuple(builders) if arms_wanted is None else arms_wanted
+    unknown = sorted(set(selected) - set(builders))
+    if unknown:
+        raise SystemExit(f"unknown arms: {unknown}; choose from {sorted(builders)}")
+
+    arms = {name: builders[name]() for name in selected}
     return {
         "schema": "dataforge_deductive_coverage_v3",
         "corpus": corpus,
         "rows": int(dataset.dirty_df.shape[0]),
         "dirty_sha256": dataset.dirty_sha256,
         "clean_sha256": dataset.clean_sha256,
+        "arms_measured": list(selected),
+        "arms_skipped": sorted(set(builders) - set(selected)),
         "arm_definitions": {
             "oracle": (
                 "single-column FDs holding exactly on the CLEAN frame; no user has this; the "
@@ -619,9 +638,22 @@ def main() -> int:
     parser.add_argument("--corpus", default="hospital")
     parser.add_argument("--cache-root", type=Path, default=None)
     parser.add_argument("--artifact", type=Path, required=True)
+    parser.add_argument(
+        "--arms",
+        default=None,
+        help=(
+            "comma-separated subset of oracle,mined,shipped_accept_all. Omit for all three. The "
+            "artifact records which arms were skipped so a partial run cannot be read as a whole one."
+        ),
+    )
     args = parser.parse_args()
 
-    payload = measure(args.corpus, cache_root=args.cache_root)
+    arms_wanted = (
+        None
+        if args.arms is None
+        else tuple(part.strip() for part in args.arms.split(",") if part.strip())
+    )
+    payload = measure(args.corpus, cache_root=args.cache_root, arms_wanted=arms_wanted)
     args.artifact.parent.mkdir(parents=True, exist_ok=True)
     args.artifact.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 

@@ -355,15 +355,40 @@ def _warn_accepted_fd_queue_cost(artifact: ConstraintReviewArtifact) -> None:
     present. ``dataforge profile --constraints-out`` reports the measured cell cost, and
     ``repair --fd-detection declared`` is the control.
 
-    A second cost, measured 2026-08-25 and added here because the queue figure alone understates
-    it: an accepted dependency does not only enlarge the review queue, it authorises **writes**.
-    ``docs/trust/bypass-allowlist-evidence.md`` measures the FD repairer under exactly this premise
-    on hospital -- 537 writes, 451 real errors repaired and **86 cells that were already correct
-    overwritten**, a harmful write rate of 0.1601. Under a premise whose dependencies all hold the
-    same repairer corrupts nothing. Every one of those 86 traces to a mined dependency that is false
-    on ground truth, 23 of them to ``ZipCode -> HospitalName``; a zip code does not determine a
-    hospital name. These writes carry ``deterministic`` provenance and therefore bypass the
-    calibration threshold entirely, so nothing downstream holds them back.
+    A second cost, measured 2026-08-25 and corrected 2026-08-26, added here because the queue figure
+    alone understates it: an accepted dependency does not only enlarge the review queue, it authorises
+    **writes**.
+
+    ``docs/trust/shipped-premise-result.md`` measures the FD repairer under **the premise this
+    keystroke actually creates** -- the miner's full output at its 0.90 emission floor, because
+    ``ConstraintReviewArtifact.to_schema()`` applies no floor of its own. On hospital: 567 writes, 451
+    real errors repaired, and **116 cells that were already correct overwritten**, a harmful write
+    rate of 0.2046.
+
+    This warning previously cited **86** and 0.1601. Those figures are retained rather than deleted,
+    per this project's convention that withdrawn numbers stay legible, and they describe a *different*
+    premise: ``infer_verification_schema`` at a 0.95 floor, which is what the earlier harness measured
+    and which **no user is given**. The four dependencies the 0.95 premise excludes are all false on
+    ground truth, repaired nothing, and account for the whole 86-to-116 difference.
+
+    Under a premise whose dependencies all hold the same repairer corrupts nothing. Corruptions trace
+    to mined dependencies that are false on ground truth -- 23 to ``ZipCode -> HospitalName``, 23 to
+    ``ZipCode -> ProviderNumber``; a zip code does not determine a hospital name or a provider number.
+    These writes carry ``deterministic`` provenance and therefore bypass the calibration threshold
+    entirely, so nothing downstream holds them back.
+
+    The per-dependency figure is deliberately absent, and that absence is a finding rather than an
+    omission. ``docs/trust/constraint-additivity.md`` measures that per-candidate harm **does not
+    compose**: summed over hospital's 85 candidates in isolation it is 330, while accepting all 85
+    together yields 116, because overlapping dependencies mask one another and only one acts per cell.
+    So a per-candidate number would overstate harm by a factor that depends on what else the reviewer
+    accepts, which is worse than giving no per-candidate number at all.
+
+    Every number in this docstring and in the message below is bound to its artifact in
+    ``docs/quantitative_claims.yaml``. Until 2026-08-26 it was bound to nothing: ``readme_truth.py``
+    polices documents and ``docs_truth.py`` bound document prose, so the one sentence a user reads
+    while authorising an unsupervised write to their own data was the least-guarded claim in the
+    product, and it had gone stale in the reassuring direction.
     """
     accepted_fds = [
         entry
@@ -375,12 +400,17 @@ def _warn_accepted_fd_queue_cost(artifact: ConstraintReviewArtifact) -> None:
     _console.print(
         f"[yellow]{len(accepted_fds)} accepted functional dependencies will be able to "
         "RAISE ISSUES and AUTHORIZE WRITES. Inferred FDs raise recall but can flood "
-        "review (measured: 19x on hospital, 1.78 -> 22.80 cells per real error), and a false "
-        "one lets the repairer overwrite cells that were already correct: measured 86 such "
-        "cells on hospital, a 0.1601 harmful write rate, against zero under a premise whose "
-        "dependencies all hold. Those writes bypass the calibration threshold. Use "
+        "review (measured on hospital: 549 -> 10,373 flagged cells, 1.78 -> 22.80 cells per "
+        "real error), and a false "
+        "one lets the repairer overwrite cells that were already correct: measured 116 such "
+        "cells on hospital, a 0.2046 harmful write rate, against zero under a premise whose "
+        "dependencies all hold. That is measured on the premise THIS keystroke creates -- the "
+        "miner's full output -- and supersedes the 86 previously reported here, which described "
+        "a stricter premise no user is given. Per-dependency harm does not compose, so there is "
+        "no per-candidate figure: summed in isolation it is 330 against 116 accepted together. "
+        "Those writes bypass the calibration threshold. Use "
         "'dataforge repair --fd-detection declared' to keep the queue reviewable, and see "
-        "docs/trust/bypass-allowlist-evidence.md and docs/trust/constraint-circularity.md."
+        "docs/trust/shipped-premise-result.md and docs/trust/constraint-additivity.md."
         "[/yellow]"
     )
 

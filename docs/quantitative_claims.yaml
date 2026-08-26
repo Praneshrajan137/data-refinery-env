@@ -601,3 +601,162 @@ claims:
     expect: "25.42"
     note: >-
       Review rows at 100 columns against hospital's 20, the widest table ever previously measured.
+  # --- The warning a user reads while authorising a write (2026-08-26) ---
+  # These bind numbers living in PYTHON SOURCE, not in a document, and that widening is the point.
+  # docs_truth reads `doc` as text and does not care about the file extension, so no new gate was
+  # needed -- but until these entries existed, `readme_truth.py` policed documents,
+  # `docs_truth.py` bound document prose, and the sentence a user reads at the moment of choice was
+  # bound by NOTHING. It had gone stale in the reassuring direction within hours of the correct
+  # number being published. A number a user reads is a published claim regardless of the file
+  # extension it lives in.
+  - id: warning_shipped_corrupted_cells
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "116"
+    context: "already correct"
+    note: >-
+      The cell count in the write-authorisation warning. Must describe the premise the user is
+      accepting -- the miner's full output at its 0.90 emission floor -- and not the 0.95 proxy.
+
+  - id: warning_shipped_harmful_rate
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/harmful_write_rate
+    format: "{:.4f}"
+    expect: "0.2046"
+    note: >-
+      The harmful write rate in the same warning. 0.1601 was the proxy figure.
+  # --- Constraint acceptance is not additive (2026-08-26) ---
+  - id: additivity_isolated_sum
+    doc: docs/trust/constraint-additivity.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/isolated_corruption_sum
+    format: "{:d}"
+    expect: "330"
+    note: >-
+      Corruption summed over 85 candidates each measured ALONE. Overcounts, because overlapping
+      dependencies mask one another.
+
+  - id: additivity_combined
+    doc: docs/trust/constraint-additivity.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/combined_corruption
+    format: "{:d}"
+    expect: "116"
+    context: "accepted together"
+    note: >-
+      The same premise accepted as a whole. Equals the shipped_accept_all figure, which is the
+      cross-check that this harness and the deductive-coverage harness agree.
+
+  - id: additivity_factor
+    doc: docs/trust/constraint-additivity.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/non_additivity_factor
+    format: "{:.2f}"
+    expect: "2.84"
+    note: >-
+      Why a per-candidate harm figure is withheld from the reviewer.
+
+  - id: additivity_harmful_in_isolation
+    doc: docs/trust/constraint-additivity.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/harmful_in_isolation
+    format: "{:d}"
+    expect: "15"
+    context: "harmful in isolation"
+    note: >-
+      15 of 16 false dependencies are harmful alone, which is why there is no short list of worst
+      offenders to hand a reviewer.
+
+  - id: additivity_top5_share
+    doc: docs/trust/constraint-additivity.md
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/top_5_share_of_isolated_corruption
+    format: "{:.4f}"
+    expect: "0.4333"
+    note: >-
+      The refuted concentration hypothesis: the worst five candidates account for under half the
+      exposure.
+
+  # --- The remaining measured numbers in the write-authorisation warning ---
+  # Found by the source-string gate AFTER the warning had already been corrected once, which is the
+  # value of gating the class rather than the instance.
+  - id: warning_review_effort_default
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/hospital/regimes/default/cells_reviewed_per_true_error
+    format: "{:.2f}"
+    expect: "1.78"
+    note: >-
+      Cells a human reviews per real error before accepting mined dependencies.
+
+  - id: warning_review_effort_inferred
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/hospital/regimes/inferred_constraints/cells_reviewed_per_true_error
+    format: "{:.2f}"
+    expect: "22.80"
+    note: >-
+      And after. The 13x rise in review effort the warning exists to disclose.
+
+  - id: warning_superseded_proxy_figure
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/mined/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "86"
+    context: "supersedes"
+    note: >-
+      Retained in the warning as the superseded figure, per the convention that withdrawn numbers stay
+      legible. Bound so that if the proxy arm ever drifts, the warning's account of its own history
+      must be re-made rather than quietly aging.
+
+  - id: warning_isolated_sum
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/constraint_additivity.json
+    pointer: /summary/isolated_corruption_sum
+    format: "{:d}"
+    expect: "330"
+    context: "isolation"
+    note: >-
+      Cited in the warning to justify why no per-dependency figure is offered.
+  - id: warning_flagged_cells_default
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/hospital/regimes/default/flagged_cells
+    format: "{:,}"
+    expect: "549"
+    context: "flagged cells"
+    note: >-
+      Replaced a rounded "19x" multiplier, which had no artifact field and so could not be bound.
+      Citing both counts is more informative AND checkable.
+
+  - id: warning_flagged_cells_inferred
+    doc: dataforge/cli/constraints.py
+    artifact: eval/results/detector_queue_composition.json
+    pointer: /datasets/hospital/regimes/inferred_constraints/flagged_cells
+    format: "{:,}"
+    expect: "10,373"
+    context: "flagged cells"
+    note: >-
+      The comma is part of the rendered claim, so the format carries it rather than the prose
+      diverging from the artifact by a thousands separator.
+  - id: product_warning_shipped_corrupted
+    doc: PRODUCT.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "116"
+    context: "artifact-bound"
+    note: >-
+      PRODUCT.md's account of the corrected warning must age with the warning itself.
+
+  - id: product_warning_shipped_rate
+    doc: PRODUCT.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/harmful_write_rate
+    format: "{:.4f}"
+    expect: "0.2046"
+    context: "artifact-bound"
