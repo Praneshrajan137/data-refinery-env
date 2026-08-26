@@ -494,3 +494,110 @@ claims:
     context: "majority is a third"
     note: >-
       Where the majority is a third, also-wrong form.
+  # --- The premise the product actually ships (2026-08-26) ---
+  # Pre-registered in eval/preregistration/shipped_premise_coverage.md. These bind the correction of
+  # a published bound that had been read as a measurement. The `repaired` pair is the sharpest: it is
+  # IDENTICAL across the two arms, which is what makes the added premise pure harm.
+  - id: shipped_premise_corrupted
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "116"
+    context: "shipped_accept_all"
+    note: >-
+      The premise a zero-config user actually gets, through the real artifact and merge. The
+      published figure for the 0.95 proxy is 86.
+
+  - id: shipped_premise_proxy_corrupted
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/mined/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "86"
+    context: "the published figure"
+    note: >-
+      The reproduction guard. If this drifts the harness moved, not the product, and the
+      pre-registered K1 voids the run.
+
+  - id: shipped_premise_repaired
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/repaired_a_real_error
+    format: "{:d}"
+    expect: "451"
+    context: "shipped_accept_all"
+    note: >-
+      Identical to the proxy arm's 451. The four added dependencies repaired NOTHING while corrupting
+      thirty more clean cells, so the added premise carries no offsetting benefit.
+
+  - id: shipped_premise_fd_count
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/premise/fd_count
+    format: "{:d}"
+    expect: "85"
+    context: "shipped_accept_all"
+    note: >-
+      What the accept path admits at the miner's 0.90 emission floor, against the proxy's 81.
+
+  - id: shipped_premise_fd_precision
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/premise/fd_set_precision
+    format: "{:.4f}"
+    expect: "0.8118"
+    note: >-
+      Shipped FD-set precision, against 0.8519 for the proxy. Both measure the same quantity over
+      different sets.
+
+  - id: shipped_premise_write_precision
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/write_precision
+    format: "{:.4f}"
+    expect: "0.7954"
+    note: >-
+      Write precision of the shipped premise, against 0.8399 for the proxy and 1.0000 for a premise
+      whose dependencies all hold.
+
+  - id: shipped_premise_oracle_corrupted
+    doc: docs/trust/shipped-premise-result.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/oracle/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "0"
+    context: "oracle"
+    note: >-
+      The contrast that carries the whole premise-quality thesis: same gate, same rule, zero
+      corruptions when every dependency holds.
+
+  # --- Wide tables: the cliff is the review queue, not the CPU (2026-08-26) ---
+  - id: wide_table_candidates_at_100_columns
+    doc: docs/trust/wide-table-review-burden.md
+    artifact: eval/results/fd_mining_width.json
+    pointer: /summary/review_rows_at_widest
+    format: "{:d}"
+    expect: "2466"
+    note: >-
+      Constraint candidates a human must adjudicate on a 100-column table. Nothing caps this, and it
+      is the cost that matters -- the runtime is not the problem.
+
+  - id: wide_table_seconds_at_100_columns
+    doc: docs/trust/wide-table-review-burden.md
+    artifact: eval/results/fd_mining_width.json
+    pointer: /summary/widest_measured_seconds
+    format: "{:.4f}"
+    expect: "0.6437"
+    note: >-
+      The number that REFUTED the framing which motivated the measurement. I predicted a performance
+      cliff; there is not one at 500 rows.
+
+  - id: wide_table_review_ratio
+    doc: docs/trust/wide-table-review-burden.md
+    artifact: eval/results/fd_mining_width.json
+    pointer: /summary/review_rows_ratio_widest_over_20
+    format: "{:.2f}"
+    expect: "25.42"
+    note: >-
+      Review rows at 100 columns against hospital's 20, the widest table ever previously measured.

@@ -1,0 +1,69 @@
+{
+  "measurements": [
+    {
+      "candidates_functional_dependency": 18,
+      "candidates_total": 28,
+      "columns": 10,
+      "ordered_pairs": 90,
+      "review_rows_a_human_would_adjudicate": 28,
+      "rows": 500,
+      "seconds": 0.0152
+    },
+    {
+      "candidates_functional_dependency": 77,
+      "candidates_total": 97,
+      "columns": 20,
+      "ordered_pairs": 380,
+      "review_rows_a_human_would_adjudicate": 97,
+      "rows": 500,
+      "seconds": 0.0327
+    },
+    {
+      "candidates_functional_dependency": 358,
+      "candidates_total": 398,
+      "columns": 40,
+      "ordered_pairs": 1560,
+      "review_rows_a_human_would_adjudicate": 398,
+      "rows": 500,
+      "seconds": 0.1186
+    },
+    {
+      "candidates_functional_dependency": 825,
+      "candidates_total": 885,
+      "columns": 60,
+      "ordered_pairs": 3540,
+      "review_rows_a_human_would_adjudicate": 885,
+      "rows": 500,
+      "seconds": 0.2749
+    },
+    {
+      "candidates_functional_dependency": 1508,
+      "candidates_total": 1588,
+      "columns": 80,
+      "ordered_pairs": 6320,
+      "review_rows_a_human_would_adjudicate": 1588,
+      "rows": 500,
+      "seconds": 0.4378
+    },
+    {
+      "candidates_functional_dependency": 2366,
+      "candidates_total": 2466,
+      "columns": 100,
+      "ordered_pairs": 9900,
+      "review_rows_a_human_would_adjudicate": 2466,
+      "rows": 500,
+      "seconds": 0.6437
+    }
+  ],
+  "note": "Theta(C^2 * R) with no column cap and no timeout. The widest table this project has ever measured before this artifact is hospital at 20 columns. Synthetic tables, because the question is about shape rather than content.",
+  "schema": "dataforge_fd_mining_width_v1",
+  "summary": {
+    "hospital_width_seconds": 0.0327,
+    "pairs_ratio_widest_over_20": 26.05,
+    "review_rows_at_widest": 2466,
+    "review_rows_ratio_widest_over_20": 25.42,
+    "seconds_ratio_widest_over_20": 19.69,
+    "widest_measured_columns": 100,
+    "widest_measured_seconds": 0.6437
+  }
+}

@@ -1,5 +1,25 @@
 # The label-free repair path, measured
 
+> **AMENDMENT, 2026-08-26. The `mined` arm below is a PROXY for the shipped path, not the shipped
+> path, and its numbers are a bound rather than a measurement of what a user gets.**
+>
+> This document frames its `mined` arm as the three-step journey `profile --constraints-out`,
+> `constraints review --accept`, `repair --constraints`. It does not run those three steps: the
+> harness builds its premise from `infer_verification_schema`, which applies
+> `_VERIFY_FD_MIN_CONFIDENCE = 0.95`. The shipped accept path applies **no floor of its own**, so its
+> effective floor is the miner's emission floor of **0.90** — a strictly larger and lower-quality FD
+> set of 85 rather than 81.
+>
+> Measured through the real artifact and merge in `docs/trust/shipped-premise-result.md`: the premise
+> a zero-config user actually gets corrupts **116** clean cells on hospital, not 86, and the four
+> added dependencies repaired **zero** additional real errors. Every figure below stands as
+> reproduced — the `mined` arm still yields 537/451/0/86 exactly, and that reproduction is the
+> regression guard for the new measurement — but the *interpretation* changes: 86 is what a 0.95
+> premise costs, and no user is given one.
+>
+> Nothing below is edited. The general rule this produced: **an arm that models a user journey must
+> be built from the code that journey runs.**
+
 Measured 2026-08-25. Artifacts: `eval/results/deductive_coverage_hospital.json`,
 `eval/results/deductive_coverage_rayyan.json`, `eval/results/deductive_coverage_flights.json`.
 Reproduce: `python scripts/bench/measure_deductive_coverage.py --corpus <name> --artifact <path>`.
@@ -169,8 +189,21 @@ decision rule, and it ranges from **0.0** to **0.8861** with write precision fro
 
 ## Limits
 
-1. **Single-column determinants only in the oracle arm.** The mined arm supplies multi-column
-   determinants; the discovery arm does not. Oracle coverage is therefore a floor on the ceiling.
+1. **Single-column determinants only, in EVERY arm.** ~~The mined arm supplies multi-column
+   determinants; the discovery arm does not. Oracle coverage is therefore a floor on the ceiling.~~
+   **RETRACTED 2026-08-26.** That was false. `_fd_candidates` emits `columns=(determinant,)`
+   unconditionally, so the mined arm supplies no composite determinant either, and neither does
+   `shipped_accept_all`. The stated reason why oracle coverage is "a floor on the ceiling" therefore
+   does not hold — the arms are not confounded by determinant arity at all, because none of them has
+   any. The same false sentence stood in `scripts/bench/measure_deductive_coverage.py` and is
+   corrected there. `docs/trust/premise-quality-result.md` limit 4 had it right the whole time; two
+   artifacts contradicted it.
+
+   What remains true, and is the real limit: `FDViolationDetector` and `FDViolationRepairer` both
+   fully support composite keys, and the only producer in the zero-config path can never emit one. So
+   dependencies that are *only* composite — `(store, sku) -> price`, `(year, zip) -> tax_rate` — are
+   invisible to every measurement here and to every zero-config user. The capability is built and
+   unreachable.
 2. **Exact-hold is a harsh definition of a true FD.** `fd_holds_on_clean` admits no exceptions, so a
    dependency violated by one cell in 1000 counts as false. The 0.8957 FD-set precision should not
    be read as "10% of mined dependencies are nonsense" -- the attribution table shows which ones

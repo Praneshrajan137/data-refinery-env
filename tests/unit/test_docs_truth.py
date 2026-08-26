@@ -159,6 +159,31 @@ class TestShortValuesCannotBeSatisfiedIncidentally:
         assert pattern.search("write precision is 0.6189.") is not None
         assert docs_truth._token_pattern("11").search("110 rows") is None
 
+    @pytest.mark.parametrize(
+        ("value", "text", "matches"),
+        [
+            # A unit suffix states the value; it does not make a different token.
+            ("25.42", "25.42x the review rows of hospital's 20", True),
+            ("12", "12% of writes were harmful", True),
+            # An ordinal is a different meaning and must not satisfy a claim.
+            ("116", "the 116th row", False),
+            ("116", "corrupts 116 clean cells", True),
+            # The two cases that motivated the whole correction.
+            ("0", "**Status**: open, recorded 2026-08-26", False),
+            ("1", "dataforge/fixtures/premised_fd_10rows.csv", False),
+        ],
+    )
+    def test_the_unit_suffix_allowance_is_narrow(
+        self, value: str, text: str, matches: bool
+    ) -> None:
+        """``x`` and ``%`` are permitted after a value; arbitrary letters are not.
+
+        The allowance was added when the gate rejected ``25.42x``, a legitimately-written
+        multiplier. Widening it to any letter would let the word ``116th`` satisfy a claim of 116,
+        so the two cases are pinned together -- the permission and its limit.
+        """
+        assert (docs_truth._token_pattern(value).search(text) is not None) is matches
+
     def test_every_short_claim_declares_context(self) -> None:
         """The class-level gate, so the six instances cannot recur as a seventh."""
         yaml = pytest.importorskip("yaml")

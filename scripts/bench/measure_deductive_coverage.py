@@ -115,7 +115,12 @@ def discover_oracle_fds(
     ``MIN_GROUP_SIZE`` rows so a vote is reachable, and a non-constant dependent -- a single-valued
     column is determined by everything and would inflate coverage with cells no premise worked for.
 
-    Multi-column determinants are out of scope for this arm; the mined arm supplies them.
+    Single-column determinants only -- and so is every other arm. The claim that "the mined arm
+    supplies them", which stood here and in ``docs/trust/deductive-coverage-result.md`` until
+    2026-08-26, was **false**: ``_fd_candidates`` emits ``columns=(determinant,)`` unconditionally, so
+    no arm in this harness has ever produced a composite determinant. Both consumers
+    (``FDViolationDetector``, ``FDViolationRepairer``) support them fully; the only producer in the
+    zero-config path cannot emit one.
     """
     discovered: list[FunctionalDependency] = []
     for dependent in columns:

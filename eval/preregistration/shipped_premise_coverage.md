@@ -124,3 +124,55 @@ its reasoning.
 
 **No claim is made about composite determinants.** Neither arm produces them — a fact two committed
 artifacts currently deny, which is corrected separately.
+
+---
+
+## Amendment 1 - outcome, 2026-08-26
+
+Appended, not edited. Result: `docs/trust/shipped-premise-result.md`. Artifacts:
+`eval/results/deductive_coverage_{hospital,flights,rayyan}.json`.
+
+**P1 CONFIRMED. The shipped premise corrupts 116 clean cells on hospital, against the published 86.**
+
+| arm | FDs | fd_set_precision | writes | repaired | corrupted | write precision |
+| --- | --- | --- | --- | --- | --- | --- |
+| oracle | 53 | 1.0000 | 393 | 393 | 0 | 1.0000 |
+| mined (0.95 proxy, published) | 81 | 0.8519 | 537 | 451 | 86 | 0.8399 |
+| shipped_accept_all (0.90) | 85 | 0.8118 | 567 | 451 | 116 | 0.7954 |
+
+The sharpest number is the one that did NOT move: `repaired_a_real_error` is **451 in both arms**. The
+four added dependencies repaired nothing and corrupted thirty more clean cells. The added premise is
+pure harm with no offsetting benefit.
+
+K1 held: `mined` reproduced 537/451/0/86 exactly, and flights' `oracle` reproduced
+1807/1193/270/344 exactly. K4 held: the arms differ on hospital.
+
+### Prediction outcomes
+
+| # | Outcome |
+| --- | --- |
+| **P1** | CONFIRMED. 116 > 86. |
+| **P2** | **REFUTED as written, and the error is mine.** I wrote "flights and rayyan report 0 writes in every arm" while reasoning about the mined arms. flights' `oracle` arm writes 1807 -- it discovers on the clean frame and does not mine. The claim I meant holds; the claim I wrote does not. |
+| **P3** | CONFIRMED exactly. The +30 splits `ProviderNumber` +23 and `HospitalOwner` +7, and 0 elsewhere. |
+| **P4** | REFUTED, as I expected. But **partially instructive**: `ZipCode -> Address1` and `ZipCode -> PhoneNumber` are equally false and corrupted **nothing**, because a false dependency is inert where its determinant group holds no visible disagreement. So the P4 mechanism is real but not dominant -- and it means **FD-set precision does not predict corruption count**. Half the added false dependencies were harmless. |
+| **P5** | CONFIRMED by set equality, which is stronger than by outcome: `mined_fds(tax)` and `shipped_accept_all_fds(tax)` return the identical 4-tuple. |
+
+### Deviation: tax's outcome arms were not computed
+
+The method specified all four corpora. tax's arms were not run to completion.
+
+Measured reason: FD detection on tax emits **169,208** flags and `_acting_group` costs ~8 ms per
+flag, so one arm is ~23 minutes and three arms across three decision rules is hours. Against that,
+the two arms under comparison are **provably identical** on tax by tuple equality, so recomputing
+them is the same computation twice rather than additional evidence.
+
+What it costs, stated rather than buried: tax's `oracle` arm has never been measured in this harness,
+so the ceiling on the mechanism is unknown for the only large corpus. The identity argument does not
+close that, and it is not claimed to.
+
+### What was NOT done, as pre-committed
+
+The accept-path floor was not raised. `tested_confidence` was not promoted to a gate. Both remain
+separate reviewable decisions with named owners, and the reasoning for the second is unchanged: the
+threshold is still fitted to one corpus. This result makes the cost of that refusal visible without
+supplying the missing validation.

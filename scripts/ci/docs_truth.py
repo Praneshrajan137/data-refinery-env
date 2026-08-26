@@ -129,13 +129,19 @@ def _token_pattern(value: str) -> re.Pattern[str]:
 
     * left ``(?<![\\w.])`` rejects ``10.6189`` when looking for ``0.6189``, and ``2026`` when
       looking for ``0``;
-    * right ``(?!\\w|\\.\\d)`` rejects ``0.61890`` and ``11`` inside ``110``, while still allowing
-      ``precision is 0.6189.`` at the end of a sentence.
+    * right ``(?!\\d|\\.\\d|[A-Za-z])`` rejects ``0.61890``, ``11`` inside ``110``, and ``116``
+      inside ``116th``, while still allowing ``precision is 0.6189.`` at the end of a sentence.
 
-    Verified against the case that motivated this: ``0`` does not match anywhere in
-    ``2026-08-26``, and ``1`` does not match inside ``premised_fd_10rows.csv``.
+    A trailing ``x`` or ``%`` is permitted, because ``25.42x`` and ``12%`` state the value rather
+    than a different token -- a unit suffix cannot change which number is being claimed. That
+    allowance is deliberately limited to those two: it was added when the gate rejected a
+    legitimately-written multiplier, and widening it to arbitrary letters would let ``116`` satisfy
+    a claim from the word ``116th``.
+
+    Verified against the cases that motivated this: ``0`` does not match anywhere in ``2026-08-26``,
+    and ``1`` does not match inside ``premised_fd_10rows.csv``.
     """
-    return re.compile(r"(?<![\w.])" + re.escape(value) + r"(?!\w|\.\d)")
+    return re.compile(r"(?<![\w.])" + re.escape(value) + r"(?:x|%)?(?!\d|\.\d|[A-Za-z])")
 
 
 def _prose_errors(claim_id: str, claim: dict[str, Any], expected: str) -> list[str]:
