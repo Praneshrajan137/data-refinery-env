@@ -251,6 +251,35 @@ def _vote_shape(counts: Counter[str], old_value: str) -> dict[str, Any]:
 _HEARTBEAT_EVERY = 5_000
 
 
+def _phase(label: str, detail: str = "") -> float:
+    """Announce a phase on stderr and return its start time.
+
+    :func:`_heartbeat` alone was not enough, and the reason is worth recording because it is the same
+    mistake in miniature as the one that motivated it. A heartbeat every ``_HEARTBEAT_EVERY`` items is
+    silent in two situations that matter:
+
+    * a loop with fewer than ``_HEARTBEAT_EVERY`` items never reports at all, and
+    * the work *between* loops -- ``discover_oracle_fds``, and ``FDViolationDetector.detect`` over
+      200,000 rows -- is a single call with no loop to instrument.
+
+    So after adding progress reporting, a tax run was still silent for minutes and *still* could not be
+    distinguished from a stall. Partial observability reads exactly like no observability at the moment
+    you need it. Every phase now announces itself unconditionally on entry.
+    """
+    print(f"  [{label}] start{f' ({detail})' if detail else ''}", file=sys.stderr, flush=True)
+    return time.perf_counter()
+
+
+def _phase_done(label: str, started: float, detail: str = "") -> None:
+    """Close a phase announced by :func:`_phase`, reporting its measured cost."""
+    print(
+        f"  [{label}] done in {time.perf_counter() - started:.1f}s"
+        + (f" ({detail})" if detail else ""),
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def _heartbeat(phase: str, done: int, total: int | None, started: float) -> None:
     """Report progress on stderr, every ``_HEARTBEAT_EVERY`` items.
 
@@ -292,7 +321,7 @@ def _run_arm(
 
     records: list[dict[str, Any]] = []
     covered = [cell for cell in dataset.ground_truth if cell.column in fd_columns]
-    started = time.perf_counter()
+    started = _phase("replay", f"{len(covered):,} real errors in FD-covered columns")
     for index, cell in enumerate(covered, start=1):
         _heartbeat("replay", index, len(covered), started)
         issue = Issue(
@@ -320,6 +349,7 @@ def _run_arm(
                 "vote": _vote_shape(acting[1], cell.dirty_value) if acting is not None else None,
             }
         )
+    _phase_done("replay", started)
     return records
 
 
@@ -400,7 +430,9 @@ def _write_exposure(
     clean = dataset.clean_df
     truth_by_cell = {(c.row, c.column): c.clean_value for c in dataset.ground_truth}
 
+    detect_started = _phase("detect", f"{len(fds)} FDs over {dirty.shape[0]:,} rows")
     issues = FDViolationDetector().detect(dirty, schema)
+    _phase_done("detect", detect_started, f"{len(issues):,} flags")
     repairer = FDViolationRepairer(cache_dir=None, allow_llm=False)
 
     tallies: dict[str, dict[str, int]] = {
@@ -422,7 +454,7 @@ def _write_exposure(
     # already loops every FD internally, so one call per distinct cell is complete.
     seen: set[tuple[int, str]] = set()
 
-    started = time.perf_counter()
+    started = _phase("write-exposure", f"{len(issues):,} flags")
     for index, issue in enumerate(issues, start=1):
         _heartbeat("write-exposure", index, len(issues), started)
         key = (issue.row, issue.column)
@@ -480,6 +512,8 @@ def _write_exposure(
 
     def _rate(numerator: int, denominator: int) -> float | None:
         return round(numerator / denominator, 4) if denominator else None
+
+    _phase_done("write-exposure", started, f"{len(seen):,} distinct cells")
 
     by_rule: dict[str, Any] = {}
     for rule, tally in tallies.items():
