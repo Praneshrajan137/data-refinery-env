@@ -234,3 +234,32 @@ this project comes from, so it is the one that had to match.
 The general lesson, and it applies beyond this script: **an unobservable measurement is not
 reproducible, whatever its numbers say.** Reproducibility by a stranger was the standard set for this
 work, and a stranger cannot distinguish an hour of progress from an hour of deadlock.
+## Amendment 4 (2026-08-26): part of that cost was mine, and Amendment 3 blamed the harness
+
+Amendment 3 attributed tax's runtime to the arm loop and reported the run as "roughly five times my
+earlier projection". Both statements were made without checking what else the machine was doing.
+
+Inspecting the process table properly showed **two** heavy tax measurements running concurrently:
+
+- the **full three-arm** run started earlier and left in the background, and
+- the targeted `--arms oracle` run started to resolve this very deviation.
+
+They had been competing for CPU for the whole interval. So the projection was not five times wrong
+about the work; part of the overrun was **contention I created**, and Amendment 3 charged it to the
+harness. That is the same error shape this project has recorded twice already -- attributing to the
+system under test a cost that belongs to the measurement setup -- and it is why the phase timings in
+Amendment 3 (3.1 s, 15.6 s, 21.1 s) should be read as upper bounds taken under contention rather than
+as clean figures.
+
+The full run was terminated, on the reasoning Amendment 2 had already established: its `mined` and
+`shipped_accept_all` arms are **provably identical** on tax by tuple equality, so it was spending hours
+computing the same thing twice while starving the one arm that carries information. Amendment 2 argued
+that and then left the redundant run going anyway, which is worse than not having argued it.
+
+Standing rule this adds, and it is about operating measurements rather than designing them: **before
+reporting a runtime, check what else is running.** A timing is a claim about the system under test, and
+a claim made while a second job holds half the CPU is not that claim. Concretely: inspect the process
+table, not just the elapsed clock.
+
+The `oracle` arm continues alone. Its status is unchanged from Amendment 2 -- in flight, no artifact
+committed, and **no claim about tax's ceiling may be made** until there is one.
