@@ -202,9 +202,12 @@ _WRITE_PRIMITIVE_REGISTRY: tuple[WritePrimitive, ...] = (
         "dataforge:transactions/files.py",
         "os_write",
         "metadata",
-        "Writes pid+timestamp into the exclusive lock file. The lock is what makes "
-        "concurrent writes to one source safe, so this write protects user data "
-        "rather than touching it.",
+        "Writes pid+timestamp into the exclusive lock file. The lock serialises concurrent "
+        "writes to one source, so this write protects user data rather than touching it. "
+        "Serialisation alone is not safety -- what prevents corruption is the byte comparison "
+        "inside the lock in engine/repair.py, which refuses a patch computed against bytes that "
+        "no longer exist. Both are tested in tests/integration/test_concurrent_apply.py; until "
+        "2026-08-26 this sentence was the only evidence for either.",
     ),
     WritePrimitive(
         "dataforge:stores/duckdb.py", "open_write", "metadata", "Table-store snapshot write."

@@ -289,3 +289,74 @@ claims:
     note: >-
       The miner emits nothing on rayyan either. With flights at 0 and tax at 4-of-4 true,
       no corpus can confirm or refute hospital's separation.
+  # --- Apply rewrites every line ending (2026-08-26) ---
+  # Found by a concurrency test that failed on line endings rather than on the race. Bound here
+  # because the numbers argue a REVIEWABILITY cost, not a safety one, and the two revert claims are
+  # what keep that distinction honest: if either flipped, this would become a retraction.
+  - id: line_ending_lines_reterminated
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /crlf/lines_reterminated
+    format: "{:d}"
+    expect: "11"
+    note: >-
+      Every line of an 11-line CRLF file is re-terminated to change one cell. The count is the
+      table's ROW COUNT, not a constant, so the collateral scales with the table while the repair
+      does not.
+
+  - id: line_ending_cells_changed
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /crlf/cells_changed
+    format: "{:d}"
+    expect: "1"
+    note: >-
+      The denominator of the 11-to-1 ratio. Exactly one cell was repaired, which is why the fixture
+      was chosen: its repair is provable from a declared functional dependency.
+
+  - id: line_ending_bytes_delta
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /crlf/bytes_delta
+    format: "{:d}"
+    expect: "12"
+    note: >-
+      11 carriage returns removed plus one byte from bostonn -> boston.
+
+  - id: line_ending_crlf_before
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /crlf/crlf_before
+    format: "{:d}"
+    expect: "11"
+    note: >-
+      The before column of the published table.
+
+  - id: line_ending_bytes_before
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /crlf/bytes_before
+    format: "{:d}"
+    expect: "147"
+    note: >-
+      File size before apply.
+
+  - id: line_ending_bytes_after
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /crlf/bytes_after
+    format: "{:d}"
+    expect: "135"
+    note: >-
+      File size after apply.
+
+  - id: line_ending_lf_control
+    doc: docs/trust/apply-rewrites-line-endings.md
+    artifact: eval/results/line_ending_rewrite.json
+    pointer: /summary/lf_lines_reterminated
+    format: "{:d}"
+    expect: "0"
+    note: >-
+      The control arm, and it is what makes the claim precise. An LF source has ZERO lines
+      re-terminated, so the defect is dialect CONVERSION and not unconditional rewriting -- a
+      different and much larger claim that this number refutes.

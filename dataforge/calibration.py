@@ -24,7 +24,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 if TYPE_CHECKING:
     from dataforge.calibration_map import CalibrationMap
@@ -84,7 +84,23 @@ class AbstentionPolicy(BaseModel):
     default_threshold: float = Field(default=0.90, ge=0.0, le=1.01)
     uncertified_classes: dict[str, str] = Field(default_factory=dict)
 
-    model_config = {"frozen": True}
+    # ``extra="forbid"`` is a write-safety property, not tidiness. Added 2026-08-26 after
+    # measuring what a plausible future wiring of `SessionCertification` would do.
+    #
+    # The certificate that carries per-table certified thresholds is printed and discarded, and
+    # `dataforge repair` reads this four-block artifact instead. The known incompatibility is that
+    # a certificate has no ``policy`` key, so the loader raises. The obvious fix -- wrap it in one
+    # -- was measured, and it does not raise. A certificate-shaped block was ACCEPTED, its
+    # certified ``thresholds`` silently dropped as an unknown field, and ``default_threshold`` fell
+    # back to 0.90. At confidence 0.95 that flips the decision from ``review`` to ``auto_apply``:
+    # a write against a threshold nobody certified, reached with no error and no log line. The
+    # conservative default this path is supposed to hold is 1.01, meaning never.
+    #
+    # This is a guard being weakest exactly where it is most needed. The permissive model sits at
+    # the boundary a well-intentioned wiring attempt arrives through, so silence there converts an
+    # abstention into a write. A field this model does not recognise must be an error, because the
+    # only alternative to refusing it is guessing a threshold.
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     def threshold_for(self, issue_type: str) -> float:
         """Return the auto-apply confidence threshold for an issue type."""
@@ -339,7 +355,23 @@ def load_corrector_calibration(
     policy_block = raw.get("policy")
     if not isinstance(policy_block, dict):
         raise ValueError("Corrector calibration artifact is missing a 'policy' object.")
-    policy = AbstentionPolicy.model_validate(policy_block)
+    try:
+        policy = AbstentionPolicy.model_validate(policy_block)
+    except ValidationError as exc:
+        # Named explicitly because the reachable way to get here is wrapping a
+        # `SessionCertification` in a `policy` block, which is the obvious fix for the fact that
+        # `dataforge calibrate` prints a certificate this loader cannot read. Before
+        # `AbstentionPolicy` forbade extra fields that payload was ACCEPTED, its certified
+        # thresholds silently dropped, and `default_threshold` fell back to 0.90 -- flipping a
+        # 0.95-confidence fix from `review` to `auto_apply` against a threshold nobody certified.
+        # The certificate and this artifact are different quantities on different statistical
+        # bases; translating between them is a decision, not a shape change.
+        raise ValueError(
+            "Corrector calibration artifact's 'policy' block is not an AbstentionPolicy: "
+            f"{exc.errors()[0].get('loc')} {exc.errors()[0].get('msg')}. If this came from "
+            "`dataforge calibrate --certify`, that certificate is NOT a corrector calibration "
+            "artifact and must not be reshaped into one. See PRODUCT.md section 1.3."
+        ) from exc
     maps_block = raw.get("maps", {})
     if not isinstance(maps_block, dict):
         raise ValueError("Corrector calibration artifact 'maps' must be an object.")
@@ -437,7 +469,13 @@ class CalibrationScope(BaseModel):
     to another.
     """
 
-    model_config = {"frozen": True}
+    # ``extra="forbid"`` for the same reason as :class:`AbstentionPolicy`. A foreign block that
+    # records its table identity under a different key -- ``SessionCertification`` spells it
+    # ``table_fingerprint``, not ``fingerprint`` -- would otherwise be accepted with
+    # ``fingerprint=None``. :func:`guard_policy_for_scope` fails closed on that, so the outcome is
+    # safe, but the user is told the artifact "records no table scope" when it records one under a
+    # name this model did not read. Refusing is safe AND legible; a silent downgrade is only safe.
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     dataset: str | None = Field(default=None, description="Dataset name recorded at fit time.")
     columns: tuple[str, ...] = Field(default=(), description="Sorted column names at fit time.")

@@ -247,6 +247,26 @@ MUTANTS: tuple[Mutant, ...] = (
         ),
     ),
     Mutant(
+        name="M18-abstention-policy-accepts-extra-fields-again",
+        target="dataforge/calibration.py",
+        old='    model_config = ConfigDict(extra="forbid", frozen=True)\n\n    def threshold_for',
+        new='    model_config = ConfigDict(frozen=True)\n\n    def threshold_for',
+        tests=("tests/unit/test_certificate_policy_gap.py",),
+        why=(
+            "a payload this model does not recognise is silently accepted instead of refused, "
+            "and the only alternative to refusing an unknown field is guessing a threshold. "
+            "Measured: wrapping a SessionCertification in a 'policy' block -- the obvious fix "
+            "for the fact that `calibrate --certify` prints a certificate `repair` cannot read "
+            "-- was ACCEPTED, its certified thresholds dropped as unrecognised, and "
+            "default_threshold fell back to 0.90. At confidence 0.95 that flips the decision "
+            "from 'review' to 'auto_apply': a write against a threshold nobody certified, with "
+            "no error and no log line, where the conservative default for this path is 1.01 "
+            "meaning never. The guard is weakest exactly where it is most needed -- the "
+            "permissive model sat at the boundary a well-intentioned wiring attempt arrives "
+            "through, so silence there converted an abstention into a write"
+        ),
+    ),
+    Mutant(
         name="M17-type-mismatch-regains-its-bypass",
         target="dataforge/domain/vocabulary.py",
         old='        "fd_violation",\n        "missing_value",\n    }\n)',

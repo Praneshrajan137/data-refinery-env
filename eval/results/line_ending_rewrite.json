@@ -1,0 +1,44 @@
+{
+  "crlf": {
+    "bytes_after": 135,
+    "bytes_before": 147,
+    "bytes_delta": 12,
+    "cells_changed": 1,
+    "crlf_after": 0,
+    "crlf_before": 11,
+    "fixes_applied": 1,
+    "input_terminator": "\\r\\n",
+    "lf_after": 11,
+    "lf_before": 0,
+    "lines_reterminated": 11,
+    "revert_exit_code": 0,
+    "revert_restores_byte_identity": true,
+    "rows": 11,
+    "sha256_after": "3c28bd313b9227b1b228d5ac384c654a3622dc3711630845195aba5bd0311df2",
+    "sha256_before": "c66d687777ec3a256d65208a89f41c62691c7687045835328a440437d9915890"
+  },
+  "lf": {
+    "bytes_after": 135,
+    "bytes_before": 136,
+    "bytes_delta": 1,
+    "cells_changed": 1,
+    "crlf_after": 0,
+    "crlf_before": 0,
+    "fixes_applied": 1,
+    "input_terminator": "\\n",
+    "lf_after": 11,
+    "lf_before": 11,
+    "lines_reterminated": 0,
+    "revert_exit_code": 0,
+    "revert_restores_byte_identity": true,
+    "rows": 11,
+    "sha256_after": "3c28bd313b9227b1b228d5ac384c654a3622dc3711630845195aba5bd0311df2",
+    "sha256_before": "877b28d3f9bdaa7a4ea3237e8e763a54f9c02f423b0cab8808638086530b8b81"
+  },
+  "summary": {
+    "both_dialects_revert_to_byte_identity": true,
+    "cells_changed_is_one_in_both_dialects": true,
+    "crlf_lines_reterminated_per_cell_repaired": 11,
+    "lf_lines_reterminated": 0
+  }
+}
