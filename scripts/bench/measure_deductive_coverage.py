@@ -69,7 +69,12 @@ from dataforge.datasets.real_world import load_real_world_dataset
 from dataforge.detectors.base import FunctionalDependency, Issue, Schema, Severity
 from dataforge.detectors.fd_violation import FDViolationDetector
 from dataforge.repairers.fd_violation import FDViolationRepairer
-from dataforge.schema_inference import infer_verification_schema
+from dataforge.schema_inference import (
+    build_constraint_review_artifact,
+    infer_schema,
+    infer_verification_schema,
+    merge_schema_with_reviewed_constraints,
+)
 
 #: A determinant group needs this many rows before a vote is possible. A singleton group makes
 #: ``len(counts) <= 1`` true, so the repairer skips it and it can contribute neither coverage
@@ -134,8 +139,49 @@ def mined_fds(dirty: pd.DataFrame) -> tuple[FunctionalDependency, ...]:
     Uses :func:`infer_verification_schema`, which applies the shipped 0.95 confidence floor. No
     threshold is chosen here, because inventing one would make this arm measure the author rather
     than the product.
+
+    **This is a proxy for the accept path, not the accept path**, and the distinction was not drawn
+    until 2026-08-26. `ConstraintReviewArtifact.to_schema()` applies no floor of its own, so the
+    shipped effective floor is the miner's own emission floor of 0.90 -- a strictly larger and
+    lower-quality FD set. See :func:`shipped_accept_all_fds` and
+    ``eval/preregistration/shipped_premise_coverage.md``.
     """
     return _sorted_fds(infer_verification_schema(dirty).functional_dependencies)
+
+
+def shipped_accept_all_fds(dirty: pd.DataFrame) -> tuple[FunctionalDependency, ...]:
+    """Return the FDs a user gets by accepting everything, through the code their commands run.
+
+    Deliberately constructed via the real objects rather than by filtering candidates directly:
+    :func:`infer_schema`, :func:`build_constraint_review_artifact`, flipping each functional
+    dependency's decision to ``accepted``, then :func:`merge_schema_with_reviewed_constraints`.
+    That is `profile --constraints-out`, `constraints review --accept`, `repair --constraints`.
+
+    Using a proxy for this premise is what produced the defect this arm exists to measure, so the
+    arm must not contain a reimplementation of it. The one thing not exercised is the CLI process
+    boundary and the source-hash binding, which cannot corrupt a cell.
+    """
+    inferred = infer_schema(dirty)
+    source_sha256 = "0" * 64
+    artifact = build_constraint_review_artifact(
+        inferred, source_path=Path("in-memory.csv"), source_sha256=source_sha256
+    )
+    accepted = artifact.model_copy(
+        update={
+            "candidates": tuple(
+                reviewed.model_copy(update={"decision": "accepted"})
+                if reviewed.candidate.kind == "functional_dependency"
+                else reviewed
+                for reviewed in artifact.candidates
+            )
+        }
+    )
+    effective, _accepted_ids = merge_schema_with_reviewed_constraints(
+        None, accepted, source_sha256=source_sha256
+    )
+    if effective is None:  # pragma: no cover - only when the miner emitted nothing
+        return ()
+    return _sorted_fds(effective.functional_dependencies)
 
 
 def _acting_group(
@@ -528,9 +574,10 @@ def measure(corpus: str, *, cache_root: Path | None) -> dict[str, Any]:
     arms = {
         "oracle": discover_oracle_fds(dataset.clean_df, columns=columns),
         "mined": mined_fds(dataset.dirty_df),
+        "shipped_accept_all": shipped_accept_all_fds(dataset.dirty_df),
     }
     return {
-        "schema": "dataforge_deductive_coverage_v2",
+        "schema": "dataforge_deductive_coverage_v3",
         "corpus": corpus,
         "rows": int(dataset.dirty_df.shape[0]),
         "dirty_sha256": dataset.dirty_sha256,
@@ -541,12 +588,19 @@ def measure(corpus: str, *, cache_root: Path | None) -> dict[str, Any]:
                 "ceiling on the mechanism"
             ),
             "mined": (
-                "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor. NOT a "
+                "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor. A PROXY "
+                "for the accept path, and the distinction was not drawn until 2026-08-26: this is "
+                "the arm whose 86 corruptions were published as the mined-premise result. NOT a "
                 "default-reachable configuration: --fd-detection defaults to 'accepted', but that "
-                "flag FILTERS dependencies already in the effective schema and does not mine any. "
-                "A mined FD reaches the repairer only after profile --constraints-out, an explicit "
-                "constraints review --accept over a printed queue-cost warning, and repair "
-                "--constraints. This arm models a user who accepted the miner's output"
+                "flag FILTERS dependencies already in the effective schema and does not mine any"
+            ),
+            "shipped_accept_all": (
+                "the premise a user actually gets, built through profile --constraints-out, "
+                "constraints review --accept on every functional dependency, and repair "
+                "--constraints. ConstraintReviewArtifact.to_schema() applies NO confidence floor, "
+                "so the effective floor is the miner's own emission floor of 0.90 -- a strictly "
+                "larger and lower-quality FD set than the 0.95 proxy above. Pre-registered in "
+                "eval/preregistration/shipped_premise_coverage.md"
             ),
         },
         "arms": {

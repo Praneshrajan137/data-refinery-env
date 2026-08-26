@@ -1,7 +1,8 @@
 {
   "arm_definitions": {
-    "mined": "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor. NOT a default-reachable configuration: --fd-detection defaults to 'accepted', but that flag FILTERS dependencies already in the effective schema and does not mine any. A mined FD reaches the repairer only after profile --constraints-out, an explicit constraints review --accept over a printed queue-cost warning, and repair --constraints. This arm models a user who accepted the miner's output",
-    "oracle": "single-column FDs holding exactly on the CLEAN frame; no user has this; the ceiling on the mechanism"
+    "mined": "infer_verification_schema on the DIRTY frame at the shipped 0.95 floor. A PROXY for the accept path, and the distinction was not drawn until 2026-08-26: this is the arm whose 86 corruptions were published as the mined-premise result. NOT a default-reachable configuration: --fd-detection defaults to 'accepted', but that flag FILTERS dependencies already in the effective schema and does not mine any",
+    "oracle": "single-column FDs holding exactly on the CLEAN frame; no user has this; the ceiling on the mechanism",
+    "shipped_accept_all": "the premise a user actually gets, built through profile --constraints-out, constraints review --accept on every functional dependency, and repair --constraints. ConstraintReviewArtifact.to_schema() applies NO confidence floor, so the effective floor is the miner's own emission floor of 0.90 -- a strictly larger and lower-quality FD set than the 0.95 proxy above. Pre-registered in eval/preregistration/shipped_premise_coverage.md"
   },
   "arms": {
     "mined": {
@@ -831,11 +832,99 @@
           "truth": "6:40 p.m."
         }
       ]
+    },
+    "shipped_accept_all": {
+      "population": {
+        "fd_column_share_of_errors": 0.0,
+        "real_errors_in_fd_columns": 0,
+        "real_errors_in_table": 4920
+      },
+      "premise": {
+        "fd_count": 0,
+        "fd_count_holding_on_clean": 0,
+        "fd_covered_columns": [],
+        "fd_set_precision": null,
+        "functional_dependencies": []
+      },
+      "shipped_rule": {
+        "abstained": 0,
+        "correct": 0,
+        "coverage_of_all_table_errors": 0.0,
+        "coverage_of_fd_column_errors": null,
+        "precision": null,
+        "proposed": 0,
+        "rule": "majority",
+        "wrong": 0
+      },
+      "true_majority_counterfactual": {
+        "dropped_that_were_wrong": 0,
+        "note": "Make the code match its docstring: require more than half the group. Cells the shipped plurality rule proposes on but a majority rule would not.",
+        "proposals_dropped": 0,
+        "proposals_kept": 0
+      },
+      "unanimity_counterfactual": {
+        "coverage_of_all_table_errors": 0.0,
+        "note": "Propose only when every other row in the determinant group agrees -- the condition under which premise plus data entail a unique value rather than merely favouring one.",
+        "precision": null,
+        "would_be_correct": 0,
+        "would_be_wrong": 0,
+        "would_propose": 0
+      },
+      "vote_shape": {
+        "cells_with_a_visible_conflict": 0,
+        "others_unanimous": 0,
+        "plurality_only_not_majority": 0,
+        "true_majority": 0
+      },
+      "write_exposure": {
+        "abstained_on_flag": 0,
+        "by_rule": {
+          "majority": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "plurality": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          },
+          "unanimity": {
+            "corrupted_a_clean_cell": 0,
+            "coverage_of_all_table_errors": 0.0,
+            "harmful_write_rate": null,
+            "net_cells_improved": 0,
+            "no_op_on_a_clean_cell": 0,
+            "proposals": 0,
+            "repaired_a_real_error": 0,
+            "write_precision": null,
+            "wrong_value_on_a_real_error": 0
+          }
+        },
+        "corruption_examples": [],
+        "detector_flags": 0,
+        "distinct_cells_flagged": 0,
+        "note": "Unconditional on error status. This is what a user's data is exposed to, and the only figure here that can go badly wrong.",
+        "replication_mismatches": 0
+      },
+      "wrong_proposals": []
     }
   },
   "clean_sha256": "0acfcfd8985b06fdd363965c9e8d9522c43e7589a93d79ae7dc311e1c37fdf3b",
   "corpus": "flights",
   "dirty_sha256": "1b5c1afa10aa0e7c20fd7e14d05c56772715b2771aa0f5fa67ed1709e1eecd46",
   "rows": 2376,
-  "schema": "dataforge_deductive_coverage_v2"
+  "schema": "dataforge_deductive_coverage_v3"
 }
