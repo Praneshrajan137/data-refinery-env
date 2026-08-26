@@ -203,3 +203,34 @@ completes, `eval/results/deductive_coverage_tax_oracle.json` is committed and th
 by a result. If it does not, the gap stands exactly as Amendment 1 described it, with the difference
 that the tooling no longer makes closing it expensive -- and no claim about tax's ceiling may be made
 in the meantime.
+## Amendment 3 (2026-08-26): the run was unobservable, which is its own defect
+
+The tax `oracle` run described in Amendment 2 went **sixty minutes with no output**, during which
+*working* and *hung* were indistinguishable. Telling them apart required writing a separate timing
+script and inspecting the operating system's CPU accounting for the process. That is a poor way to
+operate a measurement whose whole claim is that a stranger can reproduce it.
+
+Measured, so the cost is stated rather than guessed:
+
+| phase | cost on tax |
+| --- | --- |
+| `load_real_world_dataset` | 3.1 s |
+| `discover_oracle_fds` | 15.6 s, yielding **4** oracle FDs |
+| `fd_flag_cost` | 21.1 s, yielding **164,718** flagged cells |
+
+So neither discovery nor flagging is the cost. The arm loop is, and `_summarise_arm` traverses those
+164,718 flags again across three decision rules. The run was progressing, not stuck -- confirmed at
+101.8 CPU-minutes -- and it is roughly five times my earlier ~23-minute projection, which was itself
+an estimate presented in Amendment 1 as though it settled the matter.
+
+`_heartbeat` now reports phase, count, elapsed time, rate and an estimate of time remaining on stderr
+every 5,000 items. It writes to stderr and reads no measured state, and that constraint is deliberate
+given this harness's history: a well-intentioned harness-level memo once changed what was measured.
+
+**Verified value-preserving before use, not asserted to be**: full re-runs on rayyan and hospital
+reproduce the committed artifacts' `arms` exactly. hospital is the corpus every published FD number in
+this project comes from, so it is the one that had to match.
+
+The general lesson, and it applies beyond this script: **an unobservable measurement is not
+reproducible, whatever its numbers say.** Reproducibility by a stranger was the standard set for this
+work, and a stranger cannot distinguish an hour of progress from an hour of deadlock.

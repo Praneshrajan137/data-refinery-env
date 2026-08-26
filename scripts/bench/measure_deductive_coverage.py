@@ -59,6 +59,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
+import time
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -244,6 +246,40 @@ def _vote_shape(counts: Counter[str], old_value: str) -> dict[str, Any]:
     }
 
 
+#: How often :func:`_heartbeat` reports. Large enough to be free, small enough that a stalled run is
+#: visible within seconds rather than after an hour of silence.
+_HEARTBEAT_EVERY = 5_000
+
+
+def _heartbeat(phase: str, done: int, total: int | None, started: float) -> None:
+    """Report progress on stderr, every ``_HEARTBEAT_EVERY`` items.
+
+    Added 2026-08-26 after a tax ``oracle`` run went sixty minutes with no output, during which
+    **working and hung were indistinguishable**. Diagnosing it needed a separate timing script and an
+    inspection of the process's CPU time, which is a poor way to operate a measurement that is
+    supposed to be reproducible by a stranger.
+
+    Writes to stderr and touches no measured state, so it cannot change a result -- the constraint
+    that matters, given this harness's history of a well-meant harness-level change altering what was
+    measured. Artifacts go to stdout or a file; stderr carries only operator signal.
+    """
+    if done % _HEARTBEAT_EVERY:
+        return
+    elapsed = time.perf_counter() - started
+    rate = done / elapsed if elapsed > 0 else 0.0
+    remaining = (
+        f", ~{(total - done) / rate / 60:.0f} min left"
+        if total and rate > 0 and total > done
+        else ""
+    )
+    print(
+        f"  [{phase}] {done:,}" + (f"/{total:,}" if total else "") + f"  {elapsed / 60:.1f} min"
+        f"  {rate:.0f}/s{remaining}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+
 def _run_arm(
     dataset: Any,
     fds: tuple[FunctionalDependency, ...],
@@ -255,9 +291,10 @@ def _run_arm(
     repairer = FDViolationRepairer(cache_dir=None, allow_llm=False)
 
     records: list[dict[str, Any]] = []
-    for cell in dataset.ground_truth:
-        if cell.column not in fd_columns:
-            continue
+    covered = [cell for cell in dataset.ground_truth if cell.column in fd_columns]
+    started = time.perf_counter()
+    for index, cell in enumerate(covered, start=1):
+        _heartbeat("replay", index, len(covered), started)
         issue = Issue(
             row=cell.row,
             column=cell.column,
@@ -385,7 +422,9 @@ def _write_exposure(
     # already loops every FD internally, so one call per distinct cell is complete.
     seen: set[tuple[int, str]] = set()
 
-    for issue in issues:
+    started = time.perf_counter()
+    for index, issue in enumerate(issues, start=1):
+        _heartbeat("write-exposure", index, len(issues), started)
         key = (issue.row, issue.column)
         if key in seen:
             continue
