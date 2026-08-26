@@ -143,3 +143,66 @@ add it to the *deterministic registry* — making it propose for review — whic
 weaker act than adding it to the *allowlist*, which lets it write unsupervised without a threshold.
 Measuring the second does not authorise the first by default, and this document does not recommend
 either.
+
+---
+
+## Amendment 1 — outcome, 2026-08-26
+
+Appended, not edited. Results in `docs/trust/withheld-repairer-result.md`; artifacts in
+`eval/results/withheld_repairers_{hospital,flights,rayyan,tax}.json`.
+
+**`format_violation`: K1 and K2 both FIRE.** 20,502 cells flagged, 10,356 writes, **0 repaired**,
+10,356 clean cells corrupted, write precision 0.0000 on every corpus where it proposes. Stays out.
+
+**`categorical_normalization`: NEITHER fires.** 604 repaired against 397 harmful; write precision
+0.6189 on tax and 0.0000 on rayyan. It stays out anyway, under the pre-committed clause below, and
+the trust document argues the case on the *mechanism* rather than on the numbers: a majority vote
+over a column's own values measures the corpus's corruption rate, not the truth.
+
+The pre-commitment held. Nothing entered `CONSTRAINT_CHECKABLE_DETECTORS`, and the argument for
+keeping `categorical_normalization` out had to be made on grounds the criteria did not supply —
+which is what pre-committing was for.
+
+### Prediction outcomes
+
+| # | Outcome |
+| --- | --- |
+| **P1** | **REFUTED.** `categorical_normalization` flags **zero** cells on hospital. The `'x'`-keying half of the argument was right; I then assumed the remaining casing variation met the detector's cluster criteria without computing it. Third time this project has been refuted predicting a distribution it had not computed. |
+| **P2** | **CONFIRMED**, including the mechanism. Every write came from the leading-zero branch: `1 -> 001`, `98234 -> 098234`, `5000 -> 05000`. |
+| **P3** | **CONFIRMED.** The date branch contributed no writes. |
+| **P4** | **HELD** for both repairers: rayyan flags more than hospital (356 vs 128; 25 vs 0). Flagged in advance as the weakest prediction, and it is not load-bearing. |
+| **P5** | **SPLIT.** `format_violation` at 0.0000 is far below `fd_violation`'s worst arm; `categorical_normalization` at 0.6189 exceeds it. |
+
+### Deviation from the stated method, with the reason
+
+The pre-registration specified tax **unsampled**, and delivering that required a change the method
+section did not anticipate.
+
+`FormatViolationRepairer._dominant_profile` rescans the entire column per flag. Measured on tax:
+5.7 s to detect, 20,018 flags, **632 ms per flag** — **211 minutes** to propose. The first attempt
+was abandoned after ten minutes.
+
+The arm was made reachable by memoising that profile **in the harness**, not in the product.
+`_dominant_profile(df, column)` is pure and the harness mutates neither argument, so the memo cannot
+change a proposal. Equivalence was **verified rather than argued**: with the memo enabled, hospital
+still reports 99 writes / 99 corrupted and rayyan 109 / 109, in separate processes, and the
+`fd_violation` regression figures still reproduce exactly.
+
+Recorded as a deviation because a reader must be able to see that a timing intervention stood between
+the pre-registered method and the published number, and to check the equivalence claim rather than
+take it. The alternative — a head slice of tax — is forbidden by this document, and it would have
+understated `format_violation`'s corruption 50-fold.
+
+A defect in that memo is also recorded, because it nearly invalidated the run: restoring the patched
+`staticmethod` by reassigning the class attribute installs the underlying *function*, which becomes
+an instance method receiving `self`. The test asserting the attribute was restored compared function
+identity and **passed while the descriptor was wrong**. Only the cell-for-cell equivalence test
+caught it. All four corpora were re-measured after the fix; every number is identical.
+
+### What no longer needs deciding
+
+The docstring claim "they regressed benchmark precision" is replaced by a citation in
+`dataforge/repairers/__init__.py`. It was **true** of `format_violation` and understated it. For
+`categorical_normalization` it was, on this evidence, **not established** — that repairer fixes more
+than it breaks on one corpus — so the sentence was right about one repairer and unsupported about the
+other, which is what an unmeasured justification covering two components tends to be.

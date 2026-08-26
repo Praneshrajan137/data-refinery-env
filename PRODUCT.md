@@ -91,6 +91,26 @@ where effort goes, not about a single fix:
 
 - **Before hardening a component, name its consumer.** If nothing reads it, rigour there buys
   correctness of a report, not of the product. The check is one grep for the type name.
+- **Derive the population a gate polices; never restate it.** Added 2026-08-26, and it is the rule
+  above applied one level up — to the machinery that checks our claims rather than to the product.
+  `scripts/ci/readme_truth.py` imported the write-authority allowlist from source of truth and then
+  subtracted it from a hardcoded eight-name set literal, while the closed `IssueTypeLiteral`
+  vocabulary had grown to eleven. Three issue types were invisible to that gate in both directions: a
+  document could assert any of them auto-applies and CI would pass. Four public documents said "Eight
+  detector families" for the same reason, so **the prose and the gate agreed with each other and both
+  disagreed with the code** — two mutually-consistent wrong artifacts reading as verification.
+
+  A gate that hardcodes any part of the universe it polices can only detect changes to the part it
+  derives, and freezing the population is invisible precisely because the frozen literal was correct
+  on the day it was written. The same defect existed a second time, in the generator that projects the
+  trust vocabulary into TypeScript: it derived every projected *value* and hand-enumerated *which*
+  vocabularies to project, so adding a constant failed CI loudly and then resolved by omission —
+  regenerate, hash updates, CI green, constant never projected.
+
+  The corollary is about what a green gate means. Widening the population found no stale claim, which
+  is not evidence the old gate worked: it could not have found one. **A gate nobody has seen fail on
+  a case it newly covers has not been shown to cover it**, so a fix of this kind must ship with a
+  planted claim that fails against the frozen version and passes against the derived one.
 - **Measure the path that writes, unconditionally.** The label-free repairer reported precision
   1.0000 on hospital when scored only on cells that were already errors, and corrupted 86
   previously-correct cells when scored over everything it touched. Conditional precision cannot show

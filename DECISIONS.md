@@ -12,6 +12,70 @@ Format for every entry:
 
 ---
 
+## 2026-08-26 - Declined three changes: the certificate wiring, a synthetic false-FD corpus, and CRLF preservation
+
+**Context**: A session scoped to hardening the evidence infrastructure surfaced three changes that
+each looked correct, were each in reach, and each would have been a decision taken as a side effect
+of something else. They are recorded together because the reason for refusing them is the same shape.
+
+**Alternatives and the refusals**:
+
+1. *Wire `SessionCertification` into the write path.* PRODUCT.md §1.3 has asked for this to be cut,
+   re-founded, or wired since 2026-08-25. **Declined.** The statistical basis is dead on budget with
+   a fired kill criterion — 572 labels needed at alpha=0.05 against a ~200 budget, `beta_upper`
+   0.8712 against a 0.35 criterion — so wiring it ships a certificate that can almost never certify:
+   machinery whose only effect is to look like a guarantee. Re-founding it on a different basis after
+   seeing the current one fail is a fit, not a finding. What was done instead is remove the hazard in
+   the gap. `AbstentionPolicy` permitted extra fields, so wrapping a certificate in a `policy` block
+   was **accepted**, dropped the certified thresholds, and fell back to `default_threshold` 0.90 —
+   which at confidence 0.95 flips `review` to `auto_apply` against a threshold nobody certified. The
+   un-wiring is now safe. The cut-or-re-found decision is explicitly the owner's, because a decision
+   this consequential should not be a side effect of a hardening pass.
+
+2. *Build a synthetic false-dependency corpus to validate the `tested_confidence` threshold.* The
+   obvious route to safe zero-config. **Declined.** The threshold separating true from false mined
+   dependencies is fitted to 85 candidates from one corpus. Validating it against a corpus whose false
+   dependencies we injected validates the injector: the generative process chosen decides which
+   dependencies are false and how far their tested confidence sits from the boundary.
+   `eval/preregistration/error_fidelity.md` already pre-registers a gate against generators that
+   reproduce ordering without reproducing levels, so this would fail the project's own standard. The
+   honest statement is unchanged and it is about evidence, not signal: a second corpus with
+   naturally-occurring false dependencies and retained ground truth would finish this, and nothing
+   else will. That is an invitation, not a closed line.
+
+3. *Preserve the input line-ending dialect on apply.* Found by a concurrency test that failed on line
+   endings rather than on the race: applying a one-cell repair to a CRLF file re-terminates every
+   line — 11 of 11 on an 11-line fixture, 12 bytes — while an LF source has 0, so it is dialect
+   conversion rather than unconditional rewriting. **Declined here.** It is reversible: revert
+   restores byte identity including the CRLF and the journal audits clean, so it is a reviewability
+   defect and not a safety one. But the serialised form is consumed by the pre-apply snapshot, the
+   post-apply hash, the patch plan and the warehouse dry-run contract, so a fix changes four write
+   surfaces and needs its own measurement. `docs/trust/write-surface-uniformity.md` records what
+   happened the last time a write-path invariant was assumed uniform across those four: it held on
+   two of them for four weeks while a schema-less LLM value was written to a user's file and reported
+   as SMT-verified.
+
+**Decision**: refuse all three, close the hazard that made refusal 1 unsafe, and record each with what
+would reverse it. Also declined, and recorded in
+`eval/preregistration/withheld_repairer_coverage.md`: granting `categorical_normalization` write
+authority, which passed both pre-registered kill criteria.
+
+**Reasoning**: each refusal turns on the same distinction. A measurement that makes a change
+*arguable* is not an authorisation to make it, and a fix that is *available* inside another commit is
+not therefore *in scope* of it. The three differ only in what the blocker is — evidence (2), budget
+plus ownership (1), blast radius (3) — and naming which one it is per change is what makes a refusal
+auditable rather than a preference.
+
+**Reviewed with**: nobody; recorded for review.
+
+**Reversal criteria**:
+- (1) an owner decides cut or re-found, or a certification basis is chosen *before* its data is seen.
+- (2) a corpus appears with naturally-occurring false mined dependencies **and** retained ground truth.
+- (3) a measurement shows a dialect-preserving write leaves the snapshot, post-apply hash, patch plan
+  and warehouse contract intact, with a forward-direction byte-identity test outside the repaired cell.
+
+---
+
 ## 2026-08-25 - Found a signal that separates true from false mined dependencies perfectly, and declined to ship it as a gate
 
 **Context**: 86 already-correct hospital cells were overwritten under the product's own mined

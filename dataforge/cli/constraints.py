@@ -44,7 +44,18 @@ def _candidate_target(candidate: Any) -> str:
 
 
 def _candidate_summary(reviewed: Any) -> dict[str, Any]:
-    """Return a machine-readable review summary for one candidate."""
+    """Return a machine-readable review summary for one candidate.
+
+    ``tested_confidence`` is included, and that is the point of it. Added 2026-08-26 because the
+    field was shipped as "reported to the human who accepts the constraint" instead of as a gate --
+    the right decision -- but it reached that human only inside the English ``evidence`` blob. This
+    dict emitted ``confidence`` alone, so a programmatic consumer saw the number that is INFLATED by
+    singleton determinant groups and had to parse prose to find the honest one. A named consumer that
+    cannot read the field is not a consumer.
+
+    It is ``None`` for candidate kinds that are not functional dependencies, and for FDs mined before
+    the field existed. ``None`` means unknown, not high.
+    """
     candidate = reviewed.candidate
     return {
         "candidate_id": reviewed.candidate_id,
@@ -52,6 +63,7 @@ def _candidate_summary(reviewed: Any) -> dict[str, Any]:
         "kind": candidate.kind,
         "target": _candidate_target(candidate),
         "confidence": candidate.confidence,
+        "tested_confidence": getattr(candidate, "tested_confidence", None),
         "repair_supported": candidate.kind in REPAIR_SUPPORTED_CONSTRAINT_KINDS,
         "evidence": candidate.evidence,
         "review_note": reviewed.review_note,
@@ -101,23 +113,36 @@ def _parse_notes(raw_notes: list[str] | None) -> dict[str, str | None]:
 
 
 def _print_review_table(artifact: ConstraintReviewArtifact) -> None:
-    """Render a compact non-interactive review table."""
+    """Render a compact non-interactive review table.
+
+    ``Tested`` is its own column rather than only a phrase inside ``Evidence``. It is the confidence
+    measured on the rows that can actually falsify the dependency, excluding singleton determinant
+    groups, which are consistent with any value and therefore inflate the shipped ``Confidence``. On
+    hospital it separates true from false mined dependencies where ``Confidence`` overlaps. It is
+    reported, never gated: the threshold that separates is fitted to one corpus and no other corpus
+    can validate it, so the number goes to the person accepting the constraint and does not decide.
+    """
     table = Table(title="Constraint Review")
     table.add_column("Candidate ID", overflow="fold")
     table.add_column("Decision")
     table.add_column("Kind")
     table.add_column("Target", overflow="fold")
     table.add_column("Confidence", justify="right")
+    table.add_column("Tested", justify="right")
     table.add_column("Repair")
     table.add_column("Evidence", overflow="fold")
     for reviewed in artifact.candidates:
         candidate = reviewed.candidate
+        tested = getattr(candidate, "tested_confidence", None)
         table.add_row(
             reviewed.candidate_id,
             reviewed.decision,
             candidate.kind,
             _candidate_target(candidate),
             f"{candidate.confidence:.4f}",
+            # "n/a" rather than a blank or a zero: absent means this candidate kind has no tested
+            # confidence, and a reader must not read that as low.
+            f"{tested:.4f}" if tested is not None else "n/a",
             "yes" if candidate.kind in REPAIR_SUPPORTED_CONSTRAINT_KINDS else "review-only",
             candidate.evidence,
         )
