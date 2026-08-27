@@ -116,8 +116,11 @@ flowchart LR
 - **Transactions**: append-only hash-chained JSONL journals, immutable source
   snapshots, post-state hash guards, local audit verification, and
   byte-for-byte CSV revert or backend rollback for proven table stores.
-- **Benchmarks**: Hospital, Flights, and Beers loaders, method runners, quota
-  accounting, and generated markdown reports.
+- **Benchmarks**: loaders for every dataset in `dataforge.datasets.registry`
+  (`hospital`, `flights`, `rayyan`, `tax`), method runners, quota accounting, and
+  generated markdown reports. `beers` was de-registered on 2026-07-12 and
+  `get_dataset_metadata("beers")` now raises `KeyError`; this list is named from the
+  registry rather than restated so it cannot drift out of step with it again.
 - **OpenEnv environment**: HTTP and in-process environment with typed actions:
   `INSPECT_ROWS`, `SQL_QUERY`, `STAT_TEST`, `PATTERN_MATCH`, `HYPOTHESIS`,
   `DIAGNOSE`, `FIX`, and `ROOT_CAUSE`.

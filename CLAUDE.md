@@ -16,11 +16,20 @@ the date.
   For the remaining RAHA datasets, do NOT rank by a fixed priority — they are one
   canonical suite of equal provenance that differ by ERROR PROFILE, not quality.
   Choose datasets by the CAPABILITY a given change is meant to prove:
-  `hospital` is the flagship and hard regression anchor (its heuristic F1 must
-  never drop below 0.7926 — it is the one measured deterministic correction result,
-  and per PRODUCT.md it must be described as *competitive with / in the range of* the
-  Raha+Baran baseline under our scoring, never as a SOTA win: the two numbers are not
-  measured under an identical protocol); `tax` for provable
+  `hospital` is the flagship dataset. Its 0.7926 heuristic correction F1 is a HISTORICAL
+  RECORD, not a live regression floor — corrected 2026-08-27. That figure was measured with
+  a deterministic stack that still had `type_mismatch` and `decimal_shift` in the auto-apply
+  set; both were removed on measurement (`decimal_shift` would have rewritten 263,428
+  already-correct values on a fourth corpus), so no current configuration can produce it and
+  `dataforge bench --quick` does not. Treating it as a floor inverted the incentive: the only
+  way to "hold" it is to re-admit the two detectors that were removed for corrupting data.
+  What replaces it is per-detector unconditional write measurement, including how many
+  already-correct cells each detector would overwrite, in
+  [docs/trust/bypass-allowlist-evidence.md](docs/trust/bypass-allowlist-evidence.md).
+  When the number is quoted at all, PRODUCT.md requires describing it as *competitive with /
+  in the range of* the Raha+Baran baseline under our scoring, never as a SOTA win: the two
+  numbers are not measured under an identical protocol. Also use
+  `tax` for provable
   FD/rule-violation repair at scale; `rayyan` for datetime/format canonicalization;
   `flights` for the not-inferable-in-table frontier. Never prioritize `tax` or
   `rayyan` for accuracy work on an UNMEASURED baseline — measure first (`tax` needs

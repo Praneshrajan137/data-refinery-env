@@ -8,6 +8,14 @@ from pathlib import Path
 from dataforge.bench.core import BenchmarkRunOutput, write_run_output
 from dataforge.bench.report import write_benchmark_outputs
 from dataforge.bench.runner import run_agent_comparison
+from dataforge.datasets.registry import DATASET_REGISTRY
+
+#: Derived from the registry, never hardcoded. A literal default cannot be de-registered,
+#: so it becomes a crash rather than a corpus: `beers` was de-registered on 2026-07-12 and
+#: `get_dataset_metadata("beers")` now raises KeyError, which this script's default
+#: invocation walked straight into. Same defect scripts/data/audit_real_world_sources.py
+#: records having shipped for six weeks.
+DEFAULT_DATASETS = ",".join(sorted(DATASET_REGISTRY))
 
 
 def load_grpo_release_evidence(path: Path) -> dict[str, object]:
@@ -86,7 +94,7 @@ def _build_parser() -> argparse.ArgumentParser:
         default="random,heuristic,llm_zeroshot,llm_react",
         help="Week 4 agent methods to rerun.",
     )
-    parser.add_argument("--datasets", default="hospital,flights,beers")
+    parser.add_argument("--datasets", default=DEFAULT_DATASETS)
     parser.add_argument("--seeds", type=int, default=3)
     parser.add_argument("--really-run-big-bench", action="store_true")
     parser.add_argument(

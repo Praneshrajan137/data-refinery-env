@@ -35,6 +35,7 @@ from dataforge.bench.methods import (
     chunk_row_indices,
 )
 from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset, load_real_world_dataset
+from dataforge.datasets.registry import DATASET_REGISTRY
 from dataforge.evaluation_contract import InferabilityLabel
 from dataforge.spend import cap_from_env
 
@@ -45,7 +46,11 @@ FlightsRepairMode = Literal["strict", "verified"]
 NormalizationCandidate = dict[str, str | int]
 
 SCHEMA_VERSION = "expert_v1"
-DEFAULT_DATASETS: tuple[str, ...] = ("hospital", "flights", "beers")
+#: Derived from the registry rather than hardcoded, for the reason recorded in
+#: scripts/data/audit_real_world_sources.py: a literal default cannot be de-registered, so
+#: it silently becomes a crash instead of a corpus. This tuple still named `beers`, which
+#: was de-registered on 2026-07-12 and now raises KeyError on load.
+DEFAULT_DATASETS: tuple[str, ...] = tuple(sorted(DATASET_REGISTRY))
 DEFAULT_DIFFICULTIES: tuple[Difficulty, ...] = ("easy", "medium")
 DEFAULT_OUTPUT = Path("data/sft_traj/expert_v1.jsonl")
 DEFAULT_DATASET_REPO_NAME = "dataforge-sft-trajectories"

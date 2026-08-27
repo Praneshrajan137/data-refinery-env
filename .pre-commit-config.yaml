@@ -1,8 +1,14 @@
 # See https://pre-commit.com for more information
 # Install: pip install pre-commit && pre-commit install
+#
+# `rev` MUST stay in step with the `ruff` pin in pyproject.toml's dev extra
+# (`ruff>=0.16.2,<0.17`). It sat at v0.11.12 until 2026-08-27 -- five minor versions
+# behind -- which is worse than having no hook: a contributor's pre-commit run would
+# format and lint to 0.11 rules, then CI would lint the result with 0.16 and disagree.
+# A local check that can contradict the gate it is meant to pre-empt costs trust twice.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.12
+    rev: v0.16.2
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]

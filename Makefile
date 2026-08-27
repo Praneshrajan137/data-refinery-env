@@ -91,7 +91,7 @@ bench:
 	$(PYTHON) -m pytest tests/benchmarks/ --benchmark-only --benchmark-autosave
 
 bench-free:
-	$(PYTHON) scripts/bench/run_agent_comparison.py --methods random,heuristic --datasets hospital,flights,beers --seeds 3 --output-json eval/results/agent_comparison.json
+	$(PYTHON) scripts/bench/run_agent_comparison.py --methods random,heuristic --datasets hospital,flights --seeds 3 --output-json eval/results/agent_comparison.json
 	$(PYTHON) scripts/bench/run_sota_comparison.py
 	$(PYTHON) scripts/bench/generate_report.py
 
