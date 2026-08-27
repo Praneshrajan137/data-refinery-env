@@ -15,8 +15,14 @@ CURRICULUM_VERSION = "expert_v5_repair_curriculum"
 REPORT_SCHEMA_VERSION = "dataforge_sft_v5_repair_curriculum_report_v1"
 PROMOTION_INFERABILITY = "deterministic_normalization"
 ABSTENTION_INFERABILITIES = {"external_reference_required", "not_inferable_from_prompt"}
-DEFAULT_INPUT = Path("training/kaggle_grpo_candidate_handoff/expert_v4.jsonl")
-DEFAULT_SPLIT_MANIFEST = Path("training/kaggle_grpo_candidate_handoff/split_manifest_v4.json")
+# These two read from ``data/sft_traj/`` like every other build_*_curriculum script.
+# Until 2026-08-27 they pointed into ``training/kaggle_grpo_candidate_handoff/``, a
+# gitignored Kaggle upload bundle -- so the one script that STARTS the v5->v10 chain
+# depended on a build artifact while every script downstream of it read the source of
+# truth. The bundle's copies were byte-identical (sha256-verified) to the files named
+# here, so this is a re-point, not a change of input.
+DEFAULT_INPUT = Path("data/sft_traj/expert_v4_candidate.jsonl")
+DEFAULT_SPLIT_MANIFEST = Path("data/sft_traj/split_manifest_v4_candidate.json")
 DEFAULT_OUTPUT = Path("data/sft_traj/expert_v5_repair_curriculum.jsonl")
 DEFAULT_REPORT = Path("eval/results/sft_v5_repair_curriculum_report.json")
 
