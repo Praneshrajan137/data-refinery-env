@@ -7,8 +7,11 @@ optional expected value.
 ## Shipped detector families
 
 Eleven issue families ship. **Detection and write authority are separate**: only two detectors may
-auto-apply, and only from a declared functional dependency. The rest surface issues for review and
-their repairs are calibration-bound. "May auto-apply" below means membership of
+auto-apply, and only from a declared functional dependency. Named explicitly on one line, because a
+detector that gains write authority silently is worse than one that loses it noisily:
+`fd_violation` and `missing_value` may auto-apply, and no other family may.
+The rest surface issues for review and their repairs are calibration-bound. "May auto-apply" below
+means membership of
 `CONSTRAINT_CHECKABLE_DETECTORS`, which
 [dataforge/domain/vocabulary.py](https://github.com/Praneshrajan137/dataforge/blob/main/dataforge/domain/vocabulary.py)
 treats as an allowlist a detector must earn with a committed measurement.

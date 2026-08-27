@@ -29,7 +29,6 @@ PUBLISH_REPORT = PROJECT_ROOT / "docs" / "evidence" / "pypi" / "publish_report.j
 CLAIM_LEDGER_STATUSES = frozenset({"shipped", "beta", "experimental", "roadmap"})
 RELEASE_TRUTH_DOCS = [
     README,
-    PROJECT_ROOT / "META_CONTEXT.md",
     PROJECT_ROOT / "docs" / "docs" / "index.md",
     PROJECT_ROOT / "docs" / "docs" / "quickstart.md",
     PROJECT_ROOT / "docs" / "docs" / "architecture.md",
@@ -42,7 +41,6 @@ RELEASE_TRUTH_DOCS = [
 DESIGN_PARTNER_TRUTH_DOCS = [
     README,
     CONTRIBUTORS,
-    PROJECT_ROOT / "META_CONTEXT.md",
     PROJECT_ROOT / "docs" / "docs" / "index.md",
     PROJECT_ROOT / "docs" / "docs" / "architecture.md",
 ]
@@ -56,18 +54,52 @@ CUSTOM_DOMAIN_TRUTH_DOCS = sorted(
     set(RELEASE_TRUTH_DOCS + DESIGN_PARTNER_TRUTH_DOCS + PUBLIC_CLAIM_TRUTH_DOCS)
 )
 #: Documents whose auto-apply claims are checked against the runtime allowlist. Wider than
-#: PUBLIC_CLAIM_TRUTH_DOCS because the staleness of 2026-08-25 reached the architecture and
-#: file-structure documents too, not only the marketing surface.
+#: PUBLIC_CLAIM_TRUTH_DOCS because the staleness of 2026-08-25 reached the architecture
+#: document too, not only the marketing surface.
 AUTOAPPLY_TRUTH_DOCS = [
     README,
     PROJECT_ROOT / "PRODUCT.md",
     PROJECT_ROOT / "ARCHITECTURE.md",
-    PROJECT_ROOT / "FILE_STRUCTURE.md",
     PROJECT_ROOT / "docs" / "docs" / "index.md",
     PROJECT_ROOT / "docs" / "docs" / "quickstart.md",
     PROJECT_ROOT / "docs" / "docs" / "detectors.md",
     PROJECT_ROOT / "docs" / "docs" / "architecture.md",
 ]
+
+#: Every list above defines a POPULATION this module polices. A list that shrinks to
+#: nothing -- or that names a document somebody deleted -- does not make these checks
+#: weaker, it makes them vacuous: they iterate nothing, report success, and gate nothing.
+#: That is the failure mode retiring META_CONTEXT.md and FILE_STRUCTURE.md could have
+#: introduced silently, so it is now an error rather than a green run. Checked at import
+#: so it fires in CI before any individual check reports.
+_TRUTH_DOC_POPULATIONS = {
+    "RELEASE_TRUTH_DOCS": RELEASE_TRUTH_DOCS,
+    "DESIGN_PARTNER_TRUTH_DOCS": DESIGN_PARTNER_TRUTH_DOCS,
+    "PUBLIC_CLAIM_TRUTH_DOCS": PUBLIC_CLAIM_TRUTH_DOCS,
+    "CUSTOM_DOMAIN_TRUTH_DOCS": CUSTOM_DOMAIN_TRUTH_DOCS,
+    "AUTOAPPLY_TRUTH_DOCS": AUTOAPPLY_TRUTH_DOCS,
+}
+
+
+def assert_truth_doc_populations_are_non_vacuous() -> None:
+    """Refuse to run if any policed document set is empty or names a missing file."""
+    problems: list[str] = []
+    for name, docs in _TRUTH_DOC_POPULATIONS.items():
+        if not docs:
+            problems.append(f"{name} is empty, so every check over it would pass vacuously")
+            continue
+        for doc in docs:
+            if not doc.exists():
+                rel = doc.relative_to(PROJECT_ROOT) if doc.is_relative_to(PROJECT_ROOT) else doc
+                problems.append(f"{name} names a document that does not exist: {rel}")
+    if problems:
+        raise SystemExit(
+            "readme_truth doc populations are not trustworthy:\n  "
+            + "\n  ".join(problems)
+        )
+
+
+assert_truth_doc_populations_are_non_vacuous()
 #: Phrases that assert write authority for a detector. A line merely naming a detector is
 #: not a claim about what it may do, so the policed set is deliberately narrow.
 _AUTHORITY_CLAIM_PHRASES = (
