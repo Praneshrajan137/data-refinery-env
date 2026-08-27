@@ -58,7 +58,20 @@ __all__ = [
     "StepResult",
 ]
 
-_FIXTURES_DIR = Path(__file__).resolve().parents[1].parent / "fixtures"
+# Resolve the default table from the PACKAGED fixtures, not from a sibling of the
+# repo root. Until 2026-08-27 this was ``parents[1].parent / "fixtures"``, which for
+# this module resolves to the repo root -- a directory that does not exist in an
+# installed wheel, so ``reset()`` raised FileNotFoundError for anyone who pip-installed
+# the package and constructed the environment without an explicit table. Every test
+# passed because the tests run from a source checkout, where the root directory is
+# present. ``parents[1]`` is ``dataforge/``, whose ``fixtures/`` IS declared in
+# pyproject's package-data and therefore ships.
+#
+# Input-preserving, verified rather than assumed: hospital_10rows.csv is sha256-identical
+# in both locations, and the two hospital_schema.yaml files differ only in a comment
+# header -- ``load_schema`` (the same loader used at line ~200) returns equal Schema
+# objects for both.
+_FIXTURES_DIR = Path(__file__).resolve().parents[1] / "fixtures"
 _DEFAULT_CSV = _FIXTURES_DIR / "hospital_10rows.csv"
 _DEFAULT_SCHEMA = _FIXTURES_DIR / "hospital_schema.yaml"
 _MAX_STEPS = 30
