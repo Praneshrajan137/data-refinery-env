@@ -28,10 +28,10 @@ def test_core_distribution_uses_dataforge07_distribution_and_dataforge_cli_alias
         "dataforge",
         "dataforge.*",
     ]
-    assert pyproject["tool"]["setuptools"]["packages"]["find"]["exclude"] == [
-        "data_quality_env",
-        "data_quality_env.*",
-    ]
+    # `exclude` is deliberately absent. It used to name the deleted `data_quality_env`
+    # hackathon package; `include` is already an allowlist, so re-adding an exclude for a
+    # package that no longer exists would assert over an empty population.
+    assert "exclude" not in pyproject["tool"]["setuptools"]["packages"]["find"]
 
 
 def test_mcp_distribution_uses_dataforge07_distribution_and_legacy_alias() -> None:

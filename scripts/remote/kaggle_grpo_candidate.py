@@ -281,6 +281,7 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
 
 def _prepare_dataset(config: dict[str, Any]) -> tuple[Any, dict[str, Any], int]:
     from datasets import Dataset
+
     from training.grpo_readiness import (
         GrpoReadinessSettings,
         analyze_grpo_readiness,

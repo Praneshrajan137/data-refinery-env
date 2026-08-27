@@ -43,9 +43,14 @@ REQUIRED_WHEEL_MEMBERS = frozenset(
         "dataforge/transactions/revert.py",
     }
 )
+# Prefix rejections kept ONLY where they are not already implied by the class rules below.
+# `_audit_wheel_contents` requires every member to start with "dataforge/" or be dist-info
+# metadata, so a rejection listing a specific directory adds nothing -- and once that
+# directory is deleted it polices an empty population, which keeps the gate green while
+# proving strictly less. "data_quality_env/" was removed from this tuple on 2026-08-27
+# when that package was deleted, for exactly that reason.
 REJECTED_WHEEL_PREFIXES = (
     "tests/",
-    "data_quality_env/",
     ".github/",
     ".hf-space",
     "build/",
@@ -93,7 +98,6 @@ ALLOWED_SDIST_EGG_INFO = {
 }
 REJECTED_SDIST_PREFIXES = (
     "tests/",
-    "data_quality_env/",
     ".github/",
     ".hf-space",
     "build/",
@@ -106,26 +110,17 @@ REJECTED_SDIST_PREFIXES = (
     "playground-model/",
     "dataforge-mcp/",
     "benchmark_results/",
-    "datasets/",
     "scripts/",
     "docs/",
 )
-REJECTED_ROOT_LEGACY_FILES = {
-    "analyze_trajectory.py",
-    "benchmark.py",
-    "client.py",
-    "compat.py",
-    "generate_datasets.py",
-    "heuristic_baseline.py",
-    "inference.py",
-    "models.py",
-    "random_baseline.py",
-    "run_baseline.py",
-    "test_env.py",
-    "verify_all_fields.py",
-    "verify_nuclear.py",
-    "verify_score_range.py",
-}
+# REJECTED_ROOT_LEGACY_FILES used to enumerate fourteen root-level scripts by name
+# (models.py, compat.py, benchmark.py, verify_nuclear.py, ...). It was deleted on
+# 2026-08-27 along with the files themselves, and deliberately NOT replaced: it was
+# already subsumed by ALLOWED_SDIST_TOP_LEVEL, which admits no root-level ".py" at all,
+# so it caught nothing the class rule missed while implying the opposite. Enumerating
+# instances also fails in the direction that matters -- a shim named something nobody
+# thought of was never on the list. The surviving guards are the top-level allowlist here
+# and tests/regression/test_env.py::test_repo_root_carries_no_loose_python_modules.
 REJECTED_WHEEL_PARTS = {
     "__pycache__",
     ".pytest_cache",
@@ -355,8 +350,6 @@ def _audit_sdist_contents(sdist_path: Path) -> ReleaseGateStep:
             errors.append(f"Rejected path prefix: {member}")
         if parts & REJECTED_SDIST_PARTS:
             errors.append(f"Rejected generated/cache path: {member}")
-        if member in REJECTED_ROOT_LEGACY_FILES:
-            errors.append(f"Rejected legacy root wrapper: {member}")
         if member.endswith((".pyc", ".pyo", ".ipynb")):
             errors.append(f"Rejected generated or notebook file: {member}")
         if top_level not in ALLOWED_SDIST_TOP_LEVEL:

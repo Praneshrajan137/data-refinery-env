@@ -30,7 +30,8 @@ mutation out of the training loop.
 - [x] `SQL_QUERY` is sandboxed to a single read-only query over the registered
   `data` relation and rejects DuckDB file, network, extension, table-function,
   and multi-statement escape attempts.
-- [x] Legacy `data_quality_env` imports continue to pass regression tests.
+- [x] The legacy `data_quality_env` package is gone and stays gone; regression tests
+      assert the name is not importable rather than that it still imports (2026-08-27).
 
 ## 3. Scope
 
@@ -51,7 +52,7 @@ mutation out of the training loop.
 - Agent loop or runtime LLM integration.
 - Training orchestration.
 - Durable CSV mutation or transaction log creation inside the environment.
-- Modification of the legacy `data_quality_env/` compatibility package.
+- Reintroduction of the deleted `data_quality_env/` hackathon package in any form.
 - Persistent multi-user state beyond an in-memory local session registry.
 
 ## 4. Constraints

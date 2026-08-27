@@ -1,4 +1,3 @@
-prune data_quality_env
 prune tests
 prune docs
 prune scripts
@@ -7,7 +6,6 @@ prune playground
 prune playground-model
 prune dataforge-mcp
 prune benchmark_results
-prune datasets
 prune eval
 prune logs
 prune build
@@ -16,18 +14,4 @@ prune .github
 prune .hf-space-repo
 prune .hf-space-stage
 prune .hf-space-stage-plan
-exclude analyze_trajectory.py
-exclude benchmark.py
-exclude client.py
-exclude compat.py
-exclude generate_datasets.py
-exclude heuristic_baseline.py
-exclude inference.py
-exclude models.py
-exclude random_baseline.py
-exclude run_baseline.py
-exclude test_env.py
-exclude verify_all_fields.py
-exclude verify_nuclear.py
-exclude verify_score_range.py
 global-exclude __pycache__ *.py[cod] *.ipynb .pytest_cache .mypy_cache .ruff_cache .hypothesis

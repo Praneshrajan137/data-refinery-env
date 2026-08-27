@@ -151,7 +151,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["dataforge", "dataforge.*"]
-exclude = ["data_quality_env", "data_quality_env.*"]
+# No `exclude` needed. Until 2026-08-27 this excluded ["data_quality_env", "data_quality_env.*"],
+# the frozen OpenEnv RL hackathon package that has since been deleted. `include` is already
+# an allowlist, so naming a deleted package here would police an empty population -- it
+# would keep passing while proving strictly less. The guard that replaces it lives in
+# tests/regression/test_env.py, which asserts the name is NOT importable at all.
 
 [tool.setuptools.package-data]
 dataforge = [
@@ -173,7 +177,6 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PIE", "RET", "SIM"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"data_quality_env/**/*.py" = ["B007", "B027", "E402", "E731", "F401", "F541", "F841", "I001", "N", "RET", "SIM", "UP"]
 "training/kaggle/sft_warmup_kaggle.ipynb" = ["E402"]
 
 [tool.ruff.format]
@@ -193,8 +196,7 @@ exclude = [
     "^\\.hf-space-repo/",
     "^\\.hf-space-stage/",
     "^\\.hf-space-stage-plan/",
-    "^[^/]*\\.py$",          # loose root-level scripts (hackathon legacy)
-    "^(training|playground|benchmark_results|datasets)/",
+    "^(training|playground)/",
 ]
 
 [[tool.mypy.overrides]]

@@ -265,10 +265,12 @@ visualisation layer adds **none**.
   not published yet; release tags should be created only after local gates and
   PyPI trusted-publisher configuration are verified. It intentionally keeps the
   `dataforge` Python import namespace and CLI for the 0.1 line. The legacy
-  `data_quality_env` namespace is source-tree compatibility/regression material
-  and is excluded from the core wheel and source distribution. Release gates
-  verify that clean installs cannot import `data_quality_env` or leak from the
-  source checkout.
+  `data_quality_env` package was DELETED on 2026-08-27, having been frozen
+  compatibility material for the original OpenEnv RL hackathon environment that
+  `dataforge.env` superseded. Release gates still verify that clean installs cannot
+  import `data_quality_env`, so the name cannot return through the wheel, and
+  `tests/regression/test_env.py` asserts it is not importable from the source tree
+  either.
 - `dataforge_07_mcp` is the planned nested standalone distribution for
   `dataforge-mcp-v*` release tags after PyPI publication evidence is verified.
 - `https://dataforge.praneshrajan15.workers.dev/playground` is the production

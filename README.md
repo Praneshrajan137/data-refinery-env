@@ -732,9 +732,7 @@ mypy, side-package lint/format/type checks, root tests, side-package tests,
 README truth, benchmark truth, OpenAPI snapshot drift, secret scan, dependency
 audit availability, SBOM generation availability, and package build
 availability for the `dataforge_07*` distribution family. The gate covers the
-core `dataforge_07` distribution and release surfaces; the historical
-`data_quality_env` namespace remains source-tree regression coverage, not part
-of the `dataforge` wheel or source distribution.
+core `dataforge_07` distribution and release surfaces.
 
 Before release, run `scripts/ci/backend_gate.py --require-optional` so
 dependency audit, SBOM generation, and package builds are hard failures rather
@@ -804,9 +802,6 @@ runs, and training/evaluation research.
 - [DECISIONS.md](DECISIONS.md) - technical decision log
 - [CONTRIBUTING.md](CONTRIBUTING.md) - workflow and code standards
 - [CLAUDE.md](CLAUDE.md) - living gotcha log for agent sessions
-- [CURSOR_MASTER.md](CURSOR_MASTER.md) - context and prompt pack
-- [META_CONTEXT.md](META_CONTEXT.md) - project meta-context
-- [FILE_STRUCTURE.md](FILE_STRUCTURE.md) - current and planned directory map
 - [SECURITY.md](SECURITY.md) - vulnerability reporting policy
 - [specs/SPEC_TEMPLATE.md](specs/SPEC_TEMPLATE.md) - template for new module specs
 

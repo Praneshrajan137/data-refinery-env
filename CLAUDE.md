@@ -35,7 +35,11 @@ the date.
 - CLI commands live in `dataforge/cli/` and are registered in
   `dataforge/cli/__init__.py`.
 - Rich is used for user-facing CLI output. Do not use `print()` in library code.
-- `data_quality_env/` is the frozen legacy compatibility package.
+- `data_quality_env/` (the legacy hackathon package) and the ~20 loose root-level `.py`
+  shims are DELETED as of 2026-08-27. Do not reintroduce either: `tests/regression/test_env.py`
+  asserts the name is not importable and that the repo root carries no loose modules.
+  The repo DIRECTORY is still called `data_quality_env`, so a grep hit is usually the path,
+  not the package.
 
 ## Known Gotchas
 

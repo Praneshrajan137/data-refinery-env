@@ -18,11 +18,7 @@ venv/
 .gitignore
 
 # Development-only files (not needed in container)
-test_env.py
-validate.sh
-validate.py
 Makefile
-compat_output.txt
 
 # IDE and editor files
 .vscode/
@@ -37,7 +33,10 @@ CHANGELOG.md
 
 # NOTE: README.md is NOT excluded — HuggingFace Spaces reads it for the landing page
 # NOTE: uv.lock is NOT excluded — Dockerfile uses it for reproducible frozen builds
-# NOTE: datasets/ is NOT excluded — environment loads data from it at runtime
+# NOTE: the root datasets/ directory used to be preserved here for the legacy hackathon
+#   environment, which loaded task fixtures from it at runtime. Both are gone as of
+#   2026-08-27; dataforge.env resolves its fixtures from the PACKAGED dataforge/fixtures
+#   and dataforge/datasets/embedded instead, which ship inside the wheel.
 
 # Large trees NOT needed in the backend image (keeps the ACR/HF build context small).
 # The Dockerfile only copies playground/api, pyproject.toml, README.md, dataforge/, constitutions/.

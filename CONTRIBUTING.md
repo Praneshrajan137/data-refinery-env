@@ -34,9 +34,11 @@ python -m pytest tests/regression/ -x
 - Python 3.11 / 3.12 (`requires-python = ">=3.11,<3.13"`).
 - Type hints on every public parameter and return value.
 - Useful Google-style docstrings for public functions, classes, and modules.
-- `dataforge/` is the canonical product package.
-- `data_quality_env/` is a compatibility package; do not make the repository
-  root importable.
+- `dataforge/` is the canonical product package, and the only one.
+- Do not make the repository root importable, and do not add loose root-level `.py`
+  modules. The `data_quality_env` compatibility package that used to live here was
+  deleted on 2026-08-27; both rules are now enforced by
+  `tests/regression/test_env.py`.
 - No `print()` in library code; use `logging`. CLI output uses `rich`.
 - No global mutable state and no silent catch-all exceptions.
 - No TODO/FIXME comments in merged code.
