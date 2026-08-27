@@ -41,24 +41,27 @@ function analysisFixture(overrides: Partial<AnalyzeResponse> = {}): AnalyzeRespo
       },
     ],
     repairs: [
+      // Deliberately NOT the preferred detector, and deliberately first: this ordering is
+      // what makes the `fd_violation` preference below a real assertion rather than a
+      // fall-through to `repairs[0]`.
       {
         row: 4,
-        column: "phone_number",
-        old_value: "not available",
-        new_value: "",
-        detector_id: "type_mismatch",
-        reason: "Normalize sentinel value.",
+        column: "beds",
+        old_value: "",
+        new_value: "120",
+        detector_id: "missing_value",
+        reason: "Fill derived from the declared dependency.",
         confidence: 0.9,
         provenance: "deterministic",
         verifier_reason: "All proposed fixes passed structural verification.",
       },
       {
         row: 5,
-        column: "rating",
-        old_value: "45.0",
-        new_value: "4.5",
-        detector_id: "decimal_shift",
-        reason: "Value 45 in column rating appears to be ~10x the typical value.",
+        column: "city",
+        old_value: "bostonn",
+        new_value: "boston",
+        detector_id: "fd_violation",
+        reason: "Value determined by an operator-declared dependency state -> city.",
         confidence: 0.94,
         provenance: "deterministic",
         verifier_reason: "All proposed fixes passed structural verification.",
@@ -137,21 +140,26 @@ function analysisFixture(overrides: Partial<AnalyzeResponse> = {}): AnalyzeRespo
 }
 
 describe("primary repair moment", () => {
-  it("prefers the Hospital rating decimal-shift story over earlier repairs", () => {
+  it("prefers the constraint-checkable fd_violation repair over an earlier applied fix", () => {
+    // Was "prefers the Hospital rating decimal-shift story". That assertion outlived the
+    // product: `decimal_shift` left every write path on 2026-08-22 after measuring precision
+    // 0.0000 on three corpora, so it can no longer appear in `analysis.repairs` at all. The
+    // implementation had already been corrected to prefer `fd_violation` and documented why
+    // (`productLoop.ts`); only this test still described the dead behaviour.
     const moment = selectPrimaryRepairMoment(analysisFixture());
 
     expect(moment).toMatchObject({
       kind: "verified",
       humanRow: 6,
-      column: "rating",
-      oldValue: "45.0",
-      newValue: "4.5",
-      detectorId: "decimal_shift",
+      column: "city",
+      oldValue: "bostonn",
+      newValue: "boston",
+      detectorId: "fd_violation",
       safetyVerdict: "allow",
       verifierVerdict: "accept",
       txnId: "txn-demo",
     });
-    expect(moment.note).toContain("Row 6 rating: 45.0 -> 4.5");
+    expect(moment.note).toContain("Row 6 city: bostonn -> boston");
   });
 
   it("surfaces the strongest abstention when no verified fix exists", () => {

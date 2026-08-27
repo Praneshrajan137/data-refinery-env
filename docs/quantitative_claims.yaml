@@ -583,15 +583,13 @@ claims:
       Constraint candidates a human must adjudicate on a 100-column table. Nothing caps this, and it
       is the cost that matters -- the runtime is not the problem.
 
-  - id: wide_table_seconds_at_100_columns
-    doc: docs/trust/wide-table-review-burden.md
-    artifact: eval/results/fd_mining_width.json
-    pointer: /summary/widest_measured_seconds
-    format: "{:.4f}"
-    expect: "0.6437"
-    note: >-
-      The number that REFUTED the framing which motivated the measurement. I predicted a performance
-      cliff; there is not one at 500 rows.
+  # `wide_table_seconds_at_100_columns` was REMOVED on 2026-08-27. It bound
+  # /summary/widest_measured_seconds -- a wall clock -- to "0.6437" at four decimal places.
+  # Re-deriving the artifact on the same machine returned 0.8263 s, 28% higher, while every
+  # candidate count in the same artifact reproduced exactly. A timing is not bindable the way a
+  # count is: the ledger would have failed on a loaded machine for no defect, which is how a gate
+  # earns being ignored. The measurement still lives in the document, explicitly marked
+  # non-binding, with the variance recorded. Counts stay bound; timings are reported.
 
   - id: wide_table_review_ratio
     doc: docs/trust/wide-table-review-burden.md
@@ -830,3 +828,32 @@ claims:
     expect: "164,718"
     note: >-
       Deterministic, unlike the timings, so it is bound exactly.
+
+  # --- Agent throughput: the published "0 fixes pass" measured a default (2026-08-27) ---
+  # These two numbers are the whole correction. STRATEGY.md attributed the refusal to
+  # "SMT+safety"; the safety constitution returns before the verifier is reached, on a rule that
+  # inspects provenance alone. Both values are <= 2 characters and therefore carry `context`.
+
+  - id: agent_throughput_arms_that_wrote
+    doc: docs/trust/agent-throughput-decomposition.md
+    artifact: eval/results/agent_throughput_decomposition.json
+    pointer: /summary/arms_that_wrote
+    format: "{:d}"
+    expect: "1"
+    context: "arm wrote"
+    note: >-
+      Non-zero is the entire finding: agent throughput was never architecturally zero, so the
+      verdict-lattice redesign this would have justified is unnecessary. One arm writing is also
+      the minimum that makes the non-vacuity control meaningful.
+
+  - id: agent_throughput_arms_refused_on_origin_label
+    doc: docs/trust/agent-throughput-decomposition.md
+    artifact: eval/results/agent_throughput_decomposition.json
+    pointer: /summary/arms_refused_on_origin_label_before_verification
+    format: "{:d}"
+    expect: "2"
+    context: "origin label before any verification"
+    note: >-
+      Refusals that never reached a verifier. One of the two carried a fully provable value under
+      a declared premise, which is what shows the escalation and the prove gate are orthogonal
+      and that the ordering hides the second behind the first.

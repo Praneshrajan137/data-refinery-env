@@ -153,11 +153,21 @@ class DuckDBStore(TableStore):
                 )
             )
 
-        reason = (
-            "DuckDB patch plan is apply-ready."
-            if operations and all(operation.row_identity.stable for operation in operations)
-            else "DuckDB patch plan is dry-run only until row identity is configured."
-        )
+        # Three distinct causes, three distinct messages. This was a two-way branch that
+        # reported "until row identity is configured" whenever apply was unavailable --
+        # including when the real cause was that NO proposal survived the repair gates, which
+        # is the common case now that `decimal_shift` and `type_mismatch` no longer write. A
+        # plan with zero operations and a perfectly good `id` column reported a row-identity
+        # problem it did not have, sending the reader to fix configuration that was correct.
+        if not operations:
+            reason = (
+                "DuckDB patch plan has no operations: no proposed repair survived the "
+                "gates. Without a declared premise there is nothing to apply."
+            )
+        elif not all(operation.row_identity.stable for operation in operations):
+            reason = "DuckDB patch plan is dry-run only until row identity is configured."
+        else:
+            reason = "DuckDB patch plan is apply-ready."
         return PatchPlan.new(
             backend=self.backend,
             target=self.target,

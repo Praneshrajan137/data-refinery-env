@@ -298,7 +298,16 @@ test("sample path analyzes, accepts constraints, exports evidence, and passes ac
   await expect(page.getByRole("heading", { name: /Upload CSV -> profile -> issues -> verified repair -> receipt -> safe revert/ })).toBeVisible();
   await page.getByRole("button", { name: /Hospital/ }).click();
   await expect(page.locator(".loop-panel--profile").getByRole("heading", { name: "Current CSV" })).toBeVisible();
-  await expect(page.getByLabel("Dataset intake").getByText("45.0")).toBeVisible();
+  // The row preview lives in `section.dataset-panel` (lenses.tsx `OverviewLens`), not in
+  // "Dataset intake" -- that region renders only the upload control and the sample chips. Two
+  // panels carry a "Current CSV" heading, hence the class selector.
+  //
+  // This asserted `45.0` for the dirty `rating` cell, which the preview cannot show:
+  // `parseCsvPreview` caps it at five rows and that value is on row six. The assertion was
+  // unsatisfiable against any correct implementation, so it proved nothing about the preview.
+  // Asserting the preview's own shape line plus a first-row cell keeps it non-vacuous.
+  await expect(page.locator(".dataset-panel").getByText("5 preview rows, 10 columns")).toBeVisible();
+  await expect(page.locator(".dataset-panel").getByText("2175550101")).toBeVisible();
 
   await activateAnalyze(page);
   await expect(page.getByRole("heading", { name: "1 issue group(s)" })).toBeVisible();
@@ -471,7 +480,11 @@ test("failed upload keeps the last valid dataset and shows a copy fallback", asy
   await page
     .locator("#csv-upload")
     .setInputFiles({ name: "upload.csv", mimeType: "text/csv", buffer: Buffer.from(sampleCsv) });
-  await expect(page.getByText("45.0")).toBeVisible();
+  // Both assertions here previously looked for `45.0`, which the five-row preview never shows
+  // (that cell is on row six). The point of this test is that a REJECTED second upload leaves
+  // the first dataset intact, so it needs a value the preview actually renders -- a row-one
+  // cell -- asserted before and after the failed upload.
+  await expect(page.getByText("2175550101")).toBeVisible();
 
   await page.locator("#csv-upload").setInputFiles({
     name: "broken.csv",
@@ -479,7 +492,7 @@ test("failed upload keeps the last valid dataset and shows a copy fallback", asy
     buffer: Buffer.from('id,name\n1,"unterminated'),
   });
   await expect(page.getByRole("alert")).toContainText("Dataset validation failed");
-  await expect(page.getByText("45.0")).toBeVisible();
+  await expect(page.getByText("2175550101")).toBeVisible();
 
   await activateAnalyze(page);
   await expect(primaryRepairMoment(page)).toBeVisible();

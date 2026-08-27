@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
@@ -20,7 +19,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from dataforge_dbt.config import load_config  # noqa: E402
-from dataforge_dbt.dispatch import DispatchRequest, dispatch  # noqa: E402
+from dataforge_dbt.dispatch import (  # noqa: E402
+    DataForgeDbtDispatchError,
+    DispatchRequest,
+    dispatch,
+)
 
 DBT_PROJECT_DIR = PROJECT_ROOT / "integration_tests" / "dbt_project"
 MACRO_PATH = PROJECT_ROOT / "macros" / "dataforge_repair.sql"
@@ -119,10 +122,28 @@ def test_dispatch_apply_writes_transaction_file(tmp_path: Path) -> None:
     assert "decimal_shift" in txn_files[0].read_text(encoding="utf-8")
 
 
-def test_dispatch_native_duckdb_apply_writes_patch_plan_and_mutates_relation(
+def test_dispatch_native_duckdb_apply_refuses_without_a_declared_premise(
     tmp_path: Path,
 ) -> None:
-    """Apply mode should use the table-store plan path when a dbt relation is available."""
+    """Apply mode reaches the table-store path and then correctly refuses to write.
+
+    This test previously asserted that `column_x` '1000' was rewritten to '100' and that an
+    apply receipt was recorded. That write came from `decimal_shift`, which was removed from
+    every write path after measuring precision 0.0000 on three corpora and a fourth where it
+    would have rewritten 263,428 correct monetary values. The write it asserted is one the
+    product deliberately no longer makes.
+
+    What is asserted now is the honest behaviour: detection still fires, the dispatch still
+    reaches `DuckDBStore`, and the apply is refused because `dispatch` passes `schema=None`
+    (`dataforge_dbt/dispatch.py:289`) and "no declared premise, no write" is a product
+    invariant. The relation must be byte-for-byte untouched.
+
+    KNOWN LIMITATION, recorded here rather than hidden: the dbt native apply path cannot
+    currently write anything, because `DispatchRequest` has no way to carry a premise. dbt
+    users already declare constraints as generic tests, and `dataforge/integrations/dbt.py`
+    already maps a dbt manifest to a DataForge `Schema` -- that mapper is simply not wired to
+    this path. Wiring it is the fix, and it is a feature, not a test change.
+    """
     try:
         import duckdb
     except ImportError:
@@ -156,19 +177,68 @@ def test_dispatch_native_duckdb_apply_writes_patch_plan_and_mutates_relation(
         row_identity_columns=("id",),
     )
 
-    issues = dispatch(request)
+    with pytest.raises(DataForgeDbtDispatchError) as excinfo:
+        dispatch(request)
 
-    assert any(issue.issue_type == "decimal_shift" for issue in issues)
+    # The refusal must name the real cause. It used to say "until row identity is configured"
+    # for a plan whose `id` column was perfectly good, sending the reader to fix correct
+    # configuration; the true cause is that no proposal survived the gates.
+    message = str(excinfo.value)
+    assert "no operations" in message
+    assert "row identity" not in message
+
     with duckdb.connect(str(database_path), read_only=True) as connection:
-        repaired = connection.execute(
+        unchanged = connection.execute(
             "SELECT column_x FROM example_with_dirty_data WHERE id = '6'"
         ).fetchone()[0]
-    assert repaired == "100"
-    txn_files = list((project_dir / "target" / "dataforge_txns").glob("*.jsonl"))
-    assert len(txn_files) == 1
-    payload = json.loads(txn_files[0].read_text(encoding="utf-8"))
-    assert payload["patch_plan"]["schema_version"] == "patch_plan_v1"
-    assert payload["apply_receipt"]["ok"] is True
+    assert unchanged == "1000", "a refused apply must not mutate the relation"
+    assert not list((project_dir / "target" / "dataforge_txns").glob("*.jsonl")), (
+        "a refused apply must not record a transaction"
+    )
+
+
+def test_dispatch_native_duckdb_still_detects_the_issue(tmp_path: Path) -> None:
+    """Refusing to repair is not the same as failing to detect.
+
+    Kept separate from the refusal test so that a regression which silences the detector
+    cannot hide behind the expected exception above.
+    """
+    try:
+        import duckdb
+    except ImportError:
+        pytest.skip("duckdb is not installed")
+
+    profiles_dir = _write_profiles(tmp_path)
+    project_dir = tmp_path / "dbt_project"
+    project_dir.mkdir()
+    project_dir.joinpath("dbt_project.yml").write_text(
+        "name: dataforge_dbt_integration\nprofile: dataforge_dbt_integration\n",
+        encoding="utf-8",
+    )
+    database_path = tmp_path / "dataforge_dbt.duckdb"
+    with duckdb.connect(str(database_path)) as connection:
+        connection.execute("CREATE TABLE example_with_dirty_data (id VARCHAR, column_x VARCHAR)")
+        connection.execute(
+            "INSERT INTO example_with_dirty_data VALUES "
+            "('1', '100'), ('2', '102'), ('3', '98'), ('4', '101'), "
+            "('5', '99'), ('6', '1000')"
+        )
+
+    issues = dispatch(
+        DispatchRequest(
+            relation="main.example_with_dirty_data",
+            column="column_x",
+            mode="dry_run",
+            input_csv=None,
+            target_path=project_dir / "target",
+            project_dir=project_dir,
+            profiles_path=profiles_dir / "profiles.yml",
+            profile_name="dataforge_dbt_integration",
+            row_identity_columns=("id",),
+        )
+    )
+
+    assert any(issue.issue_type == "decimal_shift" for issue in issues)
 
 
 def test_explicit_mode_overrides_profile_default(tmp_path: Path) -> None:

@@ -24,10 +24,22 @@ So wide-table behaviour was entirely unmeasured, on the one component every zero
 | 40 | 1560 | 0.1186 | 398 |
 | 60 | 3540 | 0.2749 | 885 |
 | 80 | 6320 | 0.4378 | 1588 |
-| **100** | 9900 | **0.6437** | **2466** |
+| **100** | 9900 | 0.6437 | **2466** |
 
-100 columns is **19.69x** the time and **25.42x** the review rows of a 20-column table. The time
-ratio tracks the pair-count ratio, which confirms the quadratic loop dominates.
+The candidate counts are **bound** in `docs/quantitative_claims.yaml`; the `seconds` column is
+deliberately **not**, and neither is the time ratio below.
+
+The seconds are a record of one run on one machine, not a reproducible quantity. Re-deriving this
+artifact on the same machine on 2026-08-27 returned **0.8263 s** at 100 columns against the 0.6437 s
+recorded here -- **28% higher** -- moving the time ratio from 19.69x to 24.23x, while every candidate
+count reproduced *exactly*. A wall-clock figure published to four decimal places reads as a stable
+fact and is not one; binding it would make CI fail on a busy machine and teach everyone to ignore a
+red gate. Counts are bindable, timings are not, and the distinction is the reason this table has two
+kinds of column.
+
+100 columns is roughly **20x** the time and **25.42x** the review rows of a 20-column table. The time
+ratio tracks the pair-count ratio, which confirms the quadratic loop dominates; it is stated to one
+significant figure because that is all a wall clock supports.
 
 ## The finding, which refutes the framing that motivated the measurement
 

@@ -12,13 +12,44 @@ indentation, one from PowerShell mangling the quotes) and were briefly recorded 
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PY = REPO / ".venv" / "Scripts" / "python.exe"
+
+
+def _resolve_python() -> str:
+    """Return the interpreter to run mutant suites with.
+
+    This was hardcoded to ``.venv/Scripts/python.exe`` -- a Windows-only path -- so the
+    gate raised ``FileNotFoundError`` on the first mutant under Linux CI and the whole
+    harness had **never once executed there**. It failed closed, so no guard was silently
+    unpinned, but "18/18 killed" was a number only ever produced on one machine.
+
+    The hardcoding was not arbitrary: an earlier version invoked a bare ``python``, every
+    mutant "died" of ``ModuleNotFoundError: textual``, and the run was recorded as a clean
+    sweep. That is why the venv is still preferred over ``sys.executable`` -- but a missing
+    venv must degrade to the running interpreter, not to a crash. The real defence against
+    the rubber-stamp failure is ``_baseline_verdict`` below, not the shape of this path.
+    """
+    override = os.environ.get("DATAFORGE_MUTATE_PYTHON")
+    if override:
+        return override
+    venv_python = REPO / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    if venv_python.exists():
+        return str(venv_python)
+    return sys.executable
+
+
+PY = _resolve_python()
+
+# pytest's documented exit codes. Only TESTS_FAILED means a mutant was noticed; every other
+# non-zero value means the harness itself broke, which is NOT evidence about the guard.
+PYTEST_ALL_PASSED = 0
+PYTEST_TESTS_FAILED = 1
 
 
 @dataclass(frozen=True)
@@ -324,12 +355,67 @@ def run(mutant: Mutant) -> str:
             text=True,
             timeout=900,
         )
-        return "KILLED" if proc.returncode != 0 else "SURVIVED"
+        return _verdict_for(proc.returncode)
     finally:
         path.write_text(original, encoding="utf-8")
 
 
+def _verdict_for(returncode: int) -> str:
+    """Map a pytest exit code to a mutant verdict.
+
+    This was ``"KILLED" if returncode != 0 else "SURVIVED"``, which counted **any** non-zero
+    exit as a kill -- a collection error, an import error, a usage error, or a missing
+    dependency all read as "the guard is pinned". That is precisely the rubber-stamp this
+    harness exists to avoid, and it is how a bare-``python`` run once scored 18/18 while
+    every mutant had actually died of ``ModuleNotFoundError``.
+
+    Only exit code 1 (tests ran and at least one failed) is evidence that a test noticed the
+    mutation. Everything else is a harness failure and must not be scored as a kill.
+    """
+    if returncode == PYTEST_TESTS_FAILED:
+        return "KILLED"
+    if returncode == PYTEST_ALL_PASSED:
+        return "SURVIVED"
+    return f"HARNESS_ERROR (pytest exit {returncode} -- not a kill)"
+
+
+def baseline_verdict() -> tuple[bool, str]:
+    """Run every mutant's test subset against UNMUTATED source.
+
+    Without this, a kill verdict is unfalsifiable: if the suite is red for any unrelated
+    reason -- a broken import, a missing dependency, a syntax error left behind by an earlier
+    aborted run -- then every mutant "fails" its subset and the harness reports a clean sweep
+    while proving nothing. Asserting the file changed on disk (see ``run``) catches a mutant
+    that was never applied; it cannot catch a suite that was already failing.
+
+    One run over the union of subsets is logically sufficient: if the union is green on clean
+    source, any subsequent failure under mutation is attributable to the mutation.
+    """
+    union = sorted({test for mutant in MUTANTS for test in mutant.tests})
+    proc = subprocess.run(
+        [PY, "-m", "pytest", *union, "-q", "--no-header", "-p", "no:randomly"],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        timeout=1800,
+    )
+    if proc.returncode == PYTEST_ALL_PASSED:
+        return True, f"baseline green over {len(union)} test path(s)"
+    tail = (proc.stdout or proc.stderr or "").strip().splitlines()
+    detail = tail[-1] if tail else "no output"
+    return False, f"pytest exit {proc.returncode}: {detail}"
+
+
 def main() -> int:
+    ok, detail = baseline_verdict()
+    print(f"baseline: {detail}", flush=True)
+    if not ok:
+        print(
+            "\nREFUSING TO SCORE MUTANTS: the suite is not green on unmutated source, so a "
+            "failure under mutation would prove nothing about the guard.",
+        )
+        return 1
+
     results: list[tuple[Mutant, str]] = []
     for mutant in MUTANTS:
         verdict = run(mutant)

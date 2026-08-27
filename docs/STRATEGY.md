@@ -129,7 +129,7 @@ not re-litigated:
 | Attempt | Result | Why |
 | --- | --- | --- |
 | Bigger LLM corrector (gpt-5.6-sol) | Certifies 0 auto-apply coverage | ~5% precise, ECE ~0.96; confidently wrong on the residual |
-| Frontier agent proposer through the gate | 0 fixes pass | every FIX rejected by SMT+safety |
+| Frontier agent proposer through the gate | 0 fixes pass | **see correction below** -- the refusal was a policy default on the fix's *origin label*, not the verifier |
 | Local-window FD repairer / grounded-rationale SFT | Retracted | only 7-13% robustly FD-grounded; the rest are coincidental low-cardinality FDs, in-table-indistinguishable from spurious (`f_name->gender`) |
 | Threshold-tuned FD confidence | Rejected earlier (2026-07-19) | dishonest overfitting to two datasets |
 
@@ -138,6 +138,40 @@ transposed value, a spurious near-FD), and the in-table signal for them is
 indistinguishable from coincidence. No amount of model scale or clever in-table
 mining changes this — a larger teacher is confidently wrong in exactly the region
 the gate must refuse.
+
+### CORRECTION (2026-08-27): the agent row above credited the verifier with a policy refusal
+
+The agent row previously read *"every FIX rejected by SMT+safety"*, and that sentence has been
+read as evidence that the verification layer refuses agent work. It does not say what happened.
+
+`dataforge/agent/executor.py` evaluates the safety constitution and **returns before the SMT
+verifier is called**. The rule that fires, `NO_UNCONFIRMED_LLM_WRITE`, inspects `provenance`
+alone -- never the value, the premise, or any constraint -- and `confirm_escalations` defaults
+to `False`. The reproduction command recorded in `eval/results/agent_gpt56sol_hospital.json`
+omits `--confirm-escalations`. So every proposal escalated on its origin label and the verifier
+was almost certainly never consulted.
+
+Measured deterministically in `docs/trust/agent-throughput-decomposition.md`
+(`eval/results/agent_throughput_decomposition.json`), through the shipped `verify_and_apply`
+rather than a model, because an LLM arm cannot separate a refusal by the gate from a bad
+proposal by the model:
+
+| premise | confirmed | outcome |
+| --- | --- | --- |
+| none | no | `safety_escalation` -- **the published configuration** |
+| none | yes | `floor_cannot_verify` -- no premise, no write, as designed |
+| declared | no | `safety_escalation` -- a provable fix still refused on its origin |
+| declared | yes | **applied** |
+| declared | yes | `verifier_rejected` for a premise-violating value (control) |
+
+**Agent throughput was never architecturally zero.** It is gated by two independent conditions
+that must both hold, and the published number measured a default rather than a limit. What the
+row still establishes correctly is that a frontier proposer earns no *unpremised* write -- which
+is the invariant, not a defect.
+
+This does not reopen the accuracy question above: the semantic root cause is unchanged, and
+nothing here suggests an agent proposes better values. It changes only the claim about *why*
+nothing passed.
 
 **Therefore the only honest levers for MORE certified coverage are:**
 

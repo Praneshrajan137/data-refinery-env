@@ -20,11 +20,42 @@ from dataforge_mcp.tools import (
 
 
 def _write_repairable_csv(path: Path) -> None:
-    """Write a small CSV with a deterministic decimal-shift repair."""
+    """Write a small CSV that DETECTS a decimal-shift issue but is not repairable.
+
+    The name predates the removal of `decimal_shift` from every write path. It remains a
+    valid fixture for detection, path-security, and verify-only tests -- which is most of
+    this file -- but nothing here will be applied: `decimal_shift` measured precision 0.0000
+    on three corpora and would have rewritten 263,428 correct monetary values on a fourth.
+    Tests that need a write must use `_write_premised_csv`.
+    """
     path.write_text(
         "id,amount\n1,100\n2,105\n3,98\n4,1020\n5,103\n",
         encoding="utf-8",
     )
+
+
+def _write_premised_csv(path: Path) -> Path:
+    """Write a CSV whose one repair is licensed by a DECLARED functional dependency.
+
+    Returns the schema path to pass as `schema_path`. `state -> city` is an authority the
+    operator supplies, not a pattern mined from the column's own distribution, which is what
+    makes row 10 (`bostonn` -> `boston`) constraint-checkable and therefore a write the
+    product stands behind.
+    """
+    rows = "".join(f"{index},MA,boston\n" for index in range(1, 10))
+    path.write_text(f"id,state,city\n{rows}10,MA,bostonn\n", encoding="utf-8")
+    schema_path = path.with_suffix(".schema.yaml")
+    schema_path.write_text(
+        "columns:\n"
+        "  id: string\n"
+        "  state: string\n"
+        "  city: string\n"
+        "functional_dependencies:\n"
+        "  - determinant: [state]\n"
+        "    dependent: city\n",
+        encoding="utf-8",
+    )
+    return schema_path
 
 
 def _fix_spec(path: Path, *, old_value: str = "1020", new_value: str = "102") -> dict[str, object]:
@@ -185,10 +216,10 @@ class TestDataForgeMcpTools:
 
     def test_dry_run_does_not_mutate_source(self, tmp_path: Path) -> None:
         csv_path = tmp_path / "amounts.csv"
-        _write_repairable_csv(csv_path)
+        schema_path = _write_premised_csv(csv_path)
         original = csv_path.read_bytes()
 
-        receipt = dataforge_apply_repairs(str(csv_path), "dry_run")
+        receipt = dataforge_apply_repairs(str(csv_path), "dry_run", str(schema_path))
 
         assert receipt.receipt_version == "repair_receipt_v1"
         assert receipt.applied is False
@@ -199,6 +230,31 @@ class TestDataForgeMcpTools:
         assert receipt.proof_obligations
         assert receipt.patch_plan_sha256 is not None
         assert receipt.limitations
+        assert csv_path.read_bytes() == original
+
+    def test_apply_without_a_premise_abstains_and_leaves_bytes_untouched(
+        self,
+        tmp_path: Path,
+        monkeypatch,
+    ) -> None:
+        """No declared premise, no write -- on the MCP surface too.
+
+        This is the invariant, not a limitation, and it is worth a test on this surface
+        specifically: until 2026-08-27 `dataforge_apply_repairs` hardcoded `schema=None`, so
+        it could not write *anything* and no test said so. The three write tests here passed
+        only because `decimal_shift` was bypassing the premise gate; removing that detector
+        turned a dead tool into three red tests. Asserting the abstention keeps the tool's
+        inability to write without a premise a deliberate, visible property.
+        """
+        monkeypatch.chdir(tmp_path)
+        csv_path = tmp_path / "unpremised.csv"
+        _write_premised_csv(csv_path)  # same data, but we withhold the schema
+        original = csv_path.read_bytes()
+
+        receipt = dataforge_apply_repairs(str(csv_path), "apply")
+
+        assert receipt.applied is False
+        assert receipt.txn_id is None
         assert csv_path.read_bytes() == original
 
     def test_apply_requires_explicit_enablement(self, tmp_path: Path) -> None:
@@ -286,8 +342,8 @@ class TestDataForgeMcpTools:
         csv_path = tmp_path / "amounts.csv"
         other_root = tmp_path / "other"
         other_root.mkdir()
-        _write_repairable_csv(csv_path)
-        receipt = dataforge_apply_repairs(str(csv_path), "apply")
+        schema_path = _write_premised_csv(csv_path)
+        receipt = dataforge_apply_repairs(str(csv_path), "apply", str(schema_path))
         assert receipt.txn_id is not None
 
         configure_mcp_security(enable_apply=True, allowed_roots=[other_root])
@@ -301,10 +357,10 @@ class TestDataForgeMcpTools:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         csv_path = tmp_path / "amounts.csv"
-        _write_repairable_csv(csv_path)
+        schema_path = _write_premised_csv(csv_path)
         original = csv_path.read_bytes()
 
-        receipt = dataforge_apply_repairs(str(csv_path), "apply")
+        receipt = dataforge_apply_repairs(str(csv_path), "apply", str(schema_path))
 
         assert receipt.applied is True
         assert receipt.txn_id is not None

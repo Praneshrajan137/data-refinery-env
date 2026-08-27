@@ -1,0 +1,93 @@
+{
+  "arms": [
+    {
+      "applied": false,
+      "arm": "no_premise_unconfirmed",
+      "bytes_changed": false,
+      "confirm_escalations": false,
+      "expectation": "safety_escalation",
+      "fixes_written": 0,
+      "observed": "safety_escalation",
+      "premise_declared": false,
+      "proposed_value": "boston",
+      "review_reasons": {
+        "safety_escalation": 1
+      },
+      "txn_id": null,
+      "why": "The configuration the published agent arm actually ran. If this refuses at safety_escalation then the measurement attributed to 'SMT+safety' never reached a verifier, and the cited number describes a policy default rather than the verification layer."
+    },
+    {
+      "applied": false,
+      "arm": "no_premise_confirmed",
+      "bytes_changed": false,
+      "confirm_escalations": true,
+      "expectation": "floor_cannot_verify",
+      "fixes_written": 0,
+      "observed": "floor_cannot_verify",
+      "premise_declared": false,
+      "proposed_value": "boston",
+      "review_reasons": {
+        "floor_cannot_verify": 1
+      },
+      "txn_id": null,
+      "why": "Clearing the escalation is not sufficient. With no premise the fix is plausibility_only and is held -- 'no declared premise, no write' survives confirmation, which is the invariant this arm exists to protect."
+    },
+    {
+      "applied": false,
+      "arm": "premise_unconfirmed",
+      "bytes_changed": false,
+      "confirm_escalations": false,
+      "expectation": "safety_escalation",
+      "fixes_written": 0,
+      "observed": "safety_escalation",
+      "premise_declared": true,
+      "proposed_value": "boston",
+      "review_reasons": {
+        "safety_escalation": 1
+      },
+      "txn_id": null,
+      "why": "A premise is not sufficient either. Ordering matters: the escalation is checked BEFORE the prove gate, so a perfectly provable fix is still refused on its origin label alone."
+    },
+    {
+      "applied": true,
+      "arm": "premise_confirmed",
+      "bytes_changed": true,
+      "confirm_escalations": true,
+      "expectation": "applied",
+      "fixes_written": 1,
+      "observed": "applied",
+      "premise_declared": true,
+      "proposed_value": "boston",
+      "review_reasons": {},
+      "txn_id": "txn-2026-08-27-6a7c79",
+      "why": "Both conditions met. If this writes, agent throughput is not zero and never was architecturally zero -- the published figure measured a default, and the fix is a flag decision rather than a redesign of the gate."
+    },
+    {
+      "applied": false,
+      "arm": "premise_confirmed_violating_value",
+      "bytes_changed": false,
+      "confirm_escalations": true,
+      "expectation": "verifier_rejected",
+      "fixes_written": 0,
+      "observed": "verifier_rejected",
+      "premise_declared": true,
+      "proposed_value": "worcester",
+      "review_reasons": {
+        "verifier_rejected": 1
+      },
+      "txn_id": null,
+      "why": "NON-VACUITY CONTROL. Same permissive settings as the arm above, but the proposed value contradicts the declared dependency. A refusal here is what makes the previous arm's write meaningful; if this also wrote, the gate would be open rather than working. The expectation names the exact bucket rather than a vague 'refused', because a control that accepts any refusal cannot distinguish the prove gate doing its job from an unrelated rule firing first."
+    }
+  ],
+  "corpus": "premised_fd_10rows",
+  "measurement": "agent_throughput_decomposition",
+  "note": "Deterministic external proposals through the shipped verify_and_apply. Measures the gate, not a model: an LLM arm cannot separate a refusal by the gate from a bad proposal by the model.",
+  "summary": {
+    "arms_refused_on_origin_label_before_verification": 2,
+    "arms_that_wrote": 1,
+    "confirmation_alone_is_insufficient": true,
+    "escalation_is_reachable_without_a_premise": true,
+    "premise_alone_is_insufficient": true,
+    "violating_value_refused_under_permissive_settings": true
+  }
+}

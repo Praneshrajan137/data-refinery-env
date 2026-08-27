@@ -386,8 +386,25 @@ def dataforge_review_rank(path: str, max_cells: int = 25) -> list[RankedCellResu
     ]
 
 
-def dataforge_apply_repairs(path: str, mode: Literal["dry_run", "apply"]) -> TxnReceipt:
-    """Detect, verify, and optionally apply DataForge repairs to a CSV file."""
+def dataforge_apply_repairs(
+    path: str,
+    mode: Literal["dry_run", "apply"],
+    schema_path: str | None = None,
+) -> TxnReceipt:
+    """Detect, verify, and optionally apply DataForge repairs to a CSV file.
+
+    ``schema_path`` supplies the declared premise. It is optional and defaults to none, which
+    preserves the previous behaviour -- and that behaviour is abstention: with no premise the
+    engine holds every proposal, because "no declared premise, no write" is a product
+    invariant, not a configuration choice.
+
+    Until 2026-08-27 this tool passed ``schema=None`` unconditionally, so it could not write
+    anything at all. That was invisible while `decimal_shift` still bypassed the premise gate;
+    when that detector was removed for rewriting 263,428 correct values on a fourth corpus,
+    the tool's three write tests started failing and the real defect surfaced -- the agent
+    surface had no way to *supply* the premise the write path requires. Passing a schema is how
+    an MCP client reaches the repair the product actually stands behind.
+    """
     csv_path = _resolve_csv_path(path)
     if mode not in {"dry_run", "apply"}:
         raise ValueError("mode must be 'dry_run' or 'apply'.")
@@ -401,7 +418,7 @@ def dataforge_apply_repairs(path: str, mode: Literal["dry_run", "apply"]) -> Txn
         RepairPipelineRequest(
             source_path=csv_path,
             mode=mode,
-            schema=None,
+            schema=_load_optional_schema(schema_path),
             allow_llm=False,
         )
     )

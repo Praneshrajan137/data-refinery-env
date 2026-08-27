@@ -633,6 +633,14 @@ triage at alpha=0.20. That result gets published either way.
 
 ### Gate status, including what could NOT be verified on this machine
 
+*Snapshot of the run that accompanied this entry (2026-08-22). Every figure below is a record
+of that run, not a current value: the suite has since grown past 2,300 tests and the claim
+ledger past 70 entries. An independent audit on 2026-08-27 initially read the `docs_truth`
+count here as a live claim and filed it as a false number; it was accurate when written --
+`git show c207617:docs/quantitative_claims.yaml` has exactly 20 ids. The defect was the
+present tense, not the number, so the number stays. Frozen evidence is not edited to look
+better (`PRODUCT.md` section 5); it is dated.*
+
 Green: `ruff check` + `ruff format --check` (384 files), `mypy --strict` (145 files),
 `pytest tests/` (**1,780 passed**), all four truth gates (`docs_truth` now verifies **20** claims),
 `python -m dataforge.release.gate` (**exit 0**, 29 checks), `mkdocs build --strict` (exit 0),
