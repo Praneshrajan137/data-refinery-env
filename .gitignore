@@ -33,6 +33,28 @@ dist/
 # this a parallel coverage run leaves a dozen untracked files a developer could commit. Found
 # 2026-08-28 by the working-tree integrity guard, which is what it is for.
 .coverage.*
+
+# Editor and agent working directories, moved in from the old parent folder on 2026-08-28 when the
+# repository left OneDrive. They are ignored rather than tracked, and each for its own reason:
+#
+#   .claude/settings.local.json  -- the ".local" suffix is the convention for machine-specific
+#                                   settings. A shared `.claude/settings.json` would be trackable;
+#                                   this file is not, so only the local one is ignored.
+#   .idea/                       -- JetBrains project state. `workspace.xml` alone is a changelist
+#                                   and UI layout that the IDE rewrites constantly, and the SDK
+#                                   entries name a per-user interpreter registration.
+#   .vscode/                     -- editor settings, machine-specific in practice.
+#   .snowflake/                  -- Cortex Code's working area. It currently holds 75 plan documents
+#                                   (~970 KB) recording past sessions. They are a genuine record and
+#                                   may be worth versioning DELIBERATELY, as a reviewed decision --
+#                                   not swept in as a side effect of a directory move.
+#
+# Note `.cursor/rules/dataforge.md` IS tracked, on purpose: agent RULES are shared, agent STATE is
+# not. That is the line these entries follow.
+.claude/settings.local.json
+.idea/
+.vscode/
+.snowflake/
 .ipynb_checkpoints/
 prompt.md
 compat_output.txt
