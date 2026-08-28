@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Weekly, to run the uncached type check below. Mypy's docs warn that incremental cache data can
+  # drift over a long period; a scheduled full rebuild is the only thing that catches that.
+  schedule:
+    - cron: "0 4 * * 1"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -26,6 +30,25 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      # `setup-python`'s `cache: pip` caches DOWNLOADS, not the environment, so the install below
+      # is paid in full every run. This cache is different: it holds mypy's incremental state, which
+      # is the expensive part of `make type` on 178 files from cold.
+      #
+      # The key deliberately includes the Python version, the mypy version and the config hash.
+      # Mypy's cache is version-bound -- its own docs note the daemon restarts when the config or
+      # mypy version changes -- and inferred types differ per Python version, so a key missing any
+      # of those can serve a stale cache that produces wrong results rather than slow ones.
+      #
+      # mypy's docs also warn that "repeatedly updating cache data incrementally could result in
+      # drift over a long time period". The `nightly-full-type-check` job below exists to counter
+      # that: it runs uncached on a schedule, so a drifted cache cannot hide indefinitely.
+      - name: Cache mypy incremental state
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'requirements/**') }}
+          restore-keys: |
+            mypy-${{ runner.os }}-py${{ matrix.python-version }}-
       - name: Install
         run: |
           python -m pip install --upgrade pip
@@ -40,8 +63,31 @@ jobs:
       - name: README truth
         run: python scripts/ci/readme_truth.py
 
+  # Runs uncached and non-incrementally, on a schedule, because mypy's own documentation warns that
+  # incremental cache data can drift over a long period and recommends periodic full rebuilds. A
+  # cached type check that has quietly gone wrong looks exactly like a fast one.
+  nightly-full-type-check:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Type-check with no cache
+        run: python -m mypy --strict --no-incremental --cache-dir=/dev/null dataforge
+
+  # The FAST TRIPWIRE. Deliberately has no `needs:`, so it starts immediately and reports in about a
+  # minute -- the first signal on a push, not the last.
+  #
+  # It used to declare `needs: quality`, which meant a ~1 minute check waited ~5 minutes for a job
+  # whose work it partly duplicated. That is also why it is kept rather than deleted as a duplicate
+  # of `make test`: it is the only job that reports quickly, and a suite subset that reports first
+  # earns its slot even though a later job covers the same tests.
   regression-gate:
-    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,10 +98,16 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -e ".[dev]"
       - name: Existing regression suite MUST NOT break
-        run: pytest tests/regression/ -x -v
+        run: pytest tests/regression/ -x
 
+  # No `needs: quality`. This job took 7m48s and waited ~5 minutes for `quality` first, making the
+  # critical path the SUM of the two rather than the MAX. It is safe to start immediately because it
+  # is self-contained: steps 4 to 9 of the gate run ruff and strict mypy over the same paths
+  # `make lint` and `make type` cover, so nothing it depends on is established only by `quality`.
+  #
+  # The cost of removing the dependency is runner minutes when lint fails. The benefit is that the
+  # longest job starts at t=0. For a gate whose purpose is to report, reporting sooner wins.
   canonical-backend-gate:
-    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +120,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - name: Cache mypy incremental state
+        uses: actions/cache@v4
+        with:
+          path: .mypy_cache
+          key: mypy-${{ runner.os }}-py3.12-gate-${{ hashFiles('pyproject.toml', 'requirements/**') }}
+          restore-keys: |
+            mypy-${{ runner.os }}-py3.12-gate-
       - name: Install frontend deps
         run: npm --prefix playground/web ci
       - name: Install browser deps
