@@ -11,7 +11,7 @@ from scripts.ci import backend_gate
 #: exception cannot be added without a reviewer seeing it here. Adding an entry to
 #: PIP_AUDIT_EXCEPTIONS without updating this list fails the suite, which is the point.
 EXPECTED_AUDIT_EXCEPTIONS = [
-    ("CVE-2025-3000", "torch", date(2026, 10, 14)),
+    ("PYSEC-2026-3716", "datasets", date(2026, 11, 26)),
     ("PYSEC-2026-3609", "pymdown-extensions", date(2026, 11, 8)),
     ("CVE-2026-67422", "pymdown-extensions", date(2026, 11, 8)),
 ]
@@ -26,7 +26,7 @@ def test_pip_audit_exceptions_are_exactly_the_reviewed_set() -> None:
 
 def test_pip_audit_exception_is_structured_and_not_expired() -> None:
     """Every audit exception must remain scoped and time-bounded."""
-    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 7, 16))
+    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 8, 28))
 
     assert errors == []
     expected_args = [
@@ -50,11 +50,16 @@ def test_every_audit_exception_carries_its_justification() -> None:
 
 
 def test_pip_audit_exception_expires_deterministically() -> None:
-    """Expired audit exceptions become release blockers."""
-    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 10, 15))
+    """Expired audit exceptions become release blockers.
+
+    The earliest expiry in the reviewed set is 2026-11-08, so a clock one day past it must
+    produce a blocking error. This is the forcing function that stops an exception becoming
+    a permanent silence: nobody has to remember to revisit it, the gate goes red on its own.
+    """
+    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 11, 9))
 
     assert errors
-    assert "expired on 2026-10-14" in errors[0]
+    assert any("expired on 2026-11-08" in error for error in errors)
 
 
 #: Every npm advisory the gate is allowed to ignore, listed for the same reason as the pip

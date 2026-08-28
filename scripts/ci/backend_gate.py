@@ -132,15 +132,28 @@ class PipAuditException:
 
 PIP_AUDIT_EXCEPTIONS = [
     PipAuditException(
-        vuln_id="CVE-2025-3000",
-        package="torch",
-        scope="optional train/HF-local evaluation extras only",
-        expires_on=date(2026, 10, 14),
+        vuln_id="PYSEC-2026-3716",
+        package="datasets",
+        scope="optional train extra only, and only transitively via trl; dataforge/ imports the "
+        "datasets library zero times, and it is absent from the core, playground and MCP "
+        "runtime surfaces",
+        expires_on=date(2026, 11, 26),
         reason=(
-            "Re-triaged 2026-07-16: pip-audit still reports no fixed version; DataForge "
-            "core, playground, and MCP runtime surfaces do not require Torch."
+            "Triaged 2026-08-28. The advisory is a path traversal in datasets' FOLDER-BASED "
+            "dataset builders: a crafted `file_name` metadata field is joined to the dataset "
+            "directory without validation, letting an attacker-supplied dataset directory read "
+            "arbitrary local files, which are then embedded into output on save_to_disk or "
+            "push_to_hub. That builder is never used here. Every import in this repository is "
+            "`from datasets import Dataset` (11 sites: scripts/remote/kaggle_*.py and "
+            "training/kaggle_*_kernel/*.py), and every construction is Dataset.from_list on "
+            "records already parsed from a local JSONL file -- there is no load_dataset call, no "
+            "imagefolder/audiofolder builder, and therefore no file_name metadata path to "
+            "traverse. CVSS 4.0 also scores UI:A, i.e. it needs a user to actively load a "
+            "hostile dataset directory. The fix is 5.0.1 and is NOT a patch bump: train pins "
+            "datasets==4.8.5 alongside trl==1.4.0 and transformers==5.7.0, so moving to 5.x is a "
+            "deliberate training-stack revalidation rather than something to sweep in here."
         ),
-        upstream_reference="https://github.com/advisories/GHSA-rrmf-rvhw-rf47",
+        upstream_reference="https://github.com/huggingface/datasets/issues/8324",
     ),
     PipAuditException(
         vuln_id="PYSEC-2026-3609",
@@ -166,9 +179,25 @@ PIP_AUDIT_EXCEPTIONS = [
         "core, playground, or MCP runtime",
         expires_on=date(2026, 11, 8),
         reason=(
-            "Triaged 2026-08-08, same package and same blocker as PYSEC-2026-3609: b64 is "
-            "not enabled in docs/mkdocs.yml, and the 11.0.1 fix is blocked by "
-            "mkdocs-material 9.6.23's pymdown-extensions~=10.2 pin."
+            "Triaged 2026-08-08, reason CORRECTED 2026-08-28. It previously read 'same blocker "
+            "as PYSEC-2026-3609: b64 is not enabled', which describes the wrong advisory -- "
+            "this one has nothing to do with b64, so as written it could not be re-verified. "
+            "CVE-2026-67422 (= PYSEC-2026-3654) is an exponential-backtracking ReDoS in four "
+            "inline processors: pymdownx.caret (SUP2), pymdownx.tilde (SUB2), pymdownx.betterem "
+            "(SMART_UNDER_EM2, reached by the default smart_enable='underscore') and "
+            "pymdownx.magiclink (RE_LINK host subexpression). Unlike the b64 issue these fire in "
+            "DEFAULT configuration, so 'not enabled by default' is not the argument. Two "
+            "independent reasons it is not reachable here. First, docs/mkdocs.yml enables only "
+            "admonition, attr_list, md_in_html, toc, pymdownx.details, pymdownx.highlight, "
+            "pymdownx.inlinehilite, pymdownx.snippets and pymdownx.superfences -- none of the "
+            "four, and NOT pymdownx.extra, which would pull in betterem. Second, and the reason "
+            "that survives someone enabling caret later: the impact is denial of service against "
+            "UNTRUSTED Markdown, and mkdocs renders only trusted, repo-authored content at build "
+            "time. The advisory itself concedes 'Most Material/MkDocs usage renders trusted "
+            "author content at build time.' There is no untrusted-input path into this docs "
+            "build. The 11.0.1 fix also remains unreachable: mkdocs-material 9.6.23 requires "
+            "pymdown-extensions~=10.2 (verified from installed metadata), so 11.x cannot be "
+            "installed without upgrading mkdocs-material first."
         ),
         upstream_reference="https://nvd.nist.gov/vuln/detail/CVE-2026-67422",
     ),
