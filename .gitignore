@@ -27,6 +27,12 @@ dist/
 *.egg-info/
 .DS_Store
 .coverage
+# Coverage's parallel mode writes one data file per process as
+# `.coverage.<host>.pid<N>.<random>`, which the bare `.coverage` pattern above does NOT match.
+# Harmless while the suite ran serially; under `-n logical` every worker writes one, so without
+# this a parallel coverage run leaves a dozen untracked files a developer could commit. Found
+# 2026-08-28 by the working-tree integrity guard, which is what it is for.
+.coverage.*
 .ipynb_checkpoints/
 prompt.md
 compat_output.txt

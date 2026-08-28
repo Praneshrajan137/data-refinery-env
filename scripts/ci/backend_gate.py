@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -547,6 +548,85 @@ def _run(
     return False
 
 
+@dataclass(frozen=True)
+class GateCommand:
+    """One command in a concurrent group.
+
+    Attributes:
+        label: The step name. It must match the label the sequential ``_run`` would have used,
+            because ``scripts/ci/gate_population.py`` derives the gate's step list from these
+            literals -- a renamed step reads as a removed step, which is the point.
+        command: argv.
+        cwd: Working directory.
+        optional: Same fail-open semantics as :func:`_run`.
+        timeout_seconds: Same as :func:`_run`.
+    """
+
+    label: str
+    command: list[str]
+    cwd: Path = PROJECT_ROOT
+    optional: bool = False
+    timeout_seconds: int | None = None
+
+
+def _run_captured(spec: GateCommand) -> tuple[bool, str]:
+    """Run one command, returning ``(passed, rendered output)``.
+
+    Output is captured rather than inherited so that concurrent steps do not interleave into an
+    unreadable stream. The cost is that a long step shows nothing until it finishes, which is why
+    the expensive sequential steps still use :func:`_run`.
+    """
+    try:
+        result = subprocess.run(
+            spec.command,
+            cwd=spec.cwd,
+            check=False,
+            timeout=spec.timeout_seconds,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError as exc:
+        verdict = "SKIP" if spec.optional else "FAIL"
+        return spec.optional, f"{verdict} {spec.label}: {exc}"
+    except subprocess.TimeoutExpired:
+        verdict = "SKIP" if spec.optional else "FAIL"
+        return spec.optional, f"{verdict} {spec.label}: timed out after {spec.timeout_seconds}s"
+
+    if result.returncode == 0:
+        return True, f"PASS {spec.label}"
+    body = ((result.stdout or "") + (result.stderr or "")).strip()
+    verdict = "SKIP" if spec.optional else "FAIL"
+    detail = f"{verdict} {spec.label}: command exited {result.returncode}"
+    return spec.optional, f"{detail}\n{body}" if body else detail
+
+
+def _run_group(group: str, specs: list[GateCommand]) -> list[bool]:
+    """Run mutually independent commands concurrently, preserving result order.
+
+    Threads rather than processes: every unit of work is a ``subprocess.run``, so the GIL is
+    released for the duration and there is nothing to gain from process pools.
+
+    A group is only ever formed from steps that share no state. The orderings that are real and
+    therefore NOT grouped:
+
+    * ``root pytest with coverage`` -> ``critical-path coverage``, because the second reads the
+      ``.coverage`` file the first writes;
+    * ``_clean_package_artifacts()`` -> the five package builds, because it deletes ``build/``,
+      ``dist/`` and every ``*.egg-info``;
+    * the auto-apply mutants, which write mutations into real source files in the working tree and
+      must therefore run with nothing else touching the tree. A concurrent run once left the
+      write-safety allowlist inverted on disk.
+    """
+    print(f"\n==> [{group}] {len(specs)} step(s) concurrently")
+    with ThreadPoolExecutor(max_workers=min(len(specs), (os.cpu_count() or 4))) as pool:
+        rendered = list(pool.map(_run_captured, specs))
+    results: list[bool] = []
+    for passed, output in rendered:
+        print(output)
+        results.append(passed)
+    return results
+
+
 def _secret_scan() -> bool:
     """Scan first-party files for high-confidence secret material."""
     print("\n==> secret scan")
@@ -604,19 +684,35 @@ def main() -> int:
         _coverage_policy_check(),
         _pip_audit_exception_check(),
         _corrector_promotion_gate(),
-        _run("ruff check", [PYTHON, "-m", "ruff", "check", *PYTHON_PATHS]),
-        _run("ruff format --check", [PYTHON, "-m", "ruff", "format", "--check", *PYTHON_PATHS]),
-        _run("strict mypy", [PYTHON, "-m", "mypy", "--strict", *MYPY_PATHS]),
-        _run("side package ruff check", [PYTHON, "-m", "ruff", "check", *SIDE_PACKAGE_PATHS]),
-        _run(
-            "side package ruff format --check",
-            [PYTHON, "-m", "ruff", "format", "--check", *SIDE_PACKAGE_PATHS],
-        ),
-        _run(
-            "side package strict mypy",
-            [PYTHON, "-m", "mypy", "--strict", *SIDE_PACKAGE_MYPY_PATHS],
-        ),
     ]
+    # Static analysis: six mutually independent commands over disjoint path sets, none of which
+    # writes anything. Grouped 2026-08-28. Sequentially this was six cold interpreter starts plus
+    # two full mypy passes back to back.
+    checks.extend(
+        _run_group(
+            "static analysis",
+            [
+                GateCommand("ruff check", [PYTHON, "-m", "ruff", "check", *PYTHON_PATHS]),
+                GateCommand(
+                    "ruff format --check",
+                    [PYTHON, "-m", "ruff", "format", "--check", *PYTHON_PATHS],
+                ),
+                GateCommand("strict mypy", [PYTHON, "-m", "mypy", "--strict", *MYPY_PATHS]),
+                GateCommand(
+                    "side package ruff check",
+                    [PYTHON, "-m", "ruff", "check", *SIDE_PACKAGE_PATHS],
+                ),
+                GateCommand(
+                    "side package ruff format --check",
+                    [PYTHON, "-m", "ruff", "format", "--check", *SIDE_PACKAGE_PATHS],
+                ),
+                GateCommand(
+                    "side package strict mypy",
+                    [PYTHON, "-m", "mypy", "--strict", *SIDE_PACKAGE_MYPY_PATHS],
+                ),
+            ],
+        )
+    )
     # Trust invariants run UNCONDITIONALLY -- they must never be skippable, even
     # under --skip-full-tests, because they enforce the product's core guarantee
     # (no corruption; fail-closed N-version verification; reversible; honest
@@ -639,10 +735,20 @@ def main() -> int:
                     "--cov=dataforge",
                     "--cov-report=term-missing",
                     "-x",
-                    "-v",
                 ],
             )
         )
+        # Sequential, and NOT grouped with the step above: this reads the .coverage file that
+        # step writes.
+        #
+        # This step deliberately does NOT get `-n logical`, and that is a measured decision
+        # rather than an oversight. Parallel coverage was 48-60s against 126s serial, but the
+        # reported TOTAL moved across three runs -- 83.73%, 83.75%, 83.76% -- because per-worker
+        # data files are combined. This gate enforces thresholds (82% policy, 88% critical path),
+        # and CI has already failed once at 84.98% against a required 85%. A threshold gate whose
+        # input wobbles run to run is the same defect that made this repo pin its ruff and mypy
+        # versions: a gate that depends on which day it ran is not a gate. The suite's own
+        # parallel run (32s, no coverage) is where the speed was taken instead.
         checks.append(
             _run(
                 "critical-path coverage",
@@ -656,76 +762,132 @@ def main() -> int:
                 ],
             )
         )
+    # Four disjoint package suites in four disjoint working directories, plus the truth checks and
+    # contract checks, none of which writes into the tree. Grouped 2026-08-28. `-v` dropped from
+    # the four pytest steps: under capture it produced thousands of lines nobody reads, and a
+    # failure prints its own output.
     checks.extend(
-        [
-            _run(
-                "MCP pytest with tools coverage",
-                [
-                    PYTHON,
-                    "-m",
-                    "pytest",
-                    "tests",
-                    "--cov=dataforge_mcp.tools",
-                    "--cov-report=term-missing",
-                    "--cov-fail-under=85",
-                    "-v",
-                ],
-                cwd=PROJECT_ROOT / "dataforge-mcp",
-            ),
-            _run(
-                "dataforge_07_evals pytest",
-                [PYTHON, "-m", "pytest", "tests", "-v"],
-                cwd=PROJECT_ROOT / "packages" / "dataforge-evals",
-            ),
-            _run(
-                "dataforge_07_agent_patterns pytest",
-                [PYTHON, "-m", "pytest", "tests", "-v"],
-                cwd=PROJECT_ROOT / "packages" / "dataforge-agent-patterns",
-            ),
-            _run(
-                "dataforge_07_dbt pytest",
-                [PYTHON, "-m", "pytest", "integration_tests", "-v"],
-                cwd=PROJECT_ROOT / "packages" / "dataforge-dbt",
-            ),
-            _run("README truth", [PYTHON, "scripts/ci/readme_truth.py"]),
-            _run("benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]),
-            _run("docs truth", [PYTHON, "scripts/ci/docs_truth.py", "--check"]),
-            # Added 2026-08-26. Every guard on the write path is pinned by a mutant here, and
-            # until now nothing ran it: `make mutation` runs mutmut over `dataforge/`, and this
-            # hand-written suite was orphaned. All 17 mutants were killed on first invocation, so
-            # the gate was correct and merely unreachable -- the failure mode that let
-            # `type_mismatch` keep a bypass it had not earned is the same shape as a guard whose
-            # mutant nobody plants.
-            _run("auto-apply guard mutants", [PYTHON, "scripts/ci/mutate_autoapply_guards.py"]),
-            _run(
-                "vocabulary projection",
-                [PYTHON, "scripts/ci/generate_domain_vocabulary.py", "--check"],
-            ),
-            # Added 2026-08-28, with the performance work, and load-bearing for it. Making a gate
-            # faster and making it check less are indistinguishable from the outside: reordering,
-            # parallelising and deduplicating steps all reduce wall clock and all can reduce
-            # coverage while still exiting 0. This pins the population -- pytest node ids, gate
-            # step names, mutant ids and their test paths, claim ids, scanned documents -- so a
-            # shrinking gate has to be an explicit, explained edit rather than a side effect.
-            _run("gate population", [PYTHON, "scripts/ci/gate_population.py", "--check"]),
-            # Keeps the mapped inner loop fast. A module with no mapping falls back to the full
-            # suite, so a gap costs speed rather than correctness; this only stops the gap growing
-            # silently, and deliberately does not force mappings to be invented in bulk.
-            _run("test map coverage", [PYTHON, "scripts/ci/test_map_coverage.py", "--check"]),
-            _run("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
-            _run(
-                "release doctor",
-                [PYTHON, "-m", "dataforge", "release", "doctor", "--core", "--json"],
-            ),
-            _run(
-                "docs strict build",
-                [PYTHON, "-m", "mkdocs", "build", "-f", "docs/mkdocs.yml", "--strict"],
-            ),
-            _run("playground build", [NPM, "--prefix", "playground/web", "run", "build"]),
-            _run("playground test", [NPM, "--prefix", "playground/web", "run", "test"]),
-            _secret_scan(),
-        ]
+        _run_group(
+            "side package suites and truth checks",
+            [
+                GateCommand(
+                    "MCP pytest with tools coverage",
+                    [
+                        PYTHON,
+                        "-m",
+                        "pytest",
+                        "tests",
+                        "--cov=dataforge_mcp.tools",
+                        "--cov-report=term-missing",
+                        "--cov-fail-under=85",
+                    ],
+                    cwd=PROJECT_ROOT / "dataforge-mcp",
+                ),
+                GateCommand(
+                    "dataforge_07_evals pytest",
+                    [PYTHON, "-m", "pytest", "tests"],
+                    cwd=PROJECT_ROOT / "packages" / "dataforge-evals",
+                ),
+                GateCommand(
+                    "dataforge_07_agent_patterns pytest",
+                    [PYTHON, "-m", "pytest", "tests"],
+                    cwd=PROJECT_ROOT / "packages" / "dataforge-agent-patterns",
+                ),
+                GateCommand(
+                    "dataforge_07_dbt pytest",
+                    [PYTHON, "-m", "pytest", "integration_tests"],
+                    cwd=PROJECT_ROOT / "packages" / "dataforge-dbt",
+                ),
+                GateCommand("README truth", [PYTHON, "scripts/ci/readme_truth.py"]),
+                GateCommand(
+                    "benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]
+                ),
+                GateCommand("docs truth", [PYTHON, "scripts/ci/docs_truth.py", "--check"]),
+                GateCommand(
+                    "vocabulary projection",
+                    [PYTHON, "scripts/ci/generate_domain_vocabulary.py", "--check"],
+                ),
+                # Added 2026-08-28, with the performance work, and load-bearing for it. Making a
+                # gate faster and making it check less are indistinguishable from the outside:
+                # reordering, parallelising and deduplicating steps all reduce wall clock and all
+                # can reduce coverage while still exiting 0. This pins the population -- pytest
+                # node ids, gate step names, mutant ids and their test paths, claim ids, scanned
+                # documents -- so a shrinking gate has to be an explicit, explained edit rather
+                # than a side effect.
+                GateCommand(
+                    "gate population", [PYTHON, "scripts/ci/gate_population.py", "--check"]
+                ),
+                # Keeps the mapped inner loop fast. A module with no mapping falls back to the
+                # full suite, so a gap costs speed rather than correctness; this only stops the
+                # gap growing silently, and deliberately does not force mappings to be invented
+                # in bulk.
+                GateCommand(
+                    "test map coverage", [PYTHON, "scripts/ci/test_map_coverage.py", "--check"]
+                ),
+                GateCommand(
+                    "attestation vector projection",
+                    [PYTHON, "scripts/ci/generate_attestation_vectors.py", "--check"],
+                ),
+                # Read-only: builds attestations in memory and runs a vector suite, writing
+                # nothing into the tree, so it is safe in a concurrent group. Its two siblings
+                # that DO write source files are run sequentially further down.
+                GateCommand(
+                    "attestation conformance",
+                    [PYTHON, "scripts/ci/attestation_conformance.py", "--check"],
+                ),
+                GateCommand("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
+                GateCommand(
+                    "release doctor",
+                    [PYTHON, "-m", "dataforge", "release", "doctor", "--core", "--json"],
+                ),
+                GateCommand(
+                    "docs strict build",
+                    [PYTHON, "-m", "mkdocs", "build", "-f", "docs/mkdocs.yml", "--strict"],
+                ),
+            ],
+        )
     )
+    # ALL THREE mutation harnesses run here, SEQUENTIALLY AND ALONE, and that is not stylistic.
+    # Each one writes a mutation into a real source file in the working tree and restores it in a
+    # `finally`. Two concurrent runs once raced on dataforge/engine/repair.py and left the
+    # write-safety allowlist INVERTED on disk (`not in` had become `in`), found only because
+    # someone read `git status` before staging.
+    #
+    # I first placed the two newly-wired harnesses in the concurrent group above and caught it
+    # here: they would have raced each other, the auto-apply mutants, AND the four pytest runs
+    # sharing that group -- reproducing the exact defect this work exists to prevent, three times
+    # over. Wiring up an orphaned gate and parallelising are safe changes individually and not
+    # together.
+    #
+    # There is also no speed argument for isolating these into worktrees: the auto-apply harness
+    # measures 47.4s for a green baseline plus 18 mutants. Sequential here is a correctness
+    # choice that costs almost nothing.
+    #
+    # The two vocabulary/corpus harnesses ran pytest and were invoked by NOTHING before
+    # 2026-08-28 -- they appeared only in the Makefile's mypy argument list, so they were
+    # type-checked and never executed. That is the same orphaned-gate defect fixed for
+    # mutate_autoapply_guards.py on 2026-08-26 and never generalised to its siblings.
+    checks.append(
+        _run("auto-apply guard mutants", [PYTHON, "scripts/ci/mutate_autoapply_guards.py"])
+    )
+    checks.append(
+        _run("domain vocabulary mutants", [PYTHON, "scripts/ci/mutate_domain_vocabulary.py"])
+    )
+    checks.append(
+        _run("adversarial corpus mutants", [PYTHON, "scripts/ci/mutate_adversarial_corpus.py"])
+    )
+    checks.extend(
+        _run_group(
+            "playground",
+            [
+                GateCommand(
+                    "playground build", [NPM, "--prefix", "playground/web", "run", "build"]
+                ),
+                GateCommand("playground test", [NPM, "--prefix", "playground/web", "run", "test"]),
+            ],
+        )
+    )
+    checks.append(_secret_scan())
 
     pip_audit_optional = not (
         args.require_optional or os.environ.get("DATAFORGE_REQUIRE_PIP_AUDIT")

@@ -48,16 +48,21 @@ MANIFEST = PROJECT_ROOT / "eval" / "results" / "gate_population.json"
 #: Parsed rather than imported, for the reason given in the module docstring.
 BACKEND_GATE = PROJECT_ROOT / "scripts" / "ci" / "backend_gate.py"
 
-#: The helper whose first positional argument is a gate step's human-readable name.
-STEP_CALLEE: Final[str] = "_run"
+#: Helpers whose first positional argument is a gate step's human-readable name. ``_run`` runs a
+#: step sequentially; ``GateCommand`` declares one for a concurrent group. Both must be read, and
+#: this is why: when steps were moved into concurrent groups on 2026-08-28 the ``_run``-only parse
+#: reported 21 steps REMOVED. Nothing had stopped being checked -- only the constructor changed --
+#: but the manifest is supposed to be unable to tell the difference between "moved" and "deleted",
+#: so it correctly refused. Teaching it the second form is the fix; re-emitting over the alarm
+#: would have been the mistake, and would have hidden a real deletion the next time.
+STEP_CALLEES: Final[tuple[str, ...]] = ("_run", "GateCommand")
 
 
 def _step_names(source: Path) -> list[str]:
-    """Return every ``_run("<name>", ...)`` label declared in ``source``.
+    """Return every gate step label declared in ``source``.
 
-    Reads the declaration instead of the execution. A step whose name is built dynamically
-    would be invisible here, so :func:`_assert_no_dynamic_steps` refuses that shape rather
-    than silently under-reporting.
+    Reads the declaration instead of the execution. A step whose name is built dynamically would
+    be invisible here, so a non-literal first argument raises rather than being silently omitted.
     """
     tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
     names: list[str] = []
@@ -65,7 +70,7 @@ def _step_names(source: Path) -> list[str]:
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        if not isinstance(func, ast.Name) or func.id != STEP_CALLEE:
+        if not isinstance(func, ast.Name) or func.id not in STEP_CALLEES:
             continue
         if not node.args:
             continue
@@ -74,7 +79,7 @@ def _step_names(source: Path) -> list[str]:
             names.append(first.value)
         else:
             raise ValueError(
-                f"{source.name}:{node.lineno}: {STEP_CALLEE}() called with a non-literal step "
+                f"{source.name}:{node.lineno}: {func.id}() called with a non-literal step "
                 "name. The population manifest derives step names statically, so a computed "
                 "name would be omitted from the manifest while still running in the gate."
             )

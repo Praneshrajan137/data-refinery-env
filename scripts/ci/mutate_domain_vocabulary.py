@@ -175,6 +175,18 @@ def main() -> int:
 
     survivors: list[str] = []
     for mutant in MUTANTS:
+        # TWO reads, deliberately. `read_text` applies universal-newline translation, so a working
+        # copy stored with CRLF is matched by anchors written with "\n" -- that is why the
+        # anchors below are "\n"-terminated and why they work. `read_bytes` captures the file
+        # exactly as it is on disk so the restore is byte-identical.
+        #
+        # Restoring via `write_text(..., newline="")` is NOT a round trip: it emits LF where the
+        # file was CRLF, leaving the tree "modified" with an empty content diff. Worse, it made
+        # this harness state-dependent -- a first run on a fresh CRLF checkout would match, write
+        # LF, and every later run saw LF -- so a genuinely stale anchor could pass on the second
+        # run and fail on the first. That phantom-modification state is also exactly where a real
+        # leftover mutation would hide.
+        original_bytes = mutant.path.read_bytes()
         original = mutant.path.read_text(encoding="utf-8")
         mutated = mutant.apply(original)
         if mutated == original:
@@ -190,7 +202,7 @@ def main() -> int:
             else:
                 print(f"killed    {mutant.name} [{mutant.runner}]")
         finally:
-            mutant.path.write_text(original, encoding="utf-8", newline="")
+            mutant.path.write_bytes(original_bytes)
 
     for runner in RUNNERS:
         code, output = run(runner)

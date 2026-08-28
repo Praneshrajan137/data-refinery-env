@@ -91,9 +91,24 @@ MUTANTS: tuple[Mutant, ...] = (
         name="authority is granted over every column",
         defence="column-scoped authority",
         path=REPAIR,
+        # Anchor refreshed 2026-08-28. It had read `covered: set[str] = set(schema.columns)`,
+        # which no longer exists: `authoritative_columns` was narrowed to cover a column only
+        # when the schema declares a DISCRIMINATING type for it. So the mutant was a NO-OP and
+        # reported as a survivor -- "the corpus does not actually test the gate" -- when in fact
+        # the corpus was never given a mutation to notice. Nobody saw it because this harness was
+        # invoked by nothing: it appeared only in the Makefile's mypy argument list, so it was
+        # type-checked and never run. Found the day it was wired into the backend gate.
+        #
+        # The anchor is deliberately a SINGLE LINE, like its three siblings. A multi-line anchor
+        # written with "\n" does not match a working copy stored with CRLF, and the resulting
+        # NO-OP is indistinguishable from a real survivor. My first attempt made exactly that
+        # mistake and appeared to pass, because an earlier run had left the file LF-terminated.
+        #
+        # `bool(declared)` covers every declared column, including a bare `str`, which is the
+        # absence of a type rather than a constraint -- the precise defect the narrowing fixed.
         apply=lambda s: s.replace(
-            "covered: set[str] = set(schema.columns)",
-            "covered: set[str] = {'id', 'city', 'state', 'zip', 'score'}  # mutated",
+            "if type_discriminates(declared)",
+            "if bool(declared)  # mutated",
         ),
     ),
 )
@@ -119,6 +134,17 @@ def main() -> int:
 
     survivors: list[str] = []
     for mutant in MUTANTS:
+        # TWO reads, deliberately. `read_text` applies universal-newline translation, so anchors
+        # written with "\n" match a working copy stored with CRLF. `read_bytes` captures the file
+        # exactly as it is on disk so the restore is byte-identical.
+        #
+        # Restoring via `write_text(..., newline="")` is NOT a round trip: it emits LF where the
+        # file was CRLF, leaving the tree "modified" with an empty content diff. Worse, it made
+        # this harness state-dependent -- a first run on a fresh CRLF checkout wrote LF, and every
+        # later run then saw LF -- so a multi-line anchor could fail on the first run and pass on
+        # the second. That phantom-modification state is also exactly where a real leftover
+        # mutation would hide.
+        original_bytes = mutant.path.read_bytes()
         original = mutant.path.read_text(encoding="utf-8")
         mutated = mutant.apply(original)
         if mutated == original:
@@ -134,7 +160,7 @@ def main() -> int:
             else:
                 print(f"killed    {mutant.name}")
         finally:
-            mutant.path.write_text(original, encoding="utf-8", newline="")
+            mutant.path.write_bytes(original_bytes)
 
     code, output = _run()
     if code != 0:
