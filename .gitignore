@@ -1,8 +1,19 @@
 ﻿__pycache__/
 *.pyc
-.venv/
+# Virtualenvs and tool caches, matched as a CLASS at any depth rather than named one
+# by one. The narrow ".venv/" + ".audit-venv/" pair let 1.1 GB accumulate unseen in
+# sibling and nested environments (dataforge-dbt/.venv, dataforge-dbt/.venv-dbt,
+# dataforge-evals/.venv, .venv_bench, plus four nested .mypy_cache trees). Enumerating
+# the ones that existed could never catch the next one somebody creates.
+.venv*/
+**/.venv*/
+venv/
 .audit-venv/
 .env
+**/.pytest_cache/
+**/.hypothesis/
+**/.mypy_cache/
+**/.ruff_cache/
 .pytest_cache/
 .hypothesis/
 .mypy_cache/
