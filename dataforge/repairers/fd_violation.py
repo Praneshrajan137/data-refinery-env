@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, TypedDict
 
 from dataforge.detectors.base import FunctionalDependency, Issue, Schema
 from dataforge.repairers.base import ProposedFix, ProvenanceLiteral, RetryContext
-from dataforge.table import TableLike, cell_value, column_names, row_count
+from dataforge.table import TableLike, cell_value, column_names, column_values, row_count
 from dataforge.transactions.log import sha256_bytes
 from dataforge.transactions.txn import CellFix
 
@@ -120,21 +120,36 @@ class FDViolationRepairer:
         row_index: int,
         fd: FunctionalDependency,
     ) -> list[dict[str, str]] | None:
-        """Return the determinant group containing the issue row."""
+        """Return the determinant group containing the issue row.
+
+        This is the hot loop of FD repair. An FD violation flags EVERY row of the violating
+        group, so the number of flags grows with the number of rows, and each flag ran a full
+        O(rows) scan here -- which is where the measured quadratic behaviour comes from. Two
+        constant-factor defects were fixed on 2026-08-28 without changing what it returns:
+
+        * ``column_names(df)`` was evaluated INSIDE the generator expression below, so it was
+          rebuilt once per required column, each time allocating a fresh list of every column
+          name. It is now computed once, as a set.
+        * the scan called ``cell_value(df, row, column)`` per cell, a method-call chain per
+          value. Each required column is now materialised once into a list and the scan indexes
+          those lists, which moves the per-cell work into C.
+
+        The returned rows, their order, and the None cases are unchanged; only the cost is.
+        """
         required_columns = [*fd.determinant, fd.dependent]
-        if any(column not in column_names(df) for column in required_columns):
+        available = set(column_names(df))
+        if any(column not in available for column in required_columns):
             return None
 
-        determinant_values = {
-            column: cell_value(df, row_index, column) for column in fd.determinant
-        }
+        columns_data = {column: column_values(df, column) for column in required_columns}
+        determinant_probes = [
+            (columns_data[column], columns_data[column][row_index]) for column in fd.determinant
+        ]
         group_rows: list[dict[str, str]] = []
         for row in range(row_count(df)):
-            if all(
-                cell_value(df, row, column) == value for column, value in determinant_values.items()
-            ):
+            if all(values[row] == expected for values, expected in determinant_probes):
                 group_rows.append(
-                    {column: cell_value(df, row, column) for column in required_columns}
+                    {column: columns_data[column][row] for column in required_columns}
                 )
         if not group_rows:
             return None

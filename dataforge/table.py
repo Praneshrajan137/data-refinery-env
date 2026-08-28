@@ -85,6 +85,12 @@ class Table:
 
     def __init__(self, columns: Sequence[str], rows: Iterable[dict[str, object]]) -> None:
         self._columns = [str(column) for column in columns]
+        # Membership is checked on EVERY cell read and write. `column not in self._columns` is a
+        # linear scan of a list, so at 100 columns it cost 100 string comparisons to fetch one
+        # value -- and it multiplied every per-row loop in the detectors, the repairers and both
+        # verifiers. The set is derived from the same list in the same place, so the two cannot
+        # disagree; `_columns` is kept because CSV column ORDER is part of the output contract.
+        self._column_set = frozenset(self._columns)
         self._rows: list[dict[str, str]] = [
             {
                 column: "" if row.get(column) is None else str(row.get(column, ""))
@@ -120,12 +126,12 @@ class Table:
 
     def __getitem__(self, key: str | list[str] | tuple[str, ...]) -> ColumnView | Table:
         if isinstance(key, str):
-            if key not in self._columns:
+            if key not in self._column_set:
                 raise KeyError(key)
             return ColumnView([row.get(key, "") for row in self._rows])
         columns = [str(column) for column in key]
         for column in columns:
-            if column not in self._columns:
+            if column not in self._column_set:
                 raise KeyError(column)
         return Table(
             columns, ({column: row.get(column, "") for column in columns} for row in self._rows)
@@ -141,13 +147,13 @@ class Table:
 
     def cell(self, row: int, column: str) -> str:
         """Return a cell value."""
-        if column not in self._columns:
+        if column not in self._column_set:
             raise KeyError(column)
         return self._rows[row].get(column, "")
 
     def set_cell(self, row: int, column: str, value: object) -> None:
         """Set a cell value after validating the column."""
-        if column not in self._columns:
+        if column not in self._column_set:
             raise KeyError(column)
         self._rows[row][column] = "" if value is None else str(value)
 
