@@ -96,3 +96,36 @@ server defaults to `stdio`, with `streamable-http` opt-in).
   patched and the fix is on `main`; Dependabot's internal scan state was not inspected.
 - **`mkdocs-material` 9.6.23 compatibility with `pymdown-extensions` 11.0.0 was not
   resolved**, so action 6 may break the docs build.
+
+## Re-confirmed 2026-08-27, and the same conclusion held
+
+`scripts/ci/backend_gate.py --require-optional` failed on `pip-audit` and nothing else — every
+other step, including all five package builds and the release gate, passed. The advisories were
+pillow (9), sqlparse (4), pymdown-extensions (2), setuptools, pip and torch. Checked package by
+package against `uv.lock` rather than acted on:
+
+| Package | Installed in `.venv` | `uv.lock` pins | Advisory wants | Reading |
+| --- | --- | --- | --- | --- |
+| pillow | 12.2.0 | **12.3.0** | 12.3.0 | lock already patched; venv stale |
+| setuptools | 81.0.0 | **83.0.0** | 83.0.0 | lock already patched; venv stale |
+| torch | 2.12.0 | **2.13.0** | 2.13.0 | lock already patched; venv stale |
+| sqlparse | 0.5.4 | *absent* | 0.6.0 | stray ad-hoc install, not a project dependency |
+| pymdown-extensions | 10.21.3 | *absent* | 11.0.0 | stray ad-hoc install, as recorded above |
+| pip | 26.1.2 | 26.1.2 | 26.2 | the installer, not a dependency of the product |
+
+So the finding is still **the environment, not the project**: for the three packages that are
+genuinely locked, the lockfile already carries the patched version the advisory asks for, and
+the two that look worst are not in the lockfile at all. Action 1 above — re-sync `.venv` to
+`uv.lock` — remains the correct and only response. No pin was changed on 2026-08-27, because
+changing a pin to satisfy an advisory that the lockfile already satisfies would encode a fix
+for a problem the project does not have.
+
+Deliberately not done in the same pass: the `uv sync` itself. It would rebuild the interpreter
+that every measurement in this cleanup was verified against, so it belongs in its own change
+with its own before/after, not bundled into a deletion sweep.
+
+Note on `.github/dependabot.yml`: it was **deleted** on 2026-08-27. It declared six ecosystems
+and then set `open-pull-requests-limit: 0` on every one, so it raised no version-update PRs at
+all while looking like dependency monitoring. Dependabot *security alerts* are a repository
+setting rather than a manifest file, so the alert stream this document triages is unaffected by
+that deletion.
