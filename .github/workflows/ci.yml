@@ -128,6 +128,13 @@ jobs:
           print(f"Validated test_map.json for {len(mapped_files)} mapped source file(s).")
           PY
 
+      # The schema check above proves every mapped path exists. This proves the converse: that
+      # every module has a mapping DECISION, so the gap between the fast path and the full suite
+      # cannot widen unnoticed. Both directions are needed -- valid entries say nothing about
+      # missing ones.
+      - name: Every dataforge module has a mapping decision
+        run: python scripts/ci/test_map_coverage.py --check
+
   playground-smoke:
     runs-on: ubuntu-latest
     steps:

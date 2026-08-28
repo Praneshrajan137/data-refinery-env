@@ -13,3 +13,28 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
+
+  # Type-check the staged files through the mypy DAEMON rather than a cold `mypy` process.
+  # The daemon keeps program state in memory and tracks dependencies finely, which is what makes
+  # a per-commit type check affordable at all -- `make type` covers 178 files and is a CI-scale
+  # cost, not a commit-scale one.
+  #
+  # `language: system` is required, not stylistic: the standard `mirrors-mypy` hook runs `mypy` in
+  # its own isolated environment, which both misses this project's dependencies and gets no
+  # daemon reuse, so it would be slower AND check less than the gate it pre-empts.
+  #
+  # Two upstream caveats worth knowing before relying on this: one daemon serves one source-file
+  # set at a time, so switching between repos restarts it; and mypy's docs note the daemon CLI
+  # "may change in future mypy releases". `--timeout` stops it outliving the session. This hook is
+  # a fast signal, NOT a replacement for `make type` -- it checks staged files, the gate checks
+  # the whole declared surface.
+  - repo: local
+    hooks:
+      - id: dmypy
+        name: mypy (daemon, staged files)
+        entry: dmypy run --timeout 3600 -- --strict
+        language: system
+        types: [python]
+        require_serial: true
+        # Mirrors pyproject's mypy exclude: these trees are not type-checked at all.
+        exclude: '^(training|playground|\.hf-space-repo|\.hf-space-stage|\.hf-space-stage-plan)/'

@@ -701,6 +701,17 @@ def main() -> int:
                 "vocabulary projection",
                 [PYTHON, "scripts/ci/generate_domain_vocabulary.py", "--check"],
             ),
+            # Added 2026-08-28, with the performance work, and load-bearing for it. Making a gate
+            # faster and making it check less are indistinguishable from the outside: reordering,
+            # parallelising and deduplicating steps all reduce wall clock and all can reduce
+            # coverage while still exiting 0. This pins the population -- pytest node ids, gate
+            # step names, mutant ids and their test paths, claim ids, scanned documents -- so a
+            # shrinking gate has to be an explicit, explained edit rather than a side effect.
+            _run("gate population", [PYTHON, "scripts/ci/gate_population.py", "--check"]),
+            # Keeps the mapped inner loop fast. A module with no mapping falls back to the full
+            # suite, so a gap costs speed rather than correctness; this only stops the gap growing
+            # silently, and deliberately does not force mappings to be invented in bulk.
+            _run("test map coverage", [PYTHON, "scripts/ci/test_map_coverage.py", "--check"]),
             _run("OpenAPI drift", [PYTHON, "scripts/ci/openapi_contract.py", "--check"]),
             _run(
                 "release doctor",

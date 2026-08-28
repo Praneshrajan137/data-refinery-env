@@ -24,6 +24,9 @@ _ALWAYS_COLLECT: tuple[str, ...] = (
 _BENCH_COLLECT: tuple[str, ...] = ("benchmark_tests",)
 _ALL_KNOWN_KEYS: frozenset[str] = frozenset(_ALWAYS_COLLECT + _BENCH_COLLECT)
 _PYTEST_CMD: tuple[str, ...] = (sys.executable, "-m", "pytest")
+#: The full suite is the fallback whenever a mapping is absent or empty, so it runs parallel.
+#: This is why a gap in the map costs speed and not correctness.
+_FULL_SUITE: tuple[str, ...] = ("tests/", "-x", "-n", "logical")
 
 
 def _validate_paths(tests: list[str]) -> list[str]:
@@ -92,7 +95,7 @@ def main(changed_file: str, *, include_bench: bool = False, validate_only: bool 
     entry = mapping.get(changed_file)
     if entry is None:
         print(f"WARN: no mapping for {changed_file} - running full suite.")
-        return subprocess.call([*_PYTEST_CMD, "tests/", "-x"])
+        return subprocess.call([*_PYTEST_CMD, *_FULL_SUITE])
 
     if not isinstance(entry, dict):
         print(f"ERROR: mapping for {changed_file} must be an object.", file=sys.stderr)
@@ -110,7 +113,7 @@ def main(changed_file: str, *, include_bench: bool = False, validate_only: bool 
 
     if not tests:
         print(f"WARN: mapping for {changed_file} has no test files - running full suite.")
-        return subprocess.call([*_PYTEST_CMD, "tests/", "-x"])
+        return subprocess.call([*_PYTEST_CMD, *_FULL_SUITE])
 
     missing = _validate_paths(tests)
     if validate_only:
@@ -131,7 +134,10 @@ def main(changed_file: str, *, include_bench: bool = False, validate_only: bool 
     print(f"Running {len(existing_tests)} mapped test file(s) for {changed_file}:")
     for test_path in existing_tests:
         print(f"  - {test_path}")
-    return subprocess.call([*_PYTEST_CMD, *existing_tests, "-x", "-v"])
+    # No -v: this is the inner loop, and the point is the summary line, not 2,000 lines of
+    # scrollback. Serial rather than -n: xdist worker startup is not repaid by a handful of
+    # files, and this path exists to be the fastest one.
+    return subprocess.call([*_PYTEST_CMD, *existing_tests, "-x"])
 
 
 if __name__ == "__main__":

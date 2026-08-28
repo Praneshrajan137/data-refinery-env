@@ -11,7 +11,7 @@ ifndef PYTHON
 PYTHON := $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),python)
 endif
 
-.PHONY: help setup setup-all lint format type test test-serial test-mapped frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage bench bench-free mutation clean lock uv-lock
+.PHONY: help setup setup-all lint format type test test-serial test-mapped test-map-check gate-population frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage bench bench-free mutation clean lock uv-lock
 
 help:
 	@echo "DataForge dev targets"
@@ -22,7 +22,9 @@ help:
 	@echo "  type          Run mypy --strict on core + shipped Python paths"
 	@echo "  test          Run the full test suite in parallel"
 	@echo "  test-serial   Run the full test suite serially (for --pdb / -s debugging)"
-	@echo "  test-mapped   Run tests for a changed source file (FILE=path)"
+	@echo "  test-mapped   Run tests for a changed source file (FILE=path) -- the inner loop"
+	@echo "  test-map-check Verify every dataforge module has a mapping decision"
+	@echo "  gate-population Verify no gate quietly stopped checking something"
 	@echo "  frontend-gate Run Vite typecheck, unit tests, build budget, and Playwright"
 	@echo "  backend-gate  Run the canonical backend release-quality gate"
 	@echo "  release-gate  Build, audit, offline-install, and smoke-test the wheel"
@@ -48,6 +50,7 @@ lint:
 	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
 	$(PYTHON) scripts/ci/generate_domain_vocabulary.py --check
 	$(PYTHON) scripts/ci/generate_attestation_vectors.py --check
+	$(PYTHON) scripts/ci/test_map_coverage.py --check
 
 format:
 	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
@@ -60,7 +63,7 @@ format:
 # is separate work rather than something to bundle into an unrelated change. Stated so the gap is
 # a recorded decision, not an oversight.
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/perf/measure_loop_cost.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
 
 # `-n logical` rather than `-n auto`: this suite is dominated by subprocess launches and file
 # I/O, not CPU, so logical cores are the right unit. `--dist loadgroup` comes from
@@ -78,8 +81,17 @@ test:
 test-serial:
 	$(PYTHON) -m pytest tests/ -x -v -p no:xdist
 
+# The inner loop while editing one file. An unmapped file falls back to the full suite, so this
+# is always safe to reach for; scripts/ci/test_map_coverage.py keeps the gap from growing.
+# Add --hypothesis-profile dev to cut property-test examples from 100 to 10 when iterating.
 test-mapped:
 	$(PYTHON) scripts/test_mapped.py $(FILE)
+
+test-map-check:
+	$(PYTHON) scripts/ci/test_map_coverage.py --check
+
+gate-population:
+	$(PYTHON) scripts/ci/gate_population.py --check
 
 frontend-install:
 	npm --prefix playground/web ci
