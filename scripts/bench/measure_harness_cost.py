@@ -150,9 +150,17 @@ def measure(corpus: str, *, cache_root: Path | None) -> dict[str, Any]:
             # 200,000-row `propose` figure between roughly 1,950 and 2,210 ms. Only these coarsened
             # renderings are safe to bind to prose. Precision must not exceed reproducibility, and a
             # claim ledger built for deterministic counts will happily pin a decimal that noise moves.
-            "propose_seconds_per_flag_rounded": round(largest["propose_seconds_per_call"]),
+            #
+            # A coarse rendering also has to be coarse AT THE RIGHT SCALE. On 2026-08-28 the
+            # repairer got about 6x cheaper, and both of the original roundings collapsed to zero:
+            # `propose_seconds_per_flag_rounded` because a flag now costs ~0.09 s, and
+            # `tax_oracle_days_rounded` because the projection fell from days to hours. A claim
+            # reading "0 seconds" or "0 days" is worse than no claim -- it is false in a direction
+            # that flatters the product. So the millisecond and hour roundings below were added and
+            # the two zero-valued keys retired, rather than binding a zero.
+            "propose_ms_per_flag_rounded": round(largest["propose_seconds_per_call"] * 1000),
             "propose_share": largest["propose_share"],
-            "tax_oracle_days_rounded": round(largest["seconds_per_flag"] * 164718 / 86400),
+            "tax_oracle_hours_rounded": round(largest["seconds_per_flag"] * 164718 / 3600),
         },
         "projection": {
             "tax_oracle_flags": 164718,

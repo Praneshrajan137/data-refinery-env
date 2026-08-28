@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "measured_utc": "2026-08-28T13:20:54Z",
+  "measured_utc": "2026-08-28T15:35:34Z",
   "environment": {
     "python": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
@@ -22,11 +22,11 @@
         0,
         0
       ],
-      "seconds_min": 0.08,
-      "seconds_max": 0.11,
-      "seconds_median": 0.085,
-      "seconds_spread": 0.03,
-      "spread_pct_of_min": 36.9
+      "seconds_min": 0.072,
+      "seconds_max": 0.083,
+      "seconds_median": 0.078,
+      "seconds_spread": 0.011,
+      "spread_pct_of_min": 15.6
     },
     "cli_version": {
       "label": "dataforge --version (full CLI import cost)",
@@ -40,11 +40,11 @@
         0,
         0
       ],
-      "seconds_min": 0.795,
-      "seconds_max": 0.952,
-      "seconds_median": 0.864,
-      "seconds_spread": 0.157,
-      "spread_pct_of_min": 19.8
+      "seconds_min": 0.141,
+      "seconds_max": 0.166,
+      "seconds_median": 0.151,
+      "seconds_spread": 0.025,
+      "spread_pct_of_min": 17.6
     },
     "pytest_collect_only": {
       "label": "pytest collection only (fixed cost of every pytest invocation)",
@@ -56,11 +56,11 @@
         0,
         0
       ],
-      "seconds_min": 6.016,
-      "seconds_max": 6.678,
-      "seconds_median": 6.677,
-      "seconds_spread": 0.662,
-      "spread_pct_of_min": 11.0
+      "seconds_min": 5.36,
+      "seconds_max": 6.182,
+      "seconds_median": 5.818,
+      "seconds_spread": 0.822,
+      "spread_pct_of_min": 15.3
     },
     "suite_serial": {
       "label": "Full suite, serial (the committed default)",
@@ -71,11 +71,11 @@
         0,
         0
       ],
-      "seconds_min": 114.782,
-      "seconds_max": 115.958,
-      "seconds_median": 115.37,
-      "seconds_spread": 1.176,
-      "spread_pct_of_min": 1.0
+      "seconds_min": 110.849,
+      "seconds_max": 111.554,
+      "seconds_median": 111.202,
+      "seconds_spread": 0.705,
+      "spread_pct_of_min": 0.6
     },
     "suite_parallel_logical": {
       "label": "Full suite, -n logical --dist loadgroup",
@@ -86,11 +86,11 @@
         0,
         0
       ],
-      "seconds_min": 35.519,
-      "seconds_max": 35.747,
-      "seconds_median": 35.633,
-      "seconds_spread": 0.228,
-      "spread_pct_of_min": 0.6
+      "seconds_min": 32.358,
+      "seconds_max": 34.465,
+      "seconds_median": 33.412,
+      "seconds_spread": 2.107,
+      "spread_pct_of_min": 6.5
     }
   }
 }

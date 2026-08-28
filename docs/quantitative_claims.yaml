@@ -803,22 +803,41 @@ claims:
     artifact: eval/results/harness_cost.json
     pointer: /stable/propose_share
     format: "{:.0%}"
-    expect: "99%"
-    context: "99% of it"
+    expect: "93%"
+    context: "93% of it"
     note: >-
       The attribution, and the number that matters most here. An inference from process CPU time had
-      charged this cost to the harness helper, which is the other 1 percent.
+      charged this cost to the harness helper, which is the other 7 percent. Was 99% until
+      2026-08-28, when the repairer got about 6x cheaper and the harness helper did not, so the
+      helper's share grew even though its absolute cost fell.
 
-  - id: fd_scalability_days
+  - id: fd_scalability_propose_ms
     doc: docs/trust/fd-repair-scalability.md
     artifact: eval/results/harness_cost.json
-    pointer: /stable/tax_oracle_days_rounded
+    pointer: /stable/propose_ms_per_flag_rounded
     format: "{:d}"
-    expect: "4"
-    context: "days for the"
+    expect: "100"
+    context: "milliseconds per flag"
     note: >-
-      Replaces Amendment 1's twenty-minute estimate. Days rather than hours because hours do not
-      survive a re-run.
+      Added 2026-08-28, replacing fd_scalability_seconds. The original bound
+      /stable/propose_seconds_per_flag_rounded, which read 2 and now rounds to 0. A coarse
+      rendering has to be coarse at the RIGHT SCALE: "0 seconds" is false in the direction that
+      flatters the product. Milliseconds are the scale this measurement now supports.
+
+  - id: fd_scalability_hours
+    doc: docs/trust/fd-repair-scalability.md
+    artifact: eval/results/harness_cost.json
+    pointer: /stable/tax_oracle_hours_rounded
+    format: "{:d}"
+    expect: "5"
+    context: "hours for the"
+    note: >-
+      Replaces fd_scalability_days, retired 2026-08-28. That claim bound
+      /stable/tax_oracle_days_rounded at 4 days and its own note said "days rather than hours
+      because hours do not survive a re-run". After the repairer got about 6x cheaper the
+      projection fell to under 5 hours, so the days rounding collapsed to 0 -- the unit itself
+      stopped being the honest one. Hours now survive the re-run that days used to: two runs gave
+      4.8 and 4.9.
 
   - id: fd_scalability_tax_flags
     doc: docs/trust/fd-repair-scalability.md
