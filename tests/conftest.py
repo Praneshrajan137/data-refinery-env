@@ -13,16 +13,66 @@ more.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import warnings
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
+from tests.support import tree_integrity
 from tests.support.tables import (
     RepairableTable,
     build_premised_repairable_table,
     build_unpremised_shifted_table,
 )
+
+# A fast profile for the inner loop, REGISTERED BUT NEVER LOADED HERE.
+#
+# Hypothesis ships its own `ci` profile -- `derandomize=True, deadline=None, database=None,
+# print_blob=True` -- and auto-loads it when `is_in_ci()` is true. A `settings.load_profile(...)`
+# call in this file would run afterwards and override that, silently weakening CI while looking
+# like a local convenience. So the profile is only registered; `--hypothesis-profile dev` on the
+# command line does the loading. The suite's 1,030 examples stay at full strength everywhere
+# except when a developer explicitly asks for the fast path.
+try:  # pragma: no cover - absent only if the dev extra is not installed
+    from hypothesis import settings as _hypothesis_settings
+except ImportError:  # pragma: no cover
+    pass
+else:
+    if "dev" not in _hypothesis_settings._profiles:
+        _hypothesis_settings.register_profile("dev", max_examples=10)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def working_tree_is_not_modified() -> Iterator[None]:
+    """Fail the session if any test changed the working tree.
+
+    See ``tests/support/tree_integrity.py`` for why this is a guard rather than a convention.
+    Short version: a ``finally`` that restores a repository file is correct serially, unsafe in
+    parallel, and does not survive a hard kill -- which is how an inverted write-safety allowlist
+    once sat in the working tree undetected.
+
+    Session-scoped, so under ``-n`` each worker checks its own share independently. The
+    comparison is start-versus-end, so a tree that was already dirty is not blamed on a test.
+    """
+    before = tree_integrity.snapshot()
+    yield
+    if before is None:
+        warnings.warn(
+            "Working-tree integrity guard did not run: 'git status' was unavailable. A test "
+            "that writes the repository would not be detected in this session.",
+            stacklevel=1,
+        )
+        return
+    after = tree_integrity.snapshot()
+    if after is None:
+        warnings.warn(
+            "Working-tree integrity guard could not read the final tree state.", stacklevel=1
+        )
+        return
+    problems = tree_integrity.diff(before, after)
+    if problems:
+        raise AssertionError(tree_integrity.failure_message(problems))
 
 
 @pytest.fixture

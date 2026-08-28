@@ -19,19 +19,25 @@ from pathlib import Path
 import pytest
 
 from scripts.ci import docs_truth
+from tests.support.docs_truth_sandbox import build_docs_truth_sandbox
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CHECKER = PROJECT_ROOT / "scripts" / "ci" / "docs_truth.py"
 LEDGER = PROJECT_ROOT / "docs" / "quantitative_claims.yaml"
 
 
-def _run() -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(CHECKER), "--check"],
-        capture_output=True,
-        text=True,
-        cwd=PROJECT_ROOT,
-    )
+def _run(root: Path | None = None) -> subprocess.CompletedProcess[str]:
+    """Run the checker, against a sandbox root when one is given.
+
+    Every divergence test passes a sandbox. Falsifying a file in the real repository would be
+    correct serially and unsafe under ``-n``: two workers can each read ``original`` while the
+    other holds the file falsified, and the second ``finally`` writes the falsified bytes back
+    for good.
+    """
+    argv = [sys.executable, str(CHECKER), "--check"]
+    if root is not None:
+        argv += ["--root", str(root)]
+    return subprocess.run(argv, capture_output=True, text=True, cwd=PROJECT_ROOT)
 
 
 class TestLedgerIsWellFormed:
@@ -66,54 +72,68 @@ class TestCheckerPasses:
         assert result.returncode == 0, f"docs truth check failing:\n{result.stderr}"
         assert "Verified" in result.stdout
 
+    def test_the_sandbox_reproduces_the_committed_verdict(self, tmp_path: Path) -> None:
+        """Non-vacuity for the sandbox itself.
+
+        Every divergence test below asserts that a falsified sandbox *fails*. That is only
+        evidence if an unfalsified sandbox *passes* -- otherwise the failures could come from
+        the sandbox being incomplete, and the tests would pass while proving nothing.
+        """
+        root = build_docs_truth_sandbox(tmp_path / "sandbox")
+
+        result = _run(root)
+
+        assert result.returncode == 0, f"the unfalsified sandbox must pass:\n{result.stderr}"
+        assert "Verified" in result.stdout
+
 
 class TestCheckerDetectsDivergence:
     """Both directions of divergence must fail: artifact drift and prose falsification."""
 
-    def test_artifact_drift_is_detected(self) -> None:
-        artifact = PROJECT_ROOT / "eval" / "results" / "free_vs_llm_ranker.json"
+    def test_artifact_drift_is_detected(self, tmp_path: Path) -> None:
+        root = build_docs_truth_sandbox(tmp_path / "sandbox")
+        artifact = root / "eval" / "results" / "free_vs_llm_ranker.json"
         if not artifact.exists():
             pytest.skip("free ranker artifact not committed")
-        original = artifact.read_bytes()
-        try:
-            payload = json.loads(original.decode("utf-8"))
-            block = payload["regimes"]["default"]["leave_one_dataset_out"]["rayyan"]
-            block["free_transfer_roc_auc"] = 0.95
-            artifact.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-            result = _run()
-            assert result.returncode == 1, "silent artifact drift was not detected"
-            assert "free_ranker_transfer_rayyan" in result.stderr
-        finally:
-            artifact.write_bytes(original)
-        assert _run().returncode == 0, "checker did not recover after restore"
 
-    def test_prose_falsification_is_detected(self) -> None:
-        doc = PROJECT_ROOT / "DECISIONS.md"
-        original = doc.read_bytes()
-        try:
-            doc.write_text(original.decode("utf-8").replace("0.2722", "0.9500"), encoding="utf-8")
-            result = _run()
-            assert result.returncode == 1, "a falsified prose number was not detected"
-            assert "does not state" in result.stderr
-        finally:
-            doc.write_bytes(original)
-        assert _run().returncode == 0, "checker did not recover after restore"
+        payload = json.loads(artifact.read_text(encoding="utf-8"))
+        block = payload["regimes"]["default"]["leave_one_dataset_out"]["rayyan"]
+        block["free_transfer_roc_auc"] = 0.95
+        artifact.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
-    def test_missing_artifact_field_is_detected(self) -> None:
-        artifact = PROJECT_ROOT / "eval" / "results" / "free_vs_llm_ranker.json"
+        result = _run(root)
+
+        assert result.returncode == 1, "silent artifact drift was not detected"
+        assert "free_ranker_transfer_rayyan" in result.stderr
+
+    def test_prose_falsification_is_detected(self, tmp_path: Path) -> None:
+        root = build_docs_truth_sandbox(tmp_path / "sandbox")
+        doc = root / "DECISIONS.md"
+        original = doc.read_text(encoding="utf-8")
+        falsified = original.replace("0.2722", "0.9500")
+        assert falsified != original, "the number under test moved out of DECISIONS.md"
+        doc.write_text(falsified, encoding="utf-8")
+
+        result = _run(root)
+
+        assert result.returncode == 1, "a falsified prose number was not detected"
+        assert "does not state" in result.stderr
+
+    def test_missing_artifact_field_is_detected(self, tmp_path: Path) -> None:
+        root = build_docs_truth_sandbox(tmp_path / "sandbox")
+        artifact = root / "eval" / "results" / "free_vs_llm_ranker.json"
         if not artifact.exists():
             pytest.skip("free ranker artifact not committed")
-        original = artifact.read_bytes()
-        try:
-            payload = json.loads(original.decode("utf-8"))
-            del payload["regimes"]["default"]["leave_one_dataset_out"]["rayyan"][
-                "free_transfer_roc_auc"
-            ]
-            artifact.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-            result = _run()
-            assert result.returncode == 1, "a removed artifact field was not detected"
-        finally:
-            artifact.write_bytes(original)
+
+        payload = json.loads(artifact.read_text(encoding="utf-8"))
+        del payload["regimes"]["default"]["leave_one_dataset_out"]["rayyan"][
+            "free_transfer_roc_auc"
+        ]
+        artifact.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+        result = _run(root)
+
+        assert result.returncode == 1, "a removed artifact field was not detected"
 
 
 class TestShortValuesCannotBeSatisfiedIncidentally:
@@ -234,32 +254,29 @@ class TestShortValuesCannotBeSatisfiedIncidentally:
 
         assert any("never on a line containing" in error for error in errors)
 
-    def test_the_previously_vacuous_claims_are_now_falsifiable(self) -> None:
+    def test_the_previously_vacuous_claims_are_now_falsifiable(self, tmp_path: Path) -> None:
         """The decisive test: contradict a claim that used to pass, and require a failure.
 
         ``line_ending_lf_control`` is the sharpest of the six. Its value is ``0`` and its document
         contains a date, so under the old substring rule the sentence could say any number at all.
         """
-        doc = PROJECT_ROOT / "docs" / "trust" / "apply-rewrites-line-endings.md"
-        original = doc.read_bytes()
-        try:
-            falsified = original.decode("utf-8").replace(
-                "An **LF** source has **0** lines re-terminated",
-                "An **LF** source has **7** lines re-terminated",
-            )
-            assert falsified != original.decode("utf-8"), "the sentence under test moved"
-            doc.write_text(falsified, encoding="utf-8")
+        root = build_docs_truth_sandbox(tmp_path / "sandbox")
+        doc = root / "docs" / "trust" / "apply-rewrites-line-endings.md"
+        original = doc.read_text(encoding="utf-8")
+        falsified = original.replace(
+            "An **LF** source has **0** lines re-terminated",
+            "An **LF** source has **7** lines re-terminated",
+        )
+        assert falsified != original, "the sentence under test moved"
+        doc.write_text(falsified, encoding="utf-8")
 
-            result = _run()
+        result = _run(root)
 
-            assert result.returncode == 1, (
-                "contradicting the LF control arm did not fail the checker; "
-                "Direction B is vacuous again"
-            )
-            assert "line_ending_lf_control" in result.stderr
-        finally:
-            doc.write_bytes(original)
-        assert _run().returncode == 0, "checker did not recover after restore"
+        assert result.returncode == 1, (
+            "contradicting the LF control arm did not fail the checker; "
+            "Direction B is vacuous again"
+        )
+        assert "line_ending_lf_control" in result.stderr
 
 
 class TestCheckerIsWiredIntoCi:

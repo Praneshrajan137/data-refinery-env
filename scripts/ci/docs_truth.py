@@ -49,6 +49,17 @@ Usage::
 
     python scripts/ci/docs_truth.py --check
     python scripts/ci/docs_truth.py --write   # refresh expectations from artifacts
+    python scripts/ci/docs_truth.py --check --root <dir>   # check a sandbox copy
+
+``--root`` exists for this checker's own tests. They must prove that a falsified number fails
+the check, which means something has to write a falsified number somewhere. Until 2026-08-28
+that somewhere was the real repository: four tests wrote ``DECISIONS.md``,
+``eval/results/free_vs_llm_ranker.json`` and ``docs/trust/apply-rewrites-line-endings.md`` and
+restored them in ``finally``. That is correct serially and unsafe in parallel -- two workers can
+each capture ``original`` while the other holds the file falsified, and the second ``finally``
+then writes the falsified bytes back permanently. The same shape (a ``finally`` that cannot
+survive a race or a hard kill) had already left an inverted write-safety allowlist in the working
+tree once. So the root is injectable and the tests operate on a copy.
 """
 
 from __future__ import annotations
@@ -64,11 +75,42 @@ from typing import Any, Final
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LEDGER = PROJECT_ROOT / "docs" / "quantitative_claims.yaml"
 
+#: Path of the ledger relative to the root, so :func:`set_root` cannot drift from the default.
+LEDGER_RELATIVE: Final[str] = "docs/quantitative_claims.yaml"
+
 #: Rendered values at or below this length must declare ``context``. Two characters is not a
 #: tuning knob chosen for a pass rate -- it is the length at which a value stops being
 #: self-identifying in English prose. "0.8519" occurs in a document because someone wrote that
 #: number; "0" and "11" occur in dates, row counts, file names and section numbers.
 CONTEXT_REQUIRED_MAX_LENGTH: Final[int] = 2
+
+
+def set_root(root: Path) -> None:
+    """Point the checker at ``root`` instead of the repository.
+
+    Rebinds both globals together. The ledger path is derived from the root rather than passed
+    separately, so a caller cannot supply a sandbox root while still reading the real ledger --
+    which would look like an isolated check and silently be a partial one.
+    """
+    global PROJECT_ROOT, LEDGER
+    PROJECT_ROOT = root.resolve()
+    LEDGER = PROJECT_ROOT / LEDGER_RELATIVE
+
+
+def claim_paths() -> list[str]:
+    """Return every repo-relative path the ledger reads: each claim's doc and artifact.
+
+    Derived from the ledger, so a sandbox built from this list contains exactly what the checker
+    will look for. A hand-listed subset would make the sandbox pass for the wrong reason -- the
+    checker validates *all* claims on every run, not just the one under test.
+    """
+    paths: set[str] = {LEDGER_RELATIVE}
+    for claim in _load_claims():
+        for field in ("doc", "artifact"):
+            value = claim.get(field)
+            if isinstance(value, str):
+                paths.add(value)
+    return sorted(paths)
 
 
 def _resolve_pointer(payload: Any, pointer: str) -> Any:
@@ -301,7 +343,15 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true", help="Verify prose against artifacts.")
     mode.add_argument("--write", action="store_true", help="Refresh expectations from artifacts.")
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="Check a sandbox copy instead of the repository. Used by this checker's own tests.",
+    )
     args = parser.parse_args(argv)
+    if args.root is not None:
+        set_root(args.root)
     return write() if args.write else check()
 
 

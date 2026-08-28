@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "measured_utc": "2026-08-28T13:20:54Z",
+  "environment": {
+    "python": "3.12.10",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
+    "cpu_count": 12,
+    "executable": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe"
+  },
+  "binding_note": "No value in this artifact is bound to docs/quantitative_claims.yaml. Timings are reported, not bound: the ledger removed its only timing claim on 2026-08-27 after a four-decimal wall clock re-derived 28% higher on the same machine. Quote ranges.",
+  "steps": {
+    "interpreter_floor": {
+      "label": "Bare interpreter start (the floor every subprocess pays)",
+      "group": "imports",
+      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -c pass",
+      "runs": 5,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "seconds_min": 0.08,
+      "seconds_max": 0.11,
+      "seconds_median": 0.085,
+      "seconds_spread": 0.03,
+      "spread_pct_of_min": 36.9
+    },
+    "cli_version": {
+      "label": "dataforge --version (full CLI import cost)",
+      "group": "imports",
+      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m dataforge --version",
+      "runs": 5,
+      "exit_codes": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "seconds_min": 0.795,
+      "seconds_max": 0.952,
+      "seconds_median": 0.864,
+      "seconds_spread": 0.157,
+      "spread_pct_of_min": 19.8
+    },
+    "pytest_collect_only": {
+      "label": "pytest collection only (fixed cost of every pytest invocation)",
+      "group": "suite",
+      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m pytest tests/ --collect-only -q --no-header",
+      "runs": 3,
+      "exit_codes": [
+        0,
+        0,
+        0
+      ],
+      "seconds_min": 6.016,
+      "seconds_max": 6.678,
+      "seconds_median": 6.677,
+      "seconds_spread": 0.662,
+      "spread_pct_of_min": 11.0
+    },
+    "suite_serial": {
+      "label": "Full suite, serial (the committed default)",
+      "group": "suite",
+      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m pytest tests/ -q --no-header",
+      "runs": 2,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "seconds_min": 114.782,
+      "seconds_max": 115.958,
+      "seconds_median": 115.37,
+      "seconds_spread": 1.176,
+      "spread_pct_of_min": 1.0
+    },
+    "suite_parallel_logical": {
+      "label": "Full suite, -n logical --dist loadgroup",
+      "group": "suite",
+      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m pytest tests/ -q --no-header -n logical --dist loadgroup",
+      "runs": 2,
+      "exit_codes": [
+        0,
+        0
+      ],
+      "seconds_min": 35.519,
+      "seconds_max": 35.747,
+      "seconds_median": 35.633,
+      "seconds_spread": 0.228,
+      "spread_pct_of_min": 0.6
+    }
+  }
+}

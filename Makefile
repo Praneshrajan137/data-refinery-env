@@ -11,7 +11,7 @@ ifndef PYTHON
 PYTHON := $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),python)
 endif
 
-.PHONY: help setup setup-all lint format type test test-mapped frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage bench bench-free mutation clean lock uv-lock
+.PHONY: help setup setup-all lint format type test test-serial test-mapped frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage bench bench-free mutation clean lock uv-lock
 
 help:
 	@echo "DataForge dev targets"
@@ -20,7 +20,8 @@ help:
 	@echo "  lint          Run ruff check + ruff format --check"
 	@echo "  format        Auto-fix: ruff format + ruff check --fix"
 	@echo "  type          Run mypy --strict on core + shipped Python paths"
-	@echo "  test          Run the full test suite"
+	@echo "  test          Run the full test suite in parallel"
+	@echo "  test-serial   Run the full test suite serially (for --pdb / -s debugging)"
 	@echo "  test-mapped   Run tests for a changed source file (FILE=path)"
 	@echo "  frontend-gate Run Vite typecheck, unit tests, build budget, and Playwright"
 	@echo "  backend-gate  Run the canonical backend release-quality gate"
@@ -43,14 +44,14 @@ setup-all:
 	$(PYTHON) -m pip install -e ".[all]"
 
 lint:
-	$(PYTHON) -m ruff check dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py playground/api/app.py
-	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
+	$(PYTHON) -m ruff check dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py playground/api/app.py
+	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
 	$(PYTHON) scripts/ci/generate_domain_vocabulary.py --check
 	$(PYTHON) scripts/ci/generate_attestation_vectors.py --check
 
 format:
-	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
-	$(PYTHON) -m ruff check --fix dataforge tests scripts/ci scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
+	$(PYTHON) -m ruff format dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
+	$(PYTHON) -m ruff check --fix dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
 
 # scripts/preflight/check_kaggle_auth.py is type-checked because dataforge/release/doctor.py
 # invokes it for the Kaggle OAuth clean-config check, so it is product-adjacent rather than a
@@ -59,10 +60,23 @@ format:
 # is separate work rather than something to bundle into an unrelated change. Stated so the gap is
 # a recorded decision, not an oversight.
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/perf/measure_loop_cost.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
 
+# `-n logical` rather than `-n auto`: this suite is dominated by subprocess launches and file
+# I/O, not CPU, so logical cores are the right unit. `--dist loadgroup` comes from
+# pyproject.toml addopts.
+#
+# `-v` was removed on 2026-08-28. It printed ~2,400 lines to the console per run, which on a
+# Windows terminal is a measurable share of the wall clock and buries the summary. `-x` is kept,
+# and pytest-xdist is floored at >= 3.8 because early exit under parallelism was only handled
+# correctly from 3.6.1 onward.
 test:
-	$(PYTHON) -m pytest tests/ -x -v
+	$(PYTHON) -m pytest tests/ -x -n logical
+
+# Serial, for reproducing a failure that parallel execution surfaced. xdist disables --pdb and
+# -s, so this is the target to debug with.
+test-serial:
+	$(PYTHON) -m pytest tests/ -x -v -p no:xdist
 
 test-mapped:
 	$(PYTHON) scripts/test_mapped.py $(FILE)
