@@ -116,6 +116,23 @@ providers = [
 pandas = [
     "pandas>=2.2",
 ]
+# Deliberately NOT a member of `all`, and that omission is the point. `kaggle` is an operational
+# credential tool used by exactly one consumer -- scripts/preflight/check_kaggle_auth.py, which
+# dataforge/release/doctor.py invokes for the Kaggle OAuth clean-config check. It is imported
+# lazily inside a function and guarded by ImportError, so nothing breaks without it. Putting it in
+# `all` would install it for every developer and permanently widen the pip-audit surface (kaggle
+# pulls `bleach`) for a tool most sessions never run.
+#
+# `kagglesdk` is intentionally not listed: kaggle 2.2.4 already requires kagglesdk<1.0,>=0.1.35,
+# so naming it here would duplicate a constraint upstream owns.
+#
+# Not declarable, and not attempted: `kaggle_secrets`, imported at 11 sites across
+# scripts/remote/ and training/kaggle_*_kernel/. It is not on PyPI at all -- it exists only inside
+# the Kaggle notebook runtime, which is why every one of those imports sits in a try/except that
+# degrades to an explicit "unavailable" result.
+kaggle = [
+    "kaggle>=2",
+]
 playground = [
     "pandas>=2.2",
     "fastapi>=0.136.1",
@@ -212,6 +229,22 @@ ignore_missing_imports = true
 # installed, mypy still type-checks against the real package.
 [[tool.mypy.overrides]]
 module = ["mcp", "mcp.*"]
+ignore_missing_imports = true
+
+# `kaggle` and `kagglesdk` ship no `py.typed`, so `mypy --strict` reports import-untyped for
+# scripts/preflight/check_kaggle_auth.py's two imports. Same shape as the `mcp` case above: the
+# imports are lazy, inside a function, guarded by ImportError, and the package is an opt-in extra
+# (`.[kaggle]`) that neither CI nor a default install provides. Without this, adding that file to
+# the type target would fail CI while passing on a machine that happens to have kaggle installed.
+# `ignore_missing_imports` only suppresses the missing-stubs error; the surrounding code is still
+# fully type-checked.
+#
+# Submodule patterns only, no bare `kaggle`/`kagglesdk`: the real imports are
+# `kaggle.api.kaggle_api_extended` and `kagglesdk.kaggle_creds`, and mypy reports bare entries as
+# `unused section(s)`. A pattern that matches nothing is noise that trains readers to skim
+# type-check output, so it is left out until something actually imports the top-level module.
+[[tool.mypy.overrides]]
+module = ["kaggle.*", "kagglesdk.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

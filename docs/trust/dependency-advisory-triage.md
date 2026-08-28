@@ -225,3 +225,91 @@ concedes "Most Material/MkDocs usage renders trusted author content at build tim
 reason is the one that still holds if somebody enables `caret` later. The 11.0.1 fix remains
 blocked by `mkdocs-material 9.6.23`'s `pymdown-extensions~=10.2` requirement, verified from
 installed metadata rather than assumed.
+
+## Both pymdown exceptions DELETED 2026-08-28: the blocker cleared upstream
+
+The section above ends by saying the fix "remains blocked". It is no longer blocked, and the
+correct response was to take the fix rather than extend the expiry.
+
+Checked every `mkdocs-material` release from 9.6.14 to 9.7.7 on PyPI:
+
+| mkdocs-material | pymdown-extensions requirement |
+| --- | --- |
+| 9.6.14 through **9.6.23** | `~=10.2` (caps below 11) |
+| **9.7.0** through 9.7.7 | `>=10.2` (permits 11.x) |
+
+**9.7.0 is the exact release that relaxed the cap.** Both advisories have installable fixes:
+`PYSEC-2026-3609` (= CVE-2026-61632, GHSA-9xwg-3r6f-jcx2, b64 path traversal) in **11.0.0**, and
+`CVE-2026-67422` (= PYSEC-2026-3654, GHSA-gm37-52c6-37mw, exponential ReDoS) in **11.0.1**.
+`docs/requirements.txt` now pins `mkdocs-material==9.7.7` with `pymdown-extensions==11.0.2`, and
+both `PipAuditException` entries are gone.
+
+An exception that no longer suppresses anything is not harmless: it still carries an expiry that
+would have failed `canonical-backend-gate` on 2026-11-08 for vulnerabilities the toolchain no
+longer had. Same reasoning that retired the torch entry. `PIP_AUDIT_EXCEPTIONS` is now a single
+entry (`datasets`).
+
+### Why the major bump was low risk, stated before it was taken
+
+`pymdown-extensions 11.0` release notes list exactly one breaking change: b64 now restricts
+relative links to `base_path` by default. That is **in an extension `docs/mkdocs.yml` does not
+enable**, and it *is* the fix for PYSEC-2026-3609. The other 11.0 changes are dropping Python 3.9
+(this project requires >=3.11) and a Tabbed bugfix. 11.0.1 and 11.0.2 are fixes only; 11.0.2
+improves InlineHilite performance, an extension this site does use. `mkdocs-material 9.7.7`
+requires `mkdocs<2,>=1.6`, so the `mkdocs==1.6.1` pin is unchanged.
+
+Verified rather than assumed, because a `--strict` exit code can hide a silently dropped fence:
+the rendered site was counted before and after the bump and is identical — **8 mermaid blocks, 13
+highlight blocks, 22 HTML pages**, `mkdocs build --strict` exit 0 both times. And with only the
+`datasets` ignore passed, pip-audit reports "No known vulnerabilities found, 1 ignored" with zero
+pymdown rows, which is the check that the upgrade rather than a suppression is doing the work.
+
+One informational warning now appears in the build: the Material team's notice about MkDocs 2.0
+removing the plugin system. It is upstream advocacy about a future major version, does not fail
+`--strict`, and both the `mkdocs==1.6.1` pin and mkdocs-material's own `mkdocs<2` cap already
+prevent it from reaching this project.
+
+### `docs/pyproject.toml` deleted
+
+The docs toolchain was pinned in two places that had already diverged: `docs/requirements.txt` at
+`mkdocs-material==9.6.23` and `docs/pyproject.toml` at `9.6.20`. Only the former is installed by
+anything (`docs.yml:34` and `canonical-backend-gate`). The latter declared
+`name = "dataforge-docs"` with `[tool.uv] package = false`, and its only known consumer was the
+dependabot `/docs` uv entry removed on 2026-08-27. No tracked file referenced the path. Deleted,
+so the pins cannot silently disagree again.
+
+### `kaggle` is now an opt-in extra, and still absent from `[all]` by design
+
+`pyproject.toml` declares `kaggle = ["kaggle>=2"]`. It is deliberately **not** a member of `all`,
+so a from-scratch rebuild will still not install it — that is the intended behaviour, not an
+oversight. It is an operational credential tool with exactly one consumer,
+`scripts/preflight/check_kaggle_auth.py`, invoked by `dataforge/release/doctor.py` for the Kaggle
+OAuth clean-config check. Adding it to `all` would install it for every developer and permanently
+widen the pip-audit surface, since `kaggle` pulls `bleach`.
+
+Two things not declared, for recorded reasons. `kagglesdk` arrives transitively — `kaggle 2.2.4`
+requires `kagglesdk<1.0,>=0.1.35` — so naming it would duplicate a constraint upstream owns. And
+`kaggle_secrets`, imported at 11 sites across `scripts/remote/` and `training/kaggle_*_kernel/`,
+**is not on PyPI at all**: it exists only inside the Kaggle notebook runtime, which is why each of
+those imports sits in a `try/except` that degrades to an explicit "unavailable" result. Declaring
+it would be a false claim.
+
+The gap this closes is discoverability, not correctness. Nothing was broken — the one `kaggle`
+import is lazy and guarded by `ImportError` — but the requirement was stated only inside that
+exception string. It now names the installable form: `pip install -e ".[kaggle]"`.
+
+### Lint and type coverage extended to scripts/preflight and scripts/remote
+
+`check_kaggle_auth.py` is invoked by the release doctor and covered by nine test references, yet
+`scripts/preflight/` and `scripts/remote/` were in no Makefile lint or type target. Measured cost
+before acting: ruff reported **0 errors** on both, so both were added to `make lint` (445 files now
+formatted, up from 430). `mypy --strict` gave **2** errors on preflight, both missing stubs, so
+`check_kaggle_auth.py` was added to `make type` (**176** files, up from 175) behind a
+`[[tool.mypy.overrides]]` for `kaggle.*`/`kagglesdk.*` following the existing `torch` and `mcp`
+pattern. `scripts/remote/` reported **46** errors across 12 files and is deliberately left out of
+`make type`, recorded in a Makefile comment so the omission is a decision rather than an oversight.
+
+The override uses submodule patterns only. Bare `kaggle`/`kagglesdk` entries were removed after
+mypy reported them as `unused section(s)` — the real imports are `kaggle.api.kaggle_api_extended`
+and `kagglesdk.kaggle_creds`. A pattern matching nothing is noise that trains readers to skim
+type-check output.

@@ -12,8 +12,6 @@ from scripts.ci import backend_gate
 #: PIP_AUDIT_EXCEPTIONS without updating this list fails the suite, which is the point.
 EXPECTED_AUDIT_EXCEPTIONS = [
     ("PYSEC-2026-3716", "datasets", date(2026, 11, 26)),
-    ("PYSEC-2026-3609", "pymdown-extensions", date(2026, 11, 8)),
-    ("CVE-2026-67422", "pymdown-extensions", date(2026, 11, 8)),
 ]
 
 
@@ -52,14 +50,18 @@ def test_every_audit_exception_carries_its_justification() -> None:
 def test_pip_audit_exception_expires_deterministically() -> None:
     """Expired audit exceptions become release blockers.
 
-    The earliest expiry in the reviewed set is 2026-11-08, so a clock one day past it must
-    produce a blocking error. This is the forcing function that stops an exception becoming
-    a permanent silence: nobody has to remember to revisit it, the gate goes red on its own.
+    The only expiry in the reviewed set is 2026-11-26, so a clock one day past it must produce
+    a blocking error. This is the forcing function that stops an exception becoming a permanent
+    silence: nobody has to remember to revisit it, the gate goes red on its own.
+
+    Worth stating because the list is now a single entry, which is exactly where a validator can
+    quietly go vacuous -- if this ever stops asserting, an empty or all-passing list would look
+    identical to a healthy one.
     """
-    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 11, 9))
+    errors = backend_gate.pip_audit_exception_errors(today=date(2026, 11, 27))
 
     assert errors
-    assert any("expired on 2026-11-08" in error for error in errors)
+    assert any("expired on 2026-11-26" in error for error in errors)
 
 
 #: Every npm advisory the gate is allowed to ignore, listed for the same reason as the pip

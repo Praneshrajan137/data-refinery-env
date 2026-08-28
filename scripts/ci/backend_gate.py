@@ -155,53 +155,16 @@ PIP_AUDIT_EXCEPTIONS = [
         ),
         upstream_reference="https://github.com/huggingface/datasets/issues/8324",
     ),
-    PipAuditException(
-        vuln_id="PYSEC-2026-3609",
-        package="pymdown-extensions",
-        scope="docs build toolchain only (docs/requirements.txt); not installed by the "
-        "core, playground, or MCP runtime",
-        expires_on=date(2026, 11, 8),
-        reason=(
-            "Triaged 2026-08-08. The advisory is scoped to the pymdownx.b64 extension's "
-            "path traversal, and docs/mkdocs.yml enables only details, highlight, "
-            "inlinehilite, snippets and superfences -- b64 is NOT enabled, so the "
-            "vulnerable code path is never loaded. The fix is also unreachable today: "
-            "mkdocs-material 9.6.23 requires pymdown-extensions~=10.2, so 11.x cannot be "
-            "installed without first upgrading mkdocs-material. Revisit when "
-            "mkdocs-material accepts 11.x."
-        ),
-        upstream_reference="https://github.com/advisories/PYSEC-2026-3609",
-    ),
-    PipAuditException(
-        vuln_id="CVE-2026-67422",
-        package="pymdown-extensions",
-        scope="docs build toolchain only (docs/requirements.txt); not installed by the "
-        "core, playground, or MCP runtime",
-        expires_on=date(2026, 11, 8),
-        reason=(
-            "Triaged 2026-08-08, reason CORRECTED 2026-08-28. It previously read 'same blocker "
-            "as PYSEC-2026-3609: b64 is not enabled', which describes the wrong advisory -- "
-            "this one has nothing to do with b64, so as written it could not be re-verified. "
-            "CVE-2026-67422 (= PYSEC-2026-3654) is an exponential-backtracking ReDoS in four "
-            "inline processors: pymdownx.caret (SUP2), pymdownx.tilde (SUB2), pymdownx.betterem "
-            "(SMART_UNDER_EM2, reached by the default smart_enable='underscore') and "
-            "pymdownx.magiclink (RE_LINK host subexpression). Unlike the b64 issue these fire in "
-            "DEFAULT configuration, so 'not enabled by default' is not the argument. Two "
-            "independent reasons it is not reachable here. First, docs/mkdocs.yml enables only "
-            "admonition, attr_list, md_in_html, toc, pymdownx.details, pymdownx.highlight, "
-            "pymdownx.inlinehilite, pymdownx.snippets and pymdownx.superfences -- none of the "
-            "four, and NOT pymdownx.extra, which would pull in betterem. Second, and the reason "
-            "that survives someone enabling caret later: the impact is denial of service against "
-            "UNTRUSTED Markdown, and mkdocs renders only trusted, repo-authored content at build "
-            "time. The advisory itself concedes 'Most Material/MkDocs usage renders trusted "
-            "author content at build time.' There is no untrusted-input path into this docs "
-            "build. The 11.0.1 fix also remains unreachable: mkdocs-material 9.6.23 requires "
-            "pymdown-extensions~=10.2 (verified from installed metadata), so 11.x cannot be "
-            "installed without upgrading mkdocs-material first."
-        ),
-        upstream_reference="https://nvd.nist.gov/vuln/detail/CVE-2026-67422",
-    ),
 ]
+# Two pymdown-extensions exceptions were DELETED on 2026-08-28 rather than re-dated, because the
+# blocker they cited cleared upstream. Both had argued the fix was unreachable: mkdocs-material
+# 9.6.23 required `pymdown-extensions~=10.2`, capping below 11, while PYSEC-2026-3609 (b64 path
+# traversal) is fixed in 11.0.0 and CVE-2026-67422 (exponential ReDoS in caret/tilde/betterem/
+# magiclink) in 11.0.1. mkdocs-material 9.7.0 relaxed that requirement to `>=10.2`, so
+# docs/requirements.txt now pins mkdocs-material 9.7.7 with pymdown-extensions 11.0.2 and the
+# advisories are simply fixed. Recorded here because deleting an exception silently looks
+# identical to forgetting one: an ignore that suppresses nothing is not harmless, it still
+# carries an expiry that fails the gate for a vulnerability the environment no longer has.
 
 
 @dataclass(frozen=True)

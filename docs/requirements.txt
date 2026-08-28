@@ -1,3 +1,9 @@
 mkdocs==1.6.1
-mkdocs-material==9.6.23
-pymdown-extensions==10.21.3
+# mkdocs-material 9.7.0 is the release that relaxed its requirement from
+# `pymdown-extensions~=10.2` (which caps below 11) to `>=10.2`. That cap was the stated blocker
+# in two pip-audit exceptions, so this bump is what let both be DELETED rather than re-dated:
+# PYSEC-2026-3609 (b64 path traversal) is fixed in 11.0.0 and CVE-2026-67422 (exponential ReDoS
+# in caret/tilde/betterem/magiclink) in 11.0.1. 9.7.7 still accepts `mkdocs<2,>=1.6`, so the
+# mkdocs pin above is unchanged.
+mkdocs-material==9.7.7
+pymdown-extensions==11.0.2

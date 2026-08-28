@@ -187,7 +187,10 @@ def _refresh_oauth_access_token_if_needed(kaggle_json: Path) -> dict[str, Any]:
         from kaggle.api.kaggle_api_extended import KaggleApi
         from kagglesdk.kaggle_creds import KaggleCredentials
     except ImportError as exc:
-        raise RuntimeError("Kaggle OAuth refresh requires kaggle>=2 with kagglesdk") from exc
+        raise RuntimeError(
+            "Kaggle OAuth refresh requires kaggle>=2, which provides kagglesdk. "
+            'Install it with: pip install -e ".[kaggle]"'
+        ) from exc
 
     api = KaggleApi()
     with api.build_kaggle_client() as kaggle:
