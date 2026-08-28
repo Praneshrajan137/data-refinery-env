@@ -1,4 +1,4 @@
-# The verification loop: 119 seconds to 33, and what the measurement refused
+# The verification loop: 119 seconds to 28, and what the measurement refused
 
 **Status**: measured 2026-08-28. Artifacts: `eval/results/loop_cost.json` (timings),
 `eval/results/gate_population.json` (the set of checks each gate polices). Reproduce with
@@ -27,8 +27,8 @@ times, `test_label_noise_certification.py` seven times, `readme_truth.py` twice,
 
 | Step | Before | After | Note |
 | --- | --- | --- | --- |
-| Full suite | 118.7 s (2,401 tests) | 32.4–34.5 s (2,427 tests) | `-n logical`, 12 workers |
-| Full suite, serial | 118.7 s | 91.3 s, then 110.9–111.6 s | same run count; see the variance note |
+| Full suite | 118.7 s (2,401 tests) | 27.8–28.2 s (2,431 collected) | `-n logical`, 12 workers |
+| Full suite, serial | 118.7 s | 85.6–86.5 s with `-n 0` | see the variance section |
 | `dataforge --version` | 891–940 ms | 140–170 ms | bare interpreter is 70–110 ms |
 | `dataforge.cli` import | 700 ms cumulative | not imported | lazy subcommand registration |
 | pytest collection | 5.0 s | 5.4–6.2 s | unchanged in kind; a fixed cost of all 25 invocations |
@@ -42,14 +42,47 @@ The suite figure is not the whole story: the serial number fell **while 26 tests
 the drop is close to the 39 subprocess launches in the suite times the ~750 ms of import each one
 stopped paying.
 
-**The serial figure needs its variance stated, because it is the one number here that moved on**
-**re-measurement.** A single run immediately after the import change gave 91.3 s; two runs at the end
-of the work gave 110.9 s and 111.6 s, with the same 2,427 tests and strictly less work to do. Nothing
-in between should have made it slower. The most likely cause is the machine: this repository sits on
-a OneDrive-synced path, and the same session saw a parallel coverage run take 294 s once and 48–60 s
-on either side of it. So the honest reading is that long serial runs here vary by roughly 20%, the
-parallel figure is the more stable measurement, and no decimal in this document is bindable. That is
-the same conclusion `docs/trust/fd-repair-scalability.md` reached about millisecond figures.
+**The serial figure moved on re-measurement, I attributed it to the wrong cause, and the correction**
+**is the useful part.** A run immediately after the import change gave 91.3 s; two runs later in the
+same session gave 110.9 s and 111.6 s. I read that as ~20% variance, attributed it to the repository
+sitting on a OneDrive-synced path, and published that reading.
+
+It was wrong. Those were **two different commands**. The 91.3 s run passed `-n 0`; the 110.9/111.6 s
+runs came from `measure_loop_cost.py`, which omits `-n` entirely. Compared within a fixed command,
+110.9 against 111.6 is a 0.6% spread — not variance at all.
+
+The repository was relocated to `C:\dev\dataforge`, off OneDrive, and each command re-run there:
+
+| Command | OneDrive path | `C:\dev\dataforge` |
+| --- | --- | --- |
+| `pytest tests/ -n 0` | 91.3 s (1 run) | 85.6 / 86.0 / 86.5 s |
+| `pytest tests/` (no `-n`) | 110.9 / 111.6 s | 99.75 / 100.01 s |
+| `pytest tests/ -n logical` | 32.4 / 34.5 s | 27.8 / 28.2 s |
+
+So the honest result is a **consistent 6–15% improvement** from leaving OneDrive, with spreads of
+0.3–1.1% on both disks. There was no variance to collapse; my inference invented one out of a
+command difference. The single unexplained outlier — a parallel coverage run that took 294 s once
+against 48–60 s either side — remains unexplained and was one event, not a pattern.
+
+The relocation was still worth doing, for a reason the timings understate: OneDrive was syncing
+107,650 files and 3.07 GB of build output, virtualenv and caches on every change.
+
+Two further qualifications, both against my own numbers. The relocated environment runs **five**
+**fewer tests** — `tests/integration/test_openenv_core_adapter.py` and four in
+`tests/unit/test_model_space_contract.py` now skip, because the rebuilt virtualenv omits `openenv`
+and `gradio`. Those are optional extras **CI does not install either**, so local now matches CI
+rather than exceeding it, and the previous superset is what an earlier session recorded as the cause
+of a local pip-audit failure CI did not have. But `test_openenv_core_adapter` alone was 5.76 s in the
+original baseline, so a good part of the serial gain is those tests not running rather than the disk.
+And `-n 0` measures about 14% faster than omitting `-n` on both disks, which is a real difference
+between two commands I had been treating as equivalent.
+
+No decimal in this document is bindable, which is the same conclusion
+`docs/trust/fd-repair-scalability.md` reached about millisecond figures. This section is why: the
+figures were stable all along, and the instrument that misled me was my own reading of them.
+
+No decimal in this document is bindable, which is the same conclusion
+`docs/trust/fd-repair-scalability.md` reached about millisecond figures.
 
 ## The measurement refuted three things I had planned
 

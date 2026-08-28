@@ -1,19 +1,19 @@
 {
   "schema": 1,
-  "measured_utc": "2026-08-28T15:35:34Z",
+  "measured_utc": "2026-08-28T16:55:18Z",
   "environment": {
     "python": "3.12.10",
     "platform": "Windows-11-10.0.26200-SP0",
     "processor": "Intel64 Family 6 Model 151 Stepping 2, GenuineIntel",
     "cpu_count": 12,
-    "executable": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe"
+    "executable": "C:\\dev\\dataforge\\.venv\\Scripts\\python.exe"
   },
   "binding_note": "No value in this artifact is bound to docs/quantitative_claims.yaml. Timings are reported, not bound: the ledger removed its only timing claim on 2026-08-27 after a four-decimal wall clock re-derived 28% higher on the same machine. Quote ranges.",
   "steps": {
     "interpreter_floor": {
       "label": "Bare interpreter start (the floor every subprocess pays)",
       "group": "imports",
-      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -c pass",
+      "command": "C:\\dev\\dataforge\\.venv\\Scripts\\python.exe -c pass",
       "runs": 5,
       "exit_codes": [
         0,
@@ -22,16 +22,16 @@
         0,
         0
       ],
-      "seconds_min": 0.072,
-      "seconds_max": 0.083,
-      "seconds_median": 0.078,
-      "seconds_spread": 0.011,
-      "spread_pct_of_min": 15.6
+      "seconds_min": 0.084,
+      "seconds_max": 0.108,
+      "seconds_median": 0.095,
+      "seconds_spread": 0.024,
+      "spread_pct_of_min": 28.7
     },
     "cli_version": {
       "label": "dataforge --version (full CLI import cost)",
       "group": "imports",
-      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m dataforge --version",
+      "command": "C:\\dev\\dataforge\\.venv\\Scripts\\python.exe -m dataforge --version",
       "runs": 5,
       "exit_codes": [
         0,
@@ -40,57 +40,57 @@
         0,
         0
       ],
-      "seconds_min": 0.141,
-      "seconds_max": 0.166,
-      "seconds_median": 0.151,
-      "seconds_spread": 0.025,
-      "spread_pct_of_min": 17.6
+      "seconds_min": 0.145,
+      "seconds_max": 0.188,
+      "seconds_median": 0.16,
+      "seconds_spread": 0.043,
+      "spread_pct_of_min": 29.9
     },
     "pytest_collect_only": {
       "label": "pytest collection only (fixed cost of every pytest invocation)",
       "group": "suite",
-      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m pytest tests/ --collect-only -q --no-header",
+      "command": "C:\\dev\\dataforge\\.venv\\Scripts\\python.exe -m pytest tests/ --collect-only -q --no-header",
       "runs": 3,
       "exit_codes": [
         0,
         0,
         0
       ],
-      "seconds_min": 5.36,
-      "seconds_max": 6.182,
-      "seconds_median": 5.818,
-      "seconds_spread": 0.822,
-      "spread_pct_of_min": 15.3
+      "seconds_min": 5.614,
+      "seconds_max": 6.244,
+      "seconds_median": 5.716,
+      "seconds_spread": 0.63,
+      "spread_pct_of_min": 11.2
     },
     "suite_serial": {
       "label": "Full suite, serial (the committed default)",
       "group": "suite",
-      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m pytest tests/ -q --no-header",
+      "command": "C:\\dev\\dataforge\\.venv\\Scripts\\python.exe -m pytest tests/ -q --no-header",
       "runs": 2,
       "exit_codes": [
         0,
         0
       ],
-      "seconds_min": 110.849,
-      "seconds_max": 111.554,
-      "seconds_median": 111.202,
-      "seconds_spread": 0.705,
-      "spread_pct_of_min": 0.6
+      "seconds_min": 99.75,
+      "seconds_max": 100.007,
+      "seconds_median": 99.879,
+      "seconds_spread": 0.257,
+      "spread_pct_of_min": 0.3
     },
     "suite_parallel_logical": {
       "label": "Full suite, -n logical --dist loadgroup",
       "group": "suite",
-      "command": "C:\\Users\\Pranesh\\OneDrive\\Music\\OpenEnv RL\\data_quality_env\\.venv\\Scripts\\python.exe -m pytest tests/ -q --no-header -n logical --dist loadgroup",
+      "command": "C:\\dev\\dataforge\\.venv\\Scripts\\python.exe -m pytest tests/ -q --no-header -n logical --dist loadgroup",
       "runs": 2,
       "exit_codes": [
         0,
         0
       ],
-      "seconds_min": 32.358,
-      "seconds_max": 34.465,
-      "seconds_median": 33.412,
-      "seconds_spread": 2.107,
-      "spread_pct_of_min": 6.5
+      "seconds_min": 27.839,
+      "seconds_max": 28.211,
+      "seconds_median": 28.025,
+      "seconds_spread": 0.373,
+      "spread_pct_of_min": 1.3
     }
   }
 }
