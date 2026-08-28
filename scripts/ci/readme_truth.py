@@ -94,8 +94,7 @@ def assert_truth_doc_populations_are_non_vacuous() -> None:
                 problems.append(f"{name} names a document that does not exist: {rel}")
     if problems:
         raise SystemExit(
-            "readme_truth doc populations are not trustworthy:\n  "
-            + "\n  ".join(problems)
+            "readme_truth doc populations are not trustworthy:\n  " + "\n  ".join(problems)
         )
 
 
