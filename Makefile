@@ -77,9 +77,10 @@ test:
 	$(PYTHON) -m pytest tests/ -x -n logical
 
 # Serial, for reproducing a failure that parallel execution surfaced. xdist disables --pdb and
-# -s, so this is the target to debug with.
+# -s, and `-n 0` turns distribution off while leaving the plugin loaded -- which is required,
+# because `-p no:xdist` would make the `--dist` flag in pyproject's addopts unrecognised and exit 4.
 test-serial:
-	$(PYTHON) -m pytest tests/ -x -v -p no:xdist
+	$(PYTHON) -m pytest tests/ -x -n 0
 
 # The inner loop while editing one file. An unmapped file falls back to the full suite, so this
 # is always safe to reach for; scripts/ci/test_map_coverage.py keeps the gap from growing.

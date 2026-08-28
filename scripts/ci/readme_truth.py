@@ -580,8 +580,22 @@ def extract_release_subcommands_from_readme(text: str) -> set[str]:
 
 
 def get_registered_typer_commands() -> set[str]:
-    """Import the Typer app and list registered command names."""
+    """List the CLI's command names, and verify each one actually resolves.
+
+    Commands are registered lazily as of 2026-08-28 (see ``dataforge/cli/__init__.py``), so
+    ``registered_commands`` is empty by design and reading it alone would make this check
+    vacuous -- every command claimed in the README would look unregistered, or worse, the empty
+    set would silently satisfy a subset test.
+
+    So this asks the lazy table for the names and then RESOLVES each one, which imports the
+    module and builds the click command. That is strictly stronger than what this function did
+    before: previously a name being registered proved only that a name was registered, and now a
+    name being returned proves its target imports and builds. A typo in the table fails here.
+
+    The eager lists are still read, so a command added the ordinary way is still counted.
+    """
     try:
+        from dataforge import cli
         from dataforge.cli import app as typer_app
     except ImportError as exc:
         print(f"WARNING: could not import dataforge.cli: {exc}", file=sys.stderr)
@@ -596,6 +610,15 @@ def get_registered_typer_commands() -> set[str]:
         for group in typer_app.registered_groups:
             if hasattr(group, "name") and group.name:
                 registered.add(group.name)
+
+    for name in cli.command_names():
+        if cli.resolve_command(name) is None:
+            print(
+                f"WARNING: lazy command {name!r} does not resolve to a command; excluded",
+                file=sys.stderr,
+            )
+            continue
+        registered.add(name)
 
     # Also check the callback (single-command mode)
     if hasattr(typer_app, "info") and hasattr(typer_app.info, "name") and typer_app.info.name:

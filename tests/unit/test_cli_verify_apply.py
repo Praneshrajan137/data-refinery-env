@@ -7,6 +7,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from dataforge import cli
 from dataforge.cli import app
 
 runner = CliRunner()
@@ -27,8 +28,14 @@ def _write_fixes(path: Path, fixes: list[dict[str, object]]) -> None:
 def test_verify_apply_is_registered() -> None:
     # Structural check: Rich colorizes/wraps --help output differently across
     # environments (ANSI codes split "--fixes"), so assert registration directly.
-    names = {command.name for command in app.registered_commands}
+    #
+    # Asks the click group rather than `app.registered_commands`, because commands are now
+    # registered lazily and the eager list is empty by design. This is the stronger check of the
+    # two: the group resolves the name through the lazy table, so a wrong module path fails here
+    # instead of only when a user runs the command.
+    names = set(cli.command_names())
     assert "verify-apply" in names
+    assert cli.resolve_command("verify-apply") is not None
     result = runner.invoke(app, ["verify-apply", "--help"])
     assert result.exit_code == 0
 
