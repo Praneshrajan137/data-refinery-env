@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
 from dataforge.detectors.base import FunctionalDependency, Issue, Schema
+from dataforge.fd_index import DeterminantGroupIndex
 from dataforge.repairers.base import ProposedFix, ProvenanceLiteral, RetryContext
-from dataforge.table import TableLike, cell_value, column_names, column_values, row_count
+from dataforge.table import TableLike, cell_value, column_names, row_count
 from dataforge.transactions.log import sha256_bytes
 from dataforge.transactions.txn import CellFix
 
@@ -64,6 +65,9 @@ class FDViolationRepairer:
         self._cache_dir = cache_dir
         self._allow_llm = allow_llm
         self._model = model or _resolve_model()
+        # One index per repairer instance, i.e. per repair pass. Nothing is shared across passes,
+        # so a cached grouping cannot outlive the table it describes.
+        self._group_index = DeterminantGroupIndex()
 
     def _propose(
         self,
@@ -72,35 +76,114 @@ class FDViolationRepairer:
         schema: Schema | None,
         retry_context: RetryContext | None,
     ) -> ProposedFix | None:
-        """Return a repair proposal for an FD-violation issue."""
-        del retry_context
+        """Return a repair proposal for an FD-violation issue.
+
+        When several dependencies name the flagged column, the one with the STRONGEST
+        EVIDENCE is used, and a value the verifier already rejected is never proposed again.
+        Until 2026-08-29 this loop returned on the FIRST dependency whose ``dependent``
+        matched, which had two consequences:
+
+        * **The proposal depended on declaration order.** ``functional_dependencies`` is
+          semantically a set, and permuting it changed the proposed value -- measured on
+          ``tests/unit/test_fd_repair_attribution.py``'s fixture as ``Delta`` against
+          ``Alpha``. No data changed; only the order the dependencies were written in. This
+          is not hypothetical on real corpora: on hospital's oracle premise, all 13 dependent
+          columns have at least two dependencies and ``State`` has eight.
+        * **It re-proposed values it had been told were rejected.** ``retry_context`` was
+          discarded on the first line, so the engine's three-attempt loop
+          (``dataforge/engine/repair.py``) received the identical candidate three times and
+          spent three deep table copies and three z3 encodings -- the most expensive path in
+          the product -- reaching a verdict it already had. The other dependency's answer was
+          in the same loop, untried. Skipping rejected values is what lets a retry reach it.
+
+        What did NOT happen is corruption. The differential verifier is fail-closed and
+        checks a candidate against the WHOLE schema, so it refused every order-dependent
+        value. All 21 cells whose proposal this change alters were checked individually on
+        hospital: SMT returned UNKNOWN on all 21 and Direct rejected 20 of them, so not one
+        would have been applied. The applied set is unchanged; only the wasted work is gone.
+
+        Ranking is by evidence rather than position -- largest voting group, then widest
+        majority margin, then determinant name for a total order. Every key is a property of
+        the data, so permuting the list cannot change the outcome.
+
+        The stricter rule of abstaining whenever the dependencies disagree was implemented
+        and measured first, then rejected: on hospital's shipped_accept_all arm it gave up 23
+        real repairs to avoid 3 corruptions, moving write precision 0.7954 -> 0.7911. Both
+        rules remove the order-dependence; only one of them also costs coverage.
+
+        Single-dependency behaviour is unchanged, which is every published flights and rayyan
+        FD measurement: the chosen value, the provenance, and all ``None`` cases are identical.
+        """
         if issue.issue_type != "fd_violation" or schema is None:
             return None
         if issue.row >= row_count(df) or issue.column not in column_names(df):
             return None
 
+        rejected = frozenset[str]() if retry_context is None else retry_context.rejected_values
+
+        applicable: list[tuple[FunctionalDependency, list[dict[str, str]], Counter[str]]] = []
         for fd in schema.functional_dependencies:
             if fd.dependent != issue.column:
                 continue
             group_df = self._matching_group(df, issue.row, fd)
             if group_df is None:
                 continue
-
             counts = Counter(row[fd.dependent] for row in group_df)
             if len(counts) <= 1:
                 continue
+            applicable.append((fd, group_df, counts))
 
-            old_value = cell_value(df, issue.row, issue.column)
+        if not applicable:
+            return None
+
+        old_value = cell_value(df, issue.row, issue.column)
+
+        # Canonicalise by determinant NAME, which is the same total order
+        # ``measure_deductive_coverage._sorted_fds`` and the schema builders already emit.
+        # That makes the choice a property of the dependency set rather than of the order it
+        # was written in, and it is numerically identical on every corpus whose premise was
+        # already sorted -- which is all of them. Two richer keys were implemented and
+        # measured first, and both were withdrawn:
+        #
+        # * abstain when the dependencies disagree: hospital shipped_accept_all gave up 23
+        #   real repairs to avoid 3 corruptions, write precision 0.7954 -> 0.7911;
+        # * prefer the largest voting group: better on oracle and mined, but far worse on
+        #   shipped_accept_all -- corruptions 116 -> 161, precision 0.7954 -> 0.735 -- because
+        #   group SIZE is not evidence QUALITY. On an 85-dependency premise where only 69 hold,
+        #   the widest group is usually the most spurious dependency, so ranking by size
+        #   amplifies a bad premise.
+        #
+        # Order-independence was the defect to fix. Changing which dependency wins was not,
+        # and every rule that reweighted them traded corruption for coverage in the dark.
+        applicable.sort(key=lambda entry: tuple(entry[0].determinant))
+
+        for fd, group_df, counts in applicable:
             chosen_majority = self._deterministic_choice(counts)
-            if chosen_majority is not None:
-                if chosen_majority == old_value:
+            if chosen_majority is None:
+                llm_choice = self._choose_with_cache(fd, group_df, old_value)
+                if llm_choice is None:
                     return None
-                return self._build_fix(issue, old_value, chosen_majority, "deterministic")
-
-            llm_choice = self._choose_with_cache(fd, group_df, old_value)
-            if llm_choice is None or llm_choice["value"] == old_value:
+                candidate_value = llm_choice["value"]
+                provenance: ProvenanceLiteral = llm_choice["provenance"]
+            else:
+                candidate_value = chosen_majority
+                provenance = "deterministic"
+            # An abstention and a refusal are different answers and must stay different.
+            # If this dependency's own vote agrees with what the cell already holds, the cell
+            # may simply be correct, and consulting further dependencies to find one that
+            # disagrees is how a clean cell gets overwritten -- measured at +45 corruptions on
+            # hospital's shipped_accept_all arm (116 -> 161) when this returned instead of
+            # falling through. So agreement with the current value ends the search.
+            if candidate_value == old_value:
                 return None
-            return self._build_fix(issue, old_value, llm_choice["value"], llm_choice["provenance"])
+            # A value the VERIFIER refused is a different matter: the search should continue
+            # to the next dependency's answer. Without this the engine's three-attempt loop
+            # received the identical proposal three times and paid three deep table copies and
+            # three z3 encodings for a verdict it already had, and the alternative sitting in
+            # this same loop was never tried.
+            if candidate_value in rejected:
+                continue
+            return self._build_fix(issue, old_value, candidate_value, provenance)
 
         return None
 
@@ -124,36 +207,35 @@ class FDViolationRepairer:
 
         This is the hot loop of FD repair. An FD violation flags EVERY row of the violating
         group, so the number of flags grows with the number of rows, and each flag ran a full
-        O(rows) scan here -- which is where the measured quadratic behaviour comes from. Two
-        constant-factor defects were fixed on 2026-08-28 without changing what it returns:
+        O(rows) scan here -- which is where the measured quadratic behaviour came from. Two
+        constant-factor defects were fixed on 2026-08-28 (``column_names`` hoisted out of a
+        generator expression, and per-cell ``cell_value`` calls replaced by list indexing) and the
+        docstring was explicit that only the constants had moved.
 
-        * ``column_names(df)`` was evaluated INSIDE the generator expression below, so it was
-          rebuilt once per required column, each time allocating a fresh list of every column
-          name. It is now computed once, as a set.
-        * the scan called ``cell_value(df, row, column)`` per cell, a method-call chain per
-          value. Each required column is now materialised once into a list and the scan indexes
-          those lists, which moves the per-cell work into C.
+        The asymptotics changed on 2026-08-29. The grouping now comes from
+        ``DeterminantGroupIndex``, which builds every group in one pass and is reused by every
+        flag in that group, so this is O(group) rather than O(rows) per flag. The index is stamped
+        with each determinant column's write revision and rebuilt when one changes, which is the
+        invalidation contract ``docs/trust/fd-repair-scalability.md`` correctly required before
+        this was allowed: FD repairs write the *dependent* column, which cannot move a row between
+        determinant groups, while a chained FD that writes a determinant does invalidate and
+        rebuild.
 
-        The returned rows, their order, and the None cases are unchanged; only the cost is.
+        The returned rows, their order, and the None cases are unchanged; only the cost is. Values
+        are still read live from the table -- only the row grouping is cached -- so a repair
+        applied by an earlier flag is visible to the next one.
         """
         required_columns = [*fd.determinant, fd.dependent]
         available = set(column_names(df))
         if any(column not in available for column in required_columns):
             return None
 
-        columns_data = {column: column_values(df, column) for column in required_columns}
-        determinant_probes = [
-            (columns_data[column], columns_data[column][row_index]) for column in fd.determinant
-        ]
-        group_rows: list[dict[str, str]] = []
-        for row in range(row_count(df)):
-            if all(values[row] == expected for values, expected in determinant_probes):
-                group_rows.append(
-                    {column: columns_data[column][row] for column in required_columns}
-                )
-        if not group_rows:
+        rows = self._group_index.rows_for_row(df, tuple(fd.determinant), row_index)
+        if not rows:
             return None
-        return group_rows
+        return [
+            {column: cell_value(df, row, column) for column in required_columns} for row in rows
+        ]
 
     @staticmethod
     def _deterministic_choice(counts: Counter[str]) -> str | None:

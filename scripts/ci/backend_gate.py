@@ -723,6 +723,60 @@ def main() -> int:
             [PYTHON, "-m", "pytest", *TRUST_INVARIANT_TESTS, "-p", "no:cacheprovider", "-q"],
         )
     )
+    # Latency budgets, run UNCONDITIONALLY for the same reason as the trust invariants: a
+    # performance gate that only runs when someone remembers is not a gate.
+    #
+    # These two budgets existed since 2026-04-20 and had NEVER executed. The files are named
+    # bench_*.py, pytest's default `python_files` does not match that, and there is no conftest
+    # overriding it -- so `make bench` collected nothing and exited 5. On the day this step was
+    # added the SMT budget failed at about 248ms mean and 607ms max against its own 200ms
+    # assertion, on a 1000-row fixture. The budget was right and nothing was reading it.
+    #
+    # `-o python_files` rather than renaming the files: the bench_*.py name is what keeps 100
+    # benchmark rounds out of `make test`. `-n 0` is equally required: pytest-benchmark
+    # auto-activates --benchmark-disable when xdist is on, and this repo's addopts carry
+    # `--dist loadgroup`, so without it the run exits 4 with "Can't have both --benchmark-only
+    # and --benchmark-disable" -- a usage error that would have read as a vacuous pass had the
+    # step been written without checking. It is also right on the merits: timing under parallel
+    # workers measures contention, not cost.
+    #
+    # No --benchmark-autosave here, because that writes into .benchmarks/ and this gate must not
+    # modify the tree (the release gate rejects that path from sdists, and the tree-integrity
+    # guard exists to catch exactly this).
+    checks.append(
+        _run(
+            "latency budgets",
+            [
+                PYTHON,
+                "-m",
+                "pytest",
+                "tests/benchmarks/",
+                "-o",
+                "python_files=bench_*.py",
+                "-n",
+                "0",
+                "--benchmark-only",
+                "-p",
+                "no:cacheprovider",
+                "-q",
+            ],
+        )
+    )
+    # Counted work, not wall clock. This is the deterministic half of the performance gate: the
+    # latency budgets above assert milliseconds, which vary with machine load (the same verifier
+    # code measured 42, 166-249, 136-143 and 79.8-352.2 ms/fix across one afternoon), while this
+    # asserts z3 AST constructions and assertion counts, which were bit-identical across repeated
+    # runs. Cachegrind's manual makes the same argument for instruction counts: time is the better
+    # metric but counts are the reproducible one, so counts are what can gate.
+    #
+    # It is a PROXY. A change that cut assertions while slowing the solver would pass here and must
+    # be caught by "latency budgets". The two steps are complementary and neither replaces the other.
+    checks.append(
+        _run(
+            "counted verifier work",
+            [PYTHON, "scripts/perf/measure_verifier_work.py", "--check"],
+        )
+    )
     if not args.skip_full_tests:
         checks.append(
             _run(

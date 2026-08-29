@@ -15,7 +15,24 @@ from typing import Any, Protocol, cast, overload
 
 
 class TableLike(Protocol):
-    """Protocol for the tabular surface consumed by DataForge core logic."""
+    """Protocol for the tabular surface consumed by DataForge core logic.
+
+    Two implementations satisfy this: `Table` below, and `pandas.DataFrame`. They are **not**
+    interchangeable for performance, and the split in practice is total:
+
+    * the CLI reads CSV through `read_csv`, so user-facing runs always use `Table`;
+    * benchmarks and evaluation harnesses in `scripts/` build a `pandas.DataFrame`.
+
+    The consequence worth knowing about is `column_revision`, which `Table` provides and
+    `DataFrame` does not. `DeterminantGroupIndex` uses it as a cache stamp, so a `DataFrame`
+    silently takes the uncached branch -- one scan per fix -- while `Table` reuses the grouping.
+    A harness measuring a `DataFrame` is therefore not measuring the shipped path.
+
+    Verdict parity between the two is asserted by `tests/property/test_representation_parity.py`
+    and must stay asserted; cost parity does not hold and is not claimed. New performance
+    measurements should use `Table`. See `docs/trust/fd-repair-scalability.md` for which published
+    figures are affected.
+    """
 
     @property
     def columns(self) -> Any: ...
@@ -98,6 +115,13 @@ class Table:
             }
             for row in rows
         ]
+        # Per-column write counter, so a cache over this table can prove it is not stale instead
+        # of hoping. An index that groups rows by a set of columns is invalidated by a write to
+        # one of THOSE columns and by nothing else -- notably, an FD repair writes the dependent
+        # column, which cannot change a grouping keyed on the determinant. Without a stamp the
+        # only safe options are rebuilding per call (no reuse) or caching over a mutable table
+        # (unsound), which is exactly why docs/trust/fd-repair-scalability.md declined the index.
+        self._column_revision: dict[str, int] = dict.fromkeys(self._columns, 0)
         self.at = _AtIndexer(self)
 
     @property
@@ -156,6 +180,17 @@ class Table:
         if column not in self._column_set:
             raise KeyError(column)
         self._rows[row][column] = "" if value is None else str(value)
+        self._column_revision[column] = self._column_revision.get(column, 0) + 1
+
+    def column_revision(self, column: str) -> int:
+        """Return how many times this column has been written.
+
+        Monotonic and per column. A cache keyed on a tuple of these for the columns it depends on
+        is invalidated exactly when one of those columns changes.
+        """
+        if column not in self._column_set:
+            raise KeyError(column)
+        return self._column_revision.get(column, 0)
 
     def iter_records(self, columns: Sequence[str] | None = None) -> Iterator[dict[str, str]]:
         """Yield row dictionaries in table order."""

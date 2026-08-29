@@ -187,6 +187,15 @@
     "direct_tests": ["tests/unit/test_repairers.py"],
     "regression_tests": ["tests/regression/test_env.py"]
   },
+  "dataforge/fd_index.py": {
+    "direct_tests": [
+      "tests/unit/test_verifier_locality.py",
+      "tests/unit/test_fd_repair_attribution.py",
+      "tests/unit/test_repairers.py"
+    ],
+    "property_tests": ["tests/property/test_verifier_equivalence.py"],
+    "regression_tests": ["tests/regression/test_env.py"]
+  },
   "dataforge/safety/filter.py": {
     "direct_tests": [
       "tests/unit/test_cli_repair.py",

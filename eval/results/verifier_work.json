@@ -1,0 +1,26 @@
+{
+  "budgets": {
+    "ground_assertions_per_fix": 160,
+    "tracked_assertions_per_fix": 30,
+    "z3_value_constructions_per_fix": 400
+  },
+  "corpus": "hospital",
+  "fixes_measured": 15,
+  "measured_utc": "2026-08-29T11:07:15.525250+00:00",
+  "note": "Counted work, not wall clock. These figures are identical on every machine, which is why they can gate. They are a PROXY for cost: a change that reduced assertions while slowing the solver would pass here and must be caught by tests/benchmarks/.",
+  "per_fix": {
+    "ground_assertions_per_fix": 73,
+    "tracked_assertions_per_fix": 12,
+    "z3_value_constructions_per_fix": 176
+  },
+  "premise": "oracle",
+  "schema": 1,
+  "table_type": "dataforge.table.Table",
+  "totals": {
+    "IntVal": 1549,
+    "RealVal": 0,
+    "StringVal": 1090,
+    "ground_assertions": 1090,
+    "tracked_assertions": 179
+  }
+}

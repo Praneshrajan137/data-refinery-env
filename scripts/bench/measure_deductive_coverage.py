@@ -191,6 +191,72 @@ def shipped_accept_all_fds(dirty: pd.DataFrame) -> tuple[FunctionalDependency, .
     return _sorted_fds(effective.functional_dependencies)
 
 
+def _applicable_groups(
+    dirty: pd.DataFrame, row: int, fds: tuple[FunctionalDependency, ...], column: str
+) -> list[tuple[FunctionalDependency, Counter[str]]]:
+    """Return EVERY dependency the repairer consults for this cell, with its group counts.
+
+    ``_acting_group`` returns only the first, which is what the repairer did until
+    2026-08-29. It now requires every applicable dependency to agree before it proposes
+    anything, so a replication built on the first match alone disagrees with the product --
+    which is exactly what ``replication_mismatches`` is for, and it fired: 18 on hospital's
+    mined arm, 26 on shipped_accept_all.
+
+    ``_acting_group`` is deliberately kept: ``measure_harness_cost.py`` times it, and
+    ``measure_constraint_additivity.py`` measures the masking that first-match precedence
+    causes. Both want the old shape. Only the replication needs the new one.
+    """
+    groups: list[tuple[FunctionalDependency, Counter[str]]] = []
+    for fd in fds:
+        if fd.dependent != column:
+            continue
+        determinant = list(fd.determinant)
+        if any(col not in dirty.columns for col in [*determinant, column]):
+            continue
+        mask = pd.Series(True, index=dirty.index)
+        for col in determinant:
+            mask &= dirty[col] == dirty.iat[row, dirty.columns.get_loc(col)]
+        group = dirty[mask]
+        if group.empty:
+            continue
+        counts = Counter(str(value) for value in group[column])
+        if len(counts) <= 1:
+            continue
+        groups.append((fd, counts))
+    return groups
+
+
+def _agreed_choice(
+    rule: str,
+    groups: list[tuple[FunctionalDependency, Counter[str]]],
+    old_value: str,
+) -> str | None:
+    """Apply ``rule`` under the canonically-first dependency, as the repairer does.
+
+    Mirrors ``FDViolationRepairer._propose`` as of 2026-08-29: among the dependencies that
+    name this column, order by determinant NAME -- the same total order ``_sorted_fds`` emits
+    -- and take the first that yields a value different from the current one. First-match on
+    an arbitrarily-ordered list made the written value depend on the order the dependencies
+    happened to be declared in; first-match on a canonical order does not, and is numerically
+    identical wherever the premise was already sorted.
+
+    ``rule`` still decides the vote WITHIN the chosen group, so the plurality / majority /
+    unanimity counterfactuals stay comparable on their own axis.
+    """
+    if not groups:
+        return None
+    for _fd, counts in sorted(groups, key=lambda entry: tuple(entry[0].determinant)):
+        chosen = _rule_choice(rule, counts, old_value)
+        if chosen is None:
+            return None
+        # Agreement with the current value ends the search, exactly as it does in the
+        # repairer: falling through to a dependency that disagrees is how a clean cell gets
+        # overwritten. Only a verifier REFUSAL advances to the next dependency, and this
+        # replication is never given rejected values.
+        return None if chosen == old_value else chosen
+    return None
+
+
 def _acting_group(
     dirty: pd.DataFrame, row: int, fds: tuple[FunctionalDependency, ...], column: str
 ) -> tuple[FunctionalDependency, Counter[str]] | None:
@@ -463,13 +529,12 @@ def _write_exposure(
         seen.add(key)
 
         proposal = repairer.propose(issue, dirty, schema, None)
-        acting = _acting_group(dirty, issue.row, fds, issue.column)
+        groups = _applicable_groups(dirty, issue.row, fds, issue.column)
+        acting = groups[0] if groups else None
         old_value = str(dirty.iat[issue.row, dirty.columns.get_loc(issue.column)])
 
-        shipped_value: str | None = None
-        if acting is not None:
-            candidate = _rule_choice(_SHIPPED_RULE, acting[1], old_value)
-            shipped_value = None if candidate == old_value else candidate
+        candidate = _agreed_choice(_SHIPPED_RULE, groups, old_value)
+        shipped_value = None if candidate == old_value else candidate
         real_value = proposal.fix.new_value if proposal is not None else None
         if shipped_value != real_value:
             replication_mismatches += 1
@@ -480,7 +545,7 @@ def _write_exposure(
             continue
 
         for rule in _RULES:
-            chosen = _rule_choice(rule, acting[1], old_value)
+            chosen = _agreed_choice(rule, groups, old_value)
             if chosen is None or chosen == old_value:
                 continue
             tally = tallies[rule]

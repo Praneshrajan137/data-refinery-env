@@ -940,6 +940,12 @@
       "wrong_proposals": []
     }
   },
+  "arms_measured": [
+    "oracle",
+    "mined",
+    "shipped_accept_all"
+  ],
+  "arms_skipped": [],
   "clean_sha256": "ea3ee44998455c0b491750c348509de176c758a3bbf58e4530c0a136bb248b4b",
   "corpus": "hospital",
   "dirty_sha256": "dbc5575b915fe8b5e0ac6dc6172f38ba91e611fdb76d09a8f4a81cb7ea9925ac",

@@ -175,33 +175,34 @@
           "wrong_value_on_a_real_error": []
         },
         "harmful_write_rate": 0.1601,
+        "in_allowlist": true,
         "net_cells_improved": 365,
         "no_op_on_a_clean_cell": 0,
         "premise": {
-          "fd_count": 115,
-          "fd_count_holding_on_clean": 103,
-          "fd_set_precision": 0.8957,
+          "fd_count": 81,
+          "fd_count_holding_on_clean": 69,
+          "fd_set_precision": 0.8519,
           "functional_dependencies": [
             "HospitalName -> Address1",
             "PhoneNumber -> Address1",
             "ProviderNumber -> Address1",
-            "Address1 -> Address2",
-            "City -> Address2",
-            "Condition -> Address2",
-            "CountyName -> Address2",
-            "EmergencyService -> Address2",
-            "HospitalName -> Address2",
-            "HospitalOwner -> Address2",
-            "HospitalType -> Address2",
-            "MeasureCode -> Address2",
-            "MeasureName -> Address2",
-            "PhoneNumber -> Address2",
-            "ProviderNumber -> Address2",
-            "Sample -> Address2",
-            "Score -> Address2",
-            "State -> Address2",
-            "Stateavg -> Address2",
-            "ZipCode -> Address2"
+            "Address1 -> City",
+            "HospitalName -> City",
+            "PhoneNumber -> City",
+            "ProviderNumber -> City",
+            "ZipCode -> City",
+            "MeasureCode -> Condition",
+            "MeasureName -> Condition",
+            "Stateavg -> Condition",
+            "Address1 -> CountyName",
+            "City -> CountyName",
+            "HospitalName -> CountyName",
+            "PhoneNumber -> CountyName",
+            "ProviderNumber -> CountyName",
+            "ZipCode -> CountyName",
+            "Address1 -> EmergencyService",
+            "City -> EmergencyService",
+            "CountyName -> EmergencyService"
           ],
           "kind": "declared_all_str_plus_fds"
         },
@@ -221,6 +222,7 @@
           "wrong_value_on_a_real_error": []
         },
         "harmful_write_rate": 0.0,
+        "in_allowlist": true,
         "net_cells_improved": 393,
         "no_op_on_a_clean_cell": 0,
         "premise": {
@@ -269,33 +271,34 @@
           "wrong_value_on_a_real_error": []
         },
         "harmful_write_rate": null,
+        "in_allowlist": true,
         "net_cells_improved": 0,
         "no_op_on_a_clean_cell": 0,
         "premise": {
-          "fd_count": 115,
-          "fd_count_holding_on_clean": 103,
-          "fd_set_precision": 0.8957,
+          "fd_count": 81,
+          "fd_count_holding_on_clean": 69,
+          "fd_set_precision": 0.8519,
           "functional_dependencies": [
             "HospitalName -> Address1",
             "PhoneNumber -> Address1",
             "ProviderNumber -> Address1",
-            "Address1 -> Address2",
-            "City -> Address2",
-            "Condition -> Address2",
-            "CountyName -> Address2",
-            "EmergencyService -> Address2",
-            "HospitalName -> Address2",
-            "HospitalOwner -> Address2",
-            "HospitalType -> Address2",
-            "MeasureCode -> Address2",
-            "MeasureName -> Address2",
-            "PhoneNumber -> Address2",
-            "ProviderNumber -> Address2",
-            "Sample -> Address2",
-            "Score -> Address2",
-            "State -> Address2",
-            "Stateavg -> Address2",
-            "ZipCode -> Address2"
+            "Address1 -> City",
+            "HospitalName -> City",
+            "PhoneNumber -> City",
+            "ProviderNumber -> City",
+            "ZipCode -> City",
+            "MeasureCode -> Condition",
+            "MeasureName -> Condition",
+            "Stateavg -> Condition",
+            "Address1 -> CountyName",
+            "City -> CountyName",
+            "HospitalName -> CountyName",
+            "PhoneNumber -> CountyName",
+            "ProviderNumber -> CountyName",
+            "ZipCode -> CountyName",
+            "Address1 -> EmergencyService",
+            "City -> EmergencyService",
+            "CountyName -> EmergencyService"
           ],
           "kind": "declared_all_str_plus_fds"
         },
@@ -315,6 +318,7 @@
           "wrong_value_on_a_real_error": []
         },
         "harmful_write_rate": null,
+        "in_allowlist": true,
         "net_cells_improved": 0,
         "no_op_on_a_clean_cell": 0,
         "premise": {
@@ -344,31 +348,6 @@
             "CountyName -> EmergencyService"
           ],
           "kind": "declared_all_str_plus_fds"
-        },
-        "proposals": 0,
-        "repaired_a_real_error": 0,
-        "write_precision": null,
-        "wrong_value_on_a_real_error": 0
-      }
-    },
-    "type_mismatch": {
-      "no_premise": {
-        "abstained_on_flag": 92,
-        "corrupted_a_clean_cell": 0,
-        "coverage_of_all_table_errors": 0.0,
-        "detector_flags": 92,
-        "distinct_cells_flagged": 92,
-        "examples": {
-          "corrupted_a_clean_cell": [],
-          "wrong_value_on_a_real_error": []
-        },
-        "harmful_write_rate": null,
-        "net_cells_improved": 0,
-        "no_op_on_a_clean_cell": 0,
-        "premise": {
-          "fd_count": 0,
-          "kind": "none",
-          "note": "no schema supplied; the shipped default"
         },
         "proposals": 0,
         "repaired_a_real_error": 0,

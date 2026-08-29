@@ -751,12 +751,28 @@ def propose_repairs(
         for attempt_number in range(1, 4):
             candidate = repairer.propose(issue, working_df, schema, retry_context=retry_context)
             if candidate is None:
+                # A repairer that abstains AFTER a real failure must not erase why. The
+                # summary block below only rewrites a trailing attempt whose status is not
+                # already "attempted_not_fixed", so without this the verifier's reason --
+                # the only text that says WHICH constraint blocked the repair -- is
+                # replaced by "no proposal available". That was unreachable while every
+                # repairer re-proposed its rejected value on retry; it is reachable now
+                # that abstaining is the correct response to an exhausted candidate set.
+                prior_failure = attempts[-1].reason if attempts else None
                 attempts.append(
                     RepairAttempt(
                         issue=issue,
                         attempt_number=attempt_number,
                         status="attempted_not_fixed",
-                        reason="No repair proposal was available for this issue.",
+                        reason=(
+                            "No repair proposal was available for this issue."
+                            if prior_failure is None
+                            else (
+                                f"Issue was attempted but not fixed after "
+                                f"{len(attempts)} attempt(s). No further proposal was "
+                                f"available. Last failure: {prior_failure}"
+                            )
+                        ),
                     )
                 )
                 break

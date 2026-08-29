@@ -805,6 +805,7 @@ claims:
     format: "{:.0%}"
     expect: "93%"
     context: "93% of it"
+    representation: pandas.DataFrame
     note: >-
       The attribution, and the number that matters most here. An inference from process CPU time had
       charged this cost to the harness helper, which is the other 7 percent. Was 99% until
@@ -818,6 +819,7 @@ claims:
     format: "{:d}"
     expect: "100"
     context: "milliseconds per flag"
+    representation: pandas.DataFrame
     note: >-
       Added 2026-08-28, replacing fd_scalability_seconds. The original bound
       /stable/propose_seconds_per_flag_rounded, which read 2 and now rounds to 0. A coarse
@@ -831,6 +833,7 @@ claims:
     format: "{:d}"
     expect: "5"
     context: "hours for the"
+    representation: pandas.DataFrame
     note: >-
       Replaces fd_scalability_days, retired 2026-08-28. That claim bound
       /stable/tax_oracle_days_rounded at 4 days and its own note said "days rather than hours

@@ -152,3 +152,144 @@ way to teach people to ignore a gate. **Precision must not exceed reproducibilit
   `DECISIONS.md`.
 - **Reading this as a benchmark of pandas or of any platform.** It is a property of this repairer's
   implementation, on one machine, under no contention.
+
+## 2026-08-29: this document measured the wrong half of the cost
+
+Everything above is true **as scoped**, and the scope is narrower than a reader will assume. The
+harness behind it, `scripts/bench/measure_harness_cost.py`, times `_acting_group` and
+`FDViolationRepairer.propose`. **It never calls a verifier.** So "`propose` is 93% of it" means 93%
+of those two functions, not 93% of repairing a cell, and the roughly 5-hour tax figure is the
+write-exposure phase only -- which this document says, and which is easy to read past.
+
+Measured end to end on `hospital` (1,000 rows, 20 columns, 53 oracle FDs), one machine:
+
+| Stage | Before | After |
+| --- | --- | --- |
+| `propose` per flag | 1.43 ms | **0.046-0.053 ms** |
+| `differential_verify` per fix | 1,524 ms, SMT verdict UNKNOWN | **136-143 ms**, real verdicts |
+| Projected end to end, 7,905 cells | about 200 minutes | **about 18-19 minutes** |
+
+So **verification was about 98% of the cost of repairing a cell, and `propose` was about 0.1%.**
+The quadratic this document correctly identified was real and was not the dominant term.
+
+### What changed
+
+* **The SMT encoding is scoped to each constraint's footprint.** It asserted a ground equality for
+  every cell of every relevant column -- 10,000 assertions and roughly 40,000 z3 AST nodes per
+  fix here -- when an FD verdict depends only on rows sharing the candidate's determinant tuple,
+  uniqueness only on rows already holding the candidate value, and bounds, accepted values,
+  NOT NULL and regex only on the candidate row. Counted rather than timed, so it does not move
+  with the machine: at 2,000 rows the encoding fell from about 4,000 ground assertions to **6**,
+  and `tests/unit/test_verifier_locality.py` fails if it becomes a function of row count again.
+* **The FD `ForAll` is expanded over that finite footprint.** A quantifier over an unbounded `Int`
+  in an otherwise ground problem left the decidable fragment for nothing, and it is why the
+  verdict was UNKNOWN on 60 of 60 real proposals at the shipped 200 ms budget. Expansion is the
+  same transformation z3's own documentation uses to argue decidability for bounded quantifiers.
+* **The determinant grouping is built once per repair pass**, stamped with each determinant
+  column's write revision, which is the invalidation contract the section above correctly
+  required before this was allowed. `propose` cost is now flat from 1,000 to 16,000 rows at fixed
+  group size -- measured 1 index build, 200 reuses, 0 rescans.
+
+### The scoping introduced a verifier divergence, which is the more important finding
+
+Scoping what the encoding *asserts* also changed what the SMT verifier *concluded*, on an input
+class the equivalence property could not reach.
+
+`DirectVerifier` returns UNKNOWN when any value in a relevant column cannot be coerced to its
+declared type, justified in `direct.py` on the grounds that "the primary verifier likewise cannot
+encode it". True while every cell was encoded; false once only the footprint was. With an
+uncoercible value in a row *outside* the footprint, **SMT returned ACCEPT while Direct returned
+UNKNOWN.**
+
+`differential_verify` caught it and failed closed, so no unsound value could ever have been
+written -- the invariant did its job. It is still a defect: an N-version check exists to *detect*
+disagreement, and here it absorbed a disagreement silently across a whole class of tables. The
+property test missed it because its frames are 2-4 rows of well-typed values, so footprint and
+table are effectively the same set and no generated value is uncoercible.
+
+Coercibility is therefore now checked over the **whole** relevant column while only the footprint
+is asserted into the solver. It is a Python type check, not z3 AST construction, and it cost
+nothing measurable. `tests/unit/test_verifier_scope_parity.py` pins the parity on 40-row frames
+where footprint and table genuinely differ.
+
+Note what is deliberately **not** decided here: whether holding a provable repair because an
+unrelated row holds garbage is the right semantics. Arguably the scoped ACCEPT was the better
+answer and `DirectVerifier` is the over-conservative one. That is a coverage change and belongs in
+its own pre-registered decision, not smuggled in as a side effect of a speedup.
+
+### What has NOT changed, and what is still not authorised
+
+* **Every verdict.** `measure_deductive_coverage.py` reproduces 393/451/451 repaired, 0/86/116
+  corrupted and FD counts 53/81/85 with `replication_mismatches` 0 in all three arms -- the
+  pre-registered K4 oracle, unmoved.
+* **The tax projection is still not a measurement**, and the corrected shape is *worse* than the
+  figure this document publishes. At 136-143 ms per fix and 164,718 flags, verification alone is
+  on the order of **6-7 hours**, against the roughly 5 hours projected here for write exposure.
+  The number that flatters the product is the one that omits the verifier.
+* **The timings are ranges from three repeats, and earlier readings on the same code did not
+  reproduce.** A single run once read 42 ms/fix, and a set of three read 166-249 ms while the
+  machine was loaded; the 136-143 ms figure has a 5% spread and is the one quoted. Only the
+  counted assertion figures are stable across machines. The speedup is stated as **about 11x end
+  to end** and should not be quoted more precisely.
+* **`DirectVerifier` is NOT the larger remaining term, and an earlier version of this section said
+  it was.** That was inference from its O(columns x rows) coercion sweep, not measurement.
+  Profiled: **SMT 127-130 ms/fix against Direct 6.3-6.7 ms/fix** -- Direct is about 5% of SMT.
+  The retraction matters more than the number, because the same mistake produced the "propose is
+  93%" framing this section corrects: reasoning about which code looks expensive instead of
+  measuring it.
+* **The dominant cost was a defect introduced by the parity fix above.** The coercibility sweep
+  called the z3 value factory per cell, so it built one AST node for every value it checked --
+  counted at **10,232 `StringVal` calls per fix**, about 40% of verification. For a `str` column
+  the check is also incapable of failing, because the cell is already a string and `str` is total,
+  and all 20 of hospital's declared columns are `str`. Replacing it with a pure-Python coercion
+  predicate, and skipping `str` entirely, cut it to **232 calls per fix**. That figure is a count,
+  not a timing, so it is reproducible across machines; the wall clock over the same change spanned
+  79.8 to 352.2 ms/fix and settled nothing.
+* **Scoping `DirectVerifier` the same way is declined, on a stronger basis than cost.** It would
+  need its own footprint computation. Written from the same relevance argument, the two verifiers
+  would then share a *specification* while differing only in code -- the residual correlation
+  channel Knight and Leveson identified when they found that independently written programs failed
+  together far more often than independence predicts, and concluded that "all design specification
+  must be redundant and independent for the versions to have any chance of avoiding common design
+  faults" (IEEE TSE, 1986). Implementation diversity does not close a fault in the shared argument.
+  Note the honest limit: no study located here quantifies shared specification against shared code
+  as the dominant source, so this is a documented channel, not a measured ranking.
+
+## 2026-08-29: what representation these numbers were measured on
+
+Every timing on this page was produced by a harness in `scripts/`, and every harness in `scripts/`
+builds a `pandas.DataFrame`. The CLI does not. `read_csv` returns `dataforge.table.Table`, so every
+run a user performs uses `Table`.
+
+That is not a cosmetic difference. `DeterminantGroupIndex` reuses a cached grouping only when the
+table can report a per-column write counter through `column_revision`. `Table` has that method;
+`DataFrame` does not. So the harnesses take the uncached branch -- one scan per fix -- while the
+product takes the cached one. **The measured path and the shipped path are different code.**
+
+Three consequences, stated plainly:
+
+* The per-flag timings here (`fd_scalability_propose_ms`, `fd_scalability_propose_share`,
+  `fd_scalability_hours`) describe the *uncached* branch. They are therefore conservative for the
+  product -- the shipped path does strictly less grouping work -- but "conservative" is a claim about
+  direction, not magnitude, and this page does not quantify the magnitude.
+* `fd_scalability_tax_flags` is unaffected. It is a deterministic count, not a timing.
+* One earlier attempt to quantify the gap on this page compared 65.5 ms on `Table` against 16.0 ms on
+  pandas and reported the cache as a slowdown. That comparison was invalid -- it varied the
+  representation and the branch together -- and was retracted above.
+
+**What was done about it.** Two things, neither of which is "rewrite every harness":
+
+1. `tests/property/test_representation_parity.py` asserts that both representations reach the same
+   verdict, over generated cases and over a deterministic case per constraint family fixed at a
+   contested verdict. This makes the divergence non-load-bearing *for correctness*: if the two ever
+   decide differently, that test fails, and the pandas-based evidence on this page stops being
+   evidence at that moment instead of quietly becoming wrong.
+2. `scripts/perf/measure_verifier_work.py` measures on `Table`, and measures counted work rather than
+   wall clock. It is the only instrument here that runs the shipped representation.
+
+**What was not done, and why it is still open.** The harnesses still measure pandas. Parity of
+verdicts is not parity of cost, and the honest position is that the timings on this page are
+approximately right for the product rather than measured on it. Converting the harnesses is a real
+change -- they use pandas for scoring, not only for holding rows -- and it is recorded as an open
+item rather than claimed as done. Anyone tightening these numbers should convert the harness first
+and re-measure, not adjust the figures.

@@ -63,7 +63,7 @@ format:
 # is separate work rather than something to bundle into an unrelated change. Stated so the gap is
 # a recorded decision, not an oversight.
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/perf/measure_verifier_work.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
 
 # `-n logical` rather than `-n auto`: this suite is dominated by subprocess launches and file
 # I/O, not CPU, so logical cores are the right unit. `--dist loadgroup` comes from
@@ -120,8 +120,22 @@ sft-preflight:
 coverage:
 	$(PYTHON) -m pytest tests/ --cov=dataforge --cov-report=term-missing --cov-report=html
 
+# `-o python_files` is load-bearing, not decoration. These files are named bench_*.py, and
+# pytest's default `python_files = test_*.py *_test.py` does not match them, so this target
+# collected ZERO tests and exited 5 from the day it was written until 2026-08-29. Both latency
+# budgets inside -- SMT p95 under 200ms, safety filter p95 under 1ms -- had therefore never
+# executed. The SMT one fails at ~248ms mean / 607ms max on its own 1000-row fixture.
+#
+# The bench_*.py naming is kept deliberately: it is what keeps 100 benchmark rounds out of
+# `make test`, whose whole purpose is a fast inner loop. The names stay, the collection is
+# fixed here and in the gate step that runs the same budgets.
+#
+# `-n 0` is also required, and also load-bearing. pytest-benchmark auto-activates
+# --benchmark-disable when xdist is on, and this repo's addopts carry `--dist loadgroup`, so
+# without `-n 0` the run dies with "Can't have both --benchmark-only and --benchmark-disable".
+# It is right on the merits too: timing under parallel workers measures contention, not cost.
 bench:
-	$(PYTHON) -m pytest tests/benchmarks/ --benchmark-only --benchmark-autosave
+	$(PYTHON) -m pytest tests/benchmarks/ -o python_files="bench_*.py" -n 0 --benchmark-only --benchmark-autosave
 
 bench-free:
 	$(PYTHON) scripts/bench/run_agent_comparison.py --methods random,heuristic --datasets hospital,flights --seeds 3 --output-json eval/results/agent_comparison.json
