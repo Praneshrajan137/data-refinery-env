@@ -81,11 +81,21 @@ dev = [
     "build>=1.2",
     "pip-audit>=2.10,<3",
     "cyclonedx-bom>=7.3,<8",
-    "cryptography>=48.0.1",
+    # Security floors, not just "whatever the lock happens to hold". Same reasoning as the click
+    # pin above: the lockfile is consumed in exactly one place (Dockerfile.env), so a floor is what
+    # stops a resolver anywhere else backtracking onto the vulnerable build.
+    # cryptography < 50.0.0 carries CVE-2026-69247, a Bleichenbacher oracle in PKCS#7
+    # EnvelopedData decryption. Not reachable here (zero `pkcs7` hits in the repo; it arrives via
+    # Authlib in the openenv extra), but the fix is a floor bump, so there is nothing to weigh.
+    "cryptography>=50.0.0",
     "idna>=3.15",
     "pip>=26.1.2",
     "urllib3>=2.7",
-    "aiohttp>=3.14.1",
+    # aiohttp <= 3.14.2 carries CVE-2026-69244 (out-of-bounds heap read in the C HTTP response
+    # parser), and <= 3.14.1 adds CVE-2026-69243 (request smuggling via WebSocket upgrade) and
+    # CVE-2026-59881 (WebSocket client accepting compressed frames without negotiated
+    # permessage-deflate). 3.14.3 is the first release clear of all three.
+    "aiohttp>=3.14.3",
     "msgpack>=1.2.1",
     "pydantic-settings>=2.14.2",
     "PyJWT>=2.13.0",
@@ -162,7 +172,11 @@ openenv = [
     "pandas>=2.2",
     "openenv-core[core]>=0.2.2",
     "authlib>=1.7.1,!=1.7.0",
-    "cryptography>=48.0.1",
+    # Kept in step with the dev floor above: CVE-2026-69247. Authlib is the reason cryptography is
+    # named here at all, and it is also the dependent most likely to notice a major bump -- a fresh
+    # resolve on 2026-08-28 installed cryptography 50.0.1 alongside Authlib with pip-audit clean,
+    # so this floor is confirmed rather than hoped for.
+    "cryptography>=50.0.0",
     "duckdb>=1.0",
     "sqlglot>=25.0",
     "scipy>=1.13",

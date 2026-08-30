@@ -313,3 +313,97 @@ The override uses submodule patterns only. Bare `kaggle`/`kagglesdk` entries wer
 mypy reported them as `unused section(s)` — the real imports are `kaggle.api.kaggle_api_extended`
 and `kagglesdk.kaggle_creds`. A pattern matching nothing is noise that trains readers to skim
 type-check output.
+
+## Acted on 2026-08-30: 14 alerts to 6, then to 0 pending rescan
+
+The 2026-08-07 triage above ended with six numbered actions. Items 2, 3, 4 and 5 were still open
+three weeks later, which is the same "no forcing function" pattern this document already named about
+the click floor. They are now done. The split held exactly on re-checking: **6 of the 14 alerts were
+real, 8 were stale.**
+
+### The three real fixes
+
+| Package | Was | Now | Alerts cleared | Where |
+| --- | --- | --- | --- | --- |
+| aiohttp | 3.14.1 | **3.14.3** | 86 high, 85 med, 84 med | `uv.lock` |
+| cryptography | 49.0.0 | **50.0.1** | 87 high | `uv.lock` |
+| postcss | 8.5.15 | **8.5.26** | 83 high, 88 med | `playground/web/package-lock.json` |
+
+Both Python bumps were done as **floors in `pyproject.toml`**, not just lockfile edits, following the
+`click>=8.3.3` precedent: the floor is what stops a resolver backtracking onto the vulnerable build
+anywhere the lockfile is not the input, and CI installs with plain pip rather than from the lock.
+`cryptography>=50.0.0` is set in both the `dev` and `openenv` extras, since Authlib in `openenv` is
+the reason cryptography is named at all.
+
+postcss went to **8.5.26 rather than the 8.5.23 the advisory names**. 8.5.23 alone carries a
+`list.split()` regression introduced by the 8.5.17 visitor change; 8.5.25 and 8.5.26 fix it. Taking
+the version the advisory names would have swapped a disclosure bug for a correctness bug.
+
+### `uv.lock` was already out of sync with `pyproject.toml`, and that is the bigger finding
+
+The re-lock changed far more than two packages, so it was worth establishing why before accepting it.
+Measured rather than assumed: `uv lock --check` **fails on pristine `main`**. The lockfile carried
+`ruff 0.15.12` against a declared `ruff>=0.16.2,<0.17`, and `mypy 2.1.0` against `mypy>=2.3,<3` --
+it violated two of the project's own pins. Since `Dockerfile.env:21` runs `uv sync --frozen`, that
+image build was already broken and nothing surfaced it. `uv lock --check` and a
+`uv sync --frozen --no-editable --extra playground --dry-run` both now exit 0.
+
+Narrowing the diff back to two packages was therefore the wrong instinct: it would have preserved a
+lockfile that could not be installed by its only consumer.
+
+One consequence to state plainly: the lock now also resolves the `kaggle` extra declared on
+2026-08-28 (kaggle, kagglesdk, bleach, jupytext and their dependencies), which **widens the surface
+Dependabot scans**. No image changes, because `Dockerfile.env` syncs `--extra playground` only. This
+is the correct lock content -- `pyproject.toml` declares the extra -- but it means a future alert may
+name a package no shipped artifact installs.
+
+### An error of mine, recorded because the plan prescribed it
+
+The plan specified `npm update postcss --package-lock-only`. **That command produced a lockfile that
+fails `npm ci`.** It pruned the hoisted `@emnapi/core` and `@emnapi/runtime` peers but left an
+orphaned top-level `@emnapi/wasi-threads@1.2.2`, which npm then validated against the registry's
+current `@emnapi/core` and rejected: `lock file's @emnapi/wasi-threads@1.2.2 does not satisfy 1.2.3`.
+
+Isolated rather than guessed at: `npm ci` against the pristine lock succeeded (226 packages, exit 0),
+so the breakage was mine and not pre-existing. Dropping `--package-lock-only` did not fix it either --
+a plain `npm install` afterwards did, reconciling `wasi-threads` to 1.2.3 and removing the orphan.
+The lesson is narrow but real: for a transitive bump, verify with `npm ci` rather than trusting that
+`npm update` leaves a consistent tree. `package.json` is byte-identical, so postcss stays transitive
+under `vite`.
+
+### The 8 stale alerts, dismissed with per-alert evidence
+
+| Alerts | Package | Evidence |
+| --- | --- | --- |
+| 37, 36 | starlette | `origin/main` pins `starlette==1.3.1`; `uv.lock` resolves 1.3.1. Ranges `>=0.4.1,<1.3.1` and `<1.3.0` both exclude it. |
+| 31, 29, 27, 25 | python-multipart | pinned `0.0.31`, lock resolves `0.0.32`. Ranges `<0.0.30` and `<0.0.31` exclude both. |
+| 89, 81 | pymdown-extensions | manifest `docs/pyproject.toml` deleted in `0214b3c`; `docs/requirements.txt` pins `11.0.2`. |
+
+Dismissed with `dismissed_reason=inaccurate` -- the honest reason, since each alert asserts a version
+the repository does not have -- and a comment carrying the pin, the commit and the advisory range so
+a reviewer can re-derive the verdict instead of trusting it. Dismissals are reversible.
+
+A hypothesis this killed on the way: the phantom entries in GitHub's dependency-graph SBOM
+(`starlette 1.1.0`, `python-multipart 0.0.27`, `pymdown-extensions 10.21.3`) looked at first like a
+hidden vulnerable manifest. `git grep` finds **no tracked file** declaring any of those versions, so
+they are GitHub-side retained state. That is what makes dismissal correct rather than a shortcut.
+
+### No `.github/dependabot.yml` was added
+
+Considered and declined. Security alerts are a repository setting and keep working without it, and the
+file deleted on 2026-08-27 was worse than absent -- six ecosystems with `open-pull-requests-limit: 0`
+on every one, so it produced the appearance of monitoring and none of the substance. Adding one back
+would need a non-zero limit to be worth anything, and that is a deliberate decision about PR noise
+rather than a side effect of a security pass.
+
+### Limits
+
+- **The dismissals are asserted against manifest pins, not against a running image.** The deployed
+  Hugging Face Space was not rebuilt or inspected. If it installs from something other than
+  `playground/api/requirements.txt`, the starlette and python-multipart reasoning needs re-checking.
+- **The `datasets` pip-audit exception could not be evaluated here.** `datasets` is not installed in
+  this venv (it lives in the `train` extra), so the clean `pip-audit` run does *not* show the
+  exception is now redundant. It was left in place rather than retired on absent evidence.
+- **The 6 real alerts are not closed yet, only fixed.** They close when Dependabot rescans the pushed
+  lockfiles. Verified locally instead: `pip-audit` reports no vulnerabilities, and `npm audit`
+  reports 0 for `playground/web`.
