@@ -658,8 +658,22 @@ python -m pip install -e ".[dev]"
 dataforge-mcp serve
 ```
 
-Tools: `dataforge_profile`, `dataforge_detect_errors`,
-`dataforge_verify_fix`, `dataforge_apply_repairs`, and `dataforge_revert`.
+Eight tools are registered. Read-only: `dataforge_profile`,
+`dataforge_detect_errors`, `dataforge_verify_fix`, `dataforge_review_rank`.
+Write-capable: `dataforge_apply_repairs`, `dataforge_verify_and_apply` (the
+guardrail entry an external proposer calls), `dataforge_agent_repair`, and
+`dataforge_revert`.
+
+The write tools accept an optional `schema_path`, which supplies the declared
+premise. Without one, a fix is held for review rather than written — the product
+makes no unsupervised write without a premise.
+
+Every applied repair returns a portable in-toto/DSSE `attestation` alongside its
+`repair_receipt_v1`. A third party verifies it offline with no network, no
+solver and no schema. When one cannot be built the response carries
+`attestation_unavailable` and the reason, so a caller can tell "not attestable"
+from "not implemented".
+
 The default transport is stdio. MCP reads and writes are sandboxed to configured
 allowed roots; dry-run works by default, while apply requires `--enable-apply`.
 Streamable HTTP is available for local experiments.

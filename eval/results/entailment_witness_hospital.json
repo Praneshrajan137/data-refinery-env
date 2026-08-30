@@ -1,0 +1,215 @@
+{
+  "all_criteria_pass": true,
+  "classified": {
+    "corrupted_a_clean_cell": 116,
+    "corrupted_by_column": {
+      "HospitalName": 23,
+      "HospitalOwner": 30,
+      "ProviderNumber": 23,
+      "State": 20,
+      "Stateavg": 20
+    },
+    "corrupted_by_constraint": {
+      "City -> HospitalOwner": 29,
+      "Condition -> State": 20,
+      "MeasureCode -> Stateavg": 20,
+      "ZipCode -> HospitalName": 23,
+      "ZipCode -> HospitalOwner": 1,
+      "ZipCode -> ProviderNumber": 23
+    },
+    "no_op_on_a_clean_cell": 0,
+    "predicted_writes": 567,
+    "repaired_a_real_error": 451,
+    "wrong_value_on_a_real_error": 0
+  },
+  "corpus": "hospital",
+  "criteria": {
+    "F2a_total_corruptions": {
+      "observed": 116,
+      "oracle": 116,
+      "pass": true
+    },
+    "F2b_by_column": {
+      "observed_vs_oracle": {
+        "HospitalName": [
+          23,
+          23
+        ],
+        "HospitalOwner": [
+          30,
+          30
+        ],
+        "ProviderNumber": [
+          23,
+          23
+        ],
+        "State": [
+          20,
+          20
+        ],
+        "Stateavg": [
+          20,
+          20
+        ]
+      },
+      "pass": true
+    },
+    "F2c_attribution": {
+      "observed": {
+        "City -> HospitalOwner": 29,
+        "ZipCode -> ProviderNumber": 23
+      },
+      "pass": true
+    },
+    "F2d_inert_false_dependencies": {
+      "note": "These two dependencies are equally false as the ones that did damage and corrupted nothing. Any predictor that merely flags falseness fails here, which is why this is the decisive criterion.",
+      "observed": {
+        "ZipCode -> Address1": 0,
+        "ZipCode -> PhoneNumber": 0
+      },
+      "pass": true
+    }
+  },
+  "path_decomposition": {
+    "decomposition_is_exact": true,
+    "largest_marginals": [
+      {
+        "accepted": "MeasureCode -> Stateavg",
+        "marginal_cells_written": 46
+      },
+      {
+        "accepted": "Address1 -> CountyName",
+        "marginal_cells_written": 38
+      },
+      {
+        "accepted": "MeasureCode -> MeasureName",
+        "marginal_cells_written": 35
+      },
+      {
+        "accepted": "Address1 -> City",
+        "marginal_cells_written": 32
+      },
+      {
+        "accepted": "Address1 -> PhoneNumber",
+        "marginal_cells_written": 32
+      },
+      {
+        "accepted": "MeasureCode -> Condition",
+        "marginal_cells_written": 32
+      },
+      {
+        "accepted": "Address1 -> ZipCode",
+        "marginal_cells_written": 30
+      },
+      {
+        "accepted": "Address1 -> HospitalType",
+        "marginal_cells_written": 29
+      },
+      {
+        "accepted": "City -> HospitalOwner",
+        "marginal_cells_written": 29
+      },
+      {
+        "accepted": "HospitalName -> Address1",
+        "marginal_cells_written": 29
+      }
+    ],
+    "note": "Marginal deltas along a canonical acceptance path. Compare `isolated_sum`, which is the quantity constraint-additivity.md shows does NOT compose.",
+    "sum_of_isolated_radii": 2779,
+    "sum_of_marginal_deltas": 567,
+    "total_cells_written": 567
+  },
+  "premise": {
+    "arm": "shipped_accept_all",
+    "dependencies": [
+      "Address1 -> City",
+      "Address1 -> CountyName",
+      "Address1 -> EmergencyService",
+      "Address1 -> HospitalName",
+      "Address1 -> HospitalOwner",
+      "Address1 -> HospitalType",
+      "Address1 -> PhoneNumber",
+      "Address1 -> ProviderNumber",
+      "Address1 -> State",
+      "Address1 -> ZipCode",
+      "City -> CountyName",
+      "City -> EmergencyService",
+      "City -> HospitalOwner",
+      "City -> HospitalType",
+      "City -> State",
+      "Condition -> HospitalType",
+      "Condition -> State",
+      "CountyName -> EmergencyService",
+      "CountyName -> HospitalType",
+      "CountyName -> State",
+      "EmergencyService -> HospitalType",
+      "EmergencyService -> State",
+      "HospitalName -> Address1",
+      "HospitalName -> City",
+      "HospitalName -> CountyName",
+      "HospitalName -> EmergencyService",
+      "HospitalName -> HospitalOwner",
+      "HospitalName -> HospitalType",
+      "HospitalName -> PhoneNumber",
+      "HospitalName -> ProviderNumber",
+      "HospitalName -> State",
+      "HospitalName -> ZipCode",
+      "HospitalOwner -> HospitalType",
+      "HospitalOwner -> State",
+      "HospitalType -> State",
+      "MeasureCode -> Condition",
+      "MeasureCode -> HospitalType",
+      "MeasureCode -> MeasureName",
+      "MeasureCode -> State",
+      "MeasureCode -> Stateavg",
+      "MeasureName -> Condition",
+      "MeasureName -> HospitalType",
+      "MeasureName -> MeasureCode",
+      "MeasureName -> State",
+      "MeasureName -> Stateavg",
+      "PhoneNumber -> Address1",
+      "PhoneNumber -> City",
+      "PhoneNumber -> CountyName",
+      "PhoneNumber -> EmergencyService",
+      "PhoneNumber -> HospitalName",
+      "PhoneNumber -> HospitalOwner",
+      "PhoneNumber -> HospitalType",
+      "PhoneNumber -> ProviderNumber",
+      "PhoneNumber -> State",
+      "PhoneNumber -> ZipCode",
+      "ProviderNumber -> Address1",
+      "ProviderNumber -> City",
+      "ProviderNumber -> CountyName",
+      "ProviderNumber -> EmergencyService",
+      "ProviderNumber -> HospitalName",
+      "ProviderNumber -> HospitalOwner",
+      "ProviderNumber -> HospitalType",
+      "ProviderNumber -> PhoneNumber",
+      "ProviderNumber -> State",
+      "ProviderNumber -> ZipCode",
+      "Sample -> HospitalType",
+      "Sample -> State",
+      "Score -> HospitalType",
+      "Score -> State",
+      "State -> HospitalType",
+      "Stateavg -> Condition",
+      "Stateavg -> HospitalType",
+      "Stateavg -> MeasureCode",
+      "Stateavg -> MeasureName",
+      "Stateavg -> State",
+      "ZipCode -> Address1",
+      "ZipCode -> City",
+      "ZipCode -> CountyName",
+      "ZipCode -> EmergencyService",
+      "ZipCode -> HospitalName",
+      "ZipCode -> HospitalOwner",
+      "ZipCode -> HospitalType",
+      "ZipCode -> PhoneNumber",
+      "ZipCode -> ProviderNumber",
+      "ZipCode -> State"
+    ],
+    "dependency_count": 85
+  },
+  "rows": 1000,
+  "schema_version": "entailment_witness_result_v1"
+}

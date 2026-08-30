@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from importlib import resources
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import typer
 import yaml
@@ -253,6 +253,32 @@ def load_schema(schema_path: Path) -> Schema:
     if raw is not None and not isinstance(raw, dict):
         raise typer.BadParameter(f"Schema file '{schema_path}' must be a YAML mapping.")
     return schema_from_mapping(raw)
+
+
+def load_schema_mapping(schema_path: Path) -> dict[str, Any] | None:
+    """Return a schema file's raw mapping, for embedding in an attestation.
+
+    ``Schema`` is a dataclass with set-valued fields and no JSON projection, so an
+    attestation cannot embed it by serializing the parsed object without inventing a wire
+    format -- and putting an unreviewed format on the critical path of a normative artifact
+    is not a trade worth making. What the attestation needs is *the operator's own declared
+    premise*, which is exactly what this file already is.
+
+    Embedding it in full is deliberate and matches the reasoning in
+    ``dataforge/attestation``: "a digest and an id list are dangling pointers". A verifier
+    holding the attestation must be able to read the constraints a fix was proven against
+    without fetching anything, which is what makes verification work offline with no schema.
+
+    ``yaml.safe_load`` accepts JSON as well, since JSON is a YAML subset -- so this covers
+    the CLI's ``--schema`` YAML files and the MCP server's JSON ones with one reader.
+    Returns ``None`` for anything that is not a mapping rather than raising: the caller is
+    attaching optional evidence to a completed repair, not validating input.
+    """
+    try:
+        raw = yaml.safe_load(schema_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return None
+    return raw if isinstance(raw, dict) else None
 
 
 def read_csv(path: Path) -> Table:

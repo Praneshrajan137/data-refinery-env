@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from pathlib import Path
 
@@ -371,3 +372,103 @@ class TestDataForgeMcpTools:
 
         assert revert.restored is True
         assert csv_path.read_bytes() == original
+
+
+class TestAttestationReachesTheAgent:
+    """The portable proof must be returned over MCP, not only computable in the CLI.
+
+    Until 2026-08-29 the string "attest" appeared nowhere in this package: every tool
+    returned `repair_receipt_v1` and the in-toto/DSSE attestation -- the artifact a third
+    party can verify offline, with no network, no solver and no schema -- could not reach an
+    agent by any route. A receipt is an artifact an agent must trust DataForge about; an
+    attestation is one it can check.
+    """
+
+    def test_verify_and_apply_returns_a_verifiable_attestation(self, tmp_path: Path) -> None:
+        from dataforge.attestation import verify_attestation
+
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        schema_path = tmp_path / "schema.json"
+        schema_path.write_text('{"columns": {"id": "str", "amount": "float"}}', encoding="utf-8")
+
+        receipt = dataforge_verify_and_apply(
+            str(csv_path),
+            [{"row": 3, "column": "amount", "new_value": "102", "expected_old_value": "1020"}],
+            mode="apply",
+            schema_path=str(schema_path),
+            confirm=True,
+            proposer="agent-x",
+        )
+
+        assert receipt.applied is True
+        assert receipt.attestation is not None, receipt.attestation_unavailable
+        report = verify_attestation(receipt.attestation, data_bytes=csv_path.read_bytes())
+        assert report.ok, [check.detail for check in report.failures]
+
+    def test_apply_repairs_returns_a_verifiable_attestation(self, tmp_path: Path) -> None:
+        """The deterministic path, which is the one the product writes unsupervised.
+
+        Uses a declared functional dependency rather than the shared decimal-shift fixture:
+        `decimal_shift` was removed from the auto-apply set on measurement -- it would have
+        rewritten 263,428 already-correct values on a fourth corpus -- so a repair built on it
+        is correctly refused and would test the refusal, not the attestation.
+        """
+        from dataforge.attestation import verify_attestation
+
+        csv_path = tmp_path / "cities.csv"
+        csv_path.write_text(
+            "id,state,city\n"
+            + "".join(f"{index},MA,boston\n" for index in range(1, 10))
+            + "10,MA,bostonn\n",
+            encoding="utf-8",
+        )
+        schema_path = tmp_path / "schema.json"
+        schema_path.write_text(
+            json.dumps(
+                {
+                    "columns": {"id": "str", "state": "str", "city": "str"},
+                    "functional_dependencies": [{"determinant": ["state"], "dependent": "city"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        receipt = dataforge_apply_repairs(str(csv_path), "apply", schema_path=str(schema_path))
+
+        assert receipt.applied is True, receipt.reason
+        assert receipt.attestation is not None, receipt.attestation_unavailable
+        report = verify_attestation(receipt.attestation, data_bytes=csv_path.read_bytes())
+        assert report.ok, [check.detail for check in report.failures]
+
+    def test_a_dry_run_reports_why_there_is_nothing_to_attest(self, tmp_path: Path) -> None:
+        """An agent must be able to tell "not attestable" from "not implemented"."""
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+
+        receipt = dataforge_apply_repairs(str(csv_path), "dry_run")
+
+        assert receipt.attestation is None
+        assert "no post-state to attest" in str(receipt.attestation_unavailable)
+
+    def test_a_tampered_file_makes_the_returned_attestation_fail(self, tmp_path: Path) -> None:
+        """Non-vacuity: the attestation is a claim about specific bytes, not a rubber stamp."""
+        from dataforge.attestation import verify_attestation
+
+        csv_path = tmp_path / "amounts.csv"
+        _write_repairable_csv(csv_path)
+        schema_path = tmp_path / "schema.json"
+        schema_path.write_text('{"columns": {"id": "str", "amount": "float"}}', encoding="utf-8")
+        receipt = dataforge_verify_and_apply(
+            str(csv_path),
+            [{"row": 3, "column": "amount", "new_value": "102", "expected_old_value": "1020"}],
+            mode="apply",
+            schema_path=str(schema_path),
+            confirm=True,
+            proposer="agent-x",
+        )
+        assert receipt.attestation is not None
+
+        report = verify_attestation(receipt.attestation, data_bytes=b"id,amount\n1,1\n")
+
+        assert not report.ok

@@ -198,3 +198,48 @@ def test_canonical_gate_provisions_every_required_optional_surface() -> None:
     assert "pip install -r docs/requirements.txt" in canonical_job
     assert "pip install -r playground/api/requirements.txt" in canonical_job
     assert "backend_gate.py --require-optional" in canonical_job
+
+
+class TestDependencyAuditScopeIsExplicit:
+    """A green pip-audit must state what it looked at.
+
+    `pip-audit --local` audits the installed environment, so its population is whatever
+    happens to be installed. That made the gate scope vary silently by machine: on one
+    commit it failed locally on 11 upstream advisories in the training and dbt stacks and
+    passed in CI, whose install set (`pip install -e ".[dev]"`) does not contain them.
+    Both results printed as "pip-audit" and neither said what it had covered.
+
+    The response is scope reporting, not another exception. An exception silences a known
+    advisory deliberately and expires; this fails when the audit could not have seen a
+    surface the product actually ships.
+    """
+
+    def test_the_scope_report_names_installed_count_and_surfaces(self) -> None:
+        report = backend_gate.pip_audit_scope_report()
+
+        assert "installed distribution(s)" in report
+        assert "required surfaces covered" in report
+        assert "optional stacks present" in report
+
+    def test_required_surfaces_are_the_three_a_user_installs(self) -> None:
+        """Optional extras are deliberately excluded: requiring them makes the gate
+        unrunnable rather than honest."""
+        assert set(backend_gate._AUDITED_SURFACES) == {"core", "playground", "mcp"}
+
+    def test_no_scope_errors_in_a_correctly_provisioned_environment(self) -> None:
+        """Non-vacuity. The suite itself imports these, so absence means a broken env."""
+        assert backend_gate.pip_audit_scope_errors() == []
+
+    def test_a_missing_surface_is_reported_as_uncovered(self, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """The case a passing audit must not be allowed to resemble."""
+        monkeypatch.setitem(
+            backend_gate._AUDITED_SURFACES,
+            "core",
+            ("a_package_that_is_not_installed",),
+        )
+
+        errors = backend_gate.pip_audit_scope_errors()
+
+        assert len(errors) == 1
+        assert "did not cover the core surface" in errors[0]
+        assert "says nothing about it" in errors[0]

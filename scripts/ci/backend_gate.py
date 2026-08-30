@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -293,6 +293,79 @@ def pip_audit_ignore_args(
     for exception in exceptions:
         args.extend(["--ignore-vuln", exception.vuln_id])
     return args
+
+
+#: The runtime surfaces a dependency audit must actually have covered.
+#:
+#: Derived from ``pyproject.toml``'s own ``[project] dependencies`` at check time rather
+#: than restated here; this maps each surface to an import-name probe so the audit's scope
+#: can be *reported* instead of inferred.
+_AUDITED_SURFACES: Final = {
+    "core": ("pandas", "pydantic", "typer", "z3"),
+    "playground": ("fastapi",),
+    "mcp": ("mcp",),
+}
+
+
+def pip_audit_scope_errors() -> list[str]:
+    """Return errors when the dependency audit did not cover the declared runtime surface.
+
+    ``pip-audit --local`` audits *the installed environment*, so its population is
+    whatever happens to be installed. That made the gate's scope vary silently by machine:
+    it failed locally on 11 upstream advisories in the training and dbt stacks while
+    passing in CI, whose install set (``pip install -e ".[dev]"``) does not contain them.
+
+    Both results were reported as "pip-audit", and neither said what it had looked at. A
+    green audit that ran against a subset of the shipped surface is not evidence about the
+    shipped surface -- the same defect class ``PRODUCT.md`` records for gates that freeze
+    the population they police, applied to a gate whose population is an accident of
+    environment.
+
+    The fix is scope reporting, not exceptions. An exception silences a known advisory
+    deliberately and expires; this instead fails when the audit could not have seen a
+    surface the product ships, which is the case a passing result must not be allowed to
+    look like.
+
+    Optional stacks (``train``, ``dbt``) are deliberately NOT required: they are extras, a
+    developer legitimately may not have them, and demanding them would make the gate
+    unrunnable rather than honest. What is required is that the audit covered core,
+    playground and MCP -- the three surfaces a user actually installs.
+    """
+    from importlib.util import find_spec
+
+    errors: list[str] = []
+    for surface, probes in sorted(_AUDITED_SURFACES.items()):
+        missing = [probe for probe in probes if find_spec(probe) is None]
+        if missing:
+            errors.append(
+                f"dependency audit did not cover the {surface} surface: "
+                f"{', '.join(sorted(missing))} not installed, so a passing pip-audit says "
+                'nothing about it. Install with `pip install -e ".[all]"`.'
+            )
+    return errors
+
+
+def pip_audit_scope_report() -> str:
+    """Return a one-line description of what the dependency audit actually covered.
+
+    Printed beside the audit result so a green run states its own scope. A gate that does
+    not say what it looked at cannot be compared against another run of itself.
+    """
+    from importlib.metadata import distributions
+    from importlib.util import find_spec
+
+    installed = sum(1 for _ in distributions())
+    covered = [
+        surface
+        for surface, probes in sorted(_AUDITED_SURFACES.items())
+        if all(find_spec(probe) is not None for probe in probes)
+    ]
+    optional = [name for name in ("torch", "trl", "dbt") if find_spec(name) is not None]
+    return (
+        f"pip-audit scope: {installed} installed distribution(s); "
+        f"required surfaces covered: {', '.join(covered) or 'none'}; "
+        f"optional stacks present: {', '.join(optional) or 'none'}"
+    )
 
 
 def npm_audit_exception_errors(
@@ -946,6 +1019,15 @@ def main() -> int:
     pip_audit_optional = not (
         args.require_optional or os.environ.get("DATAFORGE_REQUIRE_PIP_AUDIT")
     )
+    # State the audit's scope before running it. `--local` audits the installed
+    # environment, so a green result is only as wide as what happens to be installed --
+    # which is why this gate failed locally and passed in CI on the same commit, with
+    # neither result saying what it had looked at.
+    print(pip_audit_scope_report(), flush=True)
+    scope_errors = pip_audit_scope_errors()
+    if scope_errors and not pip_audit_optional:
+        for error in scope_errors:
+            print(f"pip-audit scope error: {error}", flush=True)
     checks.append(
         _run(
             "pip-audit",

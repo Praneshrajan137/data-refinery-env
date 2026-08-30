@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 import yaml
 
@@ -147,9 +147,51 @@ def _conflicting_cell_writes(fixes: list[ProposedFix]) -> bool:
     return False
 
 
+#: Cells a batch may rewrite before auto-apply requires confirmation.
+#:
+#: Unchanged in value from the row-based threshold it replaces, deliberately. There is no
+#: measurement that would justify a different number, and inventing one would be fitting a
+#: parameter to nothing -- which is what `PRODUCT.md`:213-221 records refusing to do even when
+#: the fitted constant looked like a clean win. What changed is the UNIT, which was a defect.
+HIGH_VOLUME_CELL_BUDGET: Final = 100
+
+
 def _high_volume_batch(fixes: list[ProposedFix]) -> bool:
-    """Return whether a repair batch touches too many distinct rows for auto-apply."""
-    return len({fix.fix.row for fix in fixes}) > 100
+    """Return whether a repair batch rewrites too many CELLS for auto-apply.
+
+    Counted in cells, not distinct rows, since 2026-08-29. The row count was a defect with a
+    measurable blind spot: a batch rewriting 90 rows across 50 columns is 4,500 cells and
+    passed, because it touched 90 rows. Blast radius is what a budget is for, and blast radius
+    is cells -- a cell is the unit this product writes, reverts, proves and attests.
+
+    The change is strictly more refusing: any batch the row rule escalated still escalates,
+    because cells >= distinct rows. That direction is required. Every predicate here ships as
+    a new way to say no; a budget change that let something through would be a loosening
+    dressed as a fix, and would need its own evidence.
+
+    Two things this deliberately does NOT do, both because they would require a number nobody
+    has measured:
+
+    * **No table fraction.** 101 cells is treated the same in a 200-row table and a
+      5,000,000-row one, which is obviously crude. But a fraction needs a threshold, and
+      there is no measurement to choose one; the corpora here cannot supply it, since the only
+      one large enough is tax and it mines four dependencies that write 643 cells.
+    * **No cross-batch accumulation.** A sequence of batches each just under budget still
+      passes. The pipeline path is unaffected -- ``engine/repair.py`` evaluates the whole
+      accepted set in one call, so its batch IS its transaction -- but the agent path issues
+      many batches and can walk under the budget indefinitely. Fixing that means either
+      mutable state on ``SafetyFilter`` or a second budget at ``apply_transaction``, and the
+      second needs a threshold that would refuse hospital's legitimate 567-cell repair at any
+      value this guard uses. So it is named here as an open gap rather than closed with a
+      guessed constant.
+
+    A witness count is not used here even though ``dataforge/witness.py`` computes blast
+    radius, because the two answer different questions: the witness predicts what a *candidate
+    premise* would rewrite before it is accepted, while this counts what an *already-proposed
+    batch* would write. Routing this through the witness would manufacture a dependency that
+    does not exist.
+    """
+    return len({(fix.fix.row, fix.fix.column) for fix in fixes}) > HIGH_VOLUME_CELL_BUDGET
 
 
 def _minimal_edit_distance(

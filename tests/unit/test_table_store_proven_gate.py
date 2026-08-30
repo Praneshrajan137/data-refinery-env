@@ -31,6 +31,8 @@ from dataforge.stores.patch_plan import (
     PatchPlan,
     RowIdentity,
     enforce_plan_proven_only,
+    enforce_plan_reversible,
+    enforce_plan_write_gates,
 )
 from dataforge.transactions.txn import CellFix
 
@@ -142,3 +144,66 @@ class TestPlanCarriesSchemaStatus:
         del payload["authoritative_schema_present"]
 
         assert PatchPlan.model_validate(payload).authoritative_schema_present is False
+
+
+class TestPlanReversibilityIsAPrecondition:
+    """Reversibility is checked by the gate, not by each adapter remembering.
+
+    Until 2026-08-29 ``if not plan.apply_supported or not plan.reversible`` lived in
+    ``DuckDBStore.apply_patch_plan``, one line above ``enforce_plan_proven_only``. A
+    second backend adapter calling the two gates that *look* like "the write gates" would
+    have inherited no reversibility precondition and no error saying so -- the exact
+    calling-surface pattern ``docs/trust/write-surface-uniformity.md`` was written about.
+    """
+
+    def test_irreversible_plan_is_refused(self) -> None:
+        plan = _plan("deterministic", authoritative_schema_present=True).model_copy(
+            update={"reversible": False, "reason": "not reversible"}
+        )
+
+        with pytest.raises(TableStoreError, match="not reversible"):
+            enforce_plan_reversible(plan)
+
+    def test_unsupported_plan_is_refused(self) -> None:
+        plan = _plan("deterministic", authoritative_schema_present=True).model_copy(
+            update={"apply_supported": False, "reason": "apply not supported"}
+        )
+
+        with pytest.raises(TableStoreError, match="apply not supported"):
+            enforce_plan_reversible(plan)
+
+    def test_reversible_supported_plan_passes(self) -> None:
+        """Non-vacuity: without this, the gate could refuse everything and look correct."""
+        enforce_plan_reversible(_plan("deterministic", authoritative_schema_present=True))
+
+    def test_composite_gate_checks_reversibility_before_strength(self) -> None:
+        """A plan that cannot be undone is refused before anyone reasons about its contents.
+
+        Both defects are present here. The assertion is that the reversibility message is
+        the one raised, because refusing an irreversible write does not depend on how
+        well-proven it is.
+        """
+        plan = _plan("llm_live", authoritative_schema_present=False).model_copy(
+            update={"reversible": False, "reason": "not reversible"}
+        )
+
+        with pytest.raises(TableStoreError, match="not reversible"):
+            enforce_plan_write_gates(plan, allow_unproven_autoapply=False)
+
+    def test_composite_gate_still_refuses_unproven_when_reversible(self) -> None:
+        """The composite must not have swallowed the strength gate."""
+        plan = _plan("llm_live", authoritative_schema_present=False)
+
+        with pytest.raises(TableStoreError, match="unproven"):
+            enforce_plan_write_gates(plan, allow_unproven_autoapply=False)
+
+    def test_composite_gate_still_refuses_uncheckable_detectors(self) -> None:
+        """``type_mismatch`` is not constraint-checkable; the soundness gate must survive.
+
+        This is the gate with no opt-in at any confidence, so a composite that lost it
+        would be the most consequential possible regression of the three.
+        """
+        plan = _plan("deterministic", authoritative_schema_present=True)
+
+        with pytest.raises(TableStoreError):
+            enforce_plan_write_gates(plan, allow_unproven_autoapply=True)

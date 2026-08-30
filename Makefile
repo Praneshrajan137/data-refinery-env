@@ -50,6 +50,7 @@ lint:
 	$(PYTHON) -m ruff format --check dataforge tests scripts/ci scripts/perf scripts/playground scripts/data scripts/model scripts/preflight scripts/remote scripts/publish_model.py scripts/measure_payload_split.py playground/api/app.py
 	$(PYTHON) scripts/ci/generate_domain_vocabulary.py --check
 	$(PYTHON) scripts/ci/generate_attestation_vectors.py --check
+	$(PYTHON) scripts/ci/generate_attestation_schema.py --check
 	$(PYTHON) scripts/ci/test_map_coverage.py --check
 
 format:
@@ -63,7 +64,7 @@ format:
 # is separate work rather than something to bundle into an unrelated change. Stated so the gap is
 # a recorded decision, not an oversight.
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/perf/measure_verifier_work.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/generate_attestation_schema.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/perf/measure_verifier_work.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
 
 # `-n logical` rather than `-n auto`: this suite is dominated by subprocess launches and file
 # I/O, not CPU, so logical cores are the right unit. `--dist loadgroup` comes from

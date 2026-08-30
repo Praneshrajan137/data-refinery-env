@@ -1,0 +1,37 @@
+{
+  "corpus": "tax",
+  "dependency_count": 4,
+  "measurements": [
+    {
+      "cell_reads": 40078,
+      "observed_seconds": 0.242,
+      "predicted_writes": 4,
+      "reads_per_row": 8.02,
+      "rows": 5000
+    },
+    {
+      "cell_reads": 220552,
+      "observed_seconds": 0.796,
+      "predicted_writes": 420,
+      "reads_per_row": 8.82,
+      "rows": 25000
+    },
+    {
+      "cell_reads": 881955,
+      "observed_seconds": 2.898,
+      "predicted_writes": 507,
+      "reads_per_row": 8.82,
+      "rows": 100000
+    },
+    {
+      "cell_reads": 1764201,
+      "observed_seconds": 7.148,
+      "predicted_writes": 643,
+      "reads_per_row": 8.82,
+      "rows": 200000
+    }
+  ],
+  "note": "cell_reads is the deterministic quantity; observed_seconds is recorded for context and must never be used as a gate on this machine.",
+  "reads_per_row_is_flat": true,
+  "schema_version": "entailment_witness_cost_v1"
+}

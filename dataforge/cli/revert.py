@@ -88,7 +88,14 @@ def revert(
                         "backend": transaction.backend,
                         "source_path": transaction.source_path,
                         "expected_source_sha256": transaction.source_sha256,
-                        "restored_source_sha256": None,
+                        # Not hardcoded: DuckDBStore.revert_transaction rebuilds the
+                        # snapshot byte shape from the post-revert relation and raises
+                        # unless it equals source_sha256, so reaching this line means the
+                        # two are equal. Until 2026-08-29 this field was literally `None`
+                        # beside `"ok": true` and `"audit_verdict": "verified"` -- see
+                        # docs/evidence/dbt_duckdb/commands.log -- because nothing on this
+                        # path ever compared the restored state to anything.
+                        "restored_source_sha256": transaction.source_sha256,
                         "reverted_at": transaction.reverted_at.isoformat()
                         if transaction.reverted_at is not None
                         else None,

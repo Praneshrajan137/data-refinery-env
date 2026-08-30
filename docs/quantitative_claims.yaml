@@ -879,3 +879,134 @@ claims:
       Refusals that never reached a verifier. One of the two carried a fully provable value under
       a declared premise, which is what shows the escalation and the prove gate are orthogonal
       and that the ordering hides the second behind the first.
+  # --- The entailment witness predicts harm without ground truth (2026-08-29) ---
+  - id: witness_hospital_predicted_writes
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /classified/predicted_writes
+    format: "{:d}"
+    expect: "567"
+    context: "writes"
+    note: >-
+      Predicted by groupby alone, with no detector, no repairer and no ground truth, and
+      equal to the measured write count in docs/trust/shipped-premise-result.md.
+
+  - id: witness_hospital_repaired
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /classified/repaired_a_real_error
+    format: "{:d}"
+    expect: "451"
+    context: "repaired a real error"
+    note: The figure that did not move between the proxy and shipped premise arms.
+
+  - id: witness_hospital_corruptions
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /classified/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "116"
+    context: "corrupted a clean cell"
+    note: >-
+      Criterion F2a. Ground truth enters only to classify the prediction, never to produce
+      it, which is the property that makes the instrument usable on a table that has none.
+
+  - id: witness_hospital_inert_address1
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /criteria/F2d_inert_false_dependencies/observed/ZipCode -> Address1
+    format: "{:d}"
+    expect: "0"
+    context: "ZipCode -> Address1"
+    note: >-
+      Criterion F2d, the decisive one. Equally false as ZipCode -> ProviderNumber, which
+      corrupts 23. Any predictor that scores dependency falseness fails here.
+
+  - id: witness_hospital_inert_phonenumber
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /criteria/F2d_inert_false_dependencies/observed/ZipCode -> PhoneNumber
+    format: "{:d}"
+    expect: "0"
+    context: "ZipCode -> PhoneNumber"
+    note: The second equally-false, equally-inert dependency sharing the ZipCode determinant.
+
+  - id: witness_cost_reads_per_row_at_200k
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/witness_cost_tax.json
+    pointer: /measurements/3/reads_per_row
+    format: "{:.2f}"
+    expect: "8.82"
+    context: "reads per row"
+    note: >-
+      Criterion F5, measured by counted cell reads because wall clock on this machine has
+      varied 42 to 352 ms/fix within one afternoon. Flat across a 40x scale range, so the
+      implementation is linear rather than quadratic.
+
+  - id: witness_marginal_decomposition_exact
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /path_decomposition/sum_of_marginal_deltas
+    format: "{:d}"
+    expect: "567"
+    context: "sum of marginal deltas along the acceptance path"
+    note: >-
+      Equals total_cells_written exactly, so a marginal per-candidate figure does not
+      overstate. This is what makes a reviewer-facing per-candidate number defensible where
+      an isolated one is not.
+
+  - id: witness_isolated_sum_overstates
+    doc: docs/trust/entailment-witness-result.md
+    artifact: eval/results/entailment_witness_hospital.json
+    pointer: /path_decomposition/sum_of_isolated_radii
+    format: "{:d}"
+    expect: "2779"
+    context: "sum of each candidate's radius measured in isolation"
+    note: >-
+      4.9x the true total of 567. Reproduces docs/trust/constraint-additivity.md's
+      non-composition finding on the write-count axis and quantifies the overstatement that
+      justifies refusing a context-free per-candidate figure.
+
+  - id: measure_my_table_unrequested_writes
+    doc: dataforge/cli/measure.py
+    artifact: eval/results/measure_on_my_table_validation.json
+    pointer: /corpora/0/instrument/wrote_to_a_cell_we_did_not_plant
+    format: "{:d}"
+    expect: "567"
+    context: "such writes were"
+    note: >-
+      The instrument headline. Published as a CEILING on damage, not damage: on a table with
+      no clean copy these writes cannot be separated into repairs and corruptions.
+
+  - id: measure_my_table_real_repairs
+    doc: dataforge/cli/measure.py
+    artifact: eval/results/measure_on_my_table_validation.json
+    pointer: /corpora/0/ground_truth_of_unrequested_writes/repaired_a_real_pre_existing_error
+    format: "{:d}"
+    expect: "451"
+    context: "real repairs and"
+    note: >-
+      Retained ground truth grading the instrument. 451 of the 567 were GOOD writes, which is
+      why the headline must be read as a ceiling. Matches the K4 oracle fence for hospital.
+
+  - id: measure_my_table_real_corruptions
+    doc: dataforge/cli/measure.py
+    artifact: eval/results/measure_on_my_table_validation.json
+    pointer: /corpora/0/ground_truth_of_unrequested_writes/corrupted_a_genuinely_clean_cell
+    format: "{:d}"
+    expect: "116"
+    context: "real corruptions"
+    note: >-
+      The real damage, and the K4 corruption count for hospital. A design partner cannot
+      compute this figure on their own table, which is the whole reason the ceiling is published.
+
+  - id: measure_my_table_damage_overstatement
+    doc: dataforge/cli/measure.py
+    artifact: eval/results/measure_on_my_table_validation.json
+    pointer: /corpora/0/damage_overstatement_factor
+    format: "{:.1f}"
+    expect: "4.9"
+    context: "reading the figure as damage overstated it"
+    note: >-
+      Derived in the validation script rather than by hand, so the factor printed to a user is
+      bound to the artifact. Reading 567 as damage overstates the true 116 by this much.

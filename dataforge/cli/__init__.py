@@ -53,6 +53,7 @@ _LAZY_COMMANDS: Final[dict[str, str]] = {
     "audit": "dataforge.cli.audit:audit",
     "bench": "dataforge.cli.bench:bench",
     "watch": "dataforge.cli.watch:watch",
+    "measure-on-my-table": "dataforge.cli.measure:measure_on_my_table_command",
 }
 
 #: Command name -> ``"module:attribute"`` for a nested ``typer.Typer`` sub-application.

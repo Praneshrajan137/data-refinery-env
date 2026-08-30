@@ -1,0 +1,88 @@
+{
+  "schema_version": "measure_on_my_table_validation_v1",
+  "plants": 200,
+  "seed": 20260829,
+  "corpora": [
+    {
+      "corpus": "hospital",
+      "rows": 1000,
+      "dependencies": 85,
+      "plants_placed": 200,
+      "instrument": {
+        "cells_written_total": 687,
+        "wrote_to_a_cell_we_did_not_plant": 567,
+        "planted_write_precision": 1.0
+      },
+      "ground_truth_of_unrequested_writes": {
+        "repaired_a_real_pre_existing_error": 451,
+        "corrupted_a_genuinely_clean_cell": 116,
+        "no_op": 0
+      },
+      "instrument_pessimism_cells": 451,
+      "damage_overstatement_factor": 4.9,
+      "instrument_blind_to_corruption": false
+    },
+    {
+      "corpus": "flights",
+      "rows": 2376,
+      "dependencies": 0,
+      "plants_placed": 200,
+      "instrument": {
+        "cells_written_total": 0,
+        "wrote_to_a_cell_we_did_not_plant": 0,
+        "planted_write_precision": null
+      },
+      "ground_truth_of_unrequested_writes": {
+        "repaired_a_real_pre_existing_error": 0,
+        "corrupted_a_genuinely_clean_cell": 0,
+        "no_op": 0
+      },
+      "instrument_pessimism_cells": 0,
+      "damage_overstatement_factor": null,
+      "instrument_blind_to_corruption": false
+    },
+    {
+      "corpus": "rayyan",
+      "rows": 1000,
+      "dependencies": 0,
+      "plants_placed": 200,
+      "instrument": {
+        "cells_written_total": 0,
+        "wrote_to_a_cell_we_did_not_plant": 0,
+        "planted_write_precision": null
+      },
+      "ground_truth_of_unrequested_writes": {
+        "repaired_a_real_pre_existing_error": 0,
+        "corrupted_a_genuinely_clean_cell": 0,
+        "no_op": 0
+      },
+      "instrument_pessimism_cells": 0,
+      "damage_overstatement_factor": null,
+      "instrument_blind_to_corruption": false
+    },
+    {
+      "corpus": "tax",
+      "rows": 200000,
+      "dependencies": 4,
+      "plants_placed": 200,
+      "instrument": {
+        "cells_written_total": 670,
+        "wrote_to_a_cell_we_did_not_plant": 643,
+        "planted_write_precision": 1.0
+      },
+      "ground_truth_of_unrequested_writes": {
+        "repaired_a_real_pre_existing_error": 603,
+        "corrupted_a_genuinely_clean_cell": 40,
+        "no_op": 0
+      },
+      "instrument_pessimism_cells": 603,
+      "damage_overstatement_factor": 16.1,
+      "instrument_blind_to_corruption": false
+    }
+  ],
+  "verdict": {
+    "pessimistic_on_every_corpus": true,
+    "blind_corpora": [],
+    "usable": true
+  }
+}

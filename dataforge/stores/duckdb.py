@@ -16,8 +16,7 @@ from dataforge.stores.patch_plan import (
     PatchOperation,
     PatchPlan,
     RowIdentity,
-    enforce_plan_constraint_checkable_only,
-    enforce_plan_proven_only,
+    enforce_plan_write_gates,
 )
 from dataforge.stores.sql import ensure_safe_relation, quote_identifier, sql_literal
 from dataforge.table import Table, TableLike, cell_value, column_names, row_count
@@ -199,9 +198,15 @@ class DuckDBStore(TableStore):
             for row in cursor.fetchall()
         ]
 
-    def _snapshot_bytes(self, plan: PatchPlan) -> bytes:
-        with self._connect(read_only=True) as connection:
-            rows = self._relation_rows(connection)
+    def _snapshot_payload_bytes(self, rows: list[dict[str, str]], plan: PatchPlan) -> bytes:
+        """Serialize a relation state in the canonical snapshot shape.
+
+        Factored out of :meth:`_snapshot_bytes` so ``revert_transaction`` can rebuild the
+        *same* byte shape from the post-revert relation and compare its digest against
+        ``transaction.source_sha256``. Without a single serializer the two sides would be
+        comparing different encodings of the same rows, which is how a hash check becomes
+        theatre.
+        """
         payload = {
             "schema_version": "table_store_snapshot_v1",
             "backend": self.backend,
@@ -211,6 +216,22 @@ class DuckDBStore(TableStore):
             "rows": rows,
         }
         return json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+    @staticmethod
+    def _post_state_sha256(rows: list[dict[str, str]]) -> str:
+        """Digest the relation in the shape ``apply_patch_plan`` records as ``post_sha256``.
+
+        Deliberately a different shape from :meth:`_snapshot_payload_bytes`: the post-state
+        digest covers only the rows, while the snapshot digest covers the rows plus the
+        header identifying which relation and plan they belong to. Both are needed, and
+        conflating them would make one of the two revert checks always fail.
+        """
+        return sha256_bytes(json.dumps(rows, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+
+    def _snapshot_bytes(self, plan: PatchPlan) -> bytes:
+        with self._connect(read_only=True) as connection:
+            rows = self._relation_rows(connection)
+        return self._snapshot_payload_bytes(rows, plan)
 
     def _write_snapshot(self, state_root: Path, txn_id: str, payload: bytes) -> Path:
         snapshot_path = state_root.resolve() / ".dataforge" / "snapshots" / f"{txn_id}.bin"
@@ -228,6 +249,19 @@ class DuckDBStore(TableStore):
         value = connection.execute(sql).fetchone()[0]
         return int(value)
 
+    def _execute_dml_rows_changed(self, connection: Any, sql: str) -> int:
+        """Execute a DML statement and return how many rows it actually changed.
+
+        DuckDB returns the changed-row count as the single result value of a DML
+        statement; ``cursor.rowcount`` is ``-1`` and unusable. Verified against DuckDB
+        directly rather than assumed: ``UPDATE ... WHERE id=99`` on an absent id returns
+        ``[(0,)]``, which is precisely the silent no-op this method exists to expose.
+        """
+        result = connection.execute(sql).fetchall()
+        if not result or not result[0]:
+            raise TableStoreError(f"DML statement returned no changed-row count: {sql}")
+        return int(result[0][0])
+
     def apply_patch_plan(
         self,
         plan: PatchPlan,
@@ -238,10 +272,7 @@ class DuckDBStore(TableStore):
         """Apply a verified DuckDB patch plan inside a transaction."""
         if plan.backend != self.backend:
             raise TableStoreError(f"Patch plan backend {plan.backend!r} does not match DuckDB.")
-        if not plan.apply_supported or not plan.reversible:
-            raise TableStoreError(plan.reason)
-        enforce_plan_proven_only(plan, allow_unproven_autoapply=allow_unproven_autoapply)
-        enforce_plan_constraint_checkable_only(plan)
+        enforce_plan_write_gates(plan, allow_unproven_autoapply=allow_unproven_autoapply)
         state_dir = (state_root or Path.cwd()).resolve()
         txn_id = generate_txn_id()
         snapshot_bytes = self._snapshot_bytes(plan)
@@ -278,9 +309,7 @@ class DuckDBStore(TableStore):
                     if self._execute_scalar_int(connection, sql) != 1:
                         raise TableStoreError(f"Verification query failed: {sql}")
                 post_rows = self._relation_rows(connection)
-                post_sha256 = sha256_bytes(
-                    json.dumps(post_rows, sort_keys=True, separators=(",", ":")).encode("utf-8")
-                )
+                post_sha256 = self._post_state_sha256(post_rows)
                 connection.execute("COMMIT")
                 append_applied_event(log_path, txn_id, post_sha256=post_sha256)
             except Exception:
@@ -297,23 +326,125 @@ class DuckDBStore(TableStore):
             reason=f"Applied {len(plan.operations)} DuckDB operation(s).",
         )
 
-    def revert_transaction(self, transaction: RepairTransaction, *, log_path: Path) -> None:
-        """Execute rollback SQL for a recorded DuckDB table-store transaction."""
+    def revert_transaction(self, transaction: RepairTransaction, *, log_path: Path) -> str:
+        """Roll back a recorded DuckDB transaction, verifying that it actually restored.
+
+        Returns the digest of the restored relation, in the same shape as
+        ``transaction.source_sha256``, so a caller can report what was restored rather
+        than reporting ``null``.
+
+        Until 2026-08-29 this method fired ``plan.rollback_sql`` blind. Three checks the
+        CSV path has had all along were absent, and each covers a failure that reported
+        success:
+
+        * **No pre-revert post-state check.** If anything else changed the relation after
+          apply, the rollback's ``WHERE`` clauses no longer describe reality.
+        * **No rows-changed assertion.** A rollback ``UPDATE`` matching zero rows is
+          indistinguishable from one matching its row -- verified against DuckDB, which
+          returns ``[(0,)]`` -- so the revert silently no-ops and
+          ``append_reverted_event`` records it as done.
+        * **No post-revert integrity check.** Nothing compared the result against the
+          snapshot, which is why ``dataforge revert --json`` reported
+          ``restored_source_sha256: null`` beside ``ok: true`` and
+          ``audit_verdict: verified`` in ``docs/evidence/dbt_duckdb/commands.log``.
+
+        The snapshot needed to close the third gap was already being written and fsynced
+        on every apply (:meth:`_snapshot_bytes`, a full serialization of the relation) and
+        never read by anything: ``transactions/revert.py`` returns for
+        ``source_kind == "table_store"`` eight lines before its only reader. So the
+        missing verification and the unread snapshot were one defect seen from two ends,
+        and closing it costs no new I/O.
+        """
         if transaction.patch_plan is None:
             raise TableStoreError("Table-store transaction is missing its patch plan.")
         plan = PatchPlan.model_validate(transaction.patch_plan)
         if plan.backend != self.backend:
             raise TableStoreError(f"Patch plan backend {plan.backend!r} does not match DuckDB.")
+
+        expected_rows = self._snapshot_rows(transaction, plan)
+
         with self._connect(read_only=False) as connection:
             try:
                 connection.execute("BEGIN TRANSACTION")
+
+                if transaction.post_sha256 is not None:
+                    current = self._post_state_sha256(self._relation_rows(connection))
+                    if current != transaction.post_sha256:
+                        raise TableStoreError(
+                            "Refusing to revert because the relation no longer matches the "
+                            "recorded post-state hash. The table may have been modified after "
+                            "apply, so the recorded rollback statements no longer describe it."
+                        )
+
                 for sql in reversed(plan.rollback_sql):
-                    connection.execute(sql)
+                    changed = self._execute_dml_rows_changed(connection, sql)
+                    if changed != 1:
+                        raise TableStoreError(
+                            f"Rollback statement changed {changed} row(s) instead of exactly "
+                            f"one, so the revert is not the inverse of the apply: {sql}"
+                        )
+
+                restored_rows = self._relation_rows(connection)
+                restored_sha256 = sha256_bytes(self._snapshot_payload_bytes(restored_rows, plan))
+                if restored_rows != expected_rows:
+                    raise TableStoreError(
+                        "Revert failed integrity verification: the restored relation does not "
+                        f"match the snapshot recorded for transaction '{transaction.txn_id}'."
+                    )
+                if restored_sha256 != transaction.source_sha256:
+                    raise TableStoreError(
+                        "Revert failed integrity verification: the restored relation digest "
+                        f"does not match the recorded source digest for '{transaction.txn_id}'."
+                    )
+
                 connection.execute("COMMIT")
                 append_reverted_event(log_path, transaction.txn_id)
             except Exception:
                 connection.execute("ROLLBACK")
                 raise
+
+        return restored_sha256
+
+    def _snapshot_rows(
+        self, transaction: RepairTransaction, plan: PatchPlan
+    ) -> list[dict[str, str]]:
+        """Load and validate the recorded snapshot's rows.
+
+        The snapshot is the only record of the pre-apply state, so a revert that cannot
+        read it must refuse rather than proceed unverified -- proceeding is what produced
+        a ``verified`` audit verdict next to a null restored digest.
+        """
+        recorded = transaction.source_snapshot_path
+        if not recorded:
+            raise TableStoreError(
+                f"Transaction '{transaction.txn_id}' records no source snapshot, so a revert "
+                "cannot be verified."
+            )
+        snapshot_path = Path(recorded)
+        if not snapshot_path.is_file():
+            raise TableStoreError(
+                f"Source snapshot '{recorded}' does not exist, so a revert cannot be verified."
+            )
+        snapshot_bytes = snapshot_path.read_bytes()
+        if sha256_bytes(snapshot_bytes) != transaction.source_sha256:
+            raise TableStoreError(
+                f"Source snapshot '{recorded}' does not match the recorded source digest, so it "
+                "cannot be trusted as the pre-apply state."
+            )
+        payload = json.loads(snapshot_bytes.decode("utf-8"))
+        if not isinstance(payload, dict) or not isinstance(payload.get("rows"), list):
+            raise TableStoreError(f"Source snapshot '{recorded}' is not a table-store snapshot.")
+        recorded_plan_sha = payload.get("patch_plan_sha256")
+        if recorded_plan_sha != plan.sha256():
+            raise TableStoreError(
+                f"Source snapshot '{recorded}' was taken for a different patch plan."
+            )
+        rows: list[dict[str, str]] = [
+            {str(key): str(value) for key, value in row.items()}
+            for row in payload["rows"]
+            if isinstance(row, dict)
+        ]
+        return rows
 
 
 def load_duckdb_transaction(log_path: Path) -> tuple[DuckDBStore, RepairTransaction]:

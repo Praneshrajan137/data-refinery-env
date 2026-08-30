@@ -22,8 +22,12 @@ This spec turns the log line into an artifact.
 
 ## 2. Outcomes
 
-- [ ] One normative wire format with a published JSON Schema and a stable
-      `predicateType` URI.
+- [x] One normative wire format with a published JSON Schema and a stable
+      `predicateType` URI. Schema: [repair_attestation.schema.json](repair_attestation.schema.json),
+      **generated** from the verifier's own required-field tuples and the closed
+      vocabularies by `scripts/ci/generate_attestation_schema.py`, and enforced by
+      `make lint`. It was promised here and absent until 2026-08-29, while §6.2 below
+      already cited it as the normative source of the enums.
 - [ ] A **normative** verification tier that is pure-stdlib, solver-free, and
       reimplementable in any language from this document alone.
 - [ ] Two independent conforming implementations (Python and TypeScript) that agree on
@@ -152,8 +156,17 @@ MUST NOT re-parse the envelope after signature verification to obtain the payloa
 
 Vocabularies (`Provenance`, `VerificationStrength`, `ReviewReason`, `VerifierVerdict`,
 `SafetyVerdict`) are exactly those in `dataforge/domain/vocabulary.py`, published as
-enums in the JSON Schema and generated into TypeScript. They are not restated here,
-because restating a closed vocabulary is how three drifts shipped.
+enums in [the JSON Schema](repair_attestation.schema.json) and generated into TypeScript.
+They are not restated here, because restating a closed vocabulary is how three drifts
+shipped.
+
+Structural validity is **necessary and not sufficient**. The schema cannot express the
+checks that carry the guarantee: re-deriving trust strength from provenance and column
+authority, comparing the subject digest against the data, requiring every subject to name
+the artifact the predicate describes, and verifying the DSSE signature. A document that
+satisfies the schema and fails `verify_attestation` is expected, and the schema's own
+`description` says so — a published schema otherwise invites "it validates, therefore it
+is proven", which is the over-claim this spec exists to retire.
 
 ### 6.3 Constraints must be embedded, not referenced
 

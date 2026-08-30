@@ -66,6 +66,12 @@ dev = [
     # release; the floor is set there so the behaviour cannot regress under a resolver backtrack.
     "pytest-xdist>=3.8",
     "hypothesis>=6.100",
+    # Validates the published attestation JSON Schema against real attestations and against
+    # every conformance vector. Declared rather than relied on transitively so the check is
+    # unconditional: a schema conformance test guarded by importorskip reads as passing on any
+    # machine that happens not to have the validator, which is the "skipped is not passed"
+    # failure this project's verifier reports separately for exactly this reason.
+    "jsonschema>=4.20",
     # `-n logical` needs psutil on Python < 3.13, and FALLS BACK SILENTLY without it -- the run
     # succeeds using physical cores while the command says logical. This suite is dominated by
     # subprocess launches and file I/O rather than CPU, so logical cores are the right unit and

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -127,6 +128,69 @@ class TxnReceipt(BaseModel):
     fixes_count: int
     reason: str
     fixes: list[FixResult]
+    #: The portable in-toto/DSSE attestation over this repair, when one could be built.
+    #: A third party verifies it offline -- no network, no solver, no schema -- which is the
+    #: property that makes it worth returning to an agent at all. Present only for an applied
+    #: repair; ``attestation_unavailable`` carries the reason otherwise.
+    attestation: dict[str, Any] | None = None
+    attestation_unavailable: str | None = None
+
+
+def _attestation_fields(
+    receipt: Any,
+    *,
+    source_path: Path,
+    applied: bool,
+    schema_path: object = None,
+) -> dict[str, Any]:
+    """Return the attestation fields for a write-tool response.
+
+    Until 2026-08-29 the string ``attest`` appeared nowhere in this package: every tool
+    returned ``repair_receipt_v1`` and the portable proof -- the actual differentiator, an
+    in-toto statement with a DSSE envelope that verifies offline against published
+    conformance vectors -- could not reach an agent by any route. The receipt is a DataForge
+    artifact an agent must trust us about; the attestation is one it can check.
+
+    Shares :func:`dataforge.attestation.attest_repair` with the CLI so the two surfaces
+    cannot drift on what they emit or on when they refuse to.
+
+    ``schema_path`` matters more here than on the CLI. This surface is where UNTRUSTED
+    proposals arrive, and ``_check_strength`` requires the constraints to be embedded for any
+    fix whose provenance is untrusted and which is proven by schema rather than by
+    construction. Omitting them made the attestation unavailable for the guardrail tool's
+    entire reason for existing.
+    """
+    from dataforge import __version__
+    from dataforge.attestation import attest_repair
+    from dataforge.cli.common import load_schema, load_schema_mapping
+    from dataforge.witness import witnesses_for_applied_fixes
+
+    if not applied:
+        return {
+            "attestation_unavailable": (
+                "nothing was applied, so there is no post-state to attest. Call again with "
+                "mode='apply' to obtain a portable attestation."
+            )
+        }
+    constraints = None
+    schema = None
+    if schema_path is not None:
+        resolved_schema = _ensure_under_allowed_root(Path(str(schema_path)))
+        constraints = load_schema_mapping(resolved_schema)
+        schema = load_schema(resolved_schema)
+    receipt_payload = receipt.model_dump(mode="json")
+    applied_fixes = receipt_payload.get("applied_fixes") or []
+    emission = attest_repair(
+        receipt_payload,
+        subject_name=source_path.name,
+        tool_version=__version__,
+        produced_at=datetime.now(UTC).isoformat(),
+        constraints=constraints,
+        journal_head_sha256=None,
+        data_bytes=source_path.read_bytes() if source_path.is_file() else None,
+        witnesses=witnesses_for_applied_fixes(source_path, applied_fixes, schema),
+    )
+    return emission.as_dict()
 
 
 class RevertReceipt(BaseModel):
@@ -445,6 +509,9 @@ def dataforge_apply_repairs(
         fixes_count=receipt.fixes_count,
         reason=receipt.reason,
         fixes=[_verified_fix_to_result(fix) for fix in result.fixes],
+        **_attestation_fields(
+            receipt, source_path=csv_path, applied=receipt.applied, schema_path=schema_path
+        ),
     )
 
 
@@ -481,6 +548,11 @@ class VerifyAndApplyReceipt(BaseModel):
     issues_count: int
     limitations: list[str] = Field(default_factory=list)
     reason: str
+    #: See :class:`TxnReceipt.attestation`. This is the guardrail tool an external proposer
+    #: calls, so it is the one where a checkable proof matters most: the caller supplied the
+    #: values, and the attestation is what lets a third party confirm what was done with them.
+    attestation: dict[str, Any] | None = None
+    attestation_unavailable: str | None = None
 
 
 def dataforge_verify_and_apply(
@@ -564,6 +636,9 @@ def dataforge_verify_and_apply(
         issues_count=receipt.issues_count,
         limitations=receipt.limitations,
         reason=receipt.reason,
+        **_attestation_fields(
+            receipt, source_path=csv_path, applied=receipt.applied, schema_path=schema_path
+        ),
     )
 
 

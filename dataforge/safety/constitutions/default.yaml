@@ -19,20 +19,20 @@ soft_require_confirm:
   - id: NO_AGGREGATE_BREAK
     description: Candidate fixes to aggregate-sensitive source columns require confirmation.
     predicate: aggregate_sensitive
-    confirm_flag: confirm_escalations
+    confirm_flag: confirm_aggregate_break
   - id: NO_UNCONFIRMED_LLM_WRITE
     description: Live LLM-originated candidate values require explicit confirmation before verification.
     predicate: llm_live_candidate
-    confirm_flag: confirm_escalations
+    confirm_flag: confirm_untrusted_write
   - id: NO_PROMPT_INJECTION_TEXT
     description: Candidate values containing prompt-injection text require explicit review.
     predicate: prompt_injection_text
-    confirm_flag: confirm_escalations
+    confirm_flag: confirm_injection_text
   - id: NO_HIGH_VOLUME_AUTO_APPLY
-    description: Batches touching more than 100 distinct rows require explicit review.
+    description: Batches rewriting more than 100 cells require explicit review.
     predicate: high_volume_batch
     scope: batch
-    confirm_flag: confirm_escalations
+    confirm_flag: confirm_high_volume
 
 soft_prefer:
   - id: MINIMAL_EDIT

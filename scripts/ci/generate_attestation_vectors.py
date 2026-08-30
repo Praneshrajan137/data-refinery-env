@@ -311,6 +311,133 @@ def build_vectors() -> dict[str, dict[str, Any]]:
         expect_failures=["signature"],
     )
 
+    # in-toto v1 permits N subjects, and until 2026-08-29 both verifiers read subject[0] and
+    # ignored the rest. These three vectors fix the resulting semantics in the format rather
+    # than in one implementation's behaviour.
+    duplicated = _statement(_base_predicate())
+    duplicated["subject"] = [
+        {"name": "data.csv", "digest": {"sha256": POST_DIGEST}},
+        {"name": "copy.csv", "digest": {"sha256": POST_DIGEST}},
+    ]
+    add(
+        "accept-multiple-subjects-naming-the-same-artifact",
+        duplicated,
+        expect_ok=True,
+        expect_failures=[],
+    )
+
+    smuggled = _statement(_base_predicate())
+    smuggled["subject"] = [
+        {"name": "data.csv", "digest": {"sha256": POST_DIGEST}},
+        {"name": "payload.csv", "digest": {"sha256": "f" * 64}},
+    ]
+    add(
+        # The attack the subject[0] read allowed: take a valid attestation, append a subject
+        # naming a file nobody attested, and a verifier that checks only the first subject
+        # reports `verified` for a statement that now asserts something about that file too.
+        "reject-extra-subject-naming-a-different-artifact",
+        smuggled,
+        expect_ok=False,
+        expect_failures=["subject_matches_post_state"],
+    )
+
+    smuggled_first = _statement(_base_predicate())
+    smuggled_first["subject"] = [
+        {"name": "payload.csv", "digest": {"sha256": "f" * 64}},
+        {"name": "data.csv", "digest": {"sha256": POST_DIGEST}},
+    ]
+    add(
+        # Order must not decide the verdict. A verifier that searched for ANY matching
+        # subject instead of requiring all of them would accept this, which is the same hole
+        # reached from the other side.
+        "reject-foreign-subject-listed-first",
+        smuggled_first,
+        expect_ok=False,
+        expect_failures=["subject_matches_post_state"],
+    )
+
+    # Entailment witnesses. These vectors are the reason the witness exists: a witness states
+    # arithmetic facts that can CONTRADICT EACH OTHER, so a wrong claim is catchable without
+    # re-running the labelling rule that produced it. `strength_is_earned` cannot express any
+    # of the four rejections below, because it re-derives strength with the same function the
+    # engine used to stamp it.
+    def _witnessed(witness: dict[str, Any]) -> dict[str, Any]:
+        predicate = _base_predicate()
+        predicate["fixes"][0]["witness"] = witness
+        return _statement(predicate)
+
+    coherent_witness: dict[str, Any] = {
+        "constraint": "state -> city",
+        "constraint_kind": "functional_dependency",
+        "determinant_columns": ["state"],
+        "determinant_digests": ["a" * 16],
+        "group_size": 10,
+        "value_digests": [["b" * 16, 9], ["c" * 16, 1]],
+        "truncated": False,
+        "support": 9,
+        "old_value_digest": "c" * 16,
+        "new_value_digest": "b" * 16,
+    }
+
+    add(
+        "accept-coherent-entailment-witness",
+        _witnessed(copy.deepcopy(coherent_witness)),
+        expect_ok=True,
+        expect_failures=[],
+    )
+
+    plurality = copy.deepcopy(coherent_witness)
+    plurality.update(
+        {
+            "group_size": 5,
+            "support": 2,
+            "value_digests": [["b" * 16, 2], ["c" * 16, 1], ["d" * 16, 1], ["e" * 16, 1]],
+        }
+    )
+    add(
+        # The decisive one. Two votes of five across four distinct values is a PLURALITY, and
+        # the shipped rule is a strict majority -- mutant M16 measures the difference at
+        # 731 corrupted clean cells against 344 on flights. This fix carries `deterministic`
+        # provenance and `proven` strength, so every other check in the suite accepts it.
+        # Only the witness's own arithmetic contradicts it.
+        "reject-witness-without-a-strict-majority",
+        _witnessed(plurality),
+        expect_ok=False,
+        expect_failures=["witness_is_coherent"],
+    )
+
+    overcounted = copy.deepcopy(coherent_witness)
+    overcounted["support"] = 11
+    add(
+        "reject-witness-whose-support-exceeds-its-group",
+        _witnessed(overcounted),
+        expect_ok=False,
+        expect_failures=["witness_is_coherent"],
+    )
+
+    mismatched = copy.deepcopy(coherent_witness)
+    mismatched["new_value_digest"] = "f" * 16
+    add(
+        # The written value is not in its own group's distribution, so the witness does not
+        # support the write it accompanies.
+        "reject-witness-whose-written-value-is-absent-from-its-group",
+        _witnessed(mismatched),
+        expect_ok=False,
+        expect_failures=["witness_is_coherent"],
+    )
+
+    short_counts = copy.deepcopy(coherent_witness)
+    short_counts["value_digests"] = [["b" * 16, 9]]
+    add(
+        # Counts summing below group_size while `truncated` is false hides rows. Truncation is
+        # legitimate and must be declared; silently omitting values is how a minority the
+        # write destroys disappears from the evidence.
+        "reject-witness-with-undeclared-truncation",
+        _witnessed(short_counts),
+        expect_ok=False,
+        expect_failures=["witness_is_coherent"],
+    )
+
     return vectors
 
 

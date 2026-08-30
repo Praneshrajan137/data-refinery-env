@@ -101,6 +101,59 @@ defense-in-depth is supposed to mean and usually does not.
 - The static write-caller allowlist remains a string scan. It did not catch this and will not catch
   the next new mechanism. Being on that allowlist is not coverage.
 
+## The revert surfaces were not uniform either (found and closed 2026-08-29)
+
+This page enumerated four residual gaps and none of them was about **revert**, which is the
+promise `PRODUCT.md` ranks *above* proven-only. That omission was an instance of the rule
+this page closes on:
+
+> when a guard delegates part of its guarantee to another guard, the delegation must name
+> what the other guard actually covers
+
+`stores/revert.py` delegated the whole table-store rollback to
+`DuckDBStore.revert_transaction` without naming what it verified, and the answer was
+nothing. The CSV revert (`transactions/revert.py:79-101`) checks the current file against
+`post_sha256` before touching it, restores from the snapshot, checks the restored bytes
+against `source_sha256`, and rolls back its own restore if the journal append fails. The
+DuckDB revert executed `plan.rollback_sql` and appended a `reverted` event. Three checks
+absent, and each covered a failure that reported success:
+
+| Check | CSV | DuckDB before | DuckDB now |
+| --- | --- | --- | --- |
+| Pre-revert post-state verification | yes | **no** | yes |
+| Rollback affected the expected rows | byte identity subsumes it | **no** | yes, exactly one per statement |
+| Post-revert integrity verification | yes | **no** | yes, against the snapshot |
+
+The committed symptom is `docs/evidence/dbt_duckdb/commands.log:421-434`: `"ok": true` and
+`"audit_verdict": "verified"` printed beside `"restored_source_sha256": null`. Nothing
+compared the two, because on this backend there was nothing to compare.
+
+**The fix cost no new I/O, because the missing evidence was already being written.**
+`_snapshot_bytes` serializes every row of the relation and fsyncs it on every apply, and
+the only reader of `source_snapshot_path` is the CSV branch at `transactions/revert.py:69`
+— unreachable, because the table-store branch returns eight lines above it. So a full-table
+write per transaction was paid for and never read. The missing verification and the unread
+snapshot were one defect seen from two ends.
+
+Two honest limits on the new checks:
+
+- **The rows-changed assertion is defence in depth, not independently reachable.** Any
+  third-party edit moves `post_sha256` and is refused earlier; a tampered journal fails
+  `verify_transaction_log` upstream; and apply itself refuses when its verification query
+  matches other than one row. It is kept because it costs one integer comparison and the
+  failure is silent — DuckDB returns `[(0,)]` for an `UPDATE` matching nothing. Mutant
+  `M22` therefore reverts all three checks together, since removing any one alone leaves
+  the suite green for a legitimate reason.
+- **This surface had no test of any kind before 2026-08-29.** The suite's only table-store
+  coverage was plan-level unit tests and a static registry scan; nothing exercised
+  `revert_transaction` against a live database. That is why three missing checks could not
+  be seen. `tests/unit/test_duckdb_revert_integrity.py` is the first test to run it.
+
+`restored_source_sha256` is now populated on the table-store branch. It reports
+`source_sha256` because the store rebuilds the snapshot byte shape from the post-revert
+relation and raises unless the two are equal, so the CLI cannot print the value unless the
+equality held.
+
 ## Measured exposure: zero, and the severity claim is corrected
 
 The first version of this page ranked the defect above everything in the trust register on the

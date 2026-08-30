@@ -490,6 +490,43 @@ def _append_step(steps: list[ReleaseGateStep], step: ReleaseGateStep) -> bool:
     return step.ok
 
 
+def _preflight_commands() -> list[tuple[str, list[str | os.PathLike[str]], int]]:
+    """Return the truth checks that must pass before anything is built or published.
+
+    Module-level and returned as data so the population is testable. It was previously a
+    local list inside :func:`run_release_gate`, which meant no test could assert what the
+    release gate actually verifies -- and what it verified was narrower than it appeared.
+
+    ``docs_truth`` was added 2026-08-29. Until then only ``readme_truth`` ran here.
+    The two police different things: ``readme_truth`` checks the write-authority allowlist
+    in documents, while ``docs_truth`` binds every quantitative claim to a committed
+    artifact. So a release could be cut with 80 published numbers unverified, and the
+    numbers *are* the product's claim -- ``PRODUCT.md`` leads with "verifiable", not with
+    accuracy.
+
+    Ordering is deliberate: these run before ``build_sdist_and_wheel``, and
+    :func:`_append_step` returns ``False`` on the first failure, so a false claim aborts
+    the gate rather than being reported alongside a built artifact.
+    """
+    return [
+        (
+            "release_doctor_core",
+            [sys.executable, "-m", "dataforge.release.doctor", "--core", "--json"],
+            60,
+        ),
+        (
+            "readme_truth",
+            [sys.executable, "scripts/ci/readme_truth.py"],
+            60,
+        ),
+        (
+            "docs_truth",
+            [sys.executable, "scripts/ci/docs_truth.py", "--check"],
+            120,
+        ),
+    ]
+
+
 def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
     """Run the complete local release gate."""
     project_root = _project_root()
@@ -506,18 +543,7 @@ def run_release_gate(*, keep_artifacts: bool = False) -> ReleaseGateReport:
         wheelhouse_dir.mkdir()
         smoke_dir.mkdir()
 
-        preflight_commands: list[tuple[str, list[str | os.PathLike[str]], int]] = [
-            (
-                "release_doctor_core",
-                [sys.executable, "-m", "dataforge.release.doctor", "--core", "--json"],
-                60,
-            ),
-            (
-                "readme_truth",
-                [sys.executable, "scripts/ci/readme_truth.py"],
-                60,
-            ),
-        ]
+        preflight_commands = _preflight_commands()
         for name, command, timeout_seconds in preflight_commands:
             step, _result = _run_command(
                 name,

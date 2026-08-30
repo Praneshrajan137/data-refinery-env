@@ -263,15 +263,38 @@ export function verifyStatement(
   const sourceDigest = digestOf(predicate.source);
   const postDigest = digestOf(predicate.post);
   const expected = applied ? postDigest : sourceDigest;
-  const subjectDigest = digestOf(subject[0]);
+
+  // in-toto v1 permits N subjects. Both verifiers used to read `subject[0]` and ignore the
+  // rest, which is a smuggling hole rather than a cosmetic gap: append a second subject
+  // naming a malicious file's digest to an otherwise valid attestation and a consumer that
+  // checks the first subject reports `verified`, while the statement now also asserts
+  // something about a file nobody attested.
+  //
+  // This predicateType describes ONE repair of ONE artifact, so extra subjects are not
+  // verifiable here. The rule is a refusal, not a wider read: every subject must carry the
+  // expected digest. Duplicates are allowed; a subject naming a different artifact fails
+  // closed.
+  const subjectDigests = subject.map((entry) => digestOf(entry));
+  const unexpected = subjectDigests.filter((digest) => digest !== expected);
+  const subjectDetail =
+    subjectDigests.length === 0
+      ? "no subject present"
+      : unexpected.length > 0
+        ? `${unexpected.length} of ${subjectDigests.length} subject(s) name a different ` +
+          `artifact than the predicate describes: ${JSON.stringify(unexpected.slice(0, 3))} ` +
+          `expected=${JSON.stringify(expected)}`
+        : subjectDigests.length > 1
+          ? `all ${subjectDigests.length} subject(s) match, subject=${JSON.stringify(expected)}`
+          : `subject=${JSON.stringify(expected)}`;
 
   checks.push(
     check(
       "subject_matches_post_state",
-      typeof subjectDigest === "string" &&
-        HEX64.test(subjectDigest) &&
-        subjectDigest === expected,
-      `subject=${JSON.stringify(subjectDigest)} expected=${JSON.stringify(expected)}`,
+      subjectDigests.length > 0 &&
+        unexpected.length === 0 &&
+        typeof expected === "string" &&
+        HEX64.test(expected),
+      subjectDetail,
     ),
   );
 
@@ -396,6 +419,137 @@ export function verifyStatement(
     );
   } else {
     checks.push(check("constraints_present", true, "no write depends on schema authority"));
+  }
+
+  // --- entailment witness ---------------------------------------------------
+  // NOT the same check as `strength_is_earned`. That one re-derives
+  // `verification_strength` with the same rule the engine used to stamp it, so within one
+  // implementation it validates field consistency rather than the rule -- a wrong trust model
+  // is invisible to it, which is the axis `decimal_shift` lived on.
+  //
+  // A witness states arithmetic facts that can contradict each other. A fix claiming a write
+  // whose own witness shows no strict majority is refused here regardless of provenance or
+  // column authority, which is a rejection the strength check cannot express.
+  //
+  // Deliberately NOT recomputed from the data: that would make the normative verifier a CSV
+  // parser and force two implementations to agree byte-for-byte on quoting, encodings and line
+  // endings. Values are published as sha256(value)[:16], so the data check belongs to whoever
+  // holds the table -- in SQL, in any language, with no DataForge code.
+  const witnessFixes = records(predicate.fixes);
+  const witnessProblems: string[] = [];
+  let witnessed = 0;
+  for (const fix of witnessFixes) {
+    const witness = fix.witness;
+    if (witness === undefined || witness === null) continue;
+    const label = `${String(fix.column)}@${String(fix.row)}`;
+    if (!isRecord(witness)) {
+      witnessProblems.push(`${label}: witness is not an object`);
+      continue;
+    }
+    witnessed += 1;
+
+    const groupSize = witness.group_size;
+    const support = witness.support;
+    if (!Number.isInteger(groupSize) || !Number.isInteger(support)) {
+      witnessProblems.push(`${label}: group_size and support must be integers`);
+      continue;
+    }
+    const size = groupSize as number;
+    const votes = support as number;
+    if (size < 1 || votes < 1) {
+      witnessProblems.push(`${label}: group_size=${size} support=${votes} must be >= 1`);
+      continue;
+    }
+    if (votes > size) {
+      witnessProblems.push(`${label}: support ${votes} exceeds group_size ${size}`);
+      continue;
+    }
+    // The shipped decision rule is a STRICT majority, not a plurality.
+    if (votes * 2 <= size) {
+      witnessProblems.push(
+        `${label}: support ${votes} of ${size} is not a strict majority, so the written ` +
+          `value was not entailed by the rule the product implements`,
+      );
+      continue;
+    }
+
+    const entries = witness.value_digests;
+    if (!Array.isArray(entries)) {
+      witnessProblems.push(`${label}: value_digests must be a list`);
+      continue;
+    }
+    const counts = new Map<string, number>();
+    for (const entry of entries) {
+      if (
+        Array.isArray(entry) &&
+        entry.length === 2 &&
+        typeof entry[0] === "string" &&
+        Number.isInteger(entry[1])
+      ) {
+        counts.set(entry[0], entry[1] as number);
+      }
+    }
+    let total = 0;
+    for (const value of counts.values()) total += value;
+    if (total > size) {
+      witnessProblems.push(`${label}: value counts exceed group_size ${size}`);
+      continue;
+    }
+    if (witness.truncated !== true && total !== size) {
+      witnessProblems.push(
+        `${label}: value counts sum to ${total} but group_size is ${size} and the ` +
+          `distribution is not marked truncated`,
+      );
+      continue;
+    }
+
+    const newDigest = witness.new_value_digest;
+    const oldDigest = witness.old_value_digest;
+    if (counts.get(String(newDigest)) !== votes) {
+      witnessProblems.push(
+        `${label}: the written value's recorded count does not equal its support`,
+      );
+      continue;
+    }
+    if (newDigest === oldDigest) {
+      witnessProblems.push(`${label}: the write replaces a value with itself`);
+      continue;
+    }
+    if (oldDigest !== undefined && oldDigest !== null && !counts.has(String(oldDigest))) {
+      witnessProblems.push(`${label}: the replaced value does not appear in its own group`);
+    }
+  }
+
+  if (witnessFixes.length === 0) {
+    checks.push(
+      check("witness_is_coherent", true, "no fixes, so there is no witness to check", true),
+    );
+  } else if (witnessProblems.length > 0) {
+    checks.push(
+      check(
+        "witness_is_coherent",
+        false,
+        witnessProblems.slice(0, 5).join("; ") +
+          (witnessProblems.length > 5 ? `; and ${witnessProblems.length - 5} more` : ""),
+      ),
+    );
+  } else if (witnessed === 0) {
+    checks.push(
+      check(
+        "witness_is_coherent",
+        true,
+        `no entailment witness on any of ${witnessFixes.length} fix(es); the derivation was NOT checked`,
+        true,
+      ),
+    );
+  } else {
+    checks.push(
+      check(
+        "witness_is_coherent",
+        true,
+        `${witnessed} of ${witnessFixes.length} fix(es) carry a coherent entailment witness`,
+      ),
+    );
   }
 
   return finish();

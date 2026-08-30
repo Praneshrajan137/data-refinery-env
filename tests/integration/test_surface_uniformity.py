@@ -188,6 +188,18 @@ _WRITE_PRIMITIVE_REGISTRY: tuple[WritePrimitive, ...] = (
     ),
     # ---- metadata: journals, snapshots, caches, reports ----
     WritePrimitive(
+        "dataforge:cli/measure.py",
+        "write_text",
+        "metadata",
+        "measure-on-my-table's counts-only report. Never touches the table it measured: "
+        "the instrument reads, plants in memory, and computes what a write WOULD do.",
+        gate="assert_no_plaintext_values runs on the rendered bytes BEFORE this line, so a "
+        "report containing any table value is refused rather than written. The report is "
+        "also value-free by construction (every field an int, a float or a digest). This is "
+        "the only write in the repo whose failure mode is outside it: the file is the "
+        "artifact a design partner sends back, so a leak here has already moved the data.",
+    ),
+    WritePrimitive(
         "dataforge:engine/repair.py",
         "open_write",
         "metadata",

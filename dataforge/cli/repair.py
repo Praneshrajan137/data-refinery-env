@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, cast
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 import typer
 from rich.console import Console
@@ -135,7 +136,16 @@ def _resolve_escalation(
         default=False,
     )
     if confirmed:
-        updated = context.model_copy(update={"confirm_escalations": True})
+        # Confirm only the guards that actually fired. Until 2026-08-29 this set
+        # `confirm_escalations=True`, which cleared all four soft rules at once -- and
+        # because `engine/repair.py` reassigns the returned context into its loop
+        # variable, one `y` here disabled the blast-radius, aggregate-dependency and
+        # prompt-injection guards for every remaining issue in the run. The operator was
+        # asked about one fix and answered for the whole table.
+        flags = safety_filter.confirm_flags_for(safety_result.rule_ids)
+        if not flags:
+            return context, safety_result
+        updated = context.model_copy(update=dict.fromkeys(flags, True))
         return updated, safety_filter.evaluate(candidate, schema, updated)
     return context, safety_result
 
@@ -191,9 +201,73 @@ def _render_failure_summary(result: RepairPipelineResult, console: Console) -> i
     return len(result.failures)
 
 
-def _json_result(result: RepairPipelineResult) -> str:
-    """Serialize a repair result for CLI/MCP/CI consumers."""
-    return json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True)
+def _json_result(result: RepairPipelineResult, *, attestation: dict[str, Any] | None = None) -> str:
+    """Serialize a repair result for CLI/MCP/CI consumers.
+
+    ``attestation`` is merged as a SIBLING of the receipt rather than a receipt field:
+    ``tests/integration/test_surface_uniformity.py`` asserts the pipeline, agent and
+    external-guardrail certificates share one schema and one field set, so adding to the
+    receipt would break the parity that makes those three surfaces comparable.
+    """
+    payload = result.model_dump(mode="json")
+    if attestation is not None:
+        payload.update(attestation)
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _attest_result(
+    result: RepairPipelineResult,
+    *,
+    source_path: Path,
+    schema_path: Path | None,
+) -> dict[str, Any]:
+    """Attest a completed repair, or say why not.
+
+    Called on every ``--json`` run so the portable proof reaches a consumer without a second
+    command. ``dataforge attest build`` remains for attesting a receipt saved earlier.
+
+    Only an APPLIED repair is attested. A dry run has written nothing, so its subject digest
+    would be the source rather than a result, and an attestation over an unchanged file
+    invites being read as a certificate of a repair that did not happen.
+
+    The declared premise is embedded from the schema FILE rather than from the parsed
+    ``Schema`` object, because the dataclass has no JSON projection and inventing one would
+    put an unreviewed wire format on the critical path of a normative artifact. Embedding it
+    is not optional in general: ``_check_strength`` requires the constraints for any fix whose
+    provenance is untrusted and which is proven by schema rather than by construction, which
+    is precisely the external-proposer case. Without them the emission is withheld and the
+    reason names ``constraints_present`` -- correct behaviour, but useless to a caller who did
+    supply a schema.
+    """
+    from dataforge import __version__
+    from dataforge.attestation import attest_repair
+    from dataforge.cli.common import load_schema, load_schema_mapping
+    from dataforge.witness import witnesses_for_applied_fixes
+
+    if not result.receipt.applied:
+        return {
+            "attestation_unavailable": (
+                "nothing was applied, so there is no post-state to attest. Re-run with "
+                "--apply to obtain a portable attestation."
+            )
+        }
+
+    applied = [fix.model_dump(mode="json") for fix in result.receipt.applied_fixes]
+    emission = attest_repair(
+        result.receipt.model_dump(mode="json"),
+        subject_name=source_path.name,
+        tool_version=__version__,
+        produced_at=datetime.now(UTC).isoformat(),
+        constraints=load_schema_mapping(schema_path) if schema_path is not None else None,
+        journal_head_sha256=None,
+        data_bytes=source_path.read_bytes() if source_path.is_file() else None,
+        witnesses=witnesses_for_applied_fixes(
+            source_path,
+            applied,
+            load_schema(schema_path) if schema_path is not None else None,
+        ),
+    )
+    return emission.as_dict()
 
 
 def _run_agent_repair(
@@ -615,7 +689,12 @@ def repair(
         raise typer.Exit(code=1 if apply else 2) from exc
 
     if json_output:
-        typer.echo(_json_result(result))
+        typer.echo(
+            _json_result(
+                result,
+                attestation=_attest_result(result, source_path=resolved_path, schema_path=schema),
+            )
+        )
         raise typer.Exit(code=0 if result.fixes else 1)
 
     output_console = Console()

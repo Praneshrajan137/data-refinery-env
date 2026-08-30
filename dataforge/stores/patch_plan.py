@@ -191,6 +191,45 @@ class PatchPlan(BaseModel):
         return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
 
 
+def enforce_plan_reversible(plan: PatchPlan) -> None:
+    """Refuse to apply a plan that does not claim support and reversibility.
+
+    Until 2026-08-29 this check lived in ``DuckDBStore.apply_patch_plan``, one line
+    *above* :func:`enforce_plan_proven_only`. That is the calling-surface pattern the
+    other two gates were deliberately moved away from: a second backend adapter calling
+    the strength and soundness gates -- the two that look like "the write gates" -- would
+    have inherited neither the reversibility precondition nor any error telling it so.
+
+    ``CloudWarehouseStore`` sets ``reversible=False`` and every cloud backend routes to
+    it, so this predicate is what makes "no irreversible warehouse write" true by
+    construction rather than by each adapter remembering.
+
+    Raises:
+        TableStoreError: If the plan is not applicable or not reversible.
+    """
+    from dataforge.stores.base import TableStoreError
+
+    if not plan.apply_supported or not plan.reversible:
+        raise TableStoreError(plan.reason)
+
+
+def enforce_plan_write_gates(plan: PatchPlan, *, allow_unproven_autoapply: bool) -> None:
+    """Run every precondition a table-store write must satisfy, as one entry point.
+
+    Composed rather than left as three separate calls so a backend adapter cannot take
+    two of the three. `docs/trust/write-surface-uniformity.md` records the cost of the
+    alternative: two write surfaces each assumed the other enforced the invariant, and an
+    unproven LLM value could be written for four weeks with a green suite.
+
+    Order is deliberate. Reversibility comes first because it is the cheapest check and
+    the strongest promise in `PRODUCT.md`; a plan that cannot be undone should be refused
+    before anyone reasons about how well-proven its contents are.
+    """
+    enforce_plan_reversible(plan)
+    enforce_plan_proven_only(plan, allow_unproven_autoapply=allow_unproven_autoapply)
+    enforce_plan_constraint_checkable_only(plan)
+
+
 def enforce_plan_proven_only(plan: PatchPlan, *, allow_unproven_autoapply: bool) -> None:
     """Refuse to apply a plan containing ``plausibility_only`` operations.
 

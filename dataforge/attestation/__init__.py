@@ -171,6 +171,111 @@ def _canonical_json(value: object) -> bytes:
     )
 
 
+class AttestationEmission:
+    """The outcome of trying to attest a completed repair automatically.
+
+    Two states, and neither is silent. Either an envelope was built and self-verified, or
+    ``reason`` says why not. There is deliberately no third state where the caller gets
+    ``None`` and no explanation: an agent that receives nothing cannot distinguish "this
+    repair is not attestable" from "attestation is not implemented", and until 2026-08-29
+    the second was true and the first was what it looked like.
+
+    Not a pydantic model, for the same reason as :class:`AttestationCheck`: this module is
+    the normative tier and stays importable with nothing but the standard library.
+    """
+
+    __slots__ = ("envelope", "reason")
+
+    def __init__(self, envelope: dict[str, Any] | None, reason: str | None) -> None:
+        self.envelope = envelope
+        self.reason = reason
+
+    @property
+    def ok(self) -> bool:
+        return self.envelope is not None
+
+    def as_dict(self) -> dict[str, Any]:
+        """Render for a JSON payload, carrying the reason when there is no envelope."""
+        if self.envelope is not None:
+            return {"attestation": self.envelope}
+        return {"attestation_unavailable": self.reason}
+
+
+def attest_repair(
+    receipt: Mapping[str, Any],
+    *,
+    subject_name: str,
+    tool_version: str,
+    produced_at: str,
+    constraints: Mapping[str, Any] | None = None,
+    journal_head_sha256: str | None = None,
+    data_bytes: bytes | None = None,
+    witnesses: Mapping[tuple[int, str], Mapping[str, Any]] | None = None,
+) -> AttestationEmission:
+    """Build and self-verify an attestation for a completed repair.
+
+    The single implementation shared by ``dataforge repair`` and the MCP server, so the
+    portable proof cannot reach one surface and not the other. Before 2026-08-29 it reached
+    neither automatically: ``build_attestation`` had a CLI caller only through a separate
+    ``attest build`` command needing three hand-supplied arguments, and the string ``attest``
+    appeared nowhere in ``dataforge-mcp``. So the differentiator -- an in-toto/DSSE
+    attestation a third party can verify offline with no solver, no network and no schema --
+    could not reach an agent at all.
+
+    **Fails closed and says so.** An attestation this module's own verifier would reject is
+    never returned; the reason is. Every over-trust defect recorded in this file was a
+    verifier believing more than a receipt supported, and returning unverifiable output would
+    reintroduce that class from the producer side.
+
+    ``data_bytes`` is optional and its absence is not folded into success: without it the
+    digest claim is built but never checked, which the returned envelope records in
+    ``verification.checks_available`` exactly as ``attest verify`` reports a skipped check.
+    """
+    try:
+        statement = build_attestation(
+            receipt,
+            tool_version=tool_version,
+            produced_at=produced_at,
+            subject_name=subject_name,
+            constraints=constraints,
+            journal_head_sha256=journal_head_sha256,
+            witnesses=witnesses,
+        )
+    except Exception as exc:  # noqa: BLE001 - a build failure must not fail the repair
+        return AttestationEmission(None, f"the attestation could not be built: {exc}")
+
+    verification = verify_attestation(statement, data_bytes=data_bytes)
+    if not verification.ok:
+        failures = ", ".join(check.name for check in verification.failures)
+        return AttestationEmission(
+            None,
+            (
+                f"the built attestation does not verify ({failures}), so it was withheld. "
+                "This is a defect in the receipt or its inputs, not something to work around."
+            ),
+        )
+    return AttestationEmission(statement, None)
+
+
+def _witness_for(
+    witnesses: Mapping[tuple[int, str], Mapping[str, object]] | None,
+    fix: Mapping[str, object],
+) -> dict[str, Any]:
+    """Return the ``witness`` key for one fix, or nothing if none was supplied.
+
+    Omitted rather than set to ``None`` so that "unwitnessed" is one state in the wire format
+    instead of two indistinguishable ones.
+    """
+    if not witnesses:
+        return {}
+    try:
+        key = (int(fix.get("row", -1)), str(fix.get("column", "")))  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return {}
+    witness = witnesses.get(key)
+    return {"witness": dict(witness)} if witness is not None else {}
+
+
 def build_attestation(
     receipt: Mapping[str, object],
     *,
@@ -180,6 +285,7 @@ def build_attestation(
     constraints: Mapping[str, object] | None = None,
     journal_head_sha256: str | None = None,
     model: Mapping[str, object] | None = None,
+    witnesses: Mapping[tuple[int, str], Mapping[str, object]] | None = None,
 ) -> dict[str, Any]:
     """Project a repair receipt into an in-toto Statement.
 
@@ -187,6 +293,13 @@ def build_attestation(
     are dangling pointers: a third party holding only the attestation cannot resolve
     them, and the previous verifier responded to a missing schema by re-inferring
     constraints from the repaired data, which is circular.
+
+    ``witnesses`` maps ``(row, column)`` to the entailment witness for that fix, as produced
+    by :meth:`dataforge.witness.EntailmentWitness.to_attestation_payload`. It is optional and
+    absence is reported by the verifier rather than folded into success: a fix with no witness
+    is one whose derivation nobody can check. Values inside a witness are hashed, so embedding
+    one does not turn a shareable document into a data disclosure -- see that method for why
+    that preserves rather than weakens third-party verification.
     """
     applied = bool(receipt.get("applied"))
     post_digest = receipt.get("post_sha256")
@@ -231,6 +344,7 @@ def build_attestation(
                 "detector_id": str(fix.get("detector_id", "")),
                 "provenance": str(fix.get("provenance", "")),
                 "verification_strength": str(fix.get("verification_strength") or ""),
+                **_witness_for(witnesses, fix),
             }
             for fix in fixes
         ],
@@ -442,34 +556,194 @@ def verify_attestation(
     checks.extend(_check_reversibility(predicate))
     checks.extend(_check_verdicts(predicate))
     checks.extend(_check_strength(predicate))
+    checks.extend(_check_witness(predicate))
 
     return AttestationVerification(checks)
+
+
+#: Predicate fields a conforming attestation must carry.
+#:
+#: Hoisted out of :func:`_check_schema` 2026-08-29 so the published JSON Schema can be
+#: GENERATED from it rather than restated beside it. A hand-written schema and a verifier
+#: are two specifications, and `PRODUCT.md`:94-113 records what happens when a gate restates
+#: a population instead of deriving it: the prose and the gate agree with each other and both
+#: disagree with the code.
+REQUIRED_PREDICATE_FIELDS: Final = (
+    "tool",
+    "produced_at",
+    "mode",
+    "applied",
+    "reversible",
+    "source",
+    "authority",
+    "fixes",
+    "held",
+    "verdicts",
+    "journal",
+    "limitations",
+)
+
+#: Fields the ``tool`` block must carry, checked as non-empty strings.
+REQUIRED_TOOL_FIELDS: Final = ("name", "version")
+
+
+def _check_witness(predicate: Mapping[str, object]) -> list[AttestationCheck]:
+    """Check each fix's entailment witness for internal coherence.
+
+    WHY THIS IS NOT THE SAME CHECK AS ``strength_is_earned``
+
+    ``_check_strength`` re-derives ``verification_strength`` by calling
+    :func:`verification_strength_for` -- the *same function object* the engine calls to stamp
+    the field. Within one language it therefore validates field consistency, not the rule: a
+    wrong trust model is invisible to it, which is precisely the axis ``decimal_shift`` lived
+    on. An attestation from that window would have verified clean.
+
+    A witness is a different kind of claim. It states the evidence a constraint-derived write
+    rested on -- which constraint acted, how large the determinant group was, how the values
+    were distributed, and how much support the written value had -- and those are **arithmetic
+    facts that can contradict each other**. A fix claiming a write whose own witness shows no
+    strict majority is refused here regardless of its provenance, its column authority, or
+    what any labelling rule says. That is a rejection the strength check cannot express.
+
+    WHAT THIS DOES NOT DO, AND WHY THAT IS THE POINT
+
+    It does not recompute the distribution from the data. Doing so would make the normative
+    verifier a CSV parser, and two implementations would then have to agree byte-for-byte on
+    quoting, encodings and line endings -- ``docs/trust/apply-rewrites-line-endings.md``
+    records that this project has already been bitten there. So the normative tier stays
+    integer arithmetic, and the *data* check is left to whoever holds the table: values are
+    published as ``sha256(value)[:16]``, so a third party hashes their own group and compares
+    counts, in SQL or any language, with no DataForge code. Verification of the derivation is
+    therefore possible **without trusting our rule and without running our code**, which is
+    what a portable proof is for.
+
+    A fix with no witness is reported as unwitnessed rather than failed. Not every write is
+    constraint-derived, and treating absence as failure would make the check unrunnable on
+    honest input.
+    """
+    fixes = _sequence_of_mappings(predicate.get("fixes"))
+    if not fixes:
+        return [
+            AttestationCheck(
+                "witness_is_coherent",
+                True,
+                "no fixes, so there is no witness to check",
+                skipped=True,
+            )
+        ]
+
+    problems: list[str] = []
+    witnessed = 0
+    for fix in fixes:
+        witness = fix.get("witness")
+        label = f"{fix.get('column')}@{fix.get('row')}"
+        if witness is None:
+            continue
+        if not isinstance(witness, Mapping):
+            problems.append(f"{label}: witness is not an object")
+            continue
+        witnessed += 1
+
+        group_size = witness.get("group_size")
+        support = witness.get("support")
+        if not isinstance(group_size, int) or not isinstance(support, int):
+            problems.append(f"{label}: group_size and support must be integers")
+            continue
+        if group_size < 1 or support < 1:
+            problems.append(f"{label}: group_size={group_size} support={support} must be >= 1")
+            continue
+        if support > group_size:
+            problems.append(f"{label}: support {support} exceeds group_size {group_size}")
+            continue
+        # The shipped decision rule is a STRICT majority, not a plurality. Mutant M16 records
+        # the difference: plurality writes on 2 votes of 5 across four distinct values, with
+        # `deterministic` provenance that bypasses calibration, and is worse on every measured
+        # axis. A witness that does not clear this bar contradicts the rule the write claimed.
+        if support * 2 <= group_size:
+            problems.append(
+                f"{label}: support {support} of {group_size} is not a strict majority, so the "
+                "written value was not entailed by the rule the product implements"
+            )
+            continue
+
+        entries = witness.get("value_digests")
+        if not isinstance(entries, Sequence) or isinstance(entries, str | bytes):
+            problems.append(f"{label}: value_digests must be a list")
+            continue
+        counts: dict[str, int] = {}
+        for entry in entries:
+            if (
+                isinstance(entry, Sequence)
+                and not isinstance(entry, str | bytes)
+                and len(entry) == 2
+                and isinstance(entry[0], str)
+                and isinstance(entry[1], int)
+            ):
+                counts[entry[0]] = entry[1]
+        if sum(counts.values()) > group_size:
+            problems.append(f"{label}: value counts exceed group_size {group_size}")
+            continue
+        if not witness.get("truncated") and sum(counts.values()) != group_size:
+            problems.append(
+                f"{label}: value counts sum to {sum(counts.values())} but group_size is "
+                f"{group_size} and the distribution is not marked truncated"
+            )
+            continue
+
+        new_digest = witness.get("new_value_digest")
+        old_digest = witness.get("old_value_digest")
+        if counts.get(str(new_digest)) != support:
+            problems.append(
+                f"{label}: the written value's recorded count does not equal its support"
+            )
+            continue
+        if new_digest == old_digest:
+            problems.append(f"{label}: the write replaces a value with itself")
+            continue
+        if old_digest is not None and str(old_digest) not in counts:
+            problems.append(f"{label}: the replaced value does not appear in its own group")
+
+    if problems:
+        return [
+            AttestationCheck(
+                "witness_is_coherent",
+                False,
+                "; ".join(problems[:5])
+                + (f"; and {len(problems) - 5} more" if len(problems) > 5 else ""),
+            )
+        ]
+    if witnessed == 0:
+        return [
+            AttestationCheck(
+                "witness_is_coherent",
+                True,
+                (
+                    f"no entailment witness on any of {len(fixes)} fix(es); the derivation was "
+                    "NOT checked"
+                ),
+                skipped=True,
+            )
+        ]
+    return [
+        AttestationCheck(
+            "witness_is_coherent",
+            True,
+            f"{witnessed} of {len(fixes)} fix(es) carry a coherent entailment witness",
+        )
+    ]
 
 
 def _check_schema(
     predicate: Mapping[str, object], statement: Mapping[str, object]
 ) -> list[AttestationCheck]:
     missing: list[str] = []
-    for field in (
-        "tool",
-        "produced_at",
-        "mode",
-        "applied",
-        "reversible",
-        "source",
-        "authority",
-        "fixes",
-        "held",
-        "verdicts",
-        "journal",
-        "limitations",
-    ):
+    for field in REQUIRED_PREDICATE_FIELDS:
         if field not in predicate:
             missing.append(field)
 
     tool = predicate.get("tool")
     if isinstance(tool, Mapping):
-        for field in ("name", "version"):
+        for field in REQUIRED_TOOL_FIELDS:
             value = tool.get(field)
             if not isinstance(value, str) or not value:
                 missing.append(f"tool.{field}")
@@ -550,19 +824,48 @@ def _check_identity(
     expected = post_digest if applied else source_digest
 
     subject_list = statement.get("subject")
-    subject_digest = None
-    if isinstance(subject_list, Sequence) and subject_list:
-        first = subject_list[0]
-        if isinstance(first, Mapping):
-            digest = first.get("digest")
-            if isinstance(digest, Mapping):
-                subject_digest = digest.get("sha256")
+    subject_digests: list[object] = []
+    if isinstance(subject_list, Sequence) and not isinstance(subject_list, str | bytes):
+        for entry in subject_list:
+            if isinstance(entry, Mapping):
+                digest = entry.get("digest")
+                subject_digests.append(
+                    digest.get("sha256") if isinstance(digest, Mapping) else None
+                )
+            else:
+                subject_digests.append(None)
+
+    # in-toto v1 permits N subjects. Both verifiers used to read `subject[0]` and ignore the
+    # rest, which is a smuggling hole rather than a cosmetic gap: append a second subject
+    # naming a malicious file's digest to an otherwise valid attestation and a consumer that
+    # checks the first subject reports `verified`, while the statement now also asserts
+    # something about a file nobody attested.
+    #
+    # This predicateType describes ONE repair of ONE artifact, so there is no honest reading
+    # under which extra subjects are verifiable here. The rule is therefore a refusal, not a
+    # wider read: every subject must carry the expected digest. Duplicates are harmless and
+    # allowed; a subject naming a different artifact fails closed. Widening the predicate to
+    # describe several artifacts would be a new format, not a verifier change.
+    unexpected = [digest for digest in subject_digests if digest != expected]
+    if not subject_digests:
+        detail = "no subject present"
+    elif unexpected:
+        detail = (
+            f"{len(unexpected)} of {len(subject_digests)} subject(s) name a different "
+            f"artifact than the predicate describes: {unexpected[:3]!r} expected={expected!r}"
+        )
+    else:
+        detail = (
+            f"all {len(subject_digests)} subject(s) match, subject={expected!r}"
+            if len(subject_digests) > 1
+            else f"subject={expected!r}"
+        )
 
     checks.append(
         AttestationCheck(
             "subject_matches_post_state",
-            _is_hex64(subject_digest) and subject_digest == expected,
-            f"subject={subject_digest!r} expected={expected!r}",
+            bool(subject_digests) and not unexpected and _is_hex64(expected),
+            detail,
         )
     )
 

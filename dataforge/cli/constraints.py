@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -17,9 +18,11 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import DataTable, Footer, Header, Input, Static
 
-from dataforge.cli.common import resolve_cli_path
+from dataforge.cli.common import read_csv, resolve_cli_path
+from dataforge.detectors.base import FunctionalDependency
 from dataforge.schema_inference import (
     REPAIR_SUPPORTED_CONSTRAINT_KINDS,
+    ConstraintCandidate,
     ConstraintDecision,
     ConstraintReviewArtifact,
     ConstraintReviewError,
@@ -27,6 +30,7 @@ from dataforge.schema_inference import (
     update_constraint_review_artifact,
     write_constraint_review_artifact_atomic,
 )
+from dataforge.witness import fd_label
 
 constraints_app = typer.Typer(
     help="Review inferred profile constraints before repair can use them.",
@@ -341,6 +345,188 @@ class ConstraintReviewApp(App[ConstraintReviewArtifact]):
         )
 
 
+def _newly_accepted_fds(
+    before: ConstraintReviewArtifact, after: ConstraintReviewArtifact
+) -> list[tuple[str, FunctionalDependency]]:
+    """Return the FD candidates this invocation moved to accepted, in canonical order."""
+    was_accepted = {
+        entry.candidate_id for entry in before.candidates if entry.decision == "accepted"
+    }
+    newly: list[tuple[str, FunctionalDependency]] = []
+    for entry in after.candidates:
+        if entry.decision != "accepted" or entry.candidate.kind != "functional_dependency":
+            continue
+        if entry.candidate_id in was_accepted:
+            continue
+        fd = _candidate_as_fd(entry.candidate)
+        if fd is not None:
+            newly.append((entry.candidate_id, fd))
+    return sorted(newly, key=lambda item: tuple(item[1].determinant))
+
+
+def _candidate_as_fd(candidate: ConstraintCandidate) -> FunctionalDependency | None:
+    """Project an FD candidate onto the dependency the repairer would act on."""
+    columns = tuple(candidate.columns)
+    dependent = candidate.dependent
+    if not columns or not dependent:
+        return None
+    return FunctionalDependency(determinant=tuple(columns), dependent=dependent)
+
+
+def _accepted_fds_before(artifact: ConstraintReviewArtifact) -> tuple[FunctionalDependency, ...]:
+    """Return dependencies already accepted, which is the premise a marginal is measured against."""
+    accepted: list[FunctionalDependency] = []
+    for entry in artifact.candidates:
+        if entry.decision != "accepted" or entry.candidate.kind != "functional_dependency":
+            continue
+        fd = _candidate_as_fd(entry.candidate)
+        if fd is not None:
+            accepted.append(fd)
+    return tuple(accepted)
+
+
+def _acceptance_consequence(
+    before: ConstraintReviewArtifact,
+    after: ConstraintReviewArtifact,
+    *,
+    source: Path | None,
+) -> dict[str, Any]:
+    """Compute what accepting these dependencies would do to THIS table.
+
+    Returns data rather than printing, because ``--json`` must emit only JSON: an earlier
+    version of this rendered prose unconditionally and corrupted the machine-readable output,
+    which a test caught. A machine consumer needs the counts, not the sentence.
+
+    Why this exists. Until 2026-08-29 the only figure a reviewer saw at this keystroke was
+    hospital's: 116 corrupted cells and a 0.2046 harmful write rate, measured on a public
+    research corpus. A published statistic about somebody else's table, shown at the moment a
+    human authorises unsupervised writes to their own. ``PRODUCT.md``:193-201 already records
+    that a number a user reads is a published claim regardless of the file extension it lives
+    in; this is the same argument one step further, about a number that describes the wrong
+    table.
+
+    Why the figure is MARGINAL. ``constraint-additivity.md`` measures that isolated
+    per-candidate harm does not compose -- summed over hospital's 85 candidates it is 2779
+    cells against 567 for the set accepted together, a 4.9x overstatement -- which is why this
+    surface carried no per-candidate number at all. A marginal figure conditions on what is
+    already accepted, and ``docs/trust/entailment-witness-result.md`` measures that marginal
+    deltas along an acceptance path sum to 567 **exactly**. So the quantity here is defensible
+    where a context-free one is not.
+
+    Why it can be unavailable, and why that is said out loud. Computing this needs the table,
+    and this command is otherwise a pure artifact operation -- the reason
+    :func:`_warn_accepted_fd_queue_cost` counts rather than re-detects. The artifact cannot
+    guarantee the CSV is still present or unchanged, so the source is verified against
+    ``artifact.source_sha256`` and the preview is refused, with the reason, when it is not
+    verifiable. Silently skipping would be worse than not offering it: the reviewer would
+    infer the acceptance has no consequence.
+
+    This is display only. It reads no verdict and writes nothing, so no repair decision
+    depends on it. Pinned by ``tests/unit/test_entailment_witness.py``, which fails if the
+    witness reaches a decision-path module.
+    """
+    newly = _newly_accepted_fds(before, after)
+    if not newly:
+        return {"applicable": False}
+
+    resolved = source or (Path(before.source_path) if before.source_path else None)
+    if resolved is None or not resolved.is_file():
+        return {
+            "applicable": True,
+            "available": False,
+            "reason": (
+                "the source table was not found"
+                f"{f' at {resolved}' if resolved else ''}. Pass --source to point at it. "
+                "Without the table, what these dependencies would rewrite cannot be computed "
+                "-- this is not a statement that they would rewrite nothing."
+            ),
+        }
+
+    if sha256(resolved.read_bytes()).hexdigest() != before.source_sha256:
+        return {
+            "applicable": True,
+            "available": False,
+            "reason": (
+                "the source table no longer matches the hash recorded when these candidates "
+                "were mined, so any preview would describe a different table than the one "
+                "reviewed. Re-run 'dataforge profile --constraints-out' against the current "
+                "file."
+            ),
+        }
+
+    from dataforge.witness import marginal_blast_radius
+
+    table = read_csv(resolved)
+    accepted = _accepted_fds_before(before)
+    dependencies: list[dict[str, Any]] = []
+    for _candidate_id, fd in newly:
+        witnesses = marginal_blast_radius(table, accepted, fd)
+        worst = max(witnesses, key=lambda item: item.destroys, default=None)
+        dependencies.append(
+            {
+                "dependency": fd_label(fd),
+                "cells_rewritten": len(witnesses),
+                "values_replaced": sum(witness.destroys for witness in witnesses),
+                "example": (
+                    f"{worst.column} row {worst.row}: {worst.old_value!r} -> {worst.new_value!r}"
+                    if worst is not None
+                    else None
+                ),
+            }
+        )
+        accepted = (*accepted, fd)
+
+    return {
+        "applicable": True,
+        "available": True,
+        "covers": ["functional_dependency"],
+        "marginal": True,
+        "dependencies": dependencies,
+        "total_cells_rewritten": sum(entry["cells_rewritten"] for entry in dependencies),
+    }
+
+
+def _render_acceptance_consequence(result: dict[str, Any]) -> None:
+    """Render :func:`_acceptance_consequence` for a human."""
+    if not result.get("applicable"):
+        return
+    if not result.get("available"):
+        _console.print(f"[yellow]Consequence preview unavailable: {result['reason']}[/yellow]")
+        return
+
+    table_view = Table(title="What accepting these dependencies would do to THIS table")
+    table_view.add_column("dependency")
+    table_view.add_column("cells it would rewrite", justify="right")
+    table_view.add_column("values it would replace", justify="right")
+    table_view.add_column("example")
+    for entry in result["dependencies"]:
+        table_view.add_row(
+            str(entry["dependency"]),
+            str(entry["cells_rewritten"]),
+            str(entry["values_replaced"]),
+            str(entry["example"] or "-"),
+        )
+    _console.print(table_view)
+
+    if result["total_cells_rewritten"] == 0:
+        _console.print(
+            "[green]No cell in this table would be rewritten by these dependencies. A "
+            "dependency is inert where its determinant groups already agree -- measured on "
+            "hospital, two dependencies that are false on ground truth rewrote nothing for "
+            "exactly this reason.[/green]"
+        )
+    else:
+        _console.print(
+            "[yellow]This is CONSEQUENCE, not harm: a replaced value may be exactly the "
+            "error you want repaired, and without a clean copy of the table nothing here can "
+            "tell the two apart. What it does tell you is the size and shape of the change "
+            "you are authorising. Marginal, given what was already accepted, and additive "
+            "along this acceptance order. These writes carry 'deterministic' provenance, so "
+            "no calibration threshold downstream holds them back. Covers functional "
+            "dependencies only.[/yellow]"
+        )
+
+
 def _warn_accepted_fd_queue_cost(artifact: ConstraintReviewArtifact) -> None:
     """Warn when accepted functional dependencies will enlarge the review queue.
 
@@ -453,6 +639,23 @@ def review_constraints(
         bool,
         typer.Option("--no-tui", help="Run deterministic non-interactive review mode."),
     ] = False,
+    source: Annotated[
+        Path | None,
+        typer.Option(
+            "--source",
+            help=(
+                "The table these candidates were mined from. Used to show what accepting "
+                "them would rewrite in YOUR data. Defaults to the artifact's recorded path."
+            ),
+        ),
+    ] = None,
+    consequence: Annotated[
+        bool,
+        typer.Option(
+            "--consequence/--no-consequence",
+            help="Show the cells each newly-accepted dependency would rewrite.",
+        ),
+    ] = True,
 ) -> None:
     """Review profile-inferred constraint candidates before repair uses them."""
     resolved_path = resolve_cli_path(path)
@@ -482,6 +685,17 @@ def review_constraints(
         updated = tui_result
 
     target_path = resolve_cli_path(output) if output is not None else resolved_path
+    consequence_result: dict[str, Any] = {"applicable": False}
+    if consequence:
+        consequence_result = _acceptance_consequence(
+            artifact,
+            updated,
+            source=resolve_cli_path(source) if source is not None else None,
+        )
+    if consequence and not json_output:
+        # Rendered before the write, so a reviewer surprised by the numbers reads them
+        # before a "written" confirmation rather than after it.
+        _render_acceptance_consequence(consequence_result)
     written_sha256: str | None = artifact_sha256
     if dry_run:
         written_sha256 = None
@@ -493,13 +707,10 @@ def review_constraints(
             raise typer.Exit(code=2) from exc
 
     if json_output:
-        typer.echo(
-            json.dumps(
-                _artifact_summary(updated, path=target_path, sha256=written_sha256),
-                indent=2,
-                sort_keys=True,
-            )
-        )
+        payload = _artifact_summary(updated, path=target_path, sha256=written_sha256)
+        if consequence_result.get("applicable"):
+            payload["acceptance_consequence"] = consequence_result
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
     else:
         _print_review_table(updated)
         _warn_accepted_fd_queue_cost(updated)

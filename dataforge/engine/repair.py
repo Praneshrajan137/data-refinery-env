@@ -556,6 +556,48 @@ def create_repair_transaction(
     return transaction, log_path
 
 
+def enforce_snapshot_recoverable(transaction: RepairTransaction) -> None:
+    """Refuse to mutate user bytes unless the recorded snapshot can actually restore them.
+
+    Reversibility is the strongest promise in ``PRODUCT.md`` -- stronger than proven-only,
+    because a reversible wrong write costs a revert while an irreversible one costs the
+    data. On this path it was achieved by *ordering*: ``create_repair_transaction`` writes
+    the snapshot and journal before ``_apply_fixes_to_csv`` runs, so a correct sequence
+    yields a recoverable state. Ordering is not a precondition, though. Nothing checked
+    that the snapshot reached disk intact, and the failure mode is silent in the worst
+    direction: a truncated or missing snapshot is indistinguishable from a good one until
+    the revert that needs it, which is exactly when the user has no other copy.
+
+    ``transactions/revert.py`` restores by writing the snapshot bytes back and comparing
+    the result against ``transaction.source_sha256``. So the precondition for that revert
+    succeeding is checkable here, before any byte of user data changes: the snapshot must
+    exist and must hash to the value the revert will demand of it.
+
+    This is the CSV counterpart of :func:`dataforge.stores.patch_plan.enforce_plan_reversible`.
+
+    Raises:
+        TransactionApplyError: If the snapshot is absent, unreadable, or does not hash to
+            the transaction's recorded source digest.
+    """
+    recorded = transaction.source_snapshot_path
+    if not recorded:
+        raise TransactionApplyError(
+            "Refusing to apply repairs: the transaction records no source snapshot, so the "
+            "write would be irreversible."
+        )
+    snapshot_path = Path(recorded)
+    if not snapshot_path.is_file():
+        raise TransactionApplyError(
+            f"Refusing to apply repairs: the source snapshot '{recorded}' does not exist, so "
+            "the write would be irreversible."
+        )
+    if sha256_file(snapshot_path) != transaction.source_sha256:
+        raise TransactionApplyError(
+            f"Refusing to apply repairs: the source snapshot '{recorded}' does not match the "
+            "recorded source digest, so a revert could not restore the original bytes."
+        )
+
+
 def apply_transaction(
     path: Path,
     fixes: list[ProposedFix],
@@ -598,6 +640,7 @@ def apply_transaction(
                 source_bytes,
                 txn_id=txn_id,
             )
+        enforce_snapshot_recoverable(transaction)
         try:
             with repair_stage_span("transaction_apply", fixes_count=len(fixes)):
                 post_sha256 = _apply_fixes_to_csv(

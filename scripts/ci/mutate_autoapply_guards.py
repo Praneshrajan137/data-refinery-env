@@ -135,14 +135,21 @@ MUTANTS: tuple[Mutant, ...] = (
     ),
     Mutant(
         name="M7-warehouse-gate-removed",
-        target="dataforge/stores/duckdb.py",
-        old="        enforce_plan_constraint_checkable_only(plan)\n",
+        target="dataforge/stores/patch_plan.py",
+        old="    enforce_plan_constraint_checkable_only(plan)\n",
         new="",
         tests=(
             "tests/unit/test_warehouse_allowlist_gate.py",
             "tests/unit/test_table_store_patch_plan.py",
+            "tests/unit/test_table_store_proven_gate.py",
         ),
-        why="the SQL write primitive stops refusing uncheckable detectors",
+        why=(
+            "the SQL write primitive stops refusing uncheckable detectors. Retargeted "
+            "2026-08-29: the call moved from DuckDBStore.apply_patch_plan into "
+            "enforce_plan_write_gates when the three warehouse preconditions were composed "
+            "into one entry point. The harness reported NOT_APPLIED rather than scoring a "
+            "stale anchor, which is the behaviour the green-baseline work was added for"
+        ),
     ),
     Mutant(
         name="M8-fixture-premise-check-removed",
@@ -317,6 +324,151 @@ MUTANTS: tuple[Mutant, ...] = (
             "mostly-numeric column, is absent from all three corpora while being among the "
             "commonest shapes of real dirty data. Restoring it also re-fills the schema-free write "
             "path, so 'no declared premise, no write' stops holding"
+        ),
+    ),
+    Mutant(
+        name="M19-confirmation-flags-remerged",
+        target="dataforge/safety/constitutions/default.yaml",
+        old="    confirm_flag: confirm_untrusted_write",
+        new="    confirm_flag: confirm_escalations",
+        also=(
+            ("    confirm_flag: confirm_high_volume", "    confirm_flag: confirm_escalations"),
+            ("    confirm_flag: confirm_aggregate_break", "    confirm_flag: confirm_escalations"),
+            ("    confirm_flag: confirm_injection_text", "    confirm_flag: confirm_escalations"),
+        ),
+        tests=("tests/unit/test_safety_filter.py",),
+        why=(
+            "one boolean regains control of four unrelated soft rules. The untrusted-write "
+            "guard inspects a fix's ORIGIN LABEL and nothing else -- not the value, not the "
+            "premise, not any constraint -- while NO_HIGH_VOLUME_AUTO_APPLY is a blast-radius "
+            "budget. Under the merged flag, clearing the first silently disabled the second, so "
+            "docs/trust/agent-throughput-decomposition.md could not recommend defaulting the "
+            "origin-label rule on without also disabling a guard nobody had argued about. The "
+            "coupling was worse interactively: engine/repair.py:787 reassigns the resolver's "
+            "returned context into its loop variable, so a single 'y' at one prompt disabled all "
+            "four guards for every remaining issue in the run -- the operator was asked about one "
+            "cell and answered for the whole table"
+        ),
+    ),
+    Mutant(
+        name="M20-warehouse-reversibility-precondition-removed",
+        target="dataforge/stores/patch_plan.py",
+        old="    enforce_plan_reversible(plan)\n",
+        new="",
+        tests=("tests/unit/test_table_store_proven_gate.py",),
+        why=(
+            "the composite write gate stops refusing an irreversible plan, so a plan whose "
+            "own reason says it cannot be undone is applied anyway. This check used to live in "
+            "DuckDBStore.apply_patch_plan one line ABOVE the strength gate, which is the "
+            "calling-surface pattern the other two gates were deliberately moved away from: a "
+            "second backend adapter calling the two functions that look like 'the write gates' "
+            "inherited neither the reversibility precondition nor any error saying so. "
+            "CloudWarehouseStore sets reversible=False and all four cloud backends route to it, "
+            "so this predicate is what makes 'no irreversible warehouse write' true by "
+            "construction rather than by each adapter remembering"
+        ),
+    ),
+    Mutant(
+        name="M21-csv-snapshot-recoverability-unchecked",
+        target="dataforge/engine/repair.py",
+        old="        enforce_snapshot_recoverable(transaction)\n",
+        new="",
+        tests=("tests/unit/test_snapshot_recoverable_gate.py",),
+        why=(
+            "the CSV mutation primitive stops verifying that the snapshot it just wrote can "
+            "actually restore the file, so reversibility reverts to a property of the ORDERING "
+            "of steps rather than a checked precondition. PRODUCT.md ranks reversibility above "
+            "proven-only, and the failure mode is silent in the worst direction: a truncated or "
+            "missing snapshot is indistinguishable from a good one until the revert that needs "
+            "it, which is exactly the moment the user has no other copy. "
+            "docs/trust/write-surface-uniformity.md records that Round 1 of the uniformity work "
+            "missed precisely 'the one with a stronger promise and no test'"
+        ),
+    ),
+    Mutant(
+        name="M22-duckdb-revert-verifies-nothing",
+        target="dataforge/stores/duckdb.py",
+        old=(
+            "                if restored_rows != expected_rows:\n"
+            "                    raise TableStoreError(\n"
+            '                        "Revert failed integrity verification: the restored relation does not "\n'
+            "                        f\"match the snapshot recorded for transaction '{transaction.txn_id}'.\"\n"
+            "                    )\n"
+        ),
+        new="",
+        also=(
+            (
+                "                if transaction.post_sha256 is not None:\n"
+                "                    current = self._post_state_sha256(self._relation_rows(connection))\n"
+                "                    if current != transaction.post_sha256:\n"
+                "                        raise TableStoreError(\n"
+                '                            "Refusing to revert because the relation no longer matches the "\n'
+                '                            "recorded post-state hash. The table may have been modified after "\n'
+                '                            "apply, so the recorded rollback statements no longer describe it."\n'
+                "                        )\n",
+                "",
+            ),
+            (
+                "                    changed = self._execute_dml_rows_changed(connection, sql)\n"
+                "                    if changed != 1:\n"
+                "                        raise TableStoreError(\n"
+                '                            f"Rollback statement changed {changed} row(s) instead of exactly "\n'
+                '                            f"one, so the revert is not the inverse of the apply: {sql}"\n'
+                "                        )\n",
+                "                    connection.execute(sql)\n",
+            ),
+        ),
+        tests=("tests/unit/test_duckdb_revert_integrity.py",),
+        why=(
+            "the DuckDB revert goes back to firing plan.rollback_sql blind -- the exact state "
+            "before 2026-08-29, when this surface had no test of any kind. All three checks are "
+            "reverted together because they are redundant by design and removing any one alone "
+            "leaves the suite green for a legitimate reason (defence in depth), which is what "
+            "the `also` mechanism is for. Restoring the pre-fix behaviour reproduces the "
+            "committed symptom in docs/evidence/dbt_duckdb/commands.log: '\"ok\": true' and "
+            '\'"audit_verdict": "verified"\' printed beside \'"restored_source_sha256": null\'. '
+            "Verified against DuckDB: an UPDATE matching nothing returns [(0,)], so a rollback "
+            "that changed no rows and one that worked were indistinguishable, and "
+            "append_reverted_event recorded both as success. The CSV revert has had the "
+            "equivalent pre- and post-state checks all along, so this was also a "
+            "surface-uniformity gap on the promise PRODUCT.md ranks highest"
+        ),
+    ),
+    Mutant(
+        name="M23-blast-radius-budget-counts-rows-again",
+        target="dataforge/safety/constitution.py",
+        old="    return len({(fix.fix.row, fix.fix.column) for fix in fixes}) > HIGH_VOLUME_CELL_BUDGET",
+        new="    return len({fix.fix.row for fix in fixes}) > HIGH_VOLUME_CELL_BUDGET",
+        tests=("tests/unit/test_safety_filter.py",),
+        why=(
+            "the blast-radius budget goes back to counting DISTINCT ROWS instead of cells, "
+            "which is the state before 2026-08-29 and has a measurable blind spot: a batch "
+            "rewriting 90 rows across 50 columns is 4,500 cells and passes, because it touches "
+            "90 rows. A cell is the unit this product writes, reverts, proves and attests, so "
+            "it is the unit a blast-radius budget must use. Note the threshold VALUE is "
+            "unchanged at 100 in both versions -- the defect was the unit, and no measurement "
+            "exists that would justify moving the number, so moving it would be fitting a "
+            "parameter to nothing"
+        ),
+    ),
+    Mutant(
+        name="M24-egress-scan-never-refuses",
+        target="dataforge/measure_on_my_table.py",
+        old="    leaked = sorted(value for value in seen if value in haystack)\n",
+        new="    leaked: list[str] = []\n",
+        tests=("tests/unit/test_measure_on_my_table.py",),
+        why=(
+            "the egress scan on the design-partner report stops finding anything, so it "
+            "always passes and the sentinel test it backs becomes a test of nothing. This is "
+            "the one mutant in this file whose blast radius is outside the repository: "
+            "measure-on-my-table is the instrument a design partner runs on a table we are "
+            "never allowed to see, and its report is the artifact they send back. A value-leak "
+            "there cannot be fixed after shipping -- the data has already moved -- and it "
+            "would be discovered by the partner, not by us. The report is value-free by "
+            "CONSTRUCTION as well, every field being an int, a float or a digest, so this scan "
+            "is the second of two independent guarantees rather than the only one; the reason "
+            "it exists anyway is that the structural argument is true of today's fields and "
+            "one future field makes it false"
         ),
     ),
 )
