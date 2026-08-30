@@ -114,3 +114,59 @@ the date.
   work is capability-based (see the DATASET SCOPE RULE above): `hospital` is the
   flagship/regression anchor; `tax`/`rayyan`/`flights` are chosen by the capability
   a change proves, measured before prioritized.
+
+## 2026-08-30 Notes
+
+- **A scheduled Cortex Code automation now reviews this repo daily.** It is a
+  Snowflake AGENT TASK in `USER$PRANESH07.PUBLIC`, firing daily at 12:30 in
+  `Asia/Kolkata`, authenticating to GitHub through the Snowflake secret
+  `INTEGRATIONS.PUBLIC.GITHUB_PAT` (`TYPE = PASSWORD`, `USERNAME = 'git'`). The
+  fire runs in a Snowflake-managed sandbox at `/workspace`: it has NO local
+  filesystem and no access to a developer checkout, so its prompt must clone
+  `https://github.com/Praneshrajan137/dataforge.git` itself. A prompt that says
+  "analyze this project" without cloning is a silent no-op — that was the
+  original defect.
+- **The automation writes exactly one file: `docs/automation/daily-review.md`.**
+  That file is MACHINE-GENERATED and NON-AUTHORITATIVE. It is not evidence, and
+  it does not carry the standing of anything under `docs/trust/`. Do not cite it
+  as a source, and do not promote a number out of it without measuring that
+  number yourself.
+- **The automation pushes to `automation/daily-review-<YYYY-MM-DD>`, never to
+  `main`, and never creates a tag.** This is a deliberate containment boundary,
+  not a stylistic preference. `.github/workflows/ci.yml` and `docs.yml` both
+  trigger on `push: branches: [main]`, so an unattended daily commit to `main`
+  would run full CI every day and could leave `main` red with no observer. A
+  push to any other branch triggers no workflow. The tag prohibition matters
+  because every `publish-*.yml` triggers on `tags: v*` — a bot tag would ship to
+  PyPI. (`sync-to-hf.yml` is `workflow_dispatch` only, so the Space is safe from
+  a stray push either way.) If you ever repoint this automation at `main`, you
+  are re-opening both holes.
+- **The automation is forbidden from emitting a number it did not measure in
+  that run.** This is the non-obvious one. `scripts/ci/docs_truth.py` is an
+  ALLOWLIST over `docs/quantitative_claims.yaml`: it verifies that registered
+  claims still match their artifacts, so it cannot see a number in a document it
+  does not know about. The failure mode for a new machine-written doc is
+  therefore SILENCE, not a red gate — unverified figures would pass CI
+  untouched. That is the exact defect `docs_truth.py` exists to prevent, so the
+  prompt bans unmeasured numbers and requires open questions instead.
+- **The automation must not modify `PRODUCT.md`, `DECISIONS.md`, `CLAUDE.md`,
+  anything under `docs/trust/`, or `docs/quantitative_claims.yaml`.** Those are
+  the constitution, the decision record, this file, the evidence corpus, and the
+  claim registry. Nothing unattended edits them.
+- **Debugging a fire:** `cortex automation doctor <name>` gives state and
+  `thread_id`; `cortex conversations transcript <thread_id>` shows what actually
+  ran. Prefer the transcript for the dangerous case — state `SUCCEEDED` while the
+  side effect never happened. The prompt ends with a `DAILY_REVIEW_OK …` /
+  `DAILY_REVIEW_FAILED:<reason>` status line so a vacuous success is
+  distinguishable from a real one.
+- **Gotcha, unresolved as of this writing:** `cortex automation list` fails on
+  this machine with "Could not confirm whether automations are enabled for this
+  account (the Cortex Agent endpoint was unreachable)." While that persists the
+  CLI cannot create, test, or inspect automations, and the Snowsight Automations
+  dialog is the only path. Consequence: the skill's recommended one-shot test
+  before scheduling is unavailable, so a newly saved automation is UNVERIFIED
+  until its first real fire. Confirm it exists with `SHOW TASKS IN SCHEMA
+  "USER$PRANESH07".PUBLIC` rather than trusting that the dialog accepted it.
+- **A successful `ALTER GIT REPOSITORY … FETCH` proves the PAT can READ, not
+  PUSH.** Fetch and push are different scopes. If a fire fails at delivery with
+  the objects otherwise healthy, insufficient PAT scope is the first suspect.
