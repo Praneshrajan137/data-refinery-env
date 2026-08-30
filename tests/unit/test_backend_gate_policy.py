@@ -270,11 +270,48 @@ class TestDependencyAuditScopeIsExplicit:
         assert set(backend_gate._AUDITED_SURFACES) == {"core", "playground", "mcp"}
 
     def test_no_scope_errors_in_a_correctly_provisioned_environment(self) -> None:
-        """Non-vacuity. The suite itself imports these, so absence means a broken env."""
-        assert backend_gate.pip_audit_scope_errors() == []
+        """No surface that IS provisioned may be reported as uncovered.
+
+        Rewritten 2026-08-30. This previously asserted `pip_audit_scope_errors() == []` on the
+        premise that "the suite itself imports these, so absence means a broken env". That premise
+        is false in CI: the `quality` job installs `.[dev]` plus the playground requirements and
+        NOT `./dataforge-mcp[dev]`, so `mcp` is genuinely absent there and the assertion had been
+        failing on `main` since 2026-08-30 -- four commits red, because every local gate passes in
+        a dev venv that does have the editable MCP package installed.
+
+        The separation this restores: a unit test checks that the FUNCTION is right, and the gate
+        checks that the ENVIRONMENT is complete. Duplicating the environment demand here put it in
+        the one place that cannot satisfy it, while `_pip_audit_scope_check` under
+        `--require-optional` enforces it in `canonical-backend-gate`, which does install all three
+        surfaces. Asserting it twice in different places was what made it wrong once.
+
+        Still non-vacuous in both directions: this pins that a present surface is never reported,
+        and `test_a_missing_surface_is_reported_as_uncovered` pins that an absent one always is.
+        """
+        from importlib.util import find_spec
+
+        provisioned = {
+            surface
+            for surface, probes in backend_gate._AUDITED_SURFACES.items()
+            if all(find_spec(probe) is not None for probe in probes)
+        }
+        assert provisioned, "no audited surface is importable; the test environment is broken"
+
+        errors = backend_gate.pip_audit_scope_errors()
+
+        for surface in provisioned:
+            assert not any(f"did not cover the {surface} surface" in error for error in errors), (
+                f"{surface} is installed but was reported as uncovered"
+            )
 
     def test_a_missing_surface_is_reported_as_uncovered(self, monkeypatch) -> None:  # type: ignore[no-untyped-def]
-        """The case a passing audit must not be allowed to resemble."""
+        """The case a passing audit must not be allowed to resemble.
+
+        Asserts that the patched surface IS reported, rather than that it is the ONLY thing
+        reported. The stricter `len(errors) == 1` form was over-specified: it silently depended on
+        every other surface being installed, so it failed in CI's `quality` job for a reason that
+        had nothing to do with the behaviour under test.
+        """
         monkeypatch.setitem(
             backend_gate._AUDITED_SURFACES,
             "core",
@@ -283,9 +320,10 @@ class TestDependencyAuditScopeIsExplicit:
 
         errors = backend_gate.pip_audit_scope_errors()
 
-        assert len(errors) == 1
-        assert "did not cover the core surface" in errors[0]
-        assert "says nothing about it" in errors[0]
+        core_errors = [error for error in errors if "did not cover the core surface" in error]
+        assert len(core_errors) == 1
+        assert "a_package_that_is_not_installed" in core_errors[0]
+        assert "says nothing about it" in core_errors[0]
 
     def test_the_scope_check_actually_fails_the_gate(self, monkeypatch) -> None:  # type: ignore[no-untyped-def]
         """The wiring, not the helper. This is the test whose absence hid a dead gate.
@@ -307,8 +345,17 @@ class TestDependencyAuditScopeIsExplicit:
         # under-provisioned developer machine must not be turned into a red gate.
         assert backend_gate._pip_audit_scope_check(optional=True) is True
 
-    def test_the_scope_check_passes_in_this_environment(self) -> None:
-        """Non-vacuity for the enforced path: the same call must pass when nothing is missing."""
+    def test_the_scope_check_passes_when_every_surface_is_present(self, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+        """Non-vacuity for the enforced path: the same call must pass when nothing is missing.
+
+        The surfaces are patched to a probe that is certainly importable rather than relying on
+        the ambient environment. An earlier version of this test asserted the real environment
+        passed, which would have failed in CI's `quality` job for the same reason the two tests
+        above did -- `mcp` is not installed there. `make test` runs with `-x`, so it had not been
+        reached yet; it would have failed on the next run once the earlier two were fixed.
+        """
+        monkeypatch.setattr(backend_gate, "_AUDITED_SURFACES", {"core": ("json",)})
+
         assert backend_gate._pip_audit_scope_check(optional=False) is True
 
 

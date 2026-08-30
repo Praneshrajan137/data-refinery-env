@@ -96,6 +96,81 @@ class TestTheGateDetectsEachFailureMode:
         assert any("must be a list" in problem for problem in problems)
 
 
+class TestTheEntrySchemaIsEnforcedHere:
+    """The schema half, moved into this gate on 2026-08-30.
+
+    It previously lived only in an inline heredoc in `.github/workflows/ci.yml`, so a malformed
+    entry passed `make lint` and the backend gate and failed only in CI. Four entries had been
+    committed as bare lists (`"module": [...]`), which broke `scripts/test_mapped.py` for those
+    modules -- it rejects a non-object entry outright -- and left `main` red for four commits.
+    """
+
+    def test_a_bare_list_entry_is_reported(self) -> None:
+        """The exact shape that was committed four times and caught only by CI."""
+        problems = test_map_coverage.entry_shape_errors(
+            {"dataforge/witness.py": ["tests/unit/test_entailment_witness.py"]}
+        )
+
+        assert len(problems) == 1
+        assert "expected an object of category -> list[str], got list" in problems[0]
+        assert "mapped fast path for this file does not work" in problems[0]
+
+    def test_an_unknown_category_key_is_reported(self) -> None:
+        """`test_mapped.py` ignores unknown keys, so a typo silently drops tests."""
+        problems = test_map_coverage.entry_shape_errors(
+            {"dataforge/witness.py": {"direct_test": ["tests/unit/test_entailment_witness.py"]}}
+        )
+
+        assert len(problems) == 1
+        assert "unknown category" in problems[0]
+
+    def test_a_missing_mapped_path_is_reported(self) -> None:
+        problems = test_map_coverage.entry_shape_errors(
+            {"dataforge/witness.py": {"direct_tests": ["tests/unit/test_deleted.py"]}}
+        )
+
+        assert problems == [
+            "dataforge/witness.py.direct_tests: missing path tests/unit/test_deleted.py"
+        ]
+
+    def test_a_non_string_path_is_reported(self) -> None:
+        problems = test_map_coverage.entry_shape_errors(
+            {"dataforge/witness.py": {"direct_tests": [{"path": "x"}]}}
+        )
+
+        assert len(problems) == 1
+        assert "expected list[str]" in problems[0]
+
+    def test_metadata_keys_are_skipped(self) -> None:
+        """Underscore keys are metadata, not mappings, and must not be schema-checked."""
+        assert test_map_coverage.entry_shape_errors({"_comment": "free text"}) == []
+
+    def test_a_well_formed_entry_is_accepted(self) -> None:
+        """Non-vacuity: the checker must not simply reject everything."""
+        problems = test_map_coverage.entry_shape_errors(
+            {
+                "dataforge/witness.py": {
+                    "direct_tests": ["tests/unit/test_entailment_witness.py"],
+                    "integration_tests": ["tests/integration/test_surface_uniformity.py"],
+                }
+            }
+        )
+
+        assert problems == []
+
+    def test_the_category_keys_are_derived_from_the_consumer(self) -> None:
+        """Restating them here would let this gate accept a key `test_mapped.py` ignores.
+
+        Asserted against the consumer's own source rather than a literal list, so the two cannot
+        disagree without this failing.
+        """
+        source = (PROJECT_ROOT / "scripts" / "test_mapped.py").read_text(encoding="utf-8")
+
+        assert test_map_coverage.KNOWN_CATEGORY_KEYS
+        for key in test_map_coverage.KNOWN_CATEGORY_KEYS:
+            assert f'"{key}"' in source
+
+
 class TestTheGateIsWiredIn:
     def test_the_makefile_runs_it(self) -> None:
         text = (PROJECT_ROOT / "Makefile").read_text(encoding="utf-8")
@@ -104,3 +179,13 @@ class TestTheGateIsWiredIn:
     def test_the_backend_gate_runs_it(self) -> None:
         text = (PROJECT_ROOT / "scripts" / "ci" / "backend_gate.py").read_text(encoding="utf-8")
         assert "test_map_coverage.py" in text
+
+    def test_ci_no_longer_carries_a_second_schema_validator(self) -> None:
+        """One file, one schema. The duplicate is what drifted."""
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        assert "scripts/ci/test_map_coverage.py --check" in workflow
+        assert "expected object, got" not in workflow, (
+            "the inline test_map schema validator is back; it drifted from "
+            "test_map_coverage.py once already"
+        )

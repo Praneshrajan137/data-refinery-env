@@ -650,3 +650,108 @@ wired. A guard that cannot find the working case is no evidence about the broken
 remaining four print-style steps are still outside `gate_population`'s population; that is
 recorded here as an open limit rather than fixed, since generalising it means changing
 `gate_population.py` itself.
+
+## 2026-08-30, later: `main` had been red for four commits, and the local gates could not see it
+
+Pushing the work above triggered CI and revealed that `main` had been failing since `f508cf2`
+(2026-08-30 04:51) — four consecutive commits, last green at `c30d709`. The commit above added
+**zero** new failures: the failing job set was byte-identical before and after it
+(`canonical-backend-gate`, `playground-smoke`, `quality (3.11)`, `quality (3.12)`,
+`test-map-validate`), and the passing count in `quality` rose 522 → 524 as its new tests ran.
+
+The important part is not the redness, it is that **every local gate passed the whole time**.
+`make lint`, `make type`, the full suite, `docs_truth`, `gate_population`, `uv lock --check` and
+`mkdocs --strict` were all green on a tree CI rejected. Three independent causes, each a case of a
+check whose local and CI versions were not the same check.
+
+### 1. Two tests asserted an environment CI does not provide
+
+`test_no_scope_errors_in_a_correctly_provisioned_environment` asserted
+`pip_audit_scope_errors() == []` on the stated premise that "the suite itself imports these, so
+absence means a broken env". False in CI: the `quality` job installs `.[dev]` plus
+`playground/api/requirements.txt` and **not** `./dataforge-mcp[dev]`, so `mcp` is genuinely absent
+there. It passes locally only because the dev venv has the editable MCP package.
+`test_a_missing_surface_is_reported_as_uncovered` failed the same way, asserting `len(errors) == 1`
+where a second, unrelated surface was also legitimately missing.
+
+Both now assert the **function's** behaviour rather than the environment's completeness: no
+provisioned surface is ever reported, and a patched-absent surface always is. The environment
+demand belongs to the gate, and as of the commit above `_pip_audit_scope_check` enforces it under
+`--require-optional` in `canonical-backend-gate`, which does install all three surfaces. Asserting
+it in both places is what made it wrong in one.
+
+Verified by simulating the CI condition directly — `_AUDITED_SURFACES` with an absent `mcp` probe
+yields 1 error, and both rewritten assertions hold against it.
+
+A third test, one I had added hours earlier, had the identical flaw and had not yet been reached:
+`make test` runs `pytest -x`, so CI stopped at the first two failures and never executed
+`test_the_scope_check_passes_in_this_environment`, which asserts the real environment passes. It
+would have gone red on the next run, after the other two were fixed. It now patches the surface map
+to a certainly-importable probe. **`-x` means a red CI reports the first failures, not all of
+them** — the remaining count is unknown until they are fixed.
+
+### 2. Two validators, one file, different schemas
+
+`test_map.json`'s entry schema was policed by an inline heredoc in `ci.yml` and nowhere else, while
+`scripts/ci/test_map_coverage.py` — which runs in `make lint` and in the backend gate — checked
+only that every module had a mapping *decision*. Four entries had been committed as bare lists
+(`"module": [...]` instead of `"module": {"direct_tests": [...]}`): `dataforge/witness.py`,
+`dataforge/measure_on_my_table.py`, `dataforge/cli/measure.py` and
+`dataforge/attestation/__init__.py`.
+
+That was not a formatting nit. `scripts/test_mapped.py` rejects a non-object entry outright and
+collects paths only from its known category keys, so **the mapped fast path for those four modules
+did not work at all** — the thing the map exists to provide. The four are converted to the
+category-keyed shape used by the other 91 entries, split by test directory so no path is dropped
+(`_ALWAYS_COLLECT` covers both `direct_tests` and `integration_tests`).
+
+The schema check now lives in `test_map_coverage.py` beside the coverage check, and the inline
+heredoc is replaced by a call to that one script. It also rejects unknown category keys, which
+`test_mapped.py` silently ignores — a typo like `direct_test` would otherwise read as mapped while
+contributing no tests. The valid key set is **derived by AST-parsing `test_mapped.py`'s own
+`_ALWAYS_COLLECT`/`_BENCH_COLLECT` tuples**, not restated, and fails closed if it cannot read them.
+A test asserts the inline validator does not come back.
+
+### 3. `npm ci` failed on an npm version difference, not a platform one
+
+`npm ci` failed with `Missing: @emnapi/core@1.11.3 from lock file` while
+`npm ci --dry-run` **passed locally**. The previous entry in this document recorded that `npm ci`
+installed the lock cleanly; that claim was made with the wrong npm.
+
+`@napi-rs/wasm-runtime@1.1.5` declares required peer dependencies `@emnapi/core: ^1.7.1` and
+`@emnapi/runtime: ^1.7.1` with no `peerDependenciesMeta`, so they are not optional. The newest
+versions satisfying that range are 1.11.3, and the lockfile had no hoisted entry for either — the
+orphaned top-level `@emnapi/wasi-threads@1.2.3` was their residue. CI runs **node 22 (npm 10.x)**;
+this machine has **npm 11.6.1**, and npm 11 accepts the pruned lock that npm 10 rejects.
+
+Reproduced locally only after installing npm 10.9.2 into a scratch directory and running it
+directly, which reproduces the CI error verbatim. Neither `npm install` nor
+`npm install --package-lock-only` under npm 11 changed the lock at all. Under npm 10,
+`npm install --package-lock-only` added exactly the two missing peers, 225 → 227 packages, with
+**zero entries lacking a `resolved` field** — the Windows integrity-stripping hazard recorded
+earlier did not occur, because the lock was recomputed rather than deleted and regenerated.
+
+`package.json` is byte-identical (SHA-256
+`5E1F3DF3865FCBB87AE885380744703D2BC34AA5FD0EC77C7817122037E328EE` before and after), so postcss
+stays transitive under vite. Verified with `npm ci --dry-run` under **both** npm 10.9.2 and 11.6.1,
+a real `npm ci`, `npm audit` (0 vulnerabilities), `npm run build` (154709 B / 161000 B gzip, within
+budget) and `npm run test` (44 passed).
+
+### The generalisable lesson
+
+A green local gate is not evidence about CI when the two run different populations. All three causes
+share that shape: CI installs a narrower set of extras, CI pins an older npm, and one CI step was a
+script that existed nowhere else in the repository. The first was fixed by moving the assertion to
+the right layer, the second by reproducing under CI's actual toolchain before believing a local
+pass, and the third by deleting the duplicate.
+
+### Limits
+
+- **`pytest -x` hid the true failure count.** Two failures were visible; a third latent one was
+  found by reading rather than by running. There may be further failures beyond the point CI
+  stopped; the next run is the only way to know.
+- **npm 10 is not pinned anywhere.** The lock is now valid under both 10.9.2 and 11.6.1, but
+  nothing prevents a future lock edit made under npm 11 from reintroducing this. Pinning the npm
+  version in CI, or checking the lock under both, was considered and not done here.
+- The four converted `test_map.json` entries are asserted to resolve to existing paths; whether
+  each names the *right* tests for its module is a judgement this gate cannot make.

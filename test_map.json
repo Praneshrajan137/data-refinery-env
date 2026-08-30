@@ -822,21 +822,35 @@
       "dataforge-mcp/tests/test_tools.py"
     ]
   },
-  "dataforge/witness.py": [
-    "tests/unit/test_entailment_witness.py"
-  ],
-  "dataforge/measure_on_my_table.py": [
-    "tests/unit/test_measure_on_my_table.py",
-    "tests/integration/test_measure_on_my_table_cli.py"
-  ],
-  "dataforge/cli/measure.py": [
-    "tests/integration/test_measure_on_my_table_cli.py",
-    "tests/integration/test_surface_uniformity.py",
-    "tests/unit/test_user_facing_numbers.py"
-  ],
-  "dataforge/attestation/__init__.py": [
-    "tests/unit/test_attestation_vectors.py",
-    "tests/unit/test_attestation_schema.py",
-    "tests/integration/test_attestation_reaches_consumers.py"
-  ]
+  "dataforge/witness.py": {
+    "direct_tests": [
+      "tests/unit/test_entailment_witness.py"
+    ]
+  },
+  "dataforge/measure_on_my_table.py": {
+    "direct_tests": [
+      "tests/unit/test_measure_on_my_table.py"
+    ],
+    "integration_tests": [
+      "tests/integration/test_measure_on_my_table_cli.py"
+    ]
+  },
+  "dataforge/cli/measure.py": {
+    "direct_tests": [
+      "tests/unit/test_user_facing_numbers.py"
+    ],
+    "integration_tests": [
+      "tests/integration/test_measure_on_my_table_cli.py",
+      "tests/integration/test_surface_uniformity.py"
+    ]
+  },
+  "dataforge/attestation/__init__.py": {
+    "direct_tests": [
+      "tests/unit/test_attestation_vectors.py",
+      "tests/unit/test_attestation_schema.py"
+    ],
+    "integration_tests": [
+      "tests/integration/test_attestation_reaches_consumers.py"
+    ]
+  }
 }
