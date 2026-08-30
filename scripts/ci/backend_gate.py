@@ -131,41 +131,51 @@ class PipAuditException:
     upstream_reference: str
 
 
-PIP_AUDIT_EXCEPTIONS = [
-    PipAuditException(
-        vuln_id="PYSEC-2026-3716",
-        package="datasets",
-        scope="optional train extra only, and only transitively via trl; dataforge/ imports the "
-        "datasets library zero times, and it is absent from the core, playground and MCP "
-        "runtime surfaces",
-        expires_on=date(2026, 11, 26),
-        reason=(
-            "Triaged 2026-08-28. The advisory is a path traversal in datasets' FOLDER-BASED "
-            "dataset builders: a crafted `file_name` metadata field is joined to the dataset "
-            "directory without validation, letting an attacker-supplied dataset directory read "
-            "arbitrary local files, which are then embedded into output on save_to_disk or "
-            "push_to_hub. That builder is never used here. Every import in this repository is "
-            "`from datasets import Dataset` (11 sites: scripts/remote/kaggle_*.py and "
-            "training/kaggle_*_kernel/*.py), and every construction is Dataset.from_list on "
-            "records already parsed from a local JSONL file -- there is no load_dataset call, no "
-            "imagefolder/audiofolder builder, and therefore no file_name metadata path to "
-            "traverse. CVSS 4.0 also scores UI:A, i.e. it needs a user to actively load a "
-            "hostile dataset directory. The fix is 5.0.1 and is NOT a patch bump: train pins "
-            "datasets==4.8.5 alongside trl==1.4.0 and transformers==5.7.0, so moving to 5.x is a "
-            "deliberate training-stack revalidation rather than something to sweep in here."
-        ),
-        upstream_reference="https://github.com/huggingface/datasets/issues/8324",
-    ),
-]
-# Two pymdown-extensions exceptions were DELETED on 2026-08-28 rather than re-dated, because the
-# blocker they cited cleared upstream. Both had argued the fix was unreachable: mkdocs-material
-# 9.6.23 required `pymdown-extensions~=10.2`, capping below 11, while PYSEC-2026-3609 (b64 path
+#: Vulnerabilities the backend gate is allowed to ignore. Deliberately EMPTY.
+#:
+#: Nothing is currently suppressed, so `pip-audit` runs with no `--ignore-vuln` at all, which is
+#: the strongest form of this gate. The validators below still exist and are still tested (against
+#: synthetic entries, since an empty list cannot exercise them) because the next exception must
+#: land under the same discipline.
+PIP_AUDIT_EXCEPTIONS: list[PipAuditException] = []
+# The `datasets` exception was DELETED on 2026-08-30 by taking the fix, not by re-dating the
+# expiry. It was the last entry, and it was retired for two independent reasons.
+#
+# First, the fix was available. PYSEC-2026-3716 (= CVE-2026-66007) is fixed in datasets 5.0.1,
+# and the exception's stated blocker -- that moving to 5.x meant "a deliberate training-stack
+# revalidation" because train pins trl==1.4.0 and transformers==5.7.0 -- was false. PyPI metadata:
+# trl 1.4.0 requires `datasets>=4.7.0` with NO upper bound, and transformers 5.7.0 does not
+# require datasets in its core dependencies at all. Measured in a throwaway venv on Python
+# 3.12.10: the full train extra resolves with datasets 5.0.1 and every other pin held exactly,
+# `pip check` clean, pip-audit "No known vulnerabilities found". A probe of the only API surface
+# this repo uses -- Dataset.from_list on the SFT and GRPO row shapes, and the packaged json
+# builder -- compared 45 observable properties across 4.8.5 and 5.0.1 and found ZERO differences.
+# `pyproject.toml` now pins `datasets==5.0.1`. Same precedent as the torch and pymdown entries.
+#
+# Second, and worth recording because it is the more instructive half: the exception's own scope
+# statement was WRONG in three specifics, so keeping it on that reasoning was not an option.
+# It claimed "there is no load_dataset call" -- there are six, across five notebooks under
+# training/. It cited "11 sites: scripts/remote/kaggle_*.py and training/kaggle_*_kernel/*.py",
+# but `from datasets import` appears in 10 first-party files, no `.py` file exists under any
+# `kaggle_*_kernel/` directory (those imports are in `.ipynb`), and the glob missed
+# eval/results/kaggle_sft_v9_smoke_pull/*.py entirely. The reachability VERDICT survived, on the
+# narrower ground that `load_dataset("json", data_files=...)` selects the packaged json builder
+# while the advisory is scoped to FOLDER-BASED builders' `file_name` metadata -- but a triage
+# justified by a false statement of fact is not a triage. See
+# docs/trust/dependency-advisory-triage.md.
+#
+# Two pymdown-extensions exceptions were DELETED on 2026-08-28 for the same reason: the blocker
+# they cited cleared upstream. Both had argued the fix was unreachable: mkdocs-material 9.6.23
+# required `pymdown-extensions~=10.2`, capping below 11, while PYSEC-2026-3609 (b64 path
 # traversal) is fixed in 11.0.0 and CVE-2026-67422 (exponential ReDoS in caret/tilde/betterem/
 # magiclink) in 11.0.1. mkdocs-material 9.7.0 relaxed that requirement to `>=10.2`, so
 # docs/requirements.txt now pins mkdocs-material 9.7.7 with pymdown-extensions 11.0.2 and the
 # advisories are simply fixed. Recorded here because deleting an exception silently looks
 # identical to forgetting one: an ignore that suppresses nothing is not harmless, it still
 # carries an expiry that fails the gate for a vulnerability the environment no longer has.
+#
+# That failure mode is now mechanical rather than remembered -- see
+# :func:`pip_audit_exception_liveness_errors`.
 
 
 @dataclass(frozen=True)
@@ -368,6 +378,167 @@ def pip_audit_scope_report() -> str:
     )
 
 
+#: How close to expiry an unobservable exception may sit before it becomes a failure.
+#:
+#: An exception that suppresses nothing is not urgent while its expiry is distant -- a developer
+#: legitimately may not have the extra that carries the package. It becomes urgent as the expiry
+#: approaches, because at that point it is a scheduled failure of `canonical-backend-gate` for a
+#: vulnerability the environment does not have. That is exactly what happened to the torch entry
+#: (2026-10-14 expiry, resolved by torch 2.13.0) and to both pymdown entries (2026-11-08 expiry,
+#: resolved by mkdocs-material 9.7.0), each caught by a human reading the list rather than by a check.
+LIVENESS_EXPIRY_WINDOW_DAYS: Final = 30
+
+#: Advisory identifier shapes, used to read SECURITY.md's advertised exception set back out.
+_ADVISORY_ID_PATTERN: Final = re.compile(
+    r"\b(?:CVE-\d{4}-\d{4,}|PYSEC-\d{4}-\d+|GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4})\b"
+)
+
+SECURITY_POLICY_PATH: Final = PROJECT_ROOT / "SECURITY.md"
+
+#: The heading whose body must agree with :data:`PIP_AUDIT_EXCEPTIONS`.
+_SECURITY_POLICY_SECTION: Final = "Current scoped exception"
+
+
+def pip_audit_exception_liveness(
+    exceptions: list[PipAuditException] = PIP_AUDIT_EXCEPTIONS,
+) -> list[tuple[PipAuditException, str | None]]:
+    """Return each exception paired with the installed version of its package, or ``None``.
+
+    "Observable" means the audited environment actually contains the package, so `pip-audit
+    --local` could have raised the advisory and the ``--ignore-vuln`` could have suppressed it.
+    An exception whose package is absent suppresses nothing and cannot be evaluated here.
+
+    Derived from :mod:`importlib.metadata` at call time rather than from a restated inventory,
+    for the same reason ``_AUDITED_SURFACES`` probes imports instead of copying
+    ``pyproject.toml``: a restated constraint drifts.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    liveness: list[tuple[PipAuditException, str | None]] = []
+    for exception in exceptions:
+        try:
+            installed: str | None = version(exception.package)
+        except PackageNotFoundError:
+            installed = None
+        liveness.append((exception, installed))
+    return liveness
+
+
+def pip_audit_exception_liveness_errors(
+    exceptions: list[PipAuditException] = PIP_AUDIT_EXCEPTIONS,
+    *,
+    today: date | None = None,
+    window_days: int = LIVENESS_EXPIRY_WINDOW_DAYS,
+) -> list[str]:
+    """Return errors for exceptions that suppress nothing and are close to expiring.
+
+    This closes the gap that let the last exception become unfalsifiable. The validators beside
+    this one check that an exception is well-formed and time-boxed; none of them could detect an
+    exception that no longer suppresses anything. That is the mirror image of a gate that cannot
+    fail -- a suppression that cannot be observed as dead -- and this repository has now caught
+    it by hand three times (torch, two pymdown entries).
+
+    Deliberately NOT failed on absence alone. Requiring the package to be present would demand
+    the optional extras, which ``pip_audit_scope_errors`` explicitly declines to do because it
+    "would make the gate unrunnable rather than honest". What fails is the combination that has
+    no defensible reading: unobservable here AND within ``window_days`` of expiry, i.e. a
+    scheduled red gate for something nobody can currently confirm is still a problem.
+    """
+    observed_today = today or _today_utc()
+    errors: list[str] = []
+    for exception, installed in pip_audit_exception_liveness(exceptions):
+        if installed is not None:
+            continue
+        days_left = (exception.expires_on - observed_today).days
+        if days_left <= window_days:
+            errors.append(
+                f"{exception.vuln_id} for {exception.package} suppresses nothing in this "
+                f"environment ({exception.package} is not installed) and expires in "
+                f"{days_left} day(s) on {exception.expires_on.isoformat()}. Either take the fix "
+                f"and delete the entry, or re-triage it in an environment that has "
+                f"{exception.package} installed so the claim can be checked."
+            )
+    return errors
+
+
+def pip_audit_liveness_report(
+    exceptions: list[PipAuditException] = PIP_AUDIT_EXCEPTIONS,
+) -> str:
+    """Return a one-line description of which exceptions are observable here.
+
+    Printed beside :func:`pip_audit_scope_report` so a green run states not only what the audit
+    covered but whether each thing it was told to ignore was even present to be ignored.
+    """
+    if not exceptions:
+        return "pip-audit exceptions: none (nothing is suppressed)"
+    parts = [
+        f"{exception.vuln_id}/{exception.package}="
+        + (f"observable@{installed}" if installed else "NOT INSTALLED")
+        for exception, installed in pip_audit_exception_liveness(exceptions)
+    ]
+    return f"pip-audit exceptions: {', '.join(parts)}"
+
+
+def security_policy_exception_errors(
+    exceptions: list[PipAuditException] = PIP_AUDIT_EXCEPTIONS,
+    *,
+    path: Path = SECURITY_POLICY_PATH,
+) -> list[str]:
+    """Return errors when ``SECURITY.md`` disagrees with :data:`PIP_AUDIT_EXCEPTIONS`.
+
+    The liveness gap had a documentation half, and it was worse than the code half. Until
+    2026-08-30 ``SECURITY.md`` advertised the **torch** exception as the "Current scoped
+    exception" -- an entry deleted on 2026-08-28 as resolved -- with an expiry of 2026-07-13 that
+    had already passed and the claim "pip-audit reports no fixed version", which torch 2.13.0
+    falsifies. Nothing in the repository read the file, so the public-facing security policy
+    described a suppression that had not existed for days.
+
+    Derived, not restated: the advertised identifiers are read out of the document and compared
+    against the live exception list, so the document cannot drift without this failing.
+
+    "Advertised" means **listed as a bullet** under that heading, not merely mentioned in it.
+    That distinction is load-bearing and was found by this check failing on its own fix: the
+    replacement prose explains which entry was retired, and naming a retired advisory in order to
+    record its retirement is the opposite of advertising it as current. Scanning the whole section
+    made those indistinguishable -- the same false-positive class as a secret scanner matching its
+    own pattern list. The cost is that a stale identifier hidden in prose is not detected; the
+    bullet list is what a reader takes as the current set, so that is what is policed.
+    """
+    errors: list[str] = []
+    if not path.exists():
+        return [f"{path.name} is missing, so the advertised exception set cannot be checked."]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    start = next(
+        (index for index, line in enumerate(lines) if _SECURITY_POLICY_SECTION in line),
+        None,
+    )
+    if start is None:
+        return [
+            f"{path.name} has no '{_SECURITY_POLICY_SECTION}' section, so the exception set it "
+            "advertises cannot be compared against PIP_AUDIT_EXCEPTIONS."
+        ]
+    body: list[str] = []
+    for line in lines[start + 1 :]:
+        if line.startswith("## "):
+            break
+        if line.lstrip().startswith(("- ", "* ")):
+            body.append(line)
+    advertised = set(_ADVISORY_ID_PATTERN.findall("\n".join(body)))
+    declared = {exception.vuln_id for exception in exceptions}
+    for stale in sorted(advertised - declared):
+        errors.append(
+            f"{path.name} advertises {stale} as a current scoped exception, but it is not in "
+            "PIP_AUDIT_EXCEPTIONS. An exception that no longer exists must not be documented as "
+            "current."
+        )
+    for undocumented in sorted(declared - advertised):
+        errors.append(
+            f"{undocumented} is in PIP_AUDIT_EXCEPTIONS but {path.name} does not advertise it. "
+            "A suppression the security policy does not disclose is an undocumented one."
+        )
+    return errors
+
+
 def npm_audit_exception_errors(
     exceptions: list[NpmAuditException] = NPM_AUDIT_EXCEPTIONS,
     *,
@@ -519,6 +690,38 @@ def _pip_audit_exception_check() -> bool:
             print(f"FAIL pip-audit exception policy: {error}")
         return False
     print("PASS pip-audit exception policy")
+    return True
+
+
+def _pip_audit_scope_check(*, optional: bool) -> bool:
+    """Print and return the dependency-audit scope result.
+
+    ``optional`` mirrors the pip-audit step itself: when the audit is not mandatory the scope
+    shortfall is reported but not failed, because an under-provisioned developer machine is a
+    legitimate state. Under ``--require-optional`` it is a failure, which is the case a passing
+    audit must never be allowed to resemble.
+    """
+    print("\n==> dependency audit scope")
+    errors = pip_audit_scope_errors()
+    if not errors:
+        print("PASS dependency audit scope")
+        return True
+    verdict = "SKIP" if optional else "FAIL"
+    for error in errors:
+        print(f"{verdict} dependency audit scope: {error}")
+    return optional
+
+
+def _pip_audit_liveness_check() -> bool:
+    """Print and return the pip-audit exception liveness result."""
+    print("\n==> pip-audit exception liveness")
+    errors = pip_audit_exception_liveness_errors()
+    errors.extend(security_policy_exception_errors())
+    if errors:
+        for error in errors:
+            print(f"FAIL pip-audit exception liveness: {error}")
+        return False
+    print("PASS pip-audit exception liveness")
     return True
 
 
@@ -1024,10 +1227,20 @@ def main() -> int:
     # which is why this gate failed locally and passed in CI on the same commit, with
     # neither result saying what it had looked at.
     print(pip_audit_scope_report(), flush=True)
-    scope_errors = pip_audit_scope_errors()
-    if scope_errors and not pip_audit_optional:
-        for error in scope_errors:
-            print(f"pip-audit scope error: {error}", flush=True)
+    print(pip_audit_liveness_report(), flush=True)
+    # ENFORCED, not merely printed. From the commit that introduced it until 2026-08-30 this
+    # block computed `scope_errors`, printed them, and never appended the result to `checks` --
+    # so the function whose docstring says it "fails when the audit could not have seen a surface
+    # the product ships" could not fail. Its four unit tests all called the helper directly and
+    # none exercised the wiring, which is precisely how that survived. The fourth gate in this
+    # repository found to be incapable of failing; see docs/trust/dependency-advisory-triage.md.
+    #
+    # Still conditioned on `not pip_audit_optional`, which is the original intent rather than a
+    # softening: a developer without the playground or MCP extras installed gets the warning, and
+    # only a run that has declared the audit mandatory (`--require-optional`, i.e. CI) is failed
+    # by it.
+    checks.append(_pip_audit_scope_check(optional=pip_audit_optional))
+    checks.append(_pip_audit_liveness_check())
     checks.append(
         _run(
             "pip-audit",

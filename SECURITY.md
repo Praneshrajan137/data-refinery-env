@@ -40,11 +40,24 @@ explicitly triaged in `scripts/ci/backend_gate.py`.
 
 Current scoped exception:
 
-- `CVE-2025-3000` / `GHSA-rrmf-rvhw-rf47` in `torch`: optional local
-  training/HF evaluation dependency only, local-JIT attack surface, and
-  pip-audit reports no fixed version as of 2026-06-13. The exception is
-  encoded in `scripts/ci/backend_gate.py`, expires on 2026-07-13, and must be
-  removed when an audited fixed version is available.
+- **None.** Nothing is currently suppressed, so `pip-audit` runs with no
+  `--ignore-vuln` argument at all.
+
+`PIP_AUDIT_EXCEPTIONS` in `scripts/ci/backend_gate.py` is the single source of
+truth for this list, and `canonical-backend-gate` fails if this section and that
+list disagree in either direction — an exception that no longer exists must not
+be documented as current, and a live suppression must not go undisclosed. Until
+2026-08-30 this section advertised a `torch` exception (`CVE-2025-3000` /
+`GHSA-rrmf-rvhw-rf47`) that had been deleted on 2026-08-28 once a fresh resolve
+installed torch 2.13.0, far outside the affected 0–2.6.0 range. It carried an
+expiry of 2026-07-13 that had already passed and the claim "pip-audit reports no
+fixed version", which that release falsifies. Nothing in the repository read this
+file, so the drift was invisible; that is what the check now prevents.
+
+Every exception must name the advisory, state where the package is reachable
+from, justify itself against the vulnerable construct rather than the package,
+cite an upstream reference, and carry an expiry. An exception that never expires
+is a permanently silenced check.
 
 ## Out Of Scope
 

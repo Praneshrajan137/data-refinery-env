@@ -177,6 +177,24 @@ old orphaned `aiohttp` had no dependents at all and simply disappeared; the stal
 and `dataforge15` distributions went with them, the former having pointed at the
 `data_quality_env` package deleted the previous day.
 
+> **Scope of the two paragraphs above, added 2026-08-30.** Every figure here — the 42 → 1 table,
+> the 266 → 257 dependency count, and the version list including `torch 2.13.0` — describes the
+> environment *as installed on 2026-08-28 with `pip install -e ".[all]"`*. That environment no
+> longer exists locally and these numbers are therefore not re-verifiable in place. Probing the
+> current `.venv` with `importlib.metadata` on 2026-08-30 found **`openenv-core` absent and the
+> entire `train` stack absent** (`datasets`, `trl`, `transformers`, `torch`, `peft`,
+> `accelerate`), so today's venv is missing two of `all`'s nine extras and was never built with
+> `.[all]`. A pip-audit run in it says nothing about either stack.
+>
+> The claims are nonetheless environment-derived rather than resolve-derived, and `torch 2.13.0`
+> is independently corroborated: a fresh `pip install "trl==1.4.0" "transformers==5.7.0"
+> "datasets==5.0.1"` in a throwaway venv on 2026-08-30 resolved **torch 2.13.0**. The surviving
+> "1" was this `datasets` advisory, which is only consistent if `datasets` was installed at the
+> time — as the same version list records. What was wrong was not the measurement but the absence
+> of a scope statement on it, which is the defect this project records for any gate that does not
+> say what it looked at.
+
+
 ### The torch exception was retired, not renewed
 
 `CVE-2025-3000` / `PYSEC-2025-194` (they are aliases; pip-audit's `--ignore-vuln` matches
@@ -189,7 +207,7 @@ vulnerability the environment no longer had.
 
 ### The one survivor, and why it is an exception rather than a fix
 
-`datasets 4.8.5` / `PYSEC-2026-3716` (`CVE-2026-66807`) is a path traversal in datasets'
+`datasets 4.8.5` / `PYSEC-2026-3716` (`CVE-2026-66007`) is a path traversal in datasets'
 **folder-based** dataset builders: an unvalidated `file_name` metadata field is joined to the
 dataset directory, letting a hostile dataset directory read arbitrary local files, which are
 then embedded into output on `save_to_disk` or `push_to_hub`. Fixed in 5.0.1.
@@ -202,9 +220,61 @@ All eleven imports in the repository are `from datasets import Dataset`
 to traverse. `dataforge/` imports the library zero times. CVSS 4.0 also scores `UI:A` — it needs
 a user to actively load a hostile dataset directory.
 
+> **Retracted 2026-08-30. The identifier and the whole second paragraph above were wrong.**
+>
+> The identifier first: this section originally cited `CVE-2026-66807`, which does not exist —
+> `https://api.osv.dev/v1/vulns/CVE-2026-66807` returns **HTTP 404**. The authentic alias is
+> **`CVE-2026-66007`** (`.../vulns/CVE-2026-66007` → 200, `aliases: ["PYSEC-2026-3716"]`,
+> `cwe_ids: ["CWE-22"]`), corrected in place above. A wrong identifier is worse than a missing
+> one: it makes the claim unverifiable by any reader who tries to look it up, while still looking
+> like a citation.
+>
+> The reachability paragraph then states three things, and all three are false. Measured by
+> `grep` across the tree on 2026-08-30:
+>
+> - **"There is no `load_dataset` call"** — there are **six**, across **five** notebooks:
+>   `training/kaggle_remote_run/sft_warmup_kaggle.ipynb`,
+>   `training/kaggle_kernel_v3/sft_warmup_kaggle_v3.ipynb`,
+>   `training/kaggle_kernel_v4/sft_warmup_kaggle_v4.ipynb`,
+>   `training/kaggle/sft_warmup_kaggle.ipynb` and `training/kaggle/grpo_kaggle.ipynb`. The last
+>   of these loads from a **remote hub repo** (`load_dataset(dataset_repo, data_files=...)`),
+>   not a local file.
+> - **"All eleven imports"** — `from datasets import` appears in **10** first-party files, not 11.
+> - **The cited paths** — `training/kaggle_*_kernel/*.py` matches **no file at all**; `git
+>   ls-files` shows those directories contain only `.ipynb` and `kernel-metadata.json`. The glob
+>   also missed `eval/results/kaggle_sft_v9_smoke_pull/dataforge-0-5b-sft-v9-candidate.py`, which
+>   does import `Dataset`.
+>
+> The verdict survives, but on a narrower argument that must be stated instead of the one above:
+> `load_dataset("json", data_files=...)` selects the packaged **json** builder, and the advisory
+> is scoped to folder-based builders (`imagefolder`/`audiofolder`) whose `file_name` metadata
+> field is the traversal vector. No such builder is selected anywhere in this repository, so
+> there is still no reachable path. `save_to_disk` and `push_to_hub` are the *exfiltration sink*
+> in the advisory's own wording ("embedded into output when `save_to_disk` or `push_to_hub` is
+> called"), not independently affected entry points — so reachability turns solely on builder
+> selection, and the two `--push-to-hub` CLI flags in `scripts/data/` do not bear on it.
+>
+> `UI:A` is confirmed against the OSV record:
+> `CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:A/VC:H/VI:N/VA:N/SC:N/SI:N/SA:N`. Note `VI:N/VA:N` — this is
+> confidentiality-only, with no integrity or availability impact.
+>
+> None of this rescues the exception, and it is now moot: the entry was **deleted** on 2026-08-30
+> by taking the 5.0.1 fix. See the final section. A triage justified by a false statement of fact
+> is not a triage, whatever its conclusion happens to be.
+
+
 The fix is not a patch bump: `train` pins `datasets==4.8.5` alongside `trl==1.4.0` and
 `transformers==5.7.0`, so moving to 5.x is a deliberate training-stack revalidation. Recorded as
 a scoped exception expiring 2026-11-26.
+
+> **Also falsified 2026-08-30.** The "deliberate training-stack revalidation" blocker was never
+> real. PyPI metadata: `trl==1.4.0` requires `datasets>=4.7.0` with **no upper bound**, and
+> `transformers==5.7.0` does not require `datasets` in its core dependencies at all — only in its
+> `quality`/`retrieval`/`testing`/`dev` extras, at `>=2.15.0`. `datasets==5.0.1` satisfies both
+> pinned versions exactly as declared. The exception was reasoning about a resolver constraint
+> that does not exist; the only genuine risk was *behavioural*, and it was measurable rather than
+> assumed. The exception is deleted and `pyproject.toml` now pins `datasets==5.0.1`.
+
 
 ### Corrected reasoning on CVE-2026-67422
 
@@ -404,6 +474,179 @@ rather than a side effect of a security pass.
 - **The `datasets` pip-audit exception could not be evaluated here.** `datasets` is not installed in
   this venv (it lives in the `train` extra), so the clean `pip-audit` run does *not* show the
   exception is now redundant. It was left in place rather than retired on absent evidence.
+  **Resolved 2026-08-30** — not by retiring it on absent evidence, but by taking the fix and
+  measuring in a throwaway environment that *did* have the `train` stack. See the section below.
 - **The 6 real alerts are not closed yet, only fixed.** They close when Dependabot rescans the pushed
   lockfiles. Verified locally instead: `pip-audit` reports no vulnerabilities, and `npm audit`
   reports 0 for `playground/web`.
+
+## Retired 2026-08-30: the last exception, and the check that could not fail
+
+`PIP_AUDIT_EXCEPTIONS` is now **empty**, so `pip-audit` runs with no `--ignore-vuln` argument at
+all. Getting there turned up a worse defect than the exception itself.
+
+### The decision, and the kill criteria set before it
+
+Four options were on the table: retire the entry, keep it, take the `datasets` 5.0.1 fix, or fix
+the mechanism that made the entry unfalsifiable. The kill criteria were written down first, which
+matters because three of them could have fired:
+
+| # | Would have killed | Result |
+| --- | --- | --- |
+| KC-1 | the fix, if the full `train` extra would not resolve with `datasets==5.0.1` | did not fire |
+| KC-2 | the fix, if the API surface this repo uses behaved differently on 5.0.1 | did not fire |
+| KC-3 | the fix, if pip-audit still flagged `datasets 5.0.1` | did not fire |
+| KC-4 | the new liveness check, if no test could make it red | did not fire |
+
+**Retiring on a green audit was rejected, and it is worth saying why since that is the tempting
+move.** The previous entry in this document left the exception in place because `datasets` was
+absent from the venv, so a clean audit proved nothing. Deleting it on that basis would have been
+strictly worse than leaving it: `all` expands to
+`[bench,causal,dev,eval,pandas,playground,providers,train,openenv]` and `train` carries
+`datasets`, so a developer on `pip install -e ".[all]"` genuinely hits the advisory, and removing
+the exception without removing the vulnerability would fail their `make backend-gate` on a
+correctly-triaged non-issue.
+
+It is separately true — and was the crux worth measuring — that **CI never sees this advisory at
+all.** All seven install sites across `.github/workflows/` are `pip install -e ".[dev]"`
+(`ci.yml` 54, 78, 98, 136, 152, 227, plus the publish and release-smoke workflows), and `dev`
+contains no `datasets`. Only `ci.yml:141` runs `backend_gate.py --require-optional`, which is what
+makes pip-audit mandatory. So in CI the ignore suppressed nothing, which is precisely why an entry
+resting on a false premise was never forced into view.
+
+### Taking the fix: what was measured, and where
+
+Measured in a **throwaway** venv on Python 3.12.10, never the working one — installing `[train]`
+into `.venv` would replace the interpreter every other measurement in this repository is verified
+against.
+
+- **Resolution.** `pip install "trl==1.4.0" "transformers==5.7.0" "accelerate==1.13.0"
+  "peft==0.19.1" "bitsandbytes==0.49.2" "datasets==5.0.1" "huggingface_hub==1.13.0"
+  "pyyaml==6.0.3" "pandas==2.3.3" "tensorboard==2.20.0"` — the full `train` extra with only the
+  `datasets` pin moved — resolves, and `pip check` reports "No broken requirements found". Every
+  other pin held **exactly**, including `huggingface_hub 1.13.0`, which was the plausible way
+  KC-1 could have fired.
+- **Behaviour.** A probe of the only `datasets` API surface this repository uses —
+  `Dataset.from_list` on the SFT row shape (`{"messages": [...]}`, from
+  `kaggle_sft_v5_candidate.py:255`) and the GRPO row shape (eight mixed-type columns, from
+  `kaggle_grpo_candidate.py:309-320`), plus `load_dataset("json", data_files=..., split="train")`
+  as the five training notebooks use it — was run under **4.8.5 and 5.0.1** and the outputs
+  diffed. **45 observable leaves compared, 0 differing**: row counts, `len`, column names,
+  resolved feature types, first-row contents, full-iteration counts, and `select([0])` contents.
+- **Audit.** `pip-audit --local` in that environment: **"No known vulnerabilities found"**, exit
+  0, across 85 distributions. An earlier run reported 7 findings, all against the throwaway
+  venv's own bootstrap `pip 25.0.1` — an artifact of `python -m venv`, not exposure, since the
+  `dev` extra already pins `pip>=26.1.2`. Upgrading pip to that floor cleared them, which is the
+  check that `datasets` itself contributes nothing.
+
+`pyproject.toml` now pins `datasets==5.0.1`. `uv lock` moved exactly one package (`datasets
+v4.8.5 -> v5.0.1`), the resolved total held at 260, and `uv lock --check` exits 0.
+
+### The larger finding: a fourth gate that could not fail
+
+`pip_audit_scope_errors()` exists because a green audit that ran against a subset of the shipped
+surface is not evidence about the shipped surface. Its docstring says it "fails when the audit
+could not have seen a surface the product ships". **It did not.** `main()` computed the errors,
+printed them, and never appended the result to `checks`:
+
+```python
+scope_errors = pip_audit_scope_errors()
+if scope_errors and not pip_audit_optional:
+    for error in scope_errors:
+        print(f"pip-audit scope error: {error}")   # ...and that was all
+```
+
+Four unit tests covered the helper. **None covered the wiring.** That is the mechanism: a check
+with good tests around its logic and none around its effect reads as covered while being inert —
+the fourth gate in this repository found incapable of failing, after the two `bench_*.py` latency
+budgets that never collected and `mutate_autoapply_guards.py`, which nothing invoked. The result
+is now appended to `checks`, still conditioned on `--require-optional` so an under-provisioned
+developer machine is warned rather than failed, and
+`test_the_scope_check_actually_fails_the_gate` asserts the returned verdict. Mutating `return
+optional` to `return True` kills that test and only that test.
+
+### Liveness, so this is caught by machine next time
+
+Nothing could detect an exception that no longer suppresses anything. This project has now caught
+that by hand three times — the torch entry (resolved by torch 2.13.0) and both
+pymdown-extensions entries (unblocked by mkdocs-material 9.7.0), each carrying an expiry that
+would have failed `canonical-backend-gate` for a vulnerability the environment no longer had.
+
+`pip_audit_exception_liveness_errors()` resolves each exception's package through
+`importlib.metadata` and fails when an exception is **both** unobservable in the audited
+environment **and** within 30 days of expiry. It deliberately does not fail on absence alone:
+requiring the optional extras is the thing `pip_audit_scope_errors` explicitly declines to do
+because it "would make the gate unrunnable rather than honest". Liveness is also *reported* on
+every run beside the scope line, so a green run states whether the things it was told to ignore
+were even present to be ignored.
+
+`security_policy_exception_errors()` closes the documentation half, which was worse.
+`SECURITY.md` still advertised the **torch** exception as the "Current scoped exception" — deleted
+two days earlier — with an expiry of **2026-07-13** that had already passed and the claim
+"pip-audit reports no fixed version as of 2026-06-13", which torch 2.13.0 falsifies. `grep` for
+`SECURITY.md` across every `.py`, `.yml` and `.yaml` in the repository returns **no matches**:
+nothing read it, so the public-facing security policy described a suppression that had not existed
+for days. The check compares the identifiers the document advertises against
+`PIP_AUDIT_EXCEPTIONS`, derived at runtime. **It was red on the tree that introduced it**, failing
+on both stale identifiers, which is the only convincing evidence that a check can fail.
+
+### What I got wrong
+
+- **My own first version of the SECURITY.md check false-positived on its fix.** It scanned the
+  whole section, so the replacement prose — which names the retired advisory in order to record
+  its retirement — read as advertising it. Recording a retirement and advertising an exception
+  became indistinguishable: the same false-positive class as a secret scanner matching its own
+  pattern list. "Advertised" is now defined as *listed as a bullet*, with the accepted cost that a
+  stale identifier hidden in prose goes undetected.
+- **A test I had to replace rather than keep.** `test_pip_audit_exception_expires_deterministically`
+  asserted the real entry's 2026-11-26 expiry, and its own docstring warned that "an empty or
+  all-passing list would look identical to a healthy one". Emptying the list would have caused
+  exactly that, so it now asserts against a synthetic exception. The node id is unchanged, so the
+  gate population does not move.
+- **Three false claims in the deleted exception, and one wrong identifier in this document** — both
+  retracted above, in place, where the wrong claim lived.
+
+### Limits
+
+- **CI installs `.[dev]`, so the `train` stack is unvalidated by CI both before and after this
+  bump.** The scratch venv covers resolution, `pip check`, the two `Dataset.from_list` row shapes,
+  the packaged json builder, and a clean pip-audit. It does **not** cover training end to end: no
+  `SFTTrainer` or `GRPOTrainer` run, no tokenizer or chat-template path, no GPU. A behavioural
+  break in datasets 5.0 outside those four API paths would not have been caught here.
+- **The five training notebooks are not governed by this pin.** They resolve their own versions
+  inside the Kaggle runtime, so bumping `pyproject.toml` does not change what they install. They
+  remain frozen artifacts.
+- **`docs_truth.py` is an allowlist over `docs/quantitative_claims.yaml`.** None of the figures in
+  this section are registered claims, so CI does not verify them; the commands that produced each
+  one are named above so a reader can re-derive them instead.
+- **npm exception liveness is not addressed.** `NPM_AUDIT_EXCEPTIONS` still holds four entries and
+  liveness for them would need to read `node_modules`, which is a different mechanism. The three
+  postcss/nanoid advisories remain blocked on regenerating `package-lock.json` on Linux.
+- **The liveness window is 30 days and that number is a judgement, not a measurement.** It is
+  short enough to fire before an expiry becomes a surprise and long enough not to nag a developer
+  who simply lacks an extra.
+
+### One more hole, found while closing the first
+
+`gate_population.py` pins the gate's step list by AST-parsing `_run` and `GateCommand` literals,
+so it **cannot see the print-style checks called directly from `main()`** —
+`_coverage_policy_check`, `_pip_audit_exception_check`, `_corrector_promotion_gate`,
+`_secret_scan`, and the two added here. Those steps can be deleted from `main()` without the
+anti-erosion gate registering a change: `backend_gate_steps` holds 39 entries and none of those
+six is among them.
+
+That is pre-existing and was not introduced here, but leaving the fix exposed to it would repeat
+the original mistake one level up — the whole defect was a check whose result never reached the
+verdict. `TestTheNewChecksAreActuallyWiredIntoMain` therefore parses `main()`'s call graph and
+asserts both new checks contribute to `checks`. Replacing
+`checks.append(_pip_audit_scope_check(...))` with a bare `pip_audit_scope_errors()` call — the
+original defect, reconstructed — fails that test and only that test.
+
+Its companion non-vacuity test earned its place immediately: the first version of the parser
+looked only at `checks.append(...)` and missed the three checks that arrive in the initial
+`checks: list[bool] = [...]` literal (`_coverage_policy_check`, `_pip_audit_exception_check`,
+`_corrector_promotion_gate`), so it failed on the checks that were already correctly
+wired. A guard that cannot find the working case is no evidence about the broken one. The
+remaining four print-style steps are still outside `gate_population`'s population; that is
+recorded here as an open limit rather than fixed, since generalising it means changing
+`gate_population.py` itself.
