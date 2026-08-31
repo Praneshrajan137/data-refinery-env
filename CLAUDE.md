@@ -121,11 +121,10 @@ the date.
   Snowflake AGENT TASK in `USER$PRANESH07.PUBLIC`, firing daily at 12:30 in
   `Asia/Kolkata`, authenticating to GitHub through the Snowflake secret
   `INTEGRATIONS.PUBLIC.GITHUB_PAT` (`TYPE = PASSWORD`, `USERNAME = 'git'`). The
-  fire runs in a Snowflake-managed sandbox at `/workspace`: it has NO local
-  filesystem and no access to a developer checkout, so its prompt must clone
-  `https://github.com/Praneshrajan137/dataforge.git` itself. A prompt that says
-  "analyze this project" without cloning is a silent no-op — that was the
-  original defect.
+  fire runs in a Snowflake-managed sandbox and has no access to a developer
+  checkout, so its prompt must obtain the source itself. A prompt that says
+  "analyze this project" without obtaining the source is a silent no-op — that
+  was the original defect.
 - **The automation writes exactly one file: `docs/automation/daily-review.md`.**
   That file is MACHINE-GENERATED and NON-AUTHORITATIVE. It is not evidence, and
   it does not carry the standing of anything under `docs/trust/`. Do not cite it
@@ -165,8 +164,67 @@ the date.
   CLI cannot create, test, or inspect automations, and the Snowsight Automations
   dialog is the only path. Consequence: the skill's recommended one-shot test
   before scheduling is unavailable, so a newly saved automation is UNVERIFIED
-  until its first real fire. Confirm it exists with `SHOW TASKS IN SCHEMA
-  "USER$PRANESH07".PUBLIC` rather than trusting that the dialog accepted it.
+  until its first real fire. Confirm it exists with `SHOW AGENT TASKS IN ACCOUNT`
+  rather than trusting that the dialog accepted it. **`SHOW TASKS` does NOT list
+  agent tasks** — see the 2026-08-31 note below; the instruction originally
+  written here was wrong.
 - **A successful `ALTER GIT REPOSITORY … FETCH` proves the PAT can READ, not
   PUSH.** Fetch and push are different scopes. If a fire fails at delivery with
   the objects otherwise healthy, insufficient PAT scope is the first suspect.
+
+## 2026-08-31 Notes
+
+The first real fire failed and falsified three things asserted the day before.
+Corrections, all measured rather than reasoned:
+
+- **`SHOW TASKS` does not list agent tasks; `SHOW AGENT TASKS` does.**
+  `SHOW TASKS IN SCHEMA "USER$PRANESH07".PUBLIC` returned nothing while
+  `SHOW AGENT TASKS IN ACCOUNT` returned two live automations. The verification
+  step recommended yesterday therefore could not have detected a saved
+  automation, and would have reported a healthy automation as absent.
+- **`/workspace` is a STAGE MOUNT, not a filesystem — git cannot operate in it.**
+  The task payload mounts `USER$.PUBLIC.DEFAULT$` at `/workspace` via `VStages`.
+  `git clone` into it dies on `could not write config file … Input/output error`,
+  leaving a `.git/info/` skeleton behind (visible afterwards via `cortex ws ls`).
+  Always clone or `git init` under `/tmp`, never `/workspace`. Note this failure
+  happens BEFORE any network syscall, so a clone failing here is NOT evidence
+  that egress is blocked — conflating the two sent the first investigation to the
+  wrong conclusion.
+- **The GitHub token reaches the fire as `$GH_TOKEN` / `$GH_TOKEN_USERNAME`, and
+  ONLY `github.com` is allowlisted.** From the task payload's `EgressSecrets`
+  block, alongside `"AllowEgressToGithubAndDbt": true`. A bare
+  `git clone https://github.com/…` sends no credential. `api.github.com`,
+  `raw.githubusercontent.com` and `codeload.github.com` are NOT allowlisted, so
+  the `gh` CLI, the REST API, and tarball downloads are all unavailable — probing
+  those hosts and concluding "GitHub is unreachable" is a false negative.
+- **The Restricted Session Scope route is closed; do not spend time on it.** A
+  fire reads Snowflake under `RUNTIME_MANAGED`, which does not include READ on
+  `INTEGRATIONS.PUBLIC.DATAFORGE_REPO`, so the git-repository mirror is useless to
+  the sandbox even though `LS` works and the content is already fetched. It cannot
+  be widened from here: `SHOW RESTRICTED SESSION SCOPES` is empty, `RUNTIME_MANAGED`
+  is system-managed, the Automations dialog exposes no RSS field, and the
+  `--with-restricted-session-scope` flag needs the CLI that is unreachable. This is
+  NOT a missing grant, so `GRANT READ` will not fix it.
+- **`cortex ws cp` is broken on Windows in BOTH directions — use SQL `PUT`/`GET`.**
+  Upload fails with `undefined is not a directory` for every source tried
+  (absolute, relative, forward-slash, in-repo), and download fails with a mangled
+  doubled drive letter, `stat 'C:\C:\Users\…'`. `cortex ws ls` and `cortex ws rm`
+  work because they never touch a local path. The working channel is
+  `PUT 'file://…' 'snow://workspace/USER$<user>.PUBLIC.DEFAULT$/versions/live/'`
+  and the matching `GET`.
+- **Workspace path mapping:** `/workspace/X` inside a fire is
+  `/versions/live/X` in `cortex ws ls` output. Confirmed in both directions.
+- **`cortex ws ls` reports a size and md5 that do not match the bytes you
+  uploaded.** A 2,588,508-byte tarball listed as 2,588,512 with a different md5.
+  This is a listing artifact, not corruption: a `PUT` then `GET` round trip
+  returned a byte-identical file (md5 `15e11125a8cfae60d0ddc3f57d40a912` both
+  ways) that `tar -tzf` reads cleanly. Verify by round trip, not by comparing to
+  the listed md5.
+- **A network-free source snapshot is staged at
+  `/workspace/dataforge-snapshot.tar.gz`** (964 entries, 2.5 MB): `dataforge`,
+  `docs`, `tests`, `scripts`, `specs`, root markdown, `eval/thresholds` and
+  `eval/preregistration`, excluding `__pycache__` (which also removes ~6 MB of
+  hypothesis temp files carrying numeric extensions like `.pyc.27244`). It has no
+  top-level wrapper directory, so extract with `-C /tmp/dataforge`. It contains no
+  `.git`, so a fire that falls back to it CANNOT push. Refresh it when the repo
+  moves on; nothing refreshes it automatically.
