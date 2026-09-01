@@ -221,10 +221,59 @@ Corrections, all measured rather than reasoned:
   ways) that `tar -tzf` reads cleanly. Verify by round trip, not by comparing to
   the listed md5.
 - **A network-free source snapshot is staged at
-  `/workspace/dataforge-snapshot.tar.gz`** (964 entries, 2.5 MB): `dataforge`,
-  `docs`, `tests`, `scripts`, `specs`, root markdown, `eval/thresholds` and
-  `eval/preregistration`, excluding `__pycache__` (which also removes ~6 MB of
-  hypothesis temp files carrying numeric extensions like `.pyc.27244`). It has no
-  top-level wrapper directory, so extract with `-C /tmp/dataforge`. It contains no
-  `.git`, so a fire that falls back to it CANNOT push. Refresh it when the repo
-  moves on; nothing refreshes it automatically.
+  `/workspace/dataforge-snapshot.tar.gz`.** Superseded 2026-09-01 by a
+  source-complete v2 — see the 2026-09-01 note below for the current manifest.
+  It has no top-level wrapper directory and contains no `.git`, so a fire using
+  it CANNOT push. Nothing refreshes it automatically.
+
+## 2026-09-01 Notes
+
+The second fire obtained the source and still produced nothing, for two reasons
+that were both defects in how the run was specified rather than in the sandbox.
+
+- **GitHub egress really is blocked, and it is NOT a permissions problem.** The
+  second fire ran the corrected tokenized clone from `/tmp` and still got
+  `empty reply from server`, while `pypi.org` returned 200 through the same
+  proxy. That is the clean test: right credential, right host, right working
+  directory. Egress is enforced by a Snowflake-managed sandbox proxy, and **no
+  Snowflake role, grant, or Restricted Session Scope governs network access** —
+  granting write on every database changes nothing here. Note the platform
+  contradiction: the task payload says `"AllowEgressToGithubAndDbt": true` while
+  the proxy blocks `github.com`. Route A is retired; do not re-add it.
+  Consequence: **a fire cannot push, so `/workspace` is the only channel out.**
+  A human retrieves the artifact with SQL `GET` and commits it locally.
+- **Requiring self-measured numbers without a runnable tree burns the whole
+  budget.** The prompt said "state no number you did not measure yourself", so
+  the fire correctly tried to make the code runnable and walked into
+  `z3-solver`, `pandas`, `numpy`, `pyarrow`, `networkx`, `causal-learn` and
+  `hyppo`, then ran out of road on 10 modules needing `training/` and
+  `playground/` which the v1 snapshot omitted. Demanding measurement while
+  making measurement impossible is the trap. If you forbid installs, you must
+  also say what IS measurable.
+- **Ten scripts under `scripts/ci/` import ONLY stdlib and therefore need zero
+  installs.** Verified by scanning imports against a stdlib list:
+  `docs_truth.py`, `gate_population.py`, `openapi_contract.py`,
+  `attestation_conformance.py`, `test_map_coverage.py`,
+  `installed_cli_smoke.py`, `installed_package_smoke.py`, and the three
+  `mutate_*.py` (which rewrite corpora — never run them unattended). The first
+  five all exit 0 under `--check` and modify nothing, and they emit real citable
+  figures. **Always pass `--check`**: `docs_truth` and `openapi_contract` accept
+  `--write` and `gate_population` accepts `--emit`, all of which rewrite tracked
+  files. This set is the measurement floor for any sandboxed review.
+- **Snapshot v2 manifest (current):** 1412 entries, 4.01 MB gzipped, 15.7 MB
+  uncompressed. Adds what v1 wrongly omitted: `packages/`, `dataforge-mcp/`,
+  `playground/`, `training/`, `constitutions/`, `requirements/`, `fixtures/`,
+  `benchmark_results/`, `.github/` (so CI config is reviewable), `pyproject.toml`,
+  `Makefile`, `uv.lock`. Still excluded, deliberately: `data/` (309.8 MB of
+  datasets), `eval/results/` (313.6 MB of archived run snapshots),
+  `node_modules`, caches, `*.pyc`, and `training/kaggle_dataset_v3/expert_v3.jsonl`
+  (11.9 MB frozen curriculum). **`playground/` is only 139 source files / 3.7 MB
+  once `node_modules` is excluded** — its 10,629-file total is what made v1 skip
+  it, which was a mistake. Extract with `-C /tmp/src`, not `/tmp/dataforge`: a
+  read-only mount was observed at the latter.
+- **`--without-read-only` (fully read-write fires) is not reachable on this
+  setup.** It is a `cortex automation` CLI flag, and that CLI still cannot reach
+  its endpoint; the Snowsight Automations dialog exposes no equivalent control;
+  and `RUNTIME_MANAGED` is applied by the platform, not from the task payload, so
+  there is nothing in the definition to edit. Do not attempt to hand-rewrite the
+  `SYSTEM$CORTEX_AGENT_RUN_V2` payload to strip it.
