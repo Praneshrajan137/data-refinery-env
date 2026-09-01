@@ -66,6 +66,16 @@ AUTOAPPLY_TRUTH_DOCS = [
     PROJECT_ROOT / "docs" / "docs" / "architecture.md",
 ]
 
+#: Registered CLI commands that are deliberately absent from README.md, with the reason.
+#: This exists so that "undocumented" is a DECLARATION rather than an oversight -- the
+#: check below fails on any registered command that is neither documented nor listed here,
+#: and also fails on a stale entry, so the list cannot rot into fake coverage.
+#:
+#: Empty on purpose as of 2026-09-01: `measure-on-my-table` was the only member, and it was
+#: documented instead of exempted, because it is the design-partner entry point and its
+#: discoverability is the bottleneck named in the 2026-09-01 DECISIONS entry.
+UNDOCUMENTED_COMMANDS: frozenset[str] = frozenset()
+
 #: Every list above defines a POPULATION this module polices. A list that shrinks to
 #: nothing -- or that names a document somebody deleted -- does not make these checks
 #: weaker, it makes them vacuous: they iterate nothing, report success, and gate nothing.
@@ -1152,6 +1162,30 @@ def main() -> None:
         if missing:
             errors.append(
                 f"README claims these subcommands but they are not registered: {sorted(missing)}"
+            )
+        # The reverse direction, added 2026-09-01. Until then this check ran one way only --
+        # every DOCUMENTED command had to resolve, but a REGISTERED command documented
+        # nowhere was invisible. That is the allowlist shape this repository keeps
+        # rediscovering: the failure mode is silence, not a red gate.
+        #
+        # It was live. `measure-on-my-table` shipped with zero README mentions, and it is
+        # the design-partner instrument -- the one command whose entire purpose requires
+        # somebody outside this repository to find it. A user-facing command nobody can
+        # discover is not a shipped capability.
+        undocumented = registered - claimed_commands - UNDOCUMENTED_COMMANDS
+        if undocumented:
+            errors.append(
+                f"these commands are registered but documented nowhere in README.md: "
+                f"{sorted(undocumented)}. Document them, or add them to "
+                f"UNDOCUMENTED_COMMANDS with the reason. A command a user cannot discover "
+                f"is not shipped."
+            )
+        stale_exemptions = UNDOCUMENTED_COMMANDS - registered
+        if stale_exemptions:
+            errors.append(
+                f"UNDOCUMENTED_COMMANDS exempts commands that are not registered: "
+                f"{sorted(stale_exemptions)}. Remove them -- a stale exemption reads as "
+                f"coverage and hides the next undocumented command."
             )
     else:
         print("WARNING: could not resolve registered commands, skipping subcommand check.")

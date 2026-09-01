@@ -171,6 +171,33 @@ dataforge watch fixtures/hospital_10rows.csv --schema fixtures/hospital_schema.y
 dataforge bench --methods random,heuristic --datasets hospital,flights --seeds 3 --seed-list 0,1,2
 ```
 
+### Measuring the write path on a table we are not allowed to see
+
+Every write-precision figure this project publishes was measured on a corpus with a clean
+copy to score against. Your table almost certainly has neither. `measure-on-my-table`
+closes that gap: it plants a known number of wrong cells in a copy of your data, runs the
+real write path over it, and reports how many of the plants were repaired and how many
+already-correct cells were overwritten.
+
+```bash
+# Mined premise -- what a zero-configuration user actually gets.
+dataforge measure-on-my-table your_table.csv --plants 200 --report measurement.json
+
+# With a declared premise, or a reviewed constraints artifact.
+dataforge measure-on-my-table your_table.csv --schema your_schema.yaml --json
+dataforge measure-on-my-table your_table.csv --constraints constraints.json
+```
+
+The report is **counts, digests and configuration only**. No cell value, column name, or
+row can appear in it -- that holds by construction, and the emitted bytes are scanned again
+before anything is written, with a mutant pinning the scan. So the artifact is safe to send
+back to us while your data never leaves your machine. `--seed` makes a run reproducible.
+
+Read the output the same way we read ours: `repaired_a_real_error` next to
+`corrupted_a_clean_cell`, never precision alone. Our own shipped-premise measurement on
+hospital corrupts 116 already-correct cells for 451 repairs, and if your table disagrees
+with that we would rather know.
+
 Or run the bundled demo (works from any install, no files needed). It ships a schema,
 because nothing in this product repairs without a declared premise:
 

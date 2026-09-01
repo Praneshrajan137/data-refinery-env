@@ -166,19 +166,37 @@ make the tree executable. The dependency tree it walked into includes `z3-solver
 **If a prompt forbids installs, it must also state what remains measurable.** Otherwise the
 constraint is incoherent and consumes the run.
 
-Ten scripts under `scripts/ci/` import only stdlib and therefore need no installs. These
-five were each verified on 2026-09-01 to exit 0 under `--check` and modify no tracked file:
+**Six** scripts under `scripts/ci/` import only the standard library, derived by AST on
+2026-09-01 and enforced by `tests/unit/test_sandbox_measurement_floor.py` so the set cannot
+rot unnoticed. Of those, exactly **two** are read-only reporters worth running unattended:
 
-| Command | Reports |
+| Zero-install command | Reports |
 | --- | --- |
-| `python scripts/ci/docs_truth.py --check` | registered quantitative claims |
-| `python scripts/ci/gate_population.py --check` | pytest node ids, backend gate steps |
-| `python scripts/ci/openapi_contract.py --check` | whether API contract snapshots are current |
-| `python scripts/ci/attestation_conformance.py --check` | whether both implementations agree on every vector |
-| `python scripts/ci/test_map_coverage.py --check` | modules carrying a decision |
+| `python scripts/ci/attestation_conformance.py --check` | whether both attestation implementations agree on every vector |
+| `python scripts/ci/test_map_coverage.py --check` | modules carrying a mapping decision |
+
+The other four stdlib-only scripts are `installed_cli_smoke.py` and the three
+`mutate_*.py`, which rewrite corpora or need an installed console script. Do not run them
+unattended.
+
+> **This list previously named five commands and claimed ten were stdlib-only. Both figures
+> were wrong, and the error is instructive.** `docs_truth.py` imports `yaml` (PyYAML),
+> `gate_population.py` imports `scripts.ci.readme_truth` and `scripts.ci.backend_gate` and
+> so transitively needs `dataforge`, `httpx` and `yaml`, and `openapi_contract.py` imports
+> `dataforge.env.server` and `playground.api.app`. Three of the five commands offered as
+> needing no installs need the package installed.
+>
+> The note said they were "verified on 2026-09-01 to exit 0", and they were — **in a full
+> virtualenv, which is an environment where a zero-install claim cannot fail.** That is the
+> same error as treating a green local gate as evidence about CI. A claim about a
+> constrained environment has to be checked under that constraint, or derived from source;
+> this one is now derived.
+
+If you need the claim-count or contract gates, they are still the right tools — but they
+belong after an install step, and the budget has to pay for it.
 
 **Always pass `--check`.** `docs_truth.py` and `openapi_contract.py` accept `--write`, and
-`gate_population.py` accepts `--emit`; all rewrite tracked files. Never run
+`gate_population.py` accepts `--emit`; all three rewrite tracked files. Never run
 `scripts/ci/mutate_*.py` unattended — they rewrite corpora.
 
 Shell tools (`grep`, `wc`, `find`, `sort`, `uniq`, and `python` for one-off stdlib

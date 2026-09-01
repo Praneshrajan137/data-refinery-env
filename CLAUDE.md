@@ -98,7 +98,20 @@ the date.
 - Rich tables are slow for large output. Summarize or paginate beyond a few
   hundred rows.
 
-## Append-Only From Here Onward
+## Dated Notes, Within A Budget
+
+This section is append-only, but the file is not unbounded. **CLAUDE.md is injected as
+instructions into every editor session**, so a line added here changes how every future
+session behaves, and volatile detail added here goes stale in the one place a session is
+most likely to trust it. `tests/unit/test_claude_md_scope.py` enforces a size budget and
+refuses environment-scoped content, because between 2026-08-30 and 2026-09-01 this file
+grew from 104 to 259 lines with cloud-sandbox operating detail that had nothing to do with
+local work. That material now lives in `docs/automation/README.md`, which nothing
+auto-loads.
+
+Before appending here, ask whether the note is a **durable repository convention**. If it
+is scoped to one environment, one deployment, or one investigation, it belongs in a file
+nothing auto-loads.
 
 ## 2026-07-12 Notes
 

@@ -1145,8 +1145,13 @@ def main() -> int:
                 # documents -- so a shrinking gate has to be an explicit, explained edit rather
                 # than a side effect.
                 GateCommand(
-                    "gate population", [PYTHON, "scripts/ci/hf_space_frontmatter.py",
-    "scripts/ci/gate_population.py", "--check"]
+                    "gate population",
+                    [
+                        PYTHON,
+                        "scripts/ci/hf_space_frontmatter.py",
+                        "scripts/ci/gate_population.py",
+                        "--check",
+                    ],
                 ),
                 # Keeps the mapped inner loop fast. A module with no mapping falls back to the
                 # full suite, so a gap costs speed rather than correctness; this only stops the
