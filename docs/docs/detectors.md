@@ -6,7 +6,7 @@ optional expected value.
 
 ## Shipped detector families
 
-Eleven issue families ship. **Detection and write authority are separate**: only two detectors may
+Twelve issue families ship. **Detection and write authority are separate**: only two detectors may
 auto-apply, and only from a declared functional dependency. Named explicitly on one line, because a
 detector that gains write authority silently is worse than one that loses it noisily:
 `fd_violation` and `missing_value` may auto-apply, and no other family may.
@@ -17,9 +17,16 @@ means membership of
 treats as an allowlist a detector must earn with a committed measurement.
 
 The count is the size of the closed `IssueTypeLiteral` vocabulary and is checked against it by
-`scripts/ci/readme_truth.py`, so a new family cannot ship undocumented. Ten families come from the
-eleven detectors in the default ensemble — `time_format_cruft` and `format_violation` both emit
-`format_violation` — and `semantic_domain_violation` is the eleventh, opt-in.
+`scripts/ci/readme_truth.py`, so a new family cannot ship undocumented. Eleven families come from the
+eleven detectors in the default ensemble — one id each, since `time_format_cruft` was split out of
+`format_violation` on 2026-09-01 — and `semantic_domain_violation` is the twelfth, opt-in.
+
+The split was a write-safety fix, not tidying. The two detectors had shared the `format_violation`
+id while putting incompatible things in `Issue.expected`: `format_violation` a shape **mask**
+(`9999-99-99`), `time_format_cruft` a substitutable **value** (`6:55 a.m.`). Because `Issue` carries
+no detector identity apart from its issue type, nothing downstream could tell them apart, and the
+review-suggestion path guards only on `expected is None` — which a mask satisfies. Splitting the ids
+is what let the value be surfaced as a suggestion without the mask being surfaced with it.
 
 | Detector | Finds | May auto-apply | Repair, when permitted |
 | --- | --- | --- | --- |

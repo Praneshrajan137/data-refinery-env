@@ -101,6 +101,17 @@ IssueTypeLiteral = Literal[
     # it has no write path on any surface. See dataforge/detectors/semantic_domain.py for
     # why an externally learned constraint must still be advisory.
     "semantic_domain_violation",
+    # Split out of `format_violation` on 2026-09-01, and the reason is a write-safety
+    # invariant rather than taxonomy. Both `format_violation.py` and `time_format_cruft.py`
+    # emitted `format_violation`, but their `Issue.expected` meant different things: the
+    # former a shape MASK (`"9999-99-99"`), the latter a substitutable VALUE (`"14:30"`).
+    # `Issue` carries no detector identity apart from its issue type -- `dataforge/
+    # calibration.py` keys calibration samples by issue type *as* `CellFix.detector_id` --
+    # so no consumer downstream could tell them apart, and the suggestion path guards only
+    # on `expected is None`. Routing the cruft value into that path while the two shared an
+    # id would have proposed writing format descriptions into user cells. Separate ids are
+    # what make the safe half routable. See tests/unit/test_expected_value_semantics.py.
+    "time_format_cruft",
 ]
 
 # The issue-type universe, DERIVED from the Literal above rather than restated.

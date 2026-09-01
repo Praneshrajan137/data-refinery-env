@@ -22,10 +22,17 @@ its groups actually agree on a dominant value. Columns the key does not determin
 (e.g. ``zip -> salary`` on tax) fail the governance test and are silently skipped,
 so the detector abstains on datasets without a genuine multi-source entity key.
 
-Detection-only by construction: like :class:`DateTranspositionDetector`, this
-detector carries the exact consensus value in ``Issue.expected`` but is not paired
-with a repairer in Phase 1, so it has no write path and can only surface honest,
-never-auto-applied review suggestions. The verified auto-apply of the provable
+Carries the exact consensus value in ``Issue.expected``. It IS paired with a repairer --
+:class:`dataforge.repairers.entity_consensus.EntityConsensusRepairer` -- so the claim
+previously made here, that it "is not paired with a repairer in Phase 1, so it has no write
+path", was false as written: the repairer exists and is registered when
+``allow_entity_consensus`` is set.
+
+What is true, and is the load-bearing statement, is that the write path is **classified
+plausibility_only** by ``strength_for_fix``, so the engine holds every proposal for review
+and auto-applies none of them without the separate ``allow_unproven_autoapply`` opt-in. That
+is a property of the engine's classification, not of a missing repairer, and it is the
+property a reader needs. Corrected 2026-09-01; the docstring had outlived the code. The verified auto-apply of the provable
 (near-unanimous) slice is wired separately behind the corruption oracle.
 """
 

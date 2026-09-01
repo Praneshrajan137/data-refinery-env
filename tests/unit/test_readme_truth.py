@@ -467,12 +467,20 @@ class TestDetectorFamilyCountClaims:
 
     def test_a_stale_total_fails(self, tmp_path: Path) -> None:
         """The exact sentence four documents carried."""
+        from dataforge.detectors.base import ALL_ISSUE_TYPES
+
         doc = self._doc(tmp_path, "Eight detector families across an additive ensemble.\n")
 
         errors = readme_truth.check_detector_family_count_claims([doc])
 
         assert any("claims 8 detector families" in error for error in errors)
-        assert any("IssueTypeLiteral defines 11" in error for error in errors)
+        # DERIVED, not restated. This assertion previously hardcoded "defines 11" and broke
+        # when a twelfth issue type was added on 2026-09-01 -- the same frozen-population
+        # mistake `dataforge/detectors/base.py` documents at ALL_ISSUE_TYPES, committed here
+        # in the test that exists to police exactly that mistake. A gate whose own fixture
+        # must be hand-edited whenever the population grows will eventually be edited to
+        # match a wrong value.
+        assert any(f"IssueTypeLiteral defines {len(ALL_ISSUE_TYPES)}" in error for error in errors)
 
     def test_the_correct_total_passes(self) -> None:
         """Non-vacuity, against the live documents rather than a fixture."""

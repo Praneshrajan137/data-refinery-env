@@ -8,10 +8,18 @@ the flights ``act_dep_time`` value errors (a different, non-inferable time), the
 correct value here IS present in the cell, so this slice is on the *detectable*
 side of the honest frontier.
 
-Emitted as ``format_violation`` (detection-only: the format repairer is withheld
-from ``build_repairers``, so this never auto-applies and cannot change correction
-F1). Tier 1, strictly additive. The rule requires a clock-time token plus
-date/timezone residue, so it never fires on columns without such times (measured:
+Emitted as ``time_format_cruft``, its own issue type since 2026-09-01. It previously
+shared ``format_violation`` with :mod:`dataforge.detectors.format_violation`, which was a
+write-safety hazard rather than untidiness: that detector's ``Issue.expected`` holds a shape
+MASK (``"9999-99-99"``) while this one's holds a substitutable VALUE, and ``Issue`` carries no
+detector identity apart from its issue type. While the two shared an id, routing this
+detector's exact value into the suggestion path would have routed masks with it. Separate ids
+are what made the safe half routable, so the value below is now surfaced as an unverified
+review suggestion instead of being computed and discarded.
+
+Still detection-only: no repairer is registered for this id, so it cannot auto-apply and
+cannot change correction F1. Tier 1, strictly additive. The rule requires a clock-time token
+plus date/timezone residue, so it never fires on columns without such times (measured:
 0 false positives over 4584 correct cells in the affected columns).
 """
 
@@ -64,7 +72,7 @@ class TimeFormatCruftDetector:
                     Issue(
                         row=row_index,
                         column=name,
-                        issue_type="format_violation",
+                        issue_type="time_format_cruft",
                         severity=Severity.REVIEW,
                         confidence=0.8,
                         expected=clean_time,

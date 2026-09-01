@@ -974,7 +974,20 @@ _UNPROVEN_WRITE_REPORT_LIMIT = 5
 # Detection-only issue types that carry an exact value in ``Issue.expected`` but
 # have NO registered repairer (no write path). They are surfaced as unverified
 # human-review suggestions, never auto-applied. See DateTranspositionDetector.
-_DETECTION_ONLY_SUGGESTION_TYPES = frozenset({"date_transposition"})
+#
+# Membership requires that ``Issue.expected`` hold a **substitutable value**, not a
+# description of one. Added 2026-09-01: `time_format_cruft`, whose expected is a time
+# stripped of surrounding cruft (`"17:15"` out of `"departs at 17:15 sharp"`). It was
+# computed and discarded before this line, because the detector emitted the shared
+# `format_violation` id.
+#
+# `format_violation` itself is deliberately ABSENT and must stay absent: its expected is a
+# shape mask (`"9999-99-99"`), so admitting it here would propose writing a format
+# description into a user cell. That is the whole reason the two ids were split -- the
+# guard on this path is `expected is None`, which a mask satisfies just as well as a value.
+# tests/unit/test_expected_value_semantics.py derives this classification and fails if a
+# new member is added without one.
+_DETECTION_ONLY_SUGGESTION_TYPES = frozenset({"date_transposition", "time_format_cruft"})
 
 
 FdDetectionSource = Literal["declared", "accepted", "none"]
