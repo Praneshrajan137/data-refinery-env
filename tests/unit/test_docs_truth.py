@@ -94,7 +94,9 @@ class TestCheckerDetectsDivergence:
         root = build_docs_truth_sandbox(tmp_path / "sandbox")
         artifact = root / "eval" / "results" / "free_vs_llm_ranker.json"
         if not artifact.exists():
-            pytest.skip("free ranker artifact not committed")
+            pytest.fail(
+                "free ranker artifact not committed -- it is tracked in git and required by this test"
+            )
 
         payload = json.loads(artifact.read_text(encoding="utf-8"))
         block = payload["regimes"]["default"]["leave_one_dataset_out"]["rayyan"]
@@ -123,7 +125,9 @@ class TestCheckerDetectsDivergence:
         root = build_docs_truth_sandbox(tmp_path / "sandbox")
         artifact = root / "eval" / "results" / "free_vs_llm_ranker.json"
         if not artifact.exists():
-            pytest.skip("free ranker artifact not committed")
+            pytest.fail(
+                "free ranker artifact not committed -- it is tracked in git and required by this test"
+            )
 
         payload = json.loads(artifact.read_text(encoding="utf-8"))
         del payload["regimes"]["default"]["leave_one_dataset_out"]["rayyan"][

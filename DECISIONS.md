@@ -12,7 +12,121 @@ Format for every entry:
 
 ---
 
-## 2026-08-26 - A zero-config door was already open, and every number about it described a narrower product
+## 2026-09-01 - Keep the bespoke attestation for now, and name premise acquisition as the only work that changes what the product can do
+
+**Context**: An independent end-to-end audit was run against this repository, with external
+grounding rather than internal citation only. It confirmed most of what this project claims
+about itself and falsified four things it had not checked, all in the same direction --
+outward, where this repo has no gate.
+
+1. **The baseline comparison selected against its own source.** `eval/results/sota_comparison.json`
+   transcribed HoloClean and Raha+Baran from BClean Table 4 with impeccable per-row
+   provenance -- source hash, retrieval date, "not rerun by this repository" -- and omitted
+   BClean's own 0.976 and PClean's 0.962 from the same table. Quoting the second-worst row of
+   a table published to demonstrate the opposite is a misleading citation even when every
+   field is correct. Fixed by adding the four missing rows to the artifact and regenerating.
+2. **"Guaranteed automatic repair" is occupied ground.** Jäger & Biessmann, *From Data
+   Imputation to Data Cleaning*, AISTATS 2024 (PMLR v238), proposes Conformal Data Cleaning:
+   cell-level automatic identification *and fixing* with distribution-free conformal
+   guarantees. This project had never cited it. `PRODUCT.md` section 9 now does, and states
+   the distinction rather than assuming it.
+3. **Reversibility is a storage-layer commodity.** Iceberg and Delta provide snapshot
+   rollback across Spark, Trino, Snowflake, BigQuery and DuckDB. "Byte-for-byte reversible"
+   invites the correct answer "Iceberg does that."
+4. **Gated repair now exists in a shipping product.** Monte Carlo's Remediation Agent
+   (2026-08) emits a root cause, a confidence level, explicit abstention when evidence is
+   thin, and one action from a closed set, then delegates execution. The "everyone stops at
+   detection" framing is retired.
+
+Two audit findings about *this* repository were also wrong and are recorded because a
+correction is evidence too. The `covered_columns` "bypass" is API hygiene on a function that
+is not exported (`apply_transaction` is absent from `dataforge/__init__.py`) and whose every
+in-tree caller derives authority from `authoritative_columns(schema)`. And the four
+side-packages were reported absent from PyPI; all five are published at 0.1.0, confirmed
+against the PyPI JSON API. The second error came from inferring absence from a stale
+long_description instead of querying the index.
+
+**Alternatives** for the certificate host:
+
+- **Keep the bespoke format.** Two independent implementations already exist (Python plus
+  `playground/web/src/attestation/verify.ts`), conformance vectors cover every rejection
+  case, and `attestation_conformance.py` gates them. Cost: it asks a verifier to adopt a
+  vocabulary nobody else speaks, from a repository with 0 GitHub stars.
+- **Re-host as an in-toto predicate over DSSE.** in-toto is a CNCF project with 369 stars,
+  42 contributors, four language bindings and a documented custom-predicate process; a
+  `PredicateType` of `dataforge.dev/repair/v1` inside a standard Statement is close to a
+  drop-in, and the envelope, signing semantics and transparency log come free. Cost: the
+  migration is real work, and it buys reach we have no evidence anyone wants yet.
+- **Re-host as an OpenLineage facet.** Reaches Airflow, Spark, dbt and Marquez consumers on
+  day one. Cost: lineage-shaped, no cryptographic verification, wrong fit for per-cell proof.
+- **Do both, bridging later.** Highest cost, and premature while the number of external
+  verifiers is zero.
+
+**Decision**: Keep the bespoke format. Do **not** migrate now. Record in-toto as the
+preferred host the moment a second party needs to verify an attestation they did not
+produce, and treat that party's arrival -- not our judgement of elegance -- as the trigger.
+
+Separately, and more importantly: **premise acquisition is named as the next unit of work,
+and no further effort goes into certifying components with no consumer.**
+
+**Reasoning**: The migration argument is strong on standards and weak on evidence. Every
+benefit of in-toto is a benefit *to a third-party verifier*, and the audit confirmed there
+are none: 0 stars, 0 forks, 0 issues, no design partner, and the largest download count in
+the model family belongs to a third-party bulk quantizer. Migrating a format nobody consumes
+into a standard nobody has asked us for is the exact pattern section 1.3 of `PRODUCT.md`
+warns about -- rigour spent where there is no consumer -- and doing it in the name of
+adoption would be that mistake wearing an argument about interoperability. The honest
+sequence is: acquire a consumer, then adopt the format that consumer already speaks. If that
+consumer turns out to speak in-toto, the migration is cheap because the hard parts
+(canonical serialization, verification logic, conformance vectors) are already built and
+portable.
+
+The reallocation is the load-bearing half of this entry. The audit measured the shape this
+project already suspected: the most rigorous machinery here writes nothing. The
+conformal/label-noise subsystem has no consumer (`SessionCertification` still has no
+serializer and no loader); the ML subsystem -- 15 training modules, an eight-action RL
+environment, and the bulk of `eval/results/` by volume -- never passed its own gate, with a
+best recorded `sft_f1` of 0.0202 and a v7 candidate at 0.0 that proposed nothing on 576
+opportunities; and the two repairers that actually write have the least machinery around
+them. Meanwhile the entire user-reachable repair capability is **451 cells on one corpus**,
+that corpus is a `tripwire` whose whole error model is a single substituted character, and
+116 already-correct cells are destroyed to get it. Recall on flights and rayyan is 0.0000
+because the miner finds no dependency, and tax's outcome arms have never been measured.
+
+Everything downstream of the premise is in good shape. The premise itself is the input to
+correctness and, in `dataforge/witness.py`'s own words, "the least engineered thing in the
+system". All 116 corruptions trace to four false mined dependencies admitted because
+`ConstraintReviewArtifact.to_schema()` applies no floor, and the refusal to fix that with a
+constant fitted on one corpus was correct and remains correct -- which leaves it unfixed,
+and makes the missing *second corpus* the work rather than the missing constant.
+
+Note what this entry does not do. It does not add a gate, a document, or a certificate. The
+audit's sharpest finding was that this project diagnosed misallocated rigour correctly in
+section 1.3 and then satisfied the resulting rule by *disclosing* each instance rather than
+reallocating -- `SessionCertification` now prints "this certificate is advisory and is NOT
+consumed by `dataforge repair`" and is still not consumed. Naming a defect precisely had
+started to count as addressing it. Writing another careful document about premise
+acquisition would be the fourth instance.
+
+**Reviewed with**: nobody. Single-author project, and the audit was machine-assisted with
+its own two errors corrected above.
+
+**Reversal criteria**:
+
+- **Migrate to in-toto** the moment one party outside this repository needs to verify an
+  attestation they did not produce, or if a prospective consumer names in-toto/DSSE as a
+  requirement. Either makes the adoption argument evidential instead of aesthetic.
+- **Abandon the bespoke format entirely** if the TypeScript and Python verifiers ever
+  disagree on a committed conformance vector, since the two-implementation argument is the
+  only thing currently substituting for a standard.
+- **Reverse the reallocation** if a second corpus produces non-zero repair under a
+  user-reachable premise without premise work -- that would mean the premise is not the
+  binding constraint and this entry misdiagnosed it.
+- **Reconsider the whole verification-layer thesis** if a competitor ships proof-gated
+  (not dialog-gated) repair with distribution. The wedge identified here is narrow, and it is
+  narrower than it was in 2026-08.
+
+
 
 **Context**: The framing for this work was three "doors" to the next level, one of which was safe
 zero-configuration. That framing assumed zero-config was closed. It is not. `profile` ->

@@ -286,7 +286,9 @@ class TestExchangeabilityAvailability:
             Path(__file__).resolve().parents[2] / "eval" / "results" / "azure_capability_probe.json"
         )
         if not artifact.exists():
-            pytest.skip("capability artifact not present in this checkout")
+            pytest.fail(
+                "capability artifact not present in this checkout -- it is tracked in git and required by this test"
+            )
         available, reason = exchangeability_available(artifact)
         assert available is False, (
             "gpt-5.6-sol rejects logprobs, so the contamination audit must run on the two "
@@ -350,7 +352,9 @@ class TestCommittedArtifact:
     def artifact(self) -> dict[str, object]:
         path = Path(__file__).resolve().parents[2] / "eval" / "results" / "contamination_audit.json"
         if not path.exists():
-            pytest.skip("contamination audit artifact not present in this checkout")
+            pytest.fail(
+                "contamination audit artifact not present in this checkout -- it is tracked in git and required by this test"
+            )
         return json.loads(path.read_text(encoding="utf-8"))
 
     def test_the_envelope_carries_provenance_and_limits(self, artifact: dict) -> None:

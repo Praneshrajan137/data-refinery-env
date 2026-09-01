@@ -25,6 +25,11 @@ TESTPYPI_JSON = "https://test.pypi.org/pypi"
 PYPI_SIMPLE = "https://pypi.org/simple"
 TESTPYPI_SIMPLE = "https://test.pypi.org/simple"
 PUBLISH_ATTESTATION_PREDICATE = "https://docs.pypi.org/attestations/publish/v1"
+# Historical, not a link -- see the long note at the same constant in
+# dataforge/release/full_vision.py. This is the OIDC publisher identity inside the
+# attestations for the released 0.1.0 artifacts, so it must keep naming the repository as it
+# stood at publication even though the repo has since been renamed and every [project.urls]
+# entry now points at the new owner.
 EXPECTED_PUBLISHER_REPOSITORY = "Aegis15/dataforge"
 EXPECTED_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 PYPI_WORKFLOWS = {

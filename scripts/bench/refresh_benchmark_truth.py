@@ -25,7 +25,14 @@ def _parse_seed_list(raw_value: str) -> list[int]:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--methods", default="random,heuristic")
-    parser.add_argument("--datasets", default="hospital,flights,beers")
+    # `beers` was removed from the dataset registry per the DATASET SCOPE RULE, and this
+    # default was not updated with it, so this script raised
+    # `ValueError: Unknown benchmark datasets: ['beers']` and could not run at all.
+    # That matters more than a stale literal usually would: `scripts/ci/benchmark_truth.py`
+    # names THIS script in its failure message ("run scripts/bench/refresh_benchmark_truth.py
+    # and commit outputs"), so the documented remedy for a stale benchmark report was itself
+    # broken. Found 2026-09-01 by following that instruction.
+    parser.add_argument("--datasets", default="hospital,flights")
     parser.add_argument("--seed-list", default="0,1,2")
     parser.add_argument(
         "--cache-root",

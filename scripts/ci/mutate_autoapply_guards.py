@@ -471,6 +471,47 @@ MUTANTS: tuple[Mutant, ...] = (
             "one future field makes it false"
         ),
     ),
+    Mutant(
+        name="M25-legacy-journal-revert-loses-its-byte-checks",
+        target="dataforge/transactions/revert.py",
+        old=(
+            "                atomic_write_bytes(source_path, snapshot_path.read_bytes())\n"
+            "                reverted_sha256 = sha256_file(source_path)\n"
+            "                if reverted_sha256 != transaction.source_sha256:\n"
+            "                    atomic_write_bytes(source_path, current_bytes)\n"
+            "                    raise TransactionRevertError(\n"
+            "                        f\"Revert failed integrity verification for transaction '{txn_id}'.\"\n"
+            "                    )\n"
+        ),
+        new="                atomic_write_bytes(source_path, snapshot_path.read_bytes())\n",
+        also=(
+            (
+                "                if current_sha256 != transaction.post_sha256:\n"
+                "                    raise TransactionRevertError(\n"
+                '                        "Refusing to revert because the current file no longer matches the recorded "\n'
+                '                        "post-state hash. The file may have been edited after apply."\n'
+                "                    )\n",
+                "",
+            ),
+        ),
+        tests=(
+            "tests/unit/test_legacy_journal_revert.py",
+            "tests/unit/test_transactions.py",
+        ),
+        why=(
+            "the two byte-level checks that carry the revert guarantee are removed together, "
+            "which matters most on the LEGACY_UNVERIFIED path. revert_transaction admits a v1 "
+            "journal that has no hash chain at all, so for those transactions these checks are "
+            "not defence in depth -- they are the entire guarantee, and nothing else in the "
+            "product stands behind a legacy restore. Both are mutated together for the reason "
+            "stated at the top of this file: either alone leaves the other catching the case, so "
+            "a single-line mutant would survive for a legitimate reason. Until 2026-09-01 no "
+            "test reverted a LEGACY_UNVERIFIED transaction -- every revert_transaction call site "
+            "in the suite built a v2 log, and the committed v1 fixture was only ever fed to "
+            "verify_transaction_log -- so this was a write path authorised by an unverifiable "
+            "journal with neither a test nor a mutant"
+        ),
+    ),
 )
 
 

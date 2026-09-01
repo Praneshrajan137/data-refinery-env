@@ -1,7 +1,7 @@
 site_name: DataForge
 site_description: CLI-first data-quality detection and reversible repair for tabular data.
 site_url: https://dataforge-docs.pages.dev/
-repo_url: https://github.com/Aegis15/dataforge
+repo_url: https://github.com/Praneshrajan137/dataforge
 edit_uri: edit/main/docs/docs/
 
 docs_dir: docs

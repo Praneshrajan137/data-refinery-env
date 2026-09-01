@@ -167,6 +167,52 @@ jobs:
       - name: Validate test_map.json schema and every module has a mapping decision
         run: python scripts/ci/test_map_coverage.py --check
 
+  # Added 2026-09-01. The harness this runs already existed, was type-checked, and was
+  # frozen against removal by scripts/ci/gate_population.py -- and no workflow ever
+  # executed it. Its kill verdicts lived in hand-written markdown tables, so the guards the
+  # write path depends on were pinned by a self-reported result. A deleted guard would have
+  # left its mutant surviving with every gate green until somebody re-ran the harness by
+  # hand.
+  #
+  # This is a separate job rather than a step in `quality` for the same reason
+  # canonical-backend-gate is: it re-runs test subsets 25 times, so folding it into the
+  # matrix would multiply the critical path by the matrix width for no extra information.
+  # It carries no `needs:` so it starts at t=0.
+  #
+  # The harness refuses to score at all if the suite is not green on unmutated source, so a
+  # red baseline reports "REFUSING TO SCORE" rather than a fake clean sweep.
+  mutation-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Auto-apply mutants MUST all die
+        run: make mutation-gate
+
+  # Added 2026-09-01. `fail_under = 82` has been in pyproject.toml's [tool.coverage.report]
+  # and was read by nothing: `make coverage` is human-invoked and writes an HTML report no
+  # workflow opens. A configured floor no gate consults is indistinguishable from no floor.
+  #
+  # Separate job because it re-runs the whole suite under coverage instrumentation, which is
+  # materially slower than `make test` and would otherwise be paid twice per matrix entry.
+  coverage-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Coverage floor
+        run: make coverage-gate
+
 
   playground-smoke:
     runs-on: ubuntu-latest
@@ -204,20 +250,15 @@ jobs:
       - name: Playground smoke tests
         run: pytest tests/integration/test_playground_smoke.py tests/unit/test_playground_deploy_contract.py tests/unit/test_playground_stage_space.py tests/unit/test_playground_web_contract.py -x -v
       - name: Validate HF Space YAML front-matter
-        run: |
-          python -c "
-          import yaml, pathlib, sys
-          meta = pathlib.Path('playground/api/README.md').read_text()
-          front = meta.split('---')[1]
-          data = yaml.safe_load(front)
-          required = {'title','sdk','app_port','license'}
-          missing = required - set(data.keys())
-          if missing:
-              sys.exit(f'Missing HF metadata keys: {missing}')
-          assert data['sdk'] == 'docker', f'sdk must be docker, got {data[\"sdk\"]}'
-          assert data['app_port'] == 7860, f'app_port must be 7860, got {data[\"app_port\"]}'
-          print('HF Space YAML front-matter valid.')
-          "
+        # Extracted from an inline `python -c` heredoc on 2026-09-01. As a heredoc this was
+        # the only gate in the repo with no module, no import and no test: it could not be
+        # run locally, could not be type-checked, and had never been shown to refuse a
+        # broken Space config. scripts/ci/test_map_coverage.py records this exact shape
+        # ("the schema lived in an inline heredoc here and nowhere else") causing a
+        # four-commit red main. tests/unit/test_hf_space_frontmatter.py now plants one
+        # defect per failure mode, and the port is corroborated against the Dockerfile's
+        # EXPOSE rather than compared to a hardcoded 7860.
+        run: python scripts/ci/hf_space_frontmatter.py
       - name: No browser storage APIs in frontend
         run: "! grep -rE --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=test-results --exclude-dir=playwright-report 'localStorage|sessionStorage' playground/web/"
       - name: No API keys in frontend

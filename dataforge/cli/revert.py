@@ -10,7 +10,11 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
-from dataforge.transactions.log import sha256_file, verify_transaction_log
+from dataforge.transactions.log import (
+    TransactionAuditVerdict,
+    sha256_file,
+    verify_transaction_log,
+)
 from dataforge.transactions.revert import TransactionRevertError, revert_transaction
 
 _console = Console(stderr=True)
@@ -134,13 +138,28 @@ def revert(
         if transaction.source_kind == "table_store"
         else "Revert Complete"
     )
+    # The JSON receipt has always carried `audit_verdict`, but this human-readable branch
+    # printed an unqualified green "Source restored successfully" for every verdict --
+    # including LEGACY_UNVERIFIED, where no hash chain exists to verify. The bytes really were
+    # restored (revert_transaction refuses unless they match `source_sha256`), so the claim was
+    # not false; it was unqualified, and it was the only place a human learns what backed the
+    # restore. A guarantee a user reads is a claim regardless of whether it carries a number.
+    legacy_journal = audit_report.verdict == TransactionAuditVerdict.LEGACY_UNVERIFIED
+    body = (
+        f"[green]Source restored successfully.[/green]\n"
+        f"Transaction: [bold]{transaction.txn_id}[/bold]\n"
+        f"Journal audit: [bold]{audit_report.verdict.value}[/bold]"
+    )
+    if legacy_journal:
+        body += (
+            "\n\n[yellow]This transaction used a legacy v1 journal, which carries no event "
+            "hashes, so the log itself could not be cryptographically verified. The restored "
+            "bytes were still checked against the recorded source hash and match it.[/yellow]"
+        )
     Console().print(
         Panel(
-            (
-                f"[green]Source restored successfully.[/green]\n"
-                f"Transaction: [bold]{transaction.txn_id}[/bold]"
-            ),
+            body,
             title=title,
-            style="green",
+            style="yellow" if legacy_journal else "green",
         )
     )

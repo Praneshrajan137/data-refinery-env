@@ -363,7 +363,9 @@ class TestCommittedWildColumnArtifact:
             Path(__file__).resolve().parents[2] / "eval" / "results" / "wild_column_detection.json"
         )
         if not path.exists():
-            pytest.skip("wild column artifact not present in this checkout")
+            pytest.fail(
+                "wild column artifact not present in this checkout -- it is tracked in git and required by this test"
+            )
         return json.loads(path.read_text(encoding="utf-8"))
 
     def test_it_records_the_contamination_gate_it_passed(self, artifact: dict) -> None:

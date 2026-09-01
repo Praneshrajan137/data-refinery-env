@@ -758,6 +758,73 @@ claims:
     format: "{:.4f}"
     expect: "0.2046"
     context: "artifact-bound"
+  # Added 2026-09-01. PRODUCT.md is the constitution, and until now exactly two of its
+  # figures were bound -- both describing a WARNING printed elsewhere rather than any
+  # finding of its own. Every headline number in the file could be edited to any value
+  # with every gate staying green. These five bind the capability figures that section 1.4
+  # states, which is where the file makes its strongest quantitative claims about what a
+  # user actually gets. They are the shipped arm on purpose: the oracle arm needs the
+  # clean frame, so binding it would pin a number no user can reach.
+  - id: product_shipped_proposals
+    doc: PRODUCT.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/proposals
+    format: "{:d}"
+    expect: "567"
+    context: "567 writes"
+    note: >-
+      The write count and the repair count must move together or the precision sentence
+      beside them stops following from them.
+  - id: product_shipped_repaired
+    doc: PRODUCT.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/repaired_a_real_error
+    format: "{:d}"
+    expect: "451"
+    context: "451"
+  - id: product_shipped_write_precision
+    doc: PRODUCT.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/shipped_accept_all/write_exposure/by_rule/majority/write_precision
+    format: "{:.4f}"
+    expect: "0.7954"
+    context: "write precision"
+    note: >-
+      This is the number that replaced the non-additive "2037 repaired against 700
+      harmful" aggregate. Binding it is what stops the aggregate coming back.
+  - id: product_shipped_coverage
+    doc: PRODUCT.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/mined/write_exposure/by_rule/majority/coverage_of_all_table_errors
+    format: "{:.4f}"
+    expect: "0.8861"
+    context: "jointly determined by corpus"
+    note: >-
+      Bound to the MINED arm, not the shipped one, even though both report 0.8861 today.
+      The sentence in PRODUCT.md is the upper end of the deductive-coverage RANGE, and
+      binding it to the shipped pointer would have passed by coincidence while describing a
+      different measurement -- the ledger's own failure message named this exact hazard when
+      the first attempt used the wrong pointer.
+  - id: bypass_evidence_mined_corrupted
+    doc: docs/trust/bypass-allowlist-evidence.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/mined/write_exposure/by_rule/majority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "86"
+    context: "mined (opt-in)"
+    note: >-
+      Added 2026-09-01. CLAUDE.md designates this document as the replacement evidence for
+      the retired 0.7926 record, and it carried ZERO registered claims -- the successor to
+      the flagship number was bound by nothing. These two are the first. This doc reports
+      the oracle and mined arms; the shipped arm lives in shipped-premise-result.md, so
+      binding 116 here would have bound a number this file does not state.
+  - id: bypass_evidence_mined_write_precision
+    doc: docs/trust/bypass-allowlist-evidence.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/mined/write_exposure/by_rule/majority/write_precision
+    format: "{:.4f}"
+    expect: "0.8399"
+    context: "mined (opt-in)"
   - id: decisions_additivity_isolated
     doc: DECISIONS.md
     artifact: eval/results/constraint_additivity.json

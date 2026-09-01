@@ -47,6 +47,10 @@ HoloClean rows are transcribed from BClean Table 4; see [HoloClean 2017](https:/
 
 | Method | Dataset | Precision | Recall | F1 | Note |
 | --- | --- | --- | --- | --- | --- |
+| BClean | hospital | 0.998 | 0.956 | 0.976 | Citation-only; the source system of Table 4. Above this repository on hospital. |
+| BClean (PI/PIP) | hospital | 1.000 | 0.960 | 0.980 | Citation-only; best hospital F1 in Table 4. |
+| PClean | hospital | 1.000 | 0.927 | 0.962 | Citation-only literature result; not rerun by this repository. |
+| GARF | hospital | 1.000 | 0.556 | 0.715 | Citation-only literature result; not rerun by this repository. |
 | HoloClean | hospital | 1.000 | 0.456 | 0.626 | Citation-only literature result; not rerun by this repository. |
 | HoloClean | flights | 0.742 | 0.352 | 0.477 | Citation-only literature result; not rerun by this repository. |
 | Raha+Baran | hospital | 0.971 | 0.585 | 0.730 | Citation-only literature result; not rerun by this repository. |

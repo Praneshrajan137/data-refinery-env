@@ -132,8 +132,24 @@ here with a committed measurement". Two of the three had never earned one.
 
 - `missing_value` -- **427 writes, 427 repaired, 0 harmful, precision 1.0000.** The strongest measured
   result of any repairer here, bought with unanimity rather than majority and therefore with low
-  coverage.
-- `fd_violation` -- write precision 0.6602 to 1.0000; 2037 repaired against 700 harmful.
+  coverage. **Read the arm before reading the number:** this is the `oracle` premise, which mines
+  its dependencies from the clean frame and is therefore *not available to any user*
+  (`docs/trust/bypass-allowlist-evidence.md:146`). Under the mined premise a user actually
+  gets, this repairer writes **0 on every corpus tested** -- so the mined-premise exposure
+  that cost `fd_violation` 86 cells is **untested for this repairer, not absent**. Quoting
+  1.0000 without the arm was the same error as quoting a conditional precision: the
+  configuration that produces the number is not the configuration that ships.
+- `fd_violation` -- write precision 0.6602 to 1.0000. **The aggregate this line used to
+  quote -- "2037 repaired against 700 harmful" -- is not a capability figure and is no
+  longer stated as one.** It sums `oracle` and `mined`, which
+  `docs/trust/bypass-allowlist-evidence.md:22` records as *alternative premise
+  configurations, not additive*: hospital appears in it twice under two mutually
+  exclusive premises. It was a criteria-evaluation total that read as a capability total.
+  The user-reachable figure is the shipped mined premise on hospital -- **567 writes, 451
+  real errors repaired, 116 already-correct cells corrupted, write precision 0.7954** --
+  and **0 writes on flights and rayyan**, because the miner finds no dependency there.
+  Everything above 0.7954 in that precision range requires the clean frame, which no user
+  has.
 - `type_mismatch` -- **156 flags, zero proposals** across 4,376 rows and 6,377 real errors. Removed
   from the bypass.
 
@@ -338,11 +354,31 @@ order before touching disk:
 
 ```
 detect -> propose -> SafetyFilter (constitution)
-       -> differential verify (SMT + Direct, fail-closed)
+       -> verify (fail-closed; see below for which verifier runs)
        -> auto-apply gate (provable-only; conformal + drift for LLM values)
        -> hash-chained journal + immutable source snapshot
        -> atomic apply -> byte-for-byte reversible
 ```
+
+**Which verifier runs is conditional, and this line previously claimed otherwise.**
+Until 2026-09-01 the step above read "differential verify (SMT + Direct, fail-closed)"
+without qualification, which described only one of the two live paths:
+
+- **Schema present** (and `require_independent_agreement`, the default): `SMTVerifier`
+  and `DirectVerifier` both run and are combined fail-closed, so only a fix both accept
+  passes. This is the path the sentence described.
+- **Schema absent**: `DirectVerifier` is never consulted, and for a `deterministic` fix
+  the advisory inferred guard is deliberately not engaged either
+  (`dataforge/engine/repair.py:704-714`), so `SMTVerifier.verify` reaches a
+  structural-only ACCEPT that checks the row is in bounds and the column exists and
+  **examines no value** (`dataforge/verifier/smt.py:670-687`).
+
+The second path is defensible -- a deterministic fix is correct by construction, and
+what actually stands behind it is `enforce_constraint_checkable_only`'s detector
+allowlist, not value verification -- but it is a *different* guarantee, and the diagram
+asserted the stronger one for both. `docs/trust/write-surface-uniformity.md` describes
+this same structural-only ACCEPT as a past defect on the agent surface; here it is
+reached by design, which is precisely why it has to be stated rather than drawn over.
 
 - **Provable-only auto-apply.** A fix auto-applies only if it is `proven`
   (deterministic, or verified against an authoritative schema). A
@@ -380,13 +416,44 @@ detect -> propose -> SafetyFilter (constitution)
   reversible.
 - **Statistical/Bayesian correctors (HoloClean, Raha+Baran, BClean)** achieve
   strong correction F1 but offer no per-fix formal proof, no reversibility
-  guarantee, and no distribution-free auto-apply certificate.
+  guarantee, and no distribution-free auto-apply certificate. **Stronger than this file
+  used to imply:** the very table this project transcribes its Raha+Baran baseline from
+  reports its own system, and one other, *above* DataForge on hospital. So the correct
+  summary is that these systems win on accuracy and DataForge does not compete there.
+  Figures and provenance: the citation-only table in `BENCHMARK_REPORT.md`, which this file
+  deliberately does not restate (see the note at the top on where numbers live).
+- **Conformal / guaranteed automatic repair is prior art, and must be cited as such.**
+  Jäger & Biessmann, *From Data Imputation to Data Cleaning* (AISTATS 2024, PMLR v238),
+  proposes Conformal Data Cleaning: cell-level automatic identification *and fixing* of
+  tabular errors with distribution-free guarantees from conformal prediction. "Automatic
+  repair with a statistical guarantee" is therefore occupied ground, and any novelty claim
+  here has to name the distinction rather than assume it. The distinction is real: theirs
+  is a coverage guarantee over a predictive interval, ours is an SMT-discharged proof that
+  a written value satisfies stated constraints, plus reversibility. Those are different
+  claims with different failure modes -- a conformal guarantee degrades silently under
+  distribution shift, a constraint proof is only as strong as the constraints -- but they
+  are not unrelated, and this file implied a gap in the literature that does not exist.
 - **LLM "clean my data" tools** are fluent but miscalibrated and unverifiable.
   DataForge does not assert this — it *measured* it, and its LLM corrector
   therefore stays propose-not-apply until measurement earns otherwise.
+- **Observability platforms now do gated remediation.** Monte Carlo shipped a Remediation
+  Agent (2026-08) that emits a root cause, a confidence level, explicit abstention when
+  evidence is thin, and one action from a closed set -- then delegates execution rather
+  than performing it. So "nobody attempts automated repair, everyone stops at detection" is
+  no longer true and must not be used as positioning. What still does not exist anywhere is
+  repair gated by a *proof* rather than by a human confirmation dialog. That is the honest
+  wedge, and it is narrower than the one this section previously implied.
 
 DataForge's differentiator is not a higher score; it is that its applied changes
 are provable, reversible, and honestly bounded.
+
+**One qualification on "reversible", because the storage layer already provides it.**
+Apache Iceberg and Delta Lake give snapshot-based rollback and time travel as a table
+primitive, across Spark, Trino, Snowflake, BigQuery, DuckDB and more. Byte-level undo is a
+commodity on any table in a lakehouse. What is *not* a commodity is a receipt stating what
+was changed, on what premise, verified how, and reversible to which recorded hash -- so the
+differentiator is **justified** reversibility, not reversibility. Leading with the latter
+invites the correct answer "Iceberg does that."
 
 ---
 

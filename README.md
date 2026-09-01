@@ -209,7 +209,13 @@ Neither row is a headline claim, and the two middle columns say why:
   `birmingham`). HoloClean's and HoloDetect's own authors describe it in print as an easy
   benchmark, and the field has moved 0.83 -> 0.99 while this number sits at 0.7926. It is
   retained as a fixed regression **tripwire**, which is a real and useful role, and it is
-  not evidence of capability on real errors.
+  not evidence of capability on real errors. The upper end of that range used to be an
+  unsourced assertion; the citation-only SOTA table in
+  [BENCHMARK_REPORT.md](BENCHMARK_REPORT.md) now carries the specific systems and figures,
+  including the ones above this repository, so a reader can check the comparison instead of
+  taking it. That table is generated from `eval/results/sota_comparison.json` and
+  byte-checked by `scripts/ci/benchmark_truth.py`, which is also why those figures are not
+  restated here.
 - **flights' labels are contested.** The errors are natural, but the same flight's arrival
   time appears upstream as 10:30/10:31/10:28/10:39 and the ground truth picks one, so a
   system that declines to invent a truth is scored identically to one that guesses wrong.

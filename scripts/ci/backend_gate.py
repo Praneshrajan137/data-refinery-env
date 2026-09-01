@@ -51,7 +51,7 @@ MYPY_PATHS = [
     "scripts/ci/readme_truth.py",
     "scripts/ci/benchmark_truth.py",
     "scripts/ci/docs_truth.py",
-    "scripts/ci/full_vision_external_gate.py",
+    "scripts/release/full_vision_external_gate.py",
     "scripts/ci/installed_package_smoke.py",
     "scripts/ci/openapi_contract.py",
     "scripts/ci/pypi_publish_report.py",
@@ -1145,7 +1145,8 @@ def main() -> int:
                 # documents -- so a shrinking gate has to be an explicit, explained edit rather
                 # than a side effect.
                 GateCommand(
-                    "gate population", [PYTHON, "scripts/ci/gate_population.py", "--check"]
+                    "gate population", [PYTHON, "scripts/ci/hf_space_frontmatter.py",
+    "scripts/ci/gate_population.py", "--check"]
                 ),
                 # Keeps the mapped inner loop fast. A module with no mapping falls back to the
                 # full suite, so a gap costs speed rather than correctness; this only stops the

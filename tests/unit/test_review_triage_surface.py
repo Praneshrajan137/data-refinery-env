@@ -124,7 +124,9 @@ class TestNoAutoFireGate:
     def test_gate_probe_records_a_no_go(self) -> None:
         artifact = _RESULTS / "review_gate_probe.json"
         if not artifact.exists():
-            pytest.skip("review_gate_probe.json not committed")
+            pytest.fail(
+                "review_gate_probe.json not committed -- it is tracked in git and required by this test"
+            )
         payload = json.loads(artifact.read_text(encoding="utf-8"))
         # Shipping an entropy-based auto-fire gate would abstain on rayyan, where
         # the triager delivers a ~50x queue-precision lift. The probe is the
@@ -135,7 +137,9 @@ class TestNoAutoFireGate:
     def test_rayyan_is_the_counterexample(self) -> None:
         artifact = _RESULTS / "review_gate_probe.json"
         if not artifact.exists():
-            pytest.skip("review_gate_probe.json not committed")
+            pytest.fail(
+                "review_gate_probe.json not committed -- it is tracked in git and required by this test"
+            )
         rayyan = json.loads(artifact.read_text(encoding="utf-8"))["findings"]["rayyan"]
         # Well-spread confidences (so a dispersion gate abstains) yet the LLM
         # helps decisively -- dispersion does not imply baseline informativeness.

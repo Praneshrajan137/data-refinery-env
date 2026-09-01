@@ -51,6 +51,19 @@ REQUIRED_PACKAGE_EVIDENCE_FIELDS = (
     "testpypi_smoke_log_path",
     "pypi_smoke_log_path",
 )
+# DO NOT "fix" this to the current GitHub owner. The repository was renamed from
+# Aegis15/dataforge to Praneshrajan137/dataforge, and every `[project.urls]` link was
+# updated to match on 2026-09-01 -- but this string is NOT a link. It is the OIDC publisher
+# identity recorded inside the PyPI Trusted Publishing attestations for the already-released
+# 0.1.0 artifacts, checked against PUBLISH_ATTESTATION_PREDICATE below. GitHub preserves the
+# numeric repository id across a rename; the attestation carries the NAME as it stood at
+# publication. Renaming this constant would therefore make the gate reject genuine
+# attestations for every existing release.
+#
+# It is a historical fact about a past event, which puts it under the honesty doctrine's
+# "never rewrite frozen historical evidence" clause even though it lives in code rather than
+# in an artifact. When a release is next cut from the renamed repository, the correct change
+# is to accept BOTH identities keyed by version, not to replace this one.
 EXPECTED_PUBLISHER_REPOSITORY = "Aegis15/dataforge"
 EXPECTED_OIDC_ISSUER = "https://token.actions.githubusercontent.com"
 PUBLISH_ATTESTATION_PREDICATE = "https://docs.pypi.org/attestations/publish/v1"

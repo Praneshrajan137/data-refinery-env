@@ -650,16 +650,48 @@ def extract_playground_urls(text: str) -> list[str]:
 
 
 def check_playground_urls(urls: list[str]) -> list[str]:
-    """Check that playground URLs return 200 (if any are present)."""
+    """Check that playground URLs return 200.
+
+    This is the only check in this file that verifies a LIVE EXTERNAL SURFACE, and until
+    2026-09-01 it failed open on two independent axes -- an empty URL list returned ``[]``,
+    and a missing ``httpx`` printed a warning to stderr and returned ``[]``. Either way the
+    README could claim a live playground while nothing confirmed one existed, which is the
+    honesty doctrine's "never pre-claim an external event" clause going unenforced by one of
+    the gates written to enforce it.
+
+    Both are now failures, on the reasoning this module already applies at import time in
+    ``_assert_policed_docs_exist`` and that ``gate_population.py`` applies to its node ids:
+    an empty population makes a gate vacuous, and vacuity must be reported, not passed.
+
+    Args:
+        urls: Playground URLs extracted from the README.
+
+    Returns:
+        Human-readable error strings, empty when every URL answered 200.
+    """
     if not urls:
-        return []
+        # Not a "nothing to do" case. The README documents a hosted playground, so zero
+        # matches means the extraction regex and the README have diverged -- most likely a
+        # host change -- and the live-surface claim is now unchecked.
+        return [
+            "No playground URLs found in the README, so the live-surface claim is "
+            "unverified. extract_playground_urls only matches workers.dev, pages.dev and "
+            "hf.space; if the playground moved hosts, widen that pattern rather than "
+            "letting this check pass on an empty list."
+        ]
 
     errors: list[str] = []
     try:
         import httpx
     except ImportError:
-        print("WARNING: httpx not available, skipping URL checks.", file=sys.stderr)
-        return []
+        # httpx is a declared dependency in four groups in pyproject.toml, so this branch
+        # cannot fire for the reason the old message gave. It firing means the environment
+        # is broken, and a broken environment must not read as a pass.
+        return [
+            "httpx is not importable, so playground URLs could not be checked. It is a "
+            "declared dependency (pyproject.toml), so this is a broken environment rather "
+            "than a missing optional extra; fix the install instead of skipping the check."
+        ]
 
     for url in urls:
         try:

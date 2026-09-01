@@ -11,7 +11,7 @@ ifndef PYTHON
 PYTHON := $(if $(wildcard $(VENV_PYTHON)),$(VENV_PYTHON),python)
 endif
 
-.PHONY: help setup setup-all lint format type test test-serial test-mapped test-map-check gate-population frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage bench bench-free mutation clean lock uv-lock
+.PHONY: help setup setup-all lint format type test test-serial test-mapped test-map-check gate-population frontend-install frontend-build frontend-test frontend-gate backend-gate release-gate playground-release-check sft-preflight coverage coverage-gate mutation-gate bench bench-free mutation clean lock uv-lock
 
 help:
 	@echo "DataForge dev targets"
@@ -31,6 +31,8 @@ help:
 	@echo "  playground-release-check  Verify deployed Playground checklist"
 	@echo "  sft-preflight Validate SFT JSONL/config before launching Kaggle"
 	@echo "  coverage      Run tests with coverage using pyproject.toml policy"
+	@echo "  coverage-gate Run tests and FAIL under the 82% coverage floor"
+	@echo "  mutation-gate Run the 25 auto-apply mutants and FAIL if any survives"
 	@echo "  bench         Run pytest-benchmark suites"
 	@echo "  bench-free    Run the real-world benchmark scripts and regenerate reports"
 	@echo "  mutation      Run mutmut on dataforge/ (target: >=85%)"
@@ -64,7 +66,7 @@ format:
 # is separate work rather than something to bundle into an unrelated change. Stated so the gap is
 # a recorded decision, not an oversight.
 type:
-	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/ci/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/generate_attestation_schema.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/perf/measure_verifier_work.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
+	$(PYTHON) -m mypy --strict dataforge playground/api/app.py scripts/ci/readme_truth.py scripts/ci/benchmark_truth.py scripts/ci/docs_truth.py scripts/release/full_vision_external_gate.py scripts/ci/installed_package_smoke.py scripts/ci/pypi_publish_report.py scripts/ci/openapi_contract.py scripts/ci/backend_gate.py scripts/ci/generate_domain_vocabulary.py scripts/ci/mutate_domain_vocabulary.py scripts/ci/mutate_autoapply_guards.py scripts/ci/generate_attestation_vectors.py scripts/ci/generate_attestation_schema.py scripts/ci/attestation_conformance.py scripts/ci/mutate_adversarial_corpus.py scripts/ci/hf_space_frontmatter.py scripts/ci/gate_population.py scripts/ci/test_map_coverage.py scripts/perf/measure_loop_cost.py scripts/perf/measure_verifier_work.py scripts/measure_payload_split.py scripts/measure_trust_ledger.py scripts/playground/build_samples.py scripts/playground/stage_space.py scripts/playground/verify_space_backend.py scripts/playground/monitor_playground.py scripts/preflight/check_kaggle_auth.py scripts/data/collect_sft_trajectories.py scripts/data/validate_sft_readiness.py scripts/model/verify_sft_release.py scripts/model/publish_dataset_readme.py scripts/publish_model.py
 
 # `-n logical` rather than `-n auto`: this suite is dominated by subprocess launches and file
 # I/O, not CPU, so logical cores are the right unit. `--dist loadgroup` comes from
@@ -120,6 +122,30 @@ sft-preflight:
 
 coverage:
 	$(PYTHON) -m pytest tests/ --cov=dataforge --cov-report=term-missing --cov-report=html
+
+# `fail_under = 82` sits in pyproject.toml's [tool.coverage.report] and, until 2026-09-01,
+# NO automated gate read it. `make coverage` above is human-invoked and writes an HTML report
+# nobody's CI opens, so the floor was a configured number with no enforcement -- the same
+# shape as a mutant whose verdict is recorded by hand. This target is the enforcing one:
+# `--cov-fail-under` is passed explicitly rather than relied upon implicitly, because a
+# coverage floor that depends on a config key being picked up is one silent config change
+# away from being decorative again.
+coverage-gate:
+	$(PYTHON) -m pytest tests/ --cov=dataforge --cov-report=term:skip-covered --cov-fail-under=82
+
+# Runs the auto-apply mutation harness and FAILS if any mutant survives. Until 2026-09-01
+# the harness existed, was type-checked, was frozen against removal by
+# scripts/ci/gate_population.py -- and was never executed by CI. Its kill verdicts lived in
+# hand-written markdown tables ("11/11 mutants killed"), which is a self-reported result for
+# the guards the product's safety rests on. The population was machine-enforced while the
+# verdicts were not, so a guard could be deleted, its mutant would survive, and every gate
+# would stay green until someone re-ran this by hand.
+#
+# Note this is NOT the `mutation` target below: that one runs mutmut over all of dataforge/
+# as an exploratory metric. This runs 25 hand-written mutants that each target a specific
+# safety guard and name the test that must notice.
+mutation-gate:
+	$(PYTHON) scripts/ci/mutate_autoapply_guards.py
 
 # `-o python_files` is load-bearing, not decoration. These files are named bench_*.py, and
 # pytest's default `python_files = test_*.py *_test.py` does not match them, so this target

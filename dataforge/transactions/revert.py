@@ -41,6 +41,26 @@ def revert_transaction(txn_id: str, *, search_root: Path | None = None) -> Repai
     with repair_stage_span("revert"):
         log_path = find_transaction_log(txn_id, search_root=search_root)
         audit_report = verify_transaction_log(txn_id, log_path=log_path)
+        # LEGACY_UNVERIFIED is admitted deliberately, and the reason is that revert is a
+        # RECOVERY operation rather than a mutation that needs a premise. Refusing a v1 log
+        # here would not withhold a write; it would strand a user with a modified file and
+        # no way back, which is the failure this whole subsystem exists to prevent.
+        #
+        # What carries the guarantee on the legacy path is NOT the hash chain -- a v1 log has
+        # none -- but the three byte-level checks below: the file must still match
+        # ``post_sha256``, the restored bytes must equal ``source_sha256``, and a mismatch
+        # rolls the restore back. Those hold identically for v1 and v2.
+        #
+        # The residual threat is an actor who can rewrite the journal but not the data file.
+        # That actor gains nothing: to make a forged ``source_sha256`` pass the post-restore
+        # check they must also place a snapshot with those bytes, and anyone who can write the
+        # snapshot directory can write the source file directly and skip DataForge entirely.
+        #
+        # `dataforge audit` still exits 1 on this verdict, because a verifier asked "can you
+        # cryptographically verify this" must answer no. That is a different question from
+        # "may I restore recorded bytes", so the two commands differ by design, not by
+        # oversight. Callers that surface a success message MUST report the verdict rather
+        # than an unqualified one -- see ``dataforge/cli/revert.py``.
         if audit_report.verdict not in {
             TransactionAuditVerdict.VERIFIED,
             TransactionAuditVerdict.LEGACY_UNVERIFIED,

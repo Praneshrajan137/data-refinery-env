@@ -17,8 +17,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Aegis15/dataforge"
-Repository = "https://github.com/Aegis15/dataforge"
+Homepage = "https://github.com/Praneshrajan137/dataforge"
+Repository = "https://github.com/Praneshrajan137/dataforge"
 Documentation = "https://dataforge.praneshrajan15.workers.dev/playground"
 
 [project.optional-dependencies]

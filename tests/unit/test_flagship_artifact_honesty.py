@@ -15,6 +15,23 @@ read as a *certificate*, so these tests lock the properties that keep the two ap
 * the recorded deviation from the pre-registration is present and visible.
 
 All tests read committed artifacts only. No provider is contacted.
+
+Corrected 2026-09-01: eighteen assertions in this file began with
+``pytest.skip("... not committed")`` or ``pytest.skip("no samples analysed")``, which
+made the honesty check on the flagship claim *fail open*. Every artifact named here is
+tracked in git, so the skip could never fire for the reason it stated -- and that is
+exactly what made it dangerous. Its only reachable trigger was somebody deleting,
+renaming, or replacing a committed artifact with an unanalysed run, which are precisely
+the events this module exists to catch. The file's own first line said "All tests read
+committed artifacts only" while its guards were written as though they might not.
+They now call ``pytest.fail``. Verified by displacing ``spend_ledger.json``: four tests
+fail where all four previously reported green, per the rule that a gate nobody has seen
+fail on a case it newly covers has not been shown to cover it.
+
+Three skips deliberately remain, and they are a different kind: ``enriched``,
+``paired_auc_delta_ci95`` and the per-document triage check are conditional on what the
+measurement *found*, not on whether it exists. Converting those would assert a result
+rather than a property.
 """
 
 from __future__ import annotations
@@ -35,7 +52,9 @@ _FREETEXT_ARTIFACT = _RESULTS / "corrector_calibration.json"
 def flagship() -> dict[str, Any]:
     """Return the committed structured-mode flagship artifact."""
     if not _ARTIFACT.exists():
-        pytest.skip("flagship artifact not committed")
+        pytest.fail(
+            "flagship artifact not committed -- it is tracked in git and required by this module"
+        )
     payload = json.loads(_ARTIFACT.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
     return payload
@@ -83,7 +102,7 @@ class TestNoOverclaim:
     ) -> None:
         analysis = flagship["analysis"]
         if analysis.get("status") != "analysed":
-            pytest.skip("no samples analysed")
+            pytest.fail("no samples analysed -- the committed artifact records status=analysed")
         reachable = [
             issue_type
             for issue_type, data in analysis["by_issue_type"].items()
@@ -95,7 +114,7 @@ class TestNoOverclaim:
     def test_unreachable_thresholds_carry_an_honest_reason(self, flagship: dict[str, Any]) -> None:
         analysis = flagship["analysis"]
         if analysis.get("status") != "analysed":
-            pytest.skip("no samples analysed")
+            pytest.fail("no samples analysed -- the committed artifact records status=analysed")
         for issue_type, data in analysis["by_issue_type"].items():
             if not data["threshold_is_reachable"]:
                 reason = data["uncertified_reason"]
@@ -110,7 +129,7 @@ class TestNoOverclaim:
     ) -> None:
         analysis = flagship["analysis"]
         if analysis.get("status") != "analysed":
-            pytest.skip("no samples analysed")
+            pytest.fail("no samples analysed -- the committed artifact records status=analysed")
         needed = analysis["samples_needed_to_certify"]
         # min_samples_for_certification(0.05, 0.05) == 59.
         assert needed == 59
@@ -131,7 +150,7 @@ class TestNoOverclaim:
     def test_policy_thresholds_are_all_disabled(self, flagship: dict[str, Any]) -> None:
         analysis = flagship["analysis"]
         if analysis.get("status") != "analysed":
-            pytest.skip("no samples analysed")
+            pytest.fail("no samples analysed -- the committed artifact records status=analysed")
         policy = analysis["policy"]
         for issue_type, threshold in policy.get("auto_apply_thresholds", {}).items():
             assert threshold > 1.0, (
@@ -150,7 +169,7 @@ class TestEceIsMeasuredOnHeldOutData:
     ) -> None:
         analysis = flagship["analysis"]
         if analysis.get("status") != "analysed":
-            pytest.skip("no samples analysed")
+            pytest.fail("no samples analysed -- the committed artifact records status=analysed")
         assert "ece_test_before" in analysis
         assert "ece_test_after" in analysis
 
@@ -165,7 +184,9 @@ _DOCS = Path(__file__).resolve().parents[2]
 def sweep() -> dict[str, Any]:
     """Return the committed arm-sweep artifact, which carries the load-bearing claim."""
     if not _SWEEP_ARTIFACT.exists():
-        pytest.skip("sweep artifact not committed")
+        pytest.fail(
+            "sweep artifact not committed -- it is tracked in git and required by this module"
+        )
     payload = json.loads(_SWEEP_ARTIFACT.read_text(encoding="utf-8"))
     assert isinstance(payload, dict)
     return payload
@@ -263,7 +284,7 @@ class TestLedgerReportsWhatItActuallyMeasured:
         from dataforge.spend import ledger_summary
 
         if not _LEDGER.exists():
-            pytest.skip("ledger not committed")
+            pytest.fail("ledger not committed -- it is tracked in git and required by this module")
         summary = ledger_summary(_LEDGER)
         assert summary.measured_receipts > 0
         assert summary.estimated_receipts > 0, (
@@ -283,7 +304,7 @@ class TestLedgerReportsWhatItActuallyMeasured:
         from dataforge.spend import ledger_summary, load_ledger
 
         if not _LEDGER.exists():
-            pytest.skip("ledger not committed")
+            pytest.fail("ledger not committed -- it is tracked in git and required by this module")
         claimed_without_measurement = [
             r
             for r in load_ledger(_LEDGER)
@@ -300,7 +321,7 @@ class TestLedgerReportsWhatItActuallyMeasured:
         from dataforge.spend import load_ledger
 
         if not _LEDGER.exists():
-            pytest.skip("ledger not committed")
+            pytest.fail("ledger not committed -- it is tracked in git and required by this module")
         for receipt in load_ledger(_LEDGER):
             if receipt.get("calls"):
                 continue
@@ -317,7 +338,7 @@ class TestLedgerReportsWhatItActuallyMeasured:
         from dataforge.spend import ledger_summary, load_ledger
 
         if not _LEDGER.exists():
-            pytest.skip("ledger not committed")
+            pytest.fail("ledger not committed -- it is tracked in git and required by this module")
         noop = [
             r
             for r in load_ledger(_LEDGER)
@@ -332,7 +353,9 @@ class TestTriageComparisonStaysHonest:
     @pytest.fixture(scope="class")
     def triage(self) -> dict[str, Any]:
         if not _TRIAGE_ARTIFACT.exists():
-            pytest.skip("triage comparison artifact not committed")
+            pytest.fail(
+                "triage comparison artifact not committed -- it is tracked in git and required by this module"
+            )
         payload = json.loads(_TRIAGE_ARTIFACT.read_text(encoding="utf-8"))
         assert isinstance(payload, dict)
         return payload
@@ -407,7 +430,9 @@ class TestClaimScopeMatchesEvidenceScope:
     @pytest.fixture(scope="class")
     def probe(self) -> dict[str, Any]:
         if not self._PROBE.exists():
-            pytest.skip("review gate probe artifact not committed")
+            pytest.fail(
+                "review gate probe artifact not committed -- it is tracked in git and required by this module"
+            )
         payload = json.loads(self._PROBE.read_text(encoding="utf-8"))
         assert isinstance(payload, dict)
         return payload
@@ -425,7 +450,9 @@ class TestClaimScopeMatchesEvidenceScope:
     def test_triage_artifact_is_single_dataset(self) -> None:
         """The comparison covers one dataset; that is why its claim must be scoped."""
         if not _TRIAGE_ARTIFACT.exists():
-            pytest.skip("triage comparison artifact not committed")
+            pytest.fail(
+                "triage comparison artifact not committed -- it is tracked in git and required by this module"
+            )
         payload = json.loads(_TRIAGE_ARTIFACT.read_text(encoding="utf-8"))
         assert isinstance(payload.get("dataset"), str), "artifact must name its dataset"
 
@@ -499,7 +526,9 @@ class TestDetectorRegimeScope:
     @pytest.fixture(scope="class")
     def composition(self) -> dict[str, Any]:
         if not self._COMPOSITION.exists():
-            pytest.skip("detector queue composition artifact not committed")
+            pytest.fail(
+                "detector queue composition artifact not committed -- it is tracked in git and required by this module"
+            )
         payload = json.loads(self._COMPOSITION.read_text(encoding="utf-8"))
         assert isinstance(payload, dict)
         return payload
@@ -577,7 +606,9 @@ class TestFreeRankerTransferFinding:
     @pytest.fixture(scope="class")
     def free(self) -> dict[str, Any]:
         if not self._FREE.exists():
-            pytest.skip("free ranker artifact not committed")
+            pytest.fail(
+                "free ranker artifact not committed -- it is tracked in git and required by this module"
+            )
         payload = json.loads(self._FREE.read_text(encoding="utf-8"))
         assert isinstance(payload, dict)
         return payload
@@ -630,7 +661,9 @@ class TestProductMetricIsReported:
     @pytest.fixture(scope="class")
     def free(self) -> dict[str, Any]:
         if not self._FREE.exists():
-            pytest.skip("free ranker artifact not committed")
+            pytest.fail(
+                "free ranker artifact not committed -- it is tracked in git and required by this module"
+            )
         return dict(json.loads(self._FREE.read_text(encoding="utf-8")))
 
     def test_effort_curves_exist_at_natural_rate(self, free: dict[str, Any]) -> None:
@@ -680,7 +713,9 @@ class TestCrossDatasetRankerFinding:
     @pytest.fixture(scope="class")
     def xds(self) -> dict[str, Any]:
         if not self._XDS.exists():
-            pytest.skip("cross-dataset ranker artifact not committed")
+            pytest.fail(
+                "cross-dataset ranker artifact not committed -- it is tracked in git and required by this module"
+            )
         return dict(json.loads(self._XDS.read_text(encoding="utf-8")))
 
     def test_all_three_datasets_are_measured(self, xds: dict[str, Any]) -> None:
