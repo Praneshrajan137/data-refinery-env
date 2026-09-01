@@ -861,6 +861,55 @@ claims:
     format: "{:.4f}"
     expect: "1.0000"
     context: "precision"
+  # Added 2026-09-01. These bind a REFUTATION, which matters as much as binding a result: a
+  # kill criterion that fired is the evidence that C3 was refused on measurement rather than
+  # on preference, and it is exactly the kind of number that would rot in the reassuring
+  # direction if left unbound.
+  - id: rwd_hospital_mu_plus_false_above_zero
+    doc: docs/trust/premise-quality-measure-result.md
+    artifact: eval/results/premise_quality_rwd.json
+    pointer: /tables/hospital.csv/separation/mu_plus/false_above_zero
+    format: "{:d}"
+    expect: "45"
+    context: "45 of 45 annotated-false candidates"
+    note: >-
+      The number that refuted P1. A gate at mu+ > 0 excludes nothing on this corpus.
+  - id: rwd_hospital_mu_plus_max_false
+    doc: docs/trust/premise-quality-measure-result.md
+    artifact: eval/results/premise_quality_rwd.json
+    pointer: /tables/hospital.csv/separation/mu_plus/max_false
+    format: "{:.4f}"
+    expect: "0.9694"
+    context: "0.9694"
+  - id: rwd_hospital_mu_plus_min_true
+    doc: docs/trust/premise-quality-measure-result.md
+    artifact: eval/results/premise_quality_rwd.json
+    pointer: /tables/hospital.csv/separation/mu_plus/min_true
+    format: "{:.4f}"
+    expect: "0.9967"
+    context: "min-true 0.9967"
+    note: >-
+      Perfect separation exists on hospital, at a threshold near 0.98. It is refused because
+      that constant would be chosen after seeing the labels, and because it does not survive
+      dblp10k. Binding it keeps the temptation visible rather than buried.
+  - id: rwd_dblp_mu_plus_false_above_zero
+    doc: docs/trust/premise-quality-measure-result.md
+    artifact: eval/results/premise_quality_rwd.json
+    pointer: /tables/dblp10k.csv/separation/mu_plus/false_above_zero
+    format: "{:d}"
+    expect: "356"
+    context: "356/490"
+    note: >-
+      mu+ is the only one of the four measures with any discrimination on dblp10k, where both
+      incumbents score 490 of 490 above zero. This is why it is retained as a reported field
+      after being refused as a gate.
+  - id: rwd_dblp_candidates_scored
+    doc: docs/trust/premise-quality-measure-result.md
+    artifact: eval/results/premise_quality_rwd.json
+    pointer: /tables/dblp10k.csv/candidates_scored
+    format: "{:d}"
+    expect: "567"
+    context: "567"
   - id: decisions_additivity_isolated
     doc: DECISIONS.md
     artifact: eval/results/constraint_additivity.json
