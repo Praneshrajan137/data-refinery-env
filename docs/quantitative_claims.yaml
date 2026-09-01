@@ -825,6 +825,42 @@ claims:
     format: "{:.4f}"
     expect: "0.8399"
     context: "mined (opt-in)"
+  # Added 2026-09-01. The detector's docstring said "measured best precision ~0.94" while
+  # this artifact recorded 1.0000 with zero false positives, and BOTH were cited as
+  # current. There was no factual conflict -- 0.94 described a different, rejected Phase 1C
+  # design and has no artifact anywhere -- but the docstring attributed that design's
+  # weakness to the shipped detector, in the paragraph arguing the shipped one must not
+  # write. One unresolved number gated 722 cells. Binding the real figures is what stops it
+  # drifting back.
+  - id: date_transposition_rayyan_tp
+    doc: dataforge/detectors/date_transposition.py
+    artifact: eval/results/cell_detection_rayyan.json
+    pointer: /per_detector/9/score/tp
+    format: "{:d}"
+    expect: "722"
+    context: "tp 722, fp 0"
+    note: >-
+      The pointer is index-based. docs_truth already catches most reorders, because the
+      new occupant's values are usually absent or different -- verified by planting a
+      swap, which failed with "cannot descend into NoneType at 'tp'". What it cannot catch
+      is a reorder onto a detector whose tp/fp/precision coincide exactly. That case, and
+      the unhelpful error message on the cases it does catch, are why
+      tests/unit/test_date_transposition_claim_binding.py pins index 9 to
+      DateTranspositionDetector by name.
+  - id: date_transposition_rayyan_fp
+    doc: dataforge/detectors/date_transposition.py
+    artifact: eval/results/cell_detection_rayyan.json
+    pointer: /per_detector/9/score/fp
+    format: "{:d}"
+    expect: "0"
+    context: "tp 722, fp 0"
+  - id: date_transposition_rayyan_precision
+    doc: dataforge/detectors/date_transposition.py
+    artifact: eval/results/cell_detection_rayyan.json
+    pointer: /per_detector/9/score/precision
+    format: "{:.4f}"
+    expect: "1.0000"
+    context: "precision"
   - id: decisions_additivity_isolated
     doc: DECISIONS.md
     artifact: eval/results/constraint_additivity.json

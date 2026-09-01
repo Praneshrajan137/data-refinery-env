@@ -7,16 +7,40 @@ value ``"4/2/15"`` is the year-first ``Y/M/D`` form of the intended
 three components -- verified to reproduce the clean value on 722/722 measured
 cells. So the *correction* is exact.
 
-Detection, however, is NOT provable: every such cell is ALSO a syntactically
-valid ``M/D/YY`` date, so no in-table rule can decide with certainty that a given
-cell is transposed rather than a legitimately different date (measured best
-precision ~0.94, and the transposed form is even the column majority). Because a
-wrong auto-fix here would corrupt a valid date, this detector is **detection-only
-and never registered with a repairer** -- by construction there is no write path.
-It carries the exact rotation in ``Issue.expected`` so the engine can surface it
-as an *unverified, human-review* suggestion (never auto-applied). Tier 1,
-strictly additive; it only fires inside columns that are predominantly 3-part
-numeric slash-dates, so it cannot touch non-date columns.
+Detection, however, is NOT provable, and the reason is structural rather than
+statistical: every such cell is ALSO a syntactically valid ``M/D/YY`` date, so no
+in-table rule can decide with certainty that a given cell is transposed rather than
+a legitimately different date. The verifier cannot help either -- a rotated date is
+still a valid date -- and the corrupted ``Y/M/D`` form is the column MAJORITY (79%),
+so "canonicalize to the dominant form" points the wrong way.
+
+**Measured detection precision of THIS detector is 1.0000, not 0.94.** That correction
+was made 2026-09-01 and the distinction matters. This docstring previously read
+"measured best precision ~0.94", which described *a different, rejected detector design*
+from the Phase 1C evaluation recorded in ``DECISIONS.md`` -- an ungated structural rule
+that would have caused 27 corruptions. The proportion-gated detector that actually ships
+flags 722 cells on rayyan and every one is a real error: ``tp 722, fp 0, precision
+1.0000`` over 11,000 cells in ``eval/results/cell_detection_rayyan.json``, corroborated
+independently by the provenance note in ``eval/thresholds/coverage_floors.json``
+("lifted datetime_format detection recall to 1.00, 0 false positives"). Quoting 0.94
+here attributed another design's weakness to this one, in the very paragraph arguing
+this one must not write.
+
+So the honest argument for staying detection-only is NOT that precision is low. It is
+that (a) correctness here is unprovable in principle, per the paragraph above, and
+(b) **1.0000 on one diagnostic-tier corpus is a hypothesis about the others, not a
+safety result.** This detector's firing population -- 3-part numeric slash-dates in a
+predominantly-date column -- is absent from hospital, flights and tax, so those corpora
+do not measure it; they fail to reach it. That is precisely the condition under which
+``decimal_shift`` looked harmless until a fourth corpus showed it would rewrite 263,428
+values. Zero false positives on a corpus that exercises the detector once is not
+evidence of generality.
+
+This detector is therefore **detection-only and never registered with a repairer** --
+by construction there is no write path. It carries the exact rotation in
+``Issue.expected`` so the engine can surface it as an *unverified, human-review*
+suggestion (never auto-applied). Tier 1, strictly additive; it only fires inside columns
+that are predominantly 3-part numeric slash-dates, so it cannot touch non-date columns.
 """
 
 from __future__ import annotations
