@@ -180,3 +180,45 @@ why the criterion was written before any number was computed.
 
 Reported together, never precision alone: `proposals`, `repaired_a_real_error`,
 `corrupted_a_clean_cell`, `wrong_value_on_a_real_error`, `net_cells_improved`, and coverage.
+
+## AMENDMENT 1 (2026-09-01)
+
+**Recorded after implementing the measure and BEFORE running it on any corpus.** No
+candidate has been scored on hospital, flights, rayyan, tax or `rwd`. This is a deviation
+in what the measure can do, not an interpretation of a result. The original text above is
+left unchanged so the change stays visible.
+
+### `mu+` has a blind spot the document above did not anticipate
+
+`mu+` **does not penalise an exact dependency for being unfalsifiable.** For an exact
+dependency `pdep(X->Y) == 1`, so the numerator `(1 - pdep(X->Y))` is zero and the
+singleton-correction factor `(N-1)/(N-|dom_X|)` — however large — is multiplied by zero.
+`mu+` returns 1.0 whether the dependency rests on two testable rows or two thousand. `g3'`
+shares the property, for the same reason: both are error-based measures normalised so that
+zero measured error scores 1.
+
+This was found by writing a unit test that asserted the opposite and watching it fail. It is
+recorded here rather than quietly accommodated because it narrows C3.
+
+### What it changes
+
+- **P1 and P2 are narrowed.** C3 can only discriminate among **approximate** dependencies.
+  The prediction still stands for hospital, because its measured false dependencies carry
+  `confidence` between 0.9050 and 0.9620 and are therefore approximate — the correction does
+  bite on them. But P2's mechanism is now stated precisely: `ZipCode -> HospitalName` is
+  expected to fail C3 **because it has violations concentrated in a few testable rows**, not
+  merely because its determinant is sparse. If it turns out to be exact on the rows present,
+  C3 will not reject it and P2 is refuted.
+- **A new kill criterion, K5.** If the dependencies responsible for the measured corruption
+  are *exact* on the dirty data, `mu+` cannot reject them, C3 does not address the observed
+  damage, and the honest report is that the measure does not gate this failure. The response
+  is not to add a support threshold on top — that is K4 again.
+- **The pre-existing near-key guard is load-bearing and stays.**
+  `_MAX_DETERMINANT_UNIQUE_FRACTION = 0.9` is what rejects an exact dependency on a
+  near-unique determinant. It is a constant that predates C3, C3 does not remove it, and P5
+  ("zero new constants") must not be read as implying the old ones became unnecessary.
+
+### What it does not change
+
+P5 still holds: C3 introduces no constant. The threshold remains 0 and 0 remains derived
+from the permutation null. K4 is unaffected and is still the criterion most likely to bind.

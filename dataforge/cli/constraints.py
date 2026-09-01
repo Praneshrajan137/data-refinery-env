@@ -68,6 +68,12 @@ def _candidate_summary(reviewed: Any) -> dict[str, Any]:
         "target": _candidate_target(candidate),
         "confidence": candidate.confidence,
         "tested_confidence": getattr(candidate, "tested_confidence", None),
+        # Added 2026-09-01 for the same reason tested_confidence was: a number a
+        # programmatic consumer cannot read is not reported to it. mu_plus differs from
+        # tested_confidence in the way that matters -- its decision point is 0, from a
+        # permutation null, rather than a constant fitted to one corpus.
+        "mu_plus": getattr(candidate, "mu_plus", None),
+        "g3_prime": getattr(candidate, "g3_prime", None),
         "repair_supported": candidate.kind in REPAIR_SUPPORTED_CONSTRAINT_KINDS,
         "evidence": candidate.evidence,
         "review_note": reviewed.review_note,
@@ -133,11 +139,16 @@ def _print_review_table(artifact: ConstraintReviewArtifact) -> None:
     table.add_column("Target", overflow="fold")
     table.add_column("Confidence", justify="right")
     table.add_column("Tested", justify="right")
+    # mu+ earns a column beside Tested because it answers the same question with a decision
+    # point of 0 instead of a fitted cut. 0 means "no evidence beyond the dependent's own
+    # distribution", which is the sentence a reviewer needs and cannot infer from Confidence.
+    table.add_column("mu+", justify="right")
     table.add_column("Repair")
     table.add_column("Evidence", overflow="fold")
     for reviewed in artifact.candidates:
         candidate = reviewed.candidate
         tested = getattr(candidate, "tested_confidence", None)
+        corrected = getattr(candidate, "mu_plus", None)
         table.add_row(
             reviewed.candidate_id,
             reviewed.decision,
@@ -147,6 +158,9 @@ def _print_review_table(artifact: ConstraintReviewArtifact) -> None:
             # "n/a" rather than a blank or a zero: absent means this candidate kind has no tested
             # confidence, and a reader must not read that as low.
             f"{tested:.4f}" if tested is not None else "n/a",
+            # Same reasoning, and it matters more here: mu+ of 0.0 is a real and meaningful
+            # verdict, so an absent value must never render as 0.
+            f"{corrected:.4f}" if corrected is not None else "n/a",
             "yes" if candidate.kind in REPAIR_SUPPORTED_CONSTRAINT_KINDS else "review-only",
             candidate.evidence,
         )

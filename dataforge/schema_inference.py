@@ -15,6 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from dataforge.premise_quality import g3_prime, mu_plus
 from dataforge.table import TableLike, column_names, column_values, row_count
 from dataforge.transactions.log import sha256_bytes
 from dataforge.verifier.schema import (
@@ -87,6 +88,17 @@ class ConstraintCandidate(BaseModel):
     #: Share of rows holding the dependent's most common value. A dependency that does not
     #: beat this is less informative than ignoring the determinant and emitting the mode.
     dependent_majority_share: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: ``mu+`` (Piatetsky-Shapiro and Matheus): the proportional error reduction, corrected
+    #: for the inflation that unfalsifiable singleton determinant groups produce. Unlike
+    #: ``tested_confidence`` its decision point is **0** rather than a constant fitted to a
+    #: corpus, because the correction is computed from this table's own marginals. Zero means
+    #: the determinant supplies no evidence beyond the dependent's own distribution.
+    #: See ``dataforge/premise_quality.py`` and ``specs/SPEC_premise_quality.md``.
+    mu_plus: float | None = Field(default=None, ge=0.0, le=1.0)
+    #: ``g3'`` (Giannella and Robertson): the combinatorial sibling of ``mu+``, subtracting
+    #: the same ``|dom_X|`` floor. Reported so the choice of ``mu+`` stays auditable; never
+    #: gated, because it is sensitive to RHS-skew where ``mu+`` is not.
+    g3_prime: float | None = Field(default=None, ge=0.0, le=1.0)
     evidence: str = Field(min_length=1)
     provenance: str = "profile_inference_v1"
 
@@ -682,6 +694,12 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
                 else 0.0
             )
             majority_share = round(Counter(dependent_values).most_common(1)[0][1] / total_rows, 4)
+            # Computed from `groups`, which is already built above, so this costs no extra
+            # pass. Both are REPORTED here and gated nowhere; see
+            # eval/preregistration/premise_quality_measure.md for the gate that depends on
+            # the measurement, and its AMENDMENT 1 for what mu+ cannot do.
+            candidate_mu_plus = round(mu_plus(groups, dependent_values), 4)
+            candidate_g3_prime = round(g3_prime(groups), 4)
             candidates.append(
                 ConstraintCandidate(
                     kind="functional_dependency",
@@ -694,6 +712,8 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
                     violations=violations,
                     determinant_distinct=determinant_unique,
                     dependent_majority_share=majority_share,
+                    mu_plus=candidate_mu_plus,
+                    g3_prime=candidate_g3_prime,
                     evidence=(
                         f"{determinant} determined {dependent} in "
                         f"{total_rows - violations}/{total_rows} rows "
@@ -703,6 +723,9 @@ def _fd_candidates(table: TableLike, columns: list[str]) -> list[ConstraintCandi
                         f"actually violate it, confidence is {tested_confidence}; "
                         f"always emitting {dependent}'s most common value would be right "
                         f"{majority_share} of the time. "
+                        f"Corrected for unfalsifiable singleton groups, mu+ is "
+                        f"{candidate_mu_plus} (0 means no evidence beyond {dependent}'s own "
+                        f"distribution) and g3' is {candidate_g3_prime}. "
                         f"Approximate FDs (<1.0) may overwrite legitimate variation on "
                         f"acceptance; review support before accepting."
                     ),

@@ -234,6 +234,30 @@ Core runtime dependencies in `pyproject.toml`:
 - `httpx`, `tenacity`, and `python-dotenv` for optional provider clients.
 - `sqlglot` and `duckdb` for read-only SQL parsing and execution.
 
+### A dependency deliberately NOT taken: `afd-measures`
+
+`dataforge/premise_quality.py` implements `mu+` and `g3'` natively rather than depending on
+`afd-measures` (MIT), which is the reference implementation from Parciak et al., ICDE 2024
+and ships both. Recorded here because this repo's rules require justifying a dependency
+before adding one, and the same reasoning applies to declining one.
+
+Three reasons, in increasing weight:
+
+1. `mu` is closed-form over the determinant groups `_fd_candidates` already builds. The
+   dependency would wrap roughly fifteen lines of arithmetic.
+2. Its signature takes a single-column `lhs` over a `pandas.DataFrame`, while the product's
+   write path operates on `dataforge.table.Table`. Adopting it would push a DataFrame
+   conversion into the product path and **reintroduce the measured-path/shipped-path gap**
+   that `docs/trust/fd-repair-scalability.md` documents -- the one where harnesses measure
+   different code than ships, so `DeterminantGroupIndex` caching behaves differently.
+3. Its `mu` divides by `(r_size - domX_size)` unguarded, so an all-singletons determinant
+   raises `ZeroDivisionError`. That is exactly the case a premise gate exists to reject, so
+   it is a normal input here, not an edge case. A local implementation returns the limit.
+
+The closed form is written out in `specs/SPEC_premise_quality.md` section 4 so the two can
+be compared without installing anything, and the unit tests use hand-derived values rather
+than the reference output.
+
 Optional extras and scoped dependencies:
 
 - `dev`: pytest, ruff, mypy, Hypothesis, benchmark, and Hub tooling.
