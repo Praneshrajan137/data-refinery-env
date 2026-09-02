@@ -37,6 +37,11 @@
     Skip `make test` (the two pytest passes). Speeds up a smoke test of the plumbing at the
     cost of the gate that matters most. Never use for a real run.
 
+.PARAMETER Connection
+    Snowflake connection profile used to retrieve the patch. Defaults to the headless
+    key-pair profile. The interactive OAuth profile cannot be used unattended: it needs a
+    browser once its cached token expires.
+
 .EXAMPLE
     powershell -NoProfile -File scripts/automation/apply_and_pr.ps1
     powershell -NoProfile -File scripts/automation/apply_and_pr.ps1 -DryRun -PatchFile C:\tmp\test.patch
@@ -48,7 +53,8 @@
 param(
     [switch]$DryRun,
     [string]$PatchFile,
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [string]$Connection = 'dataforge_automation'
 )
 
 Set-StrictMode -Version Latest
@@ -62,6 +68,11 @@ $WorktreeDir = Join-Path $WorkDir 'worktree'
 $Stamp      = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 $Branch     = "automation/impl-$Stamp"
 $Python     = Join-Path $RepoRoot '.venv\Scripts\python.exe'
+
+# Snowflake CLI lives in its own venv, deliberately NOT the repo .venv: adding a dependency
+# there would diverge from pyproject.toml and uv.lock and could perturb the long, exact file
+# lists in `make lint` and `make type`.
+$Snow = Join-Path $env:LOCALAPPDATA 'dataforge-automation\venv\Scripts\snow.exe'
 
 function Write-Step { param([string]$Message) Write-Host "`n==> $Message" -ForegroundColor Cyan }
 function Write-Note { param([string]$Message) Write-Host "    $Message" -ForegroundColor DarkGray }
@@ -93,11 +104,55 @@ function Invoke-Git {
     return Invoke-Native -File 'git' -Arguments $Arguments
 }
 
-# Snowflake CLI writes its own diagnostics to stderr on success, which PowerShell surfaces as
-# a nonzero exit. Never infer failure from the exit code alone here; check the effect instead.
-function Invoke-SnowSql {
-    param([string]$Sql)
-    return (Invoke-Native -File 'cortex' -Arguments @('sql', '-q', $Sql)).Output
+# Lists the workspace stage. Returns Ok plus the bare file names found.
+#
+# This exists because `GET` on a file that does not exist ALSO exits 1, so a GET exit code
+# cannot distinguish "the fire implemented nothing" from "the connection is broken". Listing
+# first separates the three outcomes properly:
+#   LS fails            -> we know nothing, that is an error
+#   LS ok, no patch      -> the fire implemented nothing, that is normal
+#   LS ok, patch present -> fetch it, and a GET failure now really is an error
+function Get-WorkspaceListing {
+    if (-not (Test-Path $Snow)) {
+        Write-Fail "RETRIEVAL FAILED: Snowflake CLI not found at $Snow"
+        Write-Note 'Create it with: py -3.12 -m venv <dir> ; <dir>\Scripts\pip install snowflake-cli'
+        return [pscustomobject]@{ Ok = $false; Names = @() }
+    }
+
+    $res = Invoke-Native -File $Snow -Arguments @(
+        'sql', '-c', $Connection, '--format', 'json',
+        '-q', "LS '$StagePath/'"
+    )
+    if ($res.ExitCode -ne 0) {
+        Write-Fail "RETRIEVAL FAILED: snow sql LS exited $($res.ExitCode)"
+        Write-Note $res.Output
+        Write-Note "Check the '$Connection' profile in ~/.snowflake/connections.toml and that"
+        Write-Note 'its private_key_file still matches the RSA key registered on the user.'
+        return [pscustomobject]@{ Ok = $false; Names = @() }
+    }
+
+    # Names come back as /versions/live/<file>; reduce to the bare leaf.
+    $names = @([regex]::Matches($res.Output, '"name"\s*:\s*"([^"]+)"') |
+               ForEach-Object { ($_.Groups[1].Value -split '/')[-1] })
+    return [pscustomobject]@{ Ok = $true; Names = $names }
+}
+
+# Retrieves one file from the workspace stage into $WorkDir. Only call this once
+# Get-WorkspaceListing has confirmed the file is actually there.
+function Get-WorkspaceFile {
+    param([Parameter(Mandatory)][string]$Name)
+
+    $dest = ($WorkDir -replace '\\', '/')
+    $res = Invoke-Native -File $Snow -Arguments @(
+        'sql', '-c', $Connection,
+        '-q', "GET '$StagePath/$Name' 'file://$dest/'"
+    )
+    if ($res.ExitCode -ne 0) {
+        Write-Fail "RETRIEVAL FAILED: snow sql exited $($res.ExitCode) fetching $Name"
+        Write-Note $res.Output
+        return $false
+    }
+    return $true
 }
 
 function Remove-StaleWorktree {
@@ -161,9 +216,10 @@ function Get-Regressions {
 # ---------------------------------------------------------------------------------------
 
 Write-Step "DataForge automation: apply, gate, and open a PR"
-Write-Note "repo      = $RepoRoot"
-Write-Note "branch    = $Branch"
-Write-Note "dry run   = $DryRun"
+Write-Note "repo       = $RepoRoot"
+Write-Note "branch     = $Branch"
+Write-Note "connection = $Connection"
+Write-Note "dry run    = $DryRun"
 
 if (-not (Test-Path $Python)) { throw "Python not found at $Python. Create the venv first." }
 
@@ -180,13 +236,25 @@ else {
     $localPatch = Join-Path $WorkDir 'changes.patch'
     if (Test-Path $localPatch) { Remove-Item $localPatch }
 
-    $dest = ($WorkDir -replace '\\', '/')
-    Invoke-SnowSql "GET '$StagePath/changes.patch' 'file://$dest/'" | Out-Null
+    $listing = Get-WorkspaceListing
+    if (-not $listing.Ok) {
+        Write-Fail 'Could not determine whether a patch exists. Exiting NONZERO deliberately.'
+        Write-Note 'This is NOT the same as "the fire implemented nothing" - we simply do not know.'
+        exit 2
+    }
+    Write-Note "workspace contains: $($listing.Names -join ', ')"
 
-    if (-not (Test-Path $localPatch)) {
-        Write-Fail 'No changes.patch in the workspace. The fire implemented nothing, or has not run yet.'
-        Write-Note 'Exiting cleanly. This is a normal outcome, not an error.'
+    if ($listing.Names -notcontains 'changes.patch') {
+        Write-Note 'Retrieval worked; there is no changes.patch in the workspace.'
+        Write-Note 'The fire implemented nothing, or has not run since the last pickup.'
+        Write-Note 'Exiting 0. This is a normal outcome, not an error.'
         exit 0
+    }
+
+    if (-not (Get-WorkspaceFile -Name 'changes.patch')) { exit 2 }
+    if (-not (Test-Path $localPatch)) {
+        Write-Fail 'RETRIEVAL FAILED: GET reported success but no local file appeared.'
+        exit 2
     }
 }
 
@@ -289,9 +357,10 @@ try {
 
     $reviewLocal = Join-Path $WorkDir 'daily-review.md'
     if (-not $PatchFile) {
-        $dest = ($WorkDir -replace '\\', '/')
         if (Test-Path $reviewLocal) { Remove-Item $reviewLocal }
-        Invoke-SnowSql "GET '$StagePath/daily-review.md' 'file://$dest/'" | Out-Null
+        # A missing review is not fatal: the patch is the deliverable and the gates already
+        # passed. Note it in the PR body rather than discarding verified work over a doc.
+        Get-WorkspaceFile -Name 'daily-review.md' | Out-Null
     }
 
     $prBody = @"

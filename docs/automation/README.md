@@ -78,14 +78,94 @@ script asserts the result really is LF before going further.
 
 ### Running it
 
+It is scheduled, so normally you run nothing. To invoke it by hand:
+
 ```powershell
 powershell -NoProfile -File scripts/automation/apply_and_pr.ps1
 powershell -NoProfile -File scripts/automation/apply_and_pr.ps1 -DryRun -SkipTests -PatchFile C:\tmp\x.patch
 ```
 
-`pwsh` (PowerShell 7) is **not** installed here; use `powershell`. If there is no
-`changes.patch` in the workspace the script exits 0 without a PR, which is the normal
-outcome for a run that implemented nothing.
+`pwsh` (PowerShell 7) is **not** installed here; use `powershell`.
+
+Exit codes are meaningful and distinct, which matters because two of them look alike from a
+distance:
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | A PR was opened, **or** retrieval worked and there was genuinely nothing to pick up |
+| 1 | Blocked: patch did not apply, touched a protected path, or regressed a gate. No PR |
+| 2 | **Retrieval failed.** The workspace could not be reached, so we know *nothing* |
+
+Exit 2 must never be read as "the fire implemented nothing". An earlier version of this
+script conflated those: `cortex sql` does not exist, so the retrieval silently did nothing and
+the script exited **0** reporting that the fire had implemented nothing. That is a vacuous
+success, the exact failure this pipeline exists to prevent, and it survived three tests
+because all of them passed `-PatchFile` and never exercised retrieval. A second, subtler
+version of the same trap: `GET` on a file that does not exist also exits 1, so a missing
+patch and a broken connection are indistinguishable by `GET` alone. The script therefore
+**lists the stage first** and only fetches when the file is actually present.
+
+### Headless setup (why a 3 AM run works at all)
+
+The scheduled run happens while nobody is logged in and attending, so every part of it must
+work without a browser. Three pieces make that true:
+
+1. **Snowflake CLI in its own venv** at
+   `%LOCALAPPDATA%\dataforge-automation\venv` (Python 3.12, `snowflake-cli` 3.26.0).
+   Deliberately **not** the repo `.venv`: a dependency added there would diverge from
+   `pyproject.toml` and `uv.lock` and could perturb the long, exact file lists in
+   `make lint` and `make type`.
+2. **RSA key-pair auth.** The interactive profile uses
+   `authenticator = "oauth_authorization_code"`, which needs a browser once its cached token
+   expires — fatal at 03:00. A separate `[dataforge_automation]` profile in
+   `~/.snowflake/connections.toml` uses `SNOWFLAKE_JWT` with an unencrypted PKCS#8 key at
+   `%USERPROFILE%\.snowflake\keys\dataforge_automation_rsa.p8`, ACL-restricted to the
+   current user. `[AEGIS15]` is left untouched for interactive use.
+3. **`snow sql` accepts a `snow://workspace/...` URI** in both `LS` and `GET`. This was the
+   one genuine unknown in the design; verified 2026-09-02 by round-tripping an 8,580,592-byte
+   file byte-identically (md5 `7AF9711DFEEC3D3936C4E96EF30AF173`) with no browser.
+
+**The security tradeoff, stated plainly.** The user holding this key has
+`default_role = ACCOUNTADMIN` and `has_mfa = true`. Key-pair auth presents no MFA challenge,
+and a headless key cannot have a passphrase, so an unencrypted file on disk grants
+account-admin access and bypasses MFA. The obvious mitigation — a dedicated low-privilege
+service user — **is not possible here**: the patch is delivered into
+`USER$PRANESH07.PUBLIC.DEFAULT$`, a *personal* database that cannot be granted to another
+role, and the fire can only write to its own `/workspace` mount. Retrieval must therefore run
+as that user. The blast radius is inherent to the delivery channel. If that is unacceptable,
+the honest options are to drop the schedule and pick patches up interactively, or to add a
+network policy restricting where the key may be used from.
+
+### The scheduled task
+
+`DataForge automation pickup`, daily at 03:00 local (IST), 2.5 hours after the fire.
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Action | `powershell.exe -File %LOCALAPPDATA%\dataforge-automation\run_pickup.ps1` | A wrapper that owns the log file |
+| `StartWhenAvailable` | true | A laptop that was off or asleep runs on next wake instead of skipping the day |
+| `WakeToRun` | true | Best effort only: **Windows ignores wake timers on battery**, so on battery it runs late rather than at 03:00 |
+| `RunLevel` | Limited | Nothing here needs elevation |
+| `ExecutionTimeLimit` | 2 hours | `make test` is two full pytest passes |
+| `MultipleInstances` | IgnoreNew | A long run must not overlap the next day's |
+
+**The laptop must be powered on** (or able to wake). Task Scheduler cannot run on a
+powered-off machine; with `StartWhenAvailable` the run is deferred, not lost. Cortex Code
+itself does **not** need to be open.
+
+Logs land in `%LOCALAPPDATA%\dataforge-automation\logs\pickup-YYYY-MM-DD.log`, pruned after
+30 days, each ending with a line that spells out what the exit code meant. Log naming lives
+in the PowerShell wrapper because two `.cmd` attempts produced `pickup-20269-02.log` and then
+`pickup-+.log`: `%DATE%` substring parsing is locale-dependent and `for /f` quoting does not
+survive being generated programmatically.
+
+Inspect or re-run it with:
+
+```powershell
+Get-ScheduledTaskInfo -TaskName 'DataForge automation pickup'   # LastTaskResult, NextRunTime
+Start-ScheduledTask   -TaskName 'DataForge automation pickup'   # run now
+```
+
 
 ## Inventory, as of 2026-09-01
 
