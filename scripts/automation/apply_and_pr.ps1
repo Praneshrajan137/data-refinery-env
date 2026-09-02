@@ -1,0 +1,368 @@
+<#
+.SYNOPSIS
+    Applies the daily automation patch, gates it, and opens a PR if it does not regress.
+
+.DESCRIPTION
+    The cloud automation cannot reach GitHub (the sandbox proxy blocks it), so it delivers a
+    unified diff into the user workspace instead. This script is the local half of that
+    pipeline: it retrieves the patch, applies it to a CLEAN worktree at origin/main, runs the
+    real gates before and after, and opens a pull request only if nothing regressed.
+
+    Three design decisions worth understanding before editing this file:
+
+    1. It works in a `git worktree` at origin/main, NEVER in the developer's checkout. The
+       checkout routinely carries unrelated in-flight changes (33 at the time of writing,
+       including a mid-rename Makefile), so applying a patch there would make gate failures
+       unattributable and could corrupt someone else's work.
+
+    2. The PR condition is NO REGRESSION versus a baseline, not an absolute pass. The
+       baseline may already be red from in-flight work on main, and a shared virtualenv can
+       distort results. Measuring before and after in the same worktree cancels both, because
+       whatever distorts one run distorts the other identically.
+
+    3. It uses SQL PUT/GET rather than `cortex ws cp`, which is broken on Windows in both
+       directions (upload fails with "undefined is not a directory"; download mangles the
+       path to C:\C:\...).
+
+    The script never merges, never pushes to main, and never creates a tag. A pull request
+    cannot land by itself, so human review remains the last gate.
+
+.PARAMETER DryRun
+    Do everything except push the branch and open the PR. Reports what it would have done.
+
+.PARAMETER PatchFile
+    Use a local patch file instead of fetching from the workspace. For testing.
+
+.PARAMETER SkipTests
+    Skip `make test` (the two pytest passes). Speeds up a smoke test of the plumbing at the
+    cost of the gate that matters most. Never use for a real run.
+
+.EXAMPLE
+    powershell -NoProfile -File scripts/automation/apply_and_pr.ps1
+    powershell -NoProfile -File scripts/automation/apply_and_pr.ps1 -DryRun -PatchFile C:\tmp\test.patch
+
+.NOTES
+    Windows PowerShell 5.1. `pwsh` (PowerShell 7) is not installed on this machine.
+#>
+[CmdletBinding()]
+param(
+    [switch]$DryRun,
+    [string]$PatchFile,
+    [switch]$SkipTests
+)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$RepoRoot   = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$Workspace  = 'USER$PRANESH07.PUBLIC.DEFAULT$'
+$StagePath  = "snow://workspace/$Workspace/versions/live"
+$WorkDir    = Join-Path $env:TEMP 'dataforge-automation'
+$WorktreeDir = Join-Path $WorkDir 'worktree'
+$Stamp      = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+$Branch     = "automation/impl-$Stamp"
+$Python     = Join-Path $RepoRoot '.venv\Scripts\python.exe'
+
+function Write-Step { param([string]$Message) Write-Host "`n==> $Message" -ForegroundColor Cyan }
+function Write-Note { param([string]$Message) Write-Host "    $Message" -ForegroundColor DarkGray }
+function Write-Fail { param([string]$Message) Write-Host "!!! $Message" -ForegroundColor Yellow }
+
+# Native tools (git, gh, ruff, mypy, pytest) routinely write progress and diagnostics to
+# stderr on SUCCESS. Under $ErrorActionPreference = 'Stop' PowerShell turns that into a
+# terminating NativeCommandError, so `git worktree add` "fails" while having worked. Every
+# external command therefore goes through here: stderr is captured as text, and the caller
+# judges the outcome by the exit code, never by whether anything reached stderr.
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory)][string]$File,
+        [string[]]$Arguments = @()
+    )
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & $File @Arguments 2>&1 | Out-String
+        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
+    }
+    finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Invoke-Git {
+    param([Parameter(Mandatory)][string[]]$Arguments)
+    return Invoke-Native -File 'git' -Arguments $Arguments
+}
+
+# Snowflake CLI writes its own diagnostics to stderr on success, which PowerShell surfaces as
+# a nonzero exit. Never infer failure from the exit code alone here; check the effect instead.
+function Invoke-SnowSql {
+    param([string]$Sql)
+    return (Invoke-Native -File 'cortex' -Arguments @('sql', '-q', $Sql)).Output
+}
+
+function Remove-StaleWorktree {
+    if (Test-Path $WorktreeDir) {
+        Write-Note "Removing stale worktree at $WorktreeDir"
+        Invoke-Git @('-C', $RepoRoot, 'worktree', 'remove', '--force', $WorktreeDir) | Out-Null
+        if (Test-Path $WorktreeDir) { Remove-Item $WorktreeDir -Recurse -Force }
+    }
+    Invoke-Git @('-C', $RepoRoot, 'worktree', 'prune') | Out-Null
+}
+
+# Runs the three real gates verbatim as the Makefile defines them. A subset of a gate is not
+# evidence about the gate, so these must stay in sync with the Makefile targets.
+function Invoke-Gates {
+    param([string]$Dir, [string]$Label)
+
+    Write-Step "Gates ($Label)"
+    $results = [ordered]@{}
+
+    Push-Location $Dir
+    try {
+        Write-Note 'make lint'
+        $results['lint'] = (Invoke-Native -File $Python -Arguments @('-m', 'ruff', 'check', 'dataforge', 'tests', 'scripts/ci')).ExitCode
+
+        Write-Note 'make type'
+        $results['type'] = (Invoke-Native -File $Python -Arguments @('-m', 'mypy', '--strict', 'dataforge')).ExitCode
+
+        if ($SkipTests) {
+            Write-Note 'make test SKIPPED (-SkipTests)'
+            $results['test'] = 'skipped'
+        }
+        else {
+            Write-Note 'make test (pytest -x -n logical)'
+            $results['test'] = (Invoke-Native -File $Python -Arguments @('-m', 'pytest', 'tests/', '-x', '-n', 'logical')).ExitCode
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
+    foreach ($k in $results.Keys) { Write-Note ("{0,-6} => {1}" -f $k, $results[$k]) }
+    return $results
+}
+
+# A gate regressed only if it was passing and now is not. A gate that was already failing
+# stays failing without blocking, because that failure is not the patch's fault.
+# Returns a comma-separated list of regressed gate names, or an empty string if none.
+# A string rather than an array on purpose: PowerShell unwraps an empty array to $null (and
+# $null.Count throws under StrictMode), while `,$arr` wraps it one level too deep and reports
+# Count 1 for an empty result. A string has neither failure mode.
+function Get-Regressions {
+    param($Before, $After)
+    $regressed = New-Object System.Collections.Generic.List[string]
+    foreach ($k in $Before.Keys) {
+        if ($Before[$k] -eq 'skipped' -or $After[$k] -eq 'skipped') { continue }
+        if ($Before[$k] -eq 0 -and $After[$k] -ne 0) { $regressed.Add($k) }
+    }
+    return ($regressed -join ', ')
+}
+
+# ---------------------------------------------------------------------------------------
+
+Write-Step "DataForge automation: apply, gate, and open a PR"
+Write-Note "repo      = $RepoRoot"
+Write-Note "branch    = $Branch"
+Write-Note "dry run   = $DryRun"
+
+if (-not (Test-Path $Python)) { throw "Python not found at $Python. Create the venv first." }
+
+if (-not (Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | Out-Null }
+
+# --- 1. Obtain the patch ---------------------------------------------------------------
+Write-Step 'Retrieving the patch'
+
+if ($PatchFile) {
+    $localPatch = (Resolve-Path $PatchFile).Path
+    Write-Note "Using supplied patch: $localPatch"
+}
+else {
+    $localPatch = Join-Path $WorkDir 'changes.patch'
+    if (Test-Path $localPatch) { Remove-Item $localPatch }
+
+    $dest = ($WorkDir -replace '\\', '/')
+    Invoke-SnowSql "GET '$StagePath/changes.patch' 'file://$dest/'" | Out-Null
+
+    if (-not (Test-Path $localPatch)) {
+        Write-Fail 'No changes.patch in the workspace. The fire implemented nothing, or has not run yet.'
+        Write-Note 'Exiting cleanly. This is a normal outcome, not an error.'
+        exit 0
+    }
+}
+
+$patchBytes = (Get-Item $localPatch).Length
+Write-Note "patch size = $patchBytes bytes"
+if ($patchBytes -eq 0) {
+    Write-Fail 'Patch is empty. Nothing to do.'
+    exit 0
+}
+
+# --- 2. Clean worktree at origin/main --------------------------------------------------
+Write-Step 'Preparing a clean worktree at origin/main'
+Remove-StaleWorktree
+Invoke-Git @('-C', $RepoRoot, 'fetch', 'origin') | Out-Null
+
+# core.autocrlf is true on this machine and there is no .gitattributes, so a normal checkout
+# produces CRLF files. The snapshot handed to the fire comes from `git archive`, which emits
+# the LF blob content, so the fire's patch carries LF context lines. Applying an LF patch to a
+# CRLF worktree fails on every hunk with "patch does not apply". Forcing autocrlf=false for
+# this throwaway worktree makes it LF, matching the snapshot the patch was generated against.
+# Committing from an LF worktree is harmless: git normalizes to LF in the object store anyway.
+$wt = Invoke-Git @('-c', 'core.autocrlf=false', '-C', $RepoRoot, 'worktree', 'add', '--detach', $WorktreeDir, 'origin/main')
+if (-not (Test-Path (Join-Path $WorktreeDir 'PRODUCT.md'))) {
+    Write-Note $wt.Output
+    throw "Worktree creation failed: $WorktreeDir does not look like the repo."
+}
+
+# Verify the line endings actually came out LF. If this assertion ever fails, every patch will
+# be rejected as corrupt, and the cause is very hard to see from the error message alone.
+$probe = [System.IO.File]::ReadAllBytes((Join-Path $WorktreeDir 'PRODUCT.md'))
+$crlfCount = 0
+for ($i = 1; $i -lt $probe.Length; $i++) { if ($probe[$i] -eq 10 -and $probe[$i - 1] -eq 13) { $crlfCount++ } }
+if ($crlfCount -gt 0) {
+    Write-Fail "Worktree checked out with CRLF ($crlfCount occurrences in PRODUCT.md)."
+    Write-Note 'An LF patch from the sandbox cannot apply to a CRLF worktree. Aborting rather than reporting a misleading corrupt-patch error.'
+    exit 1
+}
+Write-Note 'worktree line endings = LF (matches the snapshot)'
+
+$baseSha = (Invoke-Git @('-C', $WorktreeDir, 'rev-parse', '--short', 'HEAD')).Output.Trim()
+Write-Note "worktree at origin/main = $baseSha"
+
+try {
+    # --- 3. Baseline -------------------------------------------------------------------
+    $before = Invoke-Gates -Dir $WorktreeDir -Label "baseline @ $baseSha"
+
+    # --- 4. Apply ---------------------------------------------------------------------
+    Write-Step 'Applying the patch'
+    # -p1 strips the leading base/ or src/ component produced by `diff -ruN base src`.
+    $apply = Invoke-Git @('-C', $WorktreeDir, 'apply', '--3way', '-p1', $localPatch)
+    if ($apply.ExitCode -ne 0) {
+        Write-Note $apply.Output
+        Write-Fail "Patch did not apply cleanly (exit $($apply.ExitCode)). No PR."
+        Write-Note 'Most likely the snapshot is stale relative to origin/main. Rebuild it.'
+        exit 1
+    }
+
+    # `git apply --3way` STAGES what it applies, so `git diff --name-only` (unstaged only)
+    # reports nothing and the patch looks like a no-op. Diff against HEAD to catch staged and
+    # unstaged alike. The --3way pass also prints "repository lacks the necessary blob" for a
+    # `diff -ruN` patch, which carries no index lines, then falls back to direct application
+    # and succeeds: that message is noise, not failure.
+    $tracked = (Invoke-Git @('-C', $WorktreeDir, 'diff', 'HEAD', '--name-only')).Output -split "`r?`n"
+    $untracked = (Invoke-Git @('-C', $WorktreeDir, 'ls-files', '--others', '--exclude-standard')).Output -split "`r?`n"
+    $changed = @($tracked + $untracked | Where-Object { $_ -and $_.Trim() } | ForEach-Object { $_.Trim() })
+    Write-Note "files changed = $($changed.Count)"
+    foreach ($f in $changed) { Write-Note "  $f" }
+
+    if ($changed.Count -eq 0) {
+        Write-Fail 'Patch applied but changed nothing. No PR.'
+        exit 0
+    }
+
+    # The fire is told not to touch these. Enforce it here rather than trusting the prompt:
+    # a protected-path edit is a hard stop, not a regression to be weighed.
+    $protected = @('PRODUCT.md', 'DECISIONS.md', 'CLAUDE.md', 'docs/quantitative_claims.yaml')
+    $violations = @($changed | Where-Object {
+        $p = $_ -replace '\\', '/'
+        ($protected -contains $p) -or $p.StartsWith('docs/trust/') -or $p.StartsWith('eval/results/')
+    })
+    if ($violations.Count -gt 0) {
+        Write-Fail "Patch touches protected paths. No PR."
+        foreach ($v in $violations) { Write-Note "  PROTECTED: $v" }
+        exit 1
+    }
+
+    # --- 5. Re-gate -------------------------------------------------------------------
+    $after = Invoke-Gates -Dir $WorktreeDir -Label 'after patch'
+
+    $regressed = Get-Regressions -Before $before -After $after
+    if ($regressed) {
+        Write-Fail "Patch REGRESSED: $regressed. No PR."
+        Write-Note 'The patch is preserved at the path above if you want to inspect it.'
+        exit 1
+    }
+    Write-Note 'No regression. Proceeding.'
+
+    # --- 6. Branch, commit, push, PR --------------------------------------------------
+    Write-Step 'Opening the pull request'
+
+    $reviewLocal = Join-Path $WorkDir 'daily-review.md'
+    if (-not $PatchFile) {
+        $dest = ($WorkDir -replace '\\', '/')
+        if (Test-Path $reviewLocal) { Remove-Item $reviewLocal }
+        Invoke-SnowSql "GET '$StagePath/daily-review.md' 'file://$dest/'" | Out-Null
+    }
+
+    $prBody = @"
+Automated implementation from the daily Cortex Code automation.
+
+**Do not merge without reading the diff.** This was written by an unattended agent that
+**could not run the test suite** (the sandbox has no dependencies installed). The gates below
+were run locally against a clean worktree at ``origin/main`` after applying its patch.
+
+| Gate | Baseline @ $baseSha | After patch |
+| --- | --- | --- |
+| lint | $($before['lint']) | $($after['lint']) |
+| type | $($before['type']) | $($after['type']) |
+| test | $($before['test']) | $($after['test']) |
+
+A gate that was already failing at baseline does not block, since that failure predates this
+patch. Only a pass-to-fail transition blocks.
+
+Files changed: $($changed.Count)
+
+---
+
+$(if (Test-Path $reviewLocal) { Get-Content $reviewLocal -Raw } else { '_No review file was retrieved._' })
+"@
+
+    if ($DryRun) {
+        Write-Note 'DRY RUN: would create branch, commit, push, and open a PR.'
+        Write-Note "  branch = $Branch"
+        Write-Note "  body   = $($prBody.Length) chars"
+        exit 0
+    }
+
+    Invoke-Git @('-C', $WorktreeDir, 'checkout', '-b', $Branch) | Out-Null
+    Invoke-Git (@('-C', $WorktreeDir, 'add', '--') + $changed) | Out-Null
+    Invoke-Git @(
+        '-C', $WorktreeDir,
+        '-c', 'user.email=automation@dataforge.local',
+        '-c', 'user.name=DataForge Automation',
+        'commit',
+        '-m', "Automated implementation $Stamp",
+        '-m', 'Written by the daily unattended automation. Gates were run locally against a clean worktree at origin/main; see the PR body for baseline and post-patch results. The agent could not run the test suite itself.'
+    ) | Out-Null
+
+    $push = Invoke-Git @('-C', $WorktreeDir, 'push', 'origin', $Branch)
+    Write-Note $push.Output
+    if ($push.ExitCode -ne 0) {
+        Write-Fail "Push failed (exit $($push.ExitCode)). No PR."
+        exit 1
+    }
+
+    $bodyFile = Join-Path $WorkDir 'pr_body.md'
+    Set-Content -Path $bodyFile -Value $prBody -Encoding UTF8
+
+    Push-Location $WorktreeDir
+    try {
+        $pr = Invoke-Native -File 'gh' -Arguments @(
+            'pr', 'create', '--base', 'main', '--head', $Branch,
+            '--title', "Automated implementation $Stamp",
+            '--body-file', $bodyFile
+        )
+        Write-Host $pr.Output
+        if ($pr.ExitCode -ne 0) { Write-Fail "gh pr create failed (exit $($pr.ExitCode)). Branch is pushed; open the PR manually." }
+    }
+    finally {
+        Pop-Location
+    }
+
+    Write-Step 'Done'
+}
+finally {
+    Write-Step 'Cleaning up the worktree'
+    Remove-StaleWorktree
+    Write-Note 'Developer checkout was never touched.'
+}
