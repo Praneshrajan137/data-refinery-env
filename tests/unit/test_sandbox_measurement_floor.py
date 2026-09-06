@@ -42,6 +42,11 @@ _UNSAFE_UNATTENDED = {
     "mutate_autoapply_guards.py": "mutates product source in place",
     "mutate_domain_vocabulary.py": "rewrites the generated vocabulary",
     "installed_cli_smoke.py": "requires an installed console script, not just the source",
+    "attestation_conformance.py": (
+        "shells out to `npx vitest`, and the sandbox has neither node nor node_modules "
+        "(the latter is excluded from the snapshot), so it always fails there for "
+        "environmental reasons and would manufacture a false finding"
+    ),
 }
 
 
