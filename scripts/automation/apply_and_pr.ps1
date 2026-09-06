@@ -67,12 +67,19 @@ $WorkDir    = Join-Path $env:TEMP 'dataforge-automation'
 $WorktreeDir = Join-Path $WorkDir 'worktree'
 $Stamp      = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
 $Branch     = "automation/impl-$Stamp"
-$Python     = Join-Path $RepoRoot '.venv\Scripts\python.exe'
 
-# Snowflake CLI lives in its own venv, deliberately NOT the repo .venv: adding a dependency
-# there would diverge from pyproject.toml and uv.lock and could perturb the long, exact file
-# lists in `make lint` and `make type`.
+# Snowflake CLI and the gate interpreter live in their own venvs, deliberately NOT the repo
+# .venv: a dependency added there would diverge from pyproject.toml and uv.lock and could
+# perturb the long, exact file lists in `make lint` and `make type`.
 $Snow = Join-Path $env:LOCALAPPDATA 'dataforge-automation\venv\Scripts\snow.exe'
+
+# The gate venv carries the repo's [dev,playground] extras. It is repointed at the worktree
+# on every run (see Set-GateVenvToWorktree) so that `import dataforge` resolves to the PATCHED
+# source. Using the repo .venv here would be wrong: its
+# __editable__.dataforge_07-0.1.0.pth installs a finder that hardcodes C:\dev\dataforge, so
+# pytest would collect the worktree's tests while exercising the main checkout's code, and a
+# runtime regression would be invisible.
+$GatePython = Join-Path $env:LOCALAPPDATA 'dataforge-automation\gatevenv\Scripts\python.exe'
 
 function Write-Step { param([string]$Message) Write-Host "`n==> $Message" -ForegroundColor Cyan }
 function Write-Note { param([string]$Message) Write-Host "    $Message" -ForegroundColor DarkGray }
@@ -164,41 +171,137 @@ function Remove-StaleWorktree {
     Invoke-Git @('-C', $RepoRoot, 'worktree', 'prune') | Out-Null
 }
 
-# Runs the three real gates verbatim as the Makefile defines them. A subset of a gate is not
-# evidence about the gate, so these must stay in sync with the Makefile targets.
+# Repoints the gate venv's editable install at the worktree, then PROVES it worked.
+#
+# The assertion is the whole point. Without it the gate silently exercises whatever tree the
+# editable finder happens to reference, which for the repo .venv is always C:\dev\dataforge.
+# Note the check runs from a neutral cwd: from inside the worktree, Python would resolve
+# `dataforge` from the current directory and the test would pass no matter what is installed.
+function Set-GateVenvToWorktree {
+    if (-not (Test-Path $GatePython)) {
+        Write-Fail "Gate venv not found at $GatePython"
+        Write-Note 'Create it with: py -3.12 -m venv <dir>, then <dir>\Scripts\pip install -e <repo>[dev,playground]'
+        return $false
+    }
+
+    Write-Note 'repointing gate venv at the worktree'
+    $res = Invoke-Native -File $GatePython -Arguments @('-m', 'pip', 'install', '-q', '-e', "$WorktreeDir[dev,playground]")
+    if ($res.ExitCode -ne 0) {
+        Write-Fail "Could not repoint the gate venv (exit $($res.ExitCode))"
+        Write-Note $res.Output
+        return $false
+    }
+
+    Push-Location 'C:\'
+    try {
+        $probe = Invoke-Native -File $GatePython -Arguments @('-c', 'import dataforge; print(dataforge.__file__)')
+    }
+    finally {
+        Pop-Location
+    }
+
+    # Separate "the import blew up" from "the import resolved somewhere unexpected". These
+    # need different verdicts: the first means the patch is broken (block it and say so), the
+    # second means the gate itself is misconfigured (block, but do not blame the patch). An
+    # earlier version reported a SyntaxError in the patched source as a gate misconfiguration,
+    # because the traceback text happened to contain the string "dataforge".
+    if ($probe.ExitCode -ne 0) {
+        Write-Fail 'ABORTING: `import dataforge` FAILED in the patched tree.'
+        Write-Note $probe.Output
+        Write-Note 'The patch breaks importing the package, so no gate result would be meaningful.'
+        return $false
+    }
+
+    $resolved = ($probe.Output -split "`r?`n" | Where-Object { $_.Trim() -match '__init__\.py$' } | Select-Object -Last 1)
+    if ($resolved) { $resolved = $resolved.Trim() }
+    if (-not $resolved -or -not $resolved.StartsWith($WorktreeDir, [StringComparison]::OrdinalIgnoreCase)) {
+        Write-Fail 'ABORTING: the gate venv does not resolve dataforge to the worktree.'
+        Write-Note "resolved to: $resolved"
+        Write-Note "expected under: $WorktreeDir"
+        Write-Note 'Gating would test the wrong source tree, so no result would be meaningful.'
+        return $false
+    }
+    Write-Note "dataforge resolves to $resolved"
+    return $true
+}
+
+# Runs the real Makefile targets. GNU Make is available, so there is no reason to approximate
+# them: an earlier version of this script ran `ruff check dataforge tests scripts/ci` and
+# `mypy --strict dataforge` while the PR body claimed "make lint / make type / make test".
+# Real `make lint` is six commands over a much longer path list and real `make type` covers
+# ~35 files beyond dataforge, so the PR was overstating what had been verified.
+#
+# PYTHON must be overridden: the Makefile prefers .venv/Scripts/python.exe and falls back to
+# bare `python`, and the throwaway worktree has no .venv.
+#
+# The test gate deliberately does NOT use `make test`. That target runs `pytest -x`, and under
+# `-n logical` on this machine `-x` produced 12 spurious ERRORs on an UNMODIFIED origin/main
+# while the identical tree passed 2715/0 without `-x` (a known pytest-xdist shouldstop issue
+# that pyproject.toml already comments on). Worse than the flakiness: `-x` aborts the session,
+# so everything after the abort is never run and the gate looks stricter than it is. Running
+# the whole suite and comparing counts is both more stable and more informative.
 function Invoke-Gates {
-    param([string]$Dir, [string]$Label)
+    param([string]$Label)
 
     Write-Step "Gates ($Label)"
     $results = [ordered]@{}
+    $makePython = $GatePython -replace '\\', '/'
 
-    Push-Location $Dir
+    Push-Location $WorktreeDir
     try {
-        Write-Note 'make lint'
-        $results['lint'] = (Invoke-Native -File $Python -Arguments @('-m', 'ruff', 'check', 'dataforge', 'tests', 'scripts/ci')).ExitCode
+        Write-Note 'make lint (verbatim)'
+        $results['lint'] = (Invoke-Native -File 'make' -Arguments @('lint', "PYTHON=$makePython")).ExitCode
 
-        Write-Note 'make type'
-        $results['type'] = (Invoke-Native -File $Python -Arguments @('-m', 'mypy', '--strict', 'dataforge')).ExitCode
+        Write-Note 'make type (verbatim)'
+        $results['type'] = (Invoke-Native -File 'make' -Arguments @('type', "PYTHON=$makePython")).ExitCode
 
         if ($SkipTests) {
-            Write-Note 'make test SKIPPED (-SkipTests)'
+            Write-Note 'tests SKIPPED (-SkipTests)'
             $results['test'] = 'skipped'
         }
         else {
-            Write-Note 'make test (pytest -x -n logical)'
-            $results['test'] = (Invoke-Native -File $Python -Arguments @('-m', 'pytest', 'tests/', '-x', '-n', 'logical')).ExitCode
+            Write-Note 'pytest tests/ -n logical (no -x, see comment above)'
+            $run = Invoke-Native -File $GatePython -Arguments @('-m', 'pytest', 'tests/', '-q', '-n', 'logical')
+            $counts = Get-PytestCounts -Output $run.Output
+            $results['test'] = $counts
+            Write-Note $counts.Line
         }
     }
     finally {
         Pop-Location
     }
 
-    foreach ($k in $results.Keys) { Write-Note ("{0,-6} => {1}" -f $k, $results[$k]) }
+    foreach ($k in $results.Keys) {
+        if ($results[$k] -is [string]) { Write-Note ("{0,-6} => {1}" -f $k, $results[$k]) }
+        elseif ($results[$k] -is [hashtable]) { Write-Note ("{0,-6} => {1} failed, {2} errors" -f $k, $results[$k].Failed, $results[$k].Errors) }
+        else { Write-Note ("{0,-6} => {1}" -f $k, $results[$k]) }
+    }
     return $results
 }
 
 # A gate regressed only if it was passing and now is not. A gate that was already failing
 # stays failing without blocking, because that failure is not the patch's fault.
+# Extracts counts from a pytest summary line such as "2 failed, 2713 passed, 9 skipped".
+#
+# Counts matter, not the exit code. On this machine the suite is FLAKY in a worktree under
+# `-n logical`: an unmodified origin/main produced "2715 passed, 12 errors" on one run and
+# "2715 passed, 0 errors" on another. Comparing exit codes therefore hides real breakage,
+# because a baseline already nonzero for a spurious reason makes later failures look like no
+# change. Not hypothetical: a patch inverting a branch of SafetyFilter.confirms produced 2
+# genuine test failures and was WAVED THROUGH by exit-code comparison, with lint and type
+# both clean. Only the failure count caught it.
+function Get-PytestCounts {
+    param([string]$Output)
+    $line = ($Output -split "`r?`n" | Where-Object { $_ -match '\d+ (passed|failed|error)' } | Select-Object -Last 1)
+    $text = ''
+    if ($line) { $text = $line.Trim() }
+    $counts = @{ Failed = 0; Errors = 0; Passed = 0; Line = $text }
+    if ($text -match '(\d+) failed') { $counts.Failed = [int]$Matches[1] }
+    if ($text -match '(\d+) error')  { $counts.Errors = [int]$Matches[1] }
+    if ($text -match '(\d+) passed') { $counts.Passed = [int]$Matches[1] }
+    return $counts
+}
+
 # Returns a comma-separated list of regressed gate names, or an empty string if none.
 # A string rather than an array on purpose: PowerShell unwraps an empty array to $null (and
 # $null.Count throws under StrictMode), while `,$arr` wraps it one level too deep and reports
@@ -206,10 +309,19 @@ function Invoke-Gates {
 function Get-Regressions {
     param($Before, $After)
     $regressed = New-Object System.Collections.Generic.List[string]
-    foreach ($k in $Before.Keys) {
+
+    foreach ($k in @('lint', 'type')) {
         if ($Before[$k] -eq 'skipped' -or $After[$k] -eq 'skipped') { continue }
         if ($Before[$k] -eq 0 -and $After[$k] -ne 0) { $regressed.Add($k) }
     }
+
+    # Tests compare FAILURE COUNTS, so a flaky-red baseline cannot mask new breakage.
+    if ($Before['test'] -isnot [string] -and $After['test'] -isnot [string]) {
+        if ($After['test'].Failed -gt $Before['test'].Failed) {
+            $regressed.Add("test ($($Before['test'].Failed) -> $($After['test'].Failed) failed)")
+        }
+    }
+
     return ($regressed -join ', ')
 }
 
@@ -221,7 +333,7 @@ Write-Note "branch     = $Branch"
 Write-Note "connection = $Connection"
 Write-Note "dry run    = $DryRun"
 
-if (-not (Test-Path $Python)) { throw "Python not found at $Python. Create the venv first." }
+if (-not (Test-Path $GatePython)) { throw "Gate venv python not found at $GatePython. Create it first." }
 
 if (-not (Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | Out-Null }
 
@@ -299,7 +411,9 @@ Write-Note "worktree at origin/main = $baseSha"
 
 try {
     # --- 3. Baseline -------------------------------------------------------------------
-    $before = Invoke-Gates -Dir $WorktreeDir -Label "baseline @ $baseSha"
+    if (-not (Set-GateVenvToWorktree)) { exit 1 }
+
+    $before = Invoke-Gates -Label "baseline @ $baseSha"
 
     # --- 4. Apply ---------------------------------------------------------------------
     Write-Step 'Applying the patch'
@@ -342,7 +456,10 @@ try {
     }
 
     # --- 5. Re-gate -------------------------------------------------------------------
-    $after = Invoke-Gates -Dir $WorktreeDir -Label 'after patch'
+    # Repoint again: the patch may have changed packaging metadata, and this is cheap.
+    if (-not (Set-GateVenvToWorktree)) { exit 1 }
+
+    $after = Invoke-Gates -Label 'after patch'
 
     $regressed = Get-Regressions -Before $before -After $after
     if ($regressed) {
@@ -366,15 +483,20 @@ try {
     $prBody = @"
 Automated implementation from the daily Cortex Code automation.
 
-**Do not merge without reading the diff.** This was written by an unattended agent that
-**could not run the test suite** (the sandbox has no dependencies installed). The gates below
-were run locally against a clean worktree at ``origin/main`` after applying its patch.
+**Do not merge without reading the diff.** This was written by an unattended agent. It ran
+its own tests in the sandbox, but the authoritative gates below were run here, against a
+clean worktree at ``origin/main`` with the patch applied, in a venv repointed so that
+``import dataforge`` resolves to the patched tree.
 
 | Gate | Baseline @ $baseSha | After patch |
 | --- | --- | --- |
-| lint | $($before['lint']) | $($after['lint']) |
-| type | $($before['type']) | $($after['type']) |
-| test | $($before['test']) | $($after['test']) |
+| ``make lint`` (verbatim) | $($before['lint']) | $($after['lint']) |
+| ``make type`` (verbatim) | $($before['type']) | $($after['type']) |
+| ``pytest tests/ -n logical`` | $(if ($before['test'] -is [string]) { $before['test'] } else { "$($before['test'].Failed) failed, $($before['test'].Errors) errors" }) | $(if ($after['test'] -is [string]) { $after['test'] } else { "$($after['test'].Failed) failed, $($after['test'].Errors) errors" }) |
+
+The test row compares **failure counts**, not exit codes: this suite is flaky in a worktree
+under ``-n logical`` (an unmodified ``origin/main`` has produced 0 and 12 collection errors on
+consecutive runs), and comparing exit codes let a real 2-test regression through unblocked.
 
 A gate that was already failing at baseline does not block, since that failure predates this
 patch. Only a pass-to-fail transition blocks.

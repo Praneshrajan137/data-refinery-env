@@ -338,11 +338,38 @@ review.
 
 That was caused by a prompt defect, not by the fire misbehaving: the prompt required that
 no number be stated unless the fire measured it in that run, which left no option but to
-make the tree executable. The dependency tree it walked into includes `z3-solver`,
-`pandas`, `numpy`, `pyarrow`, `networkx`, `causal-learn` and `hyppo`.
+make the tree executable — and the snapshot of the day was missing `training/` and
+`playground/`, so it could not import 10 modules after paying the install cost.
 
 **If a prompt forbids installs, it must also state what remains measurable.** Otherwise the
 constraint is incoherent and consumes the run.
+
+### Installing is affordable, and the ban that followed was wrong
+
+The ban was justified by naming `pyarrow`, `networkx`, `causal-learn` and `hyppo` as part of
+the dependency tree. **They are optional extras** (`bench`, `causal`, `pandas`), as are
+`torch`/`transformers`/`trl` (`train`). Core is **11 packages**. Measured 2026-09-02 in a
+clean 3.12 venv:
+
+| Step | Cost |
+| --- | --- |
+| 16 packages (11 core + pytest, pytest-xdist, hypothesis, jsonschema, psutil) | 141 s, 190 MB |
+| `pytest tests/unit` (2373 tests) | 111 s |
+| full `pytest tests/ -n logical` (2724 collected) | 32 s |
+
+So a fully TDD-capable environment costs about four and a half minutes. A fire is now told to
+build one, because red-green TDD is not possible without it and a fix with no executed test is
+not an implemented fix.
+
+Two things a fire must get right when it does:
+
+- **Repoint the package after installing deps**: `pip install -e /tmp/src --no-deps`. Without
+  it `import dataforge` can resolve elsewhere and the tests exercise the wrong tree. Verify
+  from a directory *other* than `/tmp/src`, since Python resolves an uninstalled package from
+  the current directory and the check would pass regardless.
+- **Never combine `-x` with `-n`.** On this suite that produces spurious collection errors and
+  aborts the session, so everything after the abort goes untested. See the gate note below.
+
 
 **Six** scripts under `scripts/ci/` import only the standard library, derived by AST on
 2026-09-01 and enforced by `tests/unit/test_sandbox_measurement_floor.py` so the set cannot
@@ -383,9 +410,54 @@ belong after an install step, and the budget has to pay for it.
 `gate_population.py` accepts `--emit`; all three rewrite tracked files. Never run
 `scripts/ci/mutate_*.py` unattended — they rewrite corpora.
 
-Shell tools (`grep`, `wc`, `find`, `sort`, `uniq`, and `python` for one-off stdlib
-analysis) are free and give real citable structure: file counts, line counts, test counts,
-import graphs, persistent TODOs.
+### Two defects that made the gate weaker than its own PR body claimed
+
+Both found 2026-09-02, both mine, and the second had already let a real regression through in
+testing.
+
+**1. The gates were an approximation.** The script ran `ruff check dataforge tests scripts/ci`
+and `mypy --strict dataforge` while the PR body said "make lint / make type / make test". Real
+`make lint` is six commands over a longer path list; real `make type` covers 187 files. GNU
+Make 4.4.1 is installed, so the approximation bought nothing. It now runs `make lint` and
+`make type` verbatim, with `PYTHON=` overridden because the Makefile prefers
+`.venv/Scripts/python.exe` and the throwaway worktree has none.
+
+**2. The tests were exercising the wrong source tree.**
+`.venv/Lib/site-packages/__editable__.dataforge_07-0.1.0.pth` installs a finder that
+**hardcodes `C:\dev\dataforge`**. Using the repo venv, `import dataforge` resolves to the main
+checkout no matter the cwd, so pytest would collect the worktree's test files while running the
+main checkout's code. A patch breaking runtime behaviour would be invisible; only ruff and
+mypy, being file-based, saw the patch at all. Baseline-vs-after does **not** rescue this —
+both runs would exercise identical unpatched source.
+
+Fixed with a persistent gate venv at `%LOCALAPPDATA%\dataforge-automation\gatevenv` carrying
+the repo's `[dev,playground]` extras, repointed each run via
+`pip install -e <worktree>[dev,playground]`, plus an assertion that `dataforge.__file__` really
+is under the worktree. The assertion is the load-bearing part; without it the gate silently
+tests whatever tree the finder happens to reference.
+
+### The test gate compares failure COUNTS, not exit codes
+
+This is not fussiness. The suite is **flaky in a worktree under `-n logical`**: an unmodified
+`origin/main` produced `2715 passed, 12 errors` on one run and `2715 passed, 0 errors` on the
+next. Because "a gate already failing at baseline does not block", a flaky-red baseline made
+new breakage invisible.
+
+Demonstrated, not theorised. A patch inverting one branch of `SafetyFilter.confirms` — type
+correct, lint clean — produced **2 genuine test failures** and was **waved through** by
+exit-code comparison, because baseline and after were both exit 1. Comparing failure counts
+(`0 -> 2 failed`) blocks it correctly.
+
+For the same reason the gate does not run `make test` verbatim: that target uses `pytest -x`,
+and `-x` under `-n` both triggers the spurious errors and aborts the session, leaving
+everything after the abort unrun. Running the whole suite without `-x` is more stable and more
+informative. This is a deliberate, documented deviation from the Makefile target.
+
+One accepted caveat: the gate venv resolves tool versions within the repo's declared pins
+(e.g. `ruff>=0.16.2,<0.17`) and may differ by a patch version from CI's resolution. Since
+baseline and after share the venv, that cannot manufacture a false regression, and the PR still
+faces real CI.
+
 
 ## Prompt invariants
 
@@ -402,6 +474,22 @@ Beyond the environment facts above, an unattended prompt must:
    correct outcome.
 6. End with a single machine-parseable status line, so a vacuous success is
    distinguishable from a real one.
+7. Name the repo's own discipline explicitly, because a generic instruction to "write tests"
+   will not find it:
+   - **Spec first.** Behaviour lives in `specs/SPEC_*.md`; a behaviour change updates its spec
+     in the same patch.
+   - **Real red-green TDD**, now that a fire can build an environment: run the new test, see
+     it fail, implement, run it again, and report both results.
+   - **The right tier**: `tests/unit`, `tests/property` (hypothesis), `tests/adversarial`,
+     `tests/regression`, `tests/integration`.
+   - **`test_map.json`**: every `dataforge` module needs a decision (131 currently). A new
+     module means a new entry, mapped or a deliberately declared fallback.
+   - **There is no BDD framework.** No `behave`, no `pytest-bdd`, no Gherkin runner is
+     installed, so `.feature` files would be unexecutable ceremony. Say so, or a fire asked
+     for "BDD" will invent it. The five tiers are this repo's equivalent and are stricter.
+8. Forbid self-registering measurements. `eval/results/` and `docs/quantitative_claims.yaml`
+   are off-limits, so a new measurement is *proposed* in the review with the command that
+   produced it, for a human to register. Otherwise the fire writes its own evidence.
 
 ## Debugging a fire
 
