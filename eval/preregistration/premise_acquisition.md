@@ -188,3 +188,62 @@ Any movement in the oracle column is K2 firing.
 - **C4 cannot be validated on `rwd` at all.** `rwd` supplies annotations, not dirty/clean
   pairs, so it can test H1 but **not** P3-P5. The write-exposure arm runs on the four existing
   corpora only. Conflating the two would be the scoping error this project has made before.
+
+## AMENDMENT 1 (2026-09-07)
+
+**Recorded after both arms ran.** Nothing above is edited, including the predictions this
+amendment refutes.
+
+### Outcomes
+
+| # | Prediction | Outcome |
+| --- | --- | --- |
+| **H1** | no measure separates across held-out tables | **stands.** K1 did not fire. `mu_plus` clean on 4 of 10 folds and discarding 16 of 143 true dependencies; `confidence` 1 of 10 and 23. |
+| **P1** | every measure fails at least one fold | **confirmed.** |
+| **P2** | failures are table-dependent, not measure-dependent | **confirmed.** `mu_plus`'s threshold is 0.991374 on nine of ten folds; the tables move under it. |
+| **P3** | hospital 116 -> 0 corruptions, 451 -> 0 repairs | **REFUTED.** Measured through the pipeline: **1 -> 0 repairs, 0 -> 0 corruptions.** |
+| **P4** | `tax` default path writes 0 | **not measured.** See below. |
+| **P5** | flights and rayyan unchanged at 0 writes | **confirmed.** Both arms write 0; the miner finds no dependency. |
+| **P6** | zero new constants | **confirmed.** C4 is a partition over an enum; verifiable in the diff. |
+| **P7** | `_MAX_DETERMINANT_UNIQUE_FRACTION` retained | **confirmed.** Untouched. |
+
+### Why P3 was refuted, and the larger finding
+
+P3 assumed the 451/116 figures describe pipeline writes. They do not: they come from
+`measure_deductive_coverage.py`, which runs **no verifier and no auto-apply gate**. The shipped
+pipeline writes **1** cell on hospital under the full 85-dependency mined premise, because the
+repairer abstains on 10,368 of 10,373 flagged cells -- the lexicographically-first applicable
+dependency usually agrees with the current value, and the shipped rule returns `None` rather
+than falling through.
+
+**Three instruments therefore disagree about the same question, and only one is what a user
+runs.** That is recorded in `docs/trust/premise-acquisition-result.md` and deliberately left
+open: which number should anchor this project's capability claim is a scoping decision that
+needs its own pre-registration.
+
+**The prediction was written using a number from the wrong instrument, and an earlier draft of
+PRODUCT.md 1.5 then quoted the same number as the cost of C4.** Both are the
+protocol-comparability defect this repository has been correcting elsewhere all week, committed
+here against its own figures rather than a competitor's. Recorded rather than quietly fixed.
+
+### What it does to C4
+
+C4 is retained, on the argument that survives: it is **architectural, not empirical**. It does
+not prevent 116 corruptions -- it prevents none, because the repairer was already abstaining.
+It converts a refusal that was **incidental**, and that a future change to the choice rule could
+remove unnoticed, into one that is principled, named, and tested in both directions. H1 is what
+supports that: the premise cannot be validated in-table, so authority must not rest on it.
+
+**K2 held.** The declared arm is untouched; the K4 fence (53/81/85, 393/451/451, 0/86/116,
+`replication_mismatches` 0) is unmoved because it measures a layer C4 does not touch -- which is
+itself part of the finding above.
+
+**K4 held.** The trade is stated in PRODUCT.md 1.5, in the receipt's own reason string, and in
+the CLI help for `--trust-mined-constraints`.
+
+### P4 is not measured, and is not claimed
+
+`tax` was not run. It is ~200k rows and
+`docs/trust/sampling-bias-measured.md` establishes that a head slice is not a sample, so a
+truncated run would be worse than none. Reporting P4 as **untested** is the accurate outcome
+rather than a gap to be filled with a fast approximation.

@@ -35,6 +35,43 @@ claims instead. That exclusion is recorded in the test, not implied.
 
 ---
 
+## 2026-09-07 - P3 refuted: the 451/116 figures are proposals, not writes, and I quoted them as writes
+
+**Decision.** Retain C4, on an architectural argument, and record that the empirical argument
+originally given for it was built on a number from the wrong instrument -- by me, in the same
+task that was correcting this defect elsewhere.
+
+**What was measured.** scripts/bench/measure_premise_write_exposure.py runs the shipped
+
+un_repair_pipeline twice per corpus in dry_run, differing only in
+mined_constraints_grant_write_authority. On hospital, with all 85 mined dependencies accepted,
+the legacy arm writes **1** cell and the C4 arm writes **0**. flights and rayyan write 0 in both
+arms. Artifact: eval/results/premise_acquisition_write_exposure.json.
+
+**Why the prediction was wrong.** P3 predicted 451 repairs and 116 corruptions falling to zero.
+Those figures come from measure_deductive_coverage.py, which imports the detector and repairer
+directly and runs **no verifier and no auto-apply gate**. The pipeline detects 10,373 issues and
+records 10,368 ttempted_not_fixed -- the repairer abstains, because the
+lexicographically-first applicable dependency usually agrees with the current cell and the
+shipped rule returns None rather than falling through. Three instruments disagree about the
+same question and only one is what a user runs.
+
+**Why C4 is kept anyway.** Not because it prevents 116 corruptions; measured, it prevents none.
+Because the refusal it replaces was **incidental** -- a by-product of a choice rule that a future
+change could remove with no test noticing -- and is now principled, named, and tested in both
+directions. H1 supports this: no in-table quality measure transfers across held-out tables, so
+write authority must not rest on a mined premise. A guarantee that holds by accident is not a
+guarantee.
+
+**What was corrected rather than defended.** PRODUCT.md 1.5 and both erifier_reason strings
+shipped to users quoted 451/116 as the cost of C4. Both are corrected; the error is recorded in
+AMENDMENT 1 of the pre-registration and in docs/trust/premise-acquisition-result.md instead of
+being edited out of history.
+
+**Left open on purpose.** Which figure should anchor this project's capability claim is a scoping
+decision that needs its own pre-registration. P4 (	ax) is reported **untested**: at ~200k rows
+a head slice is not a sample, and an approximation would be worse than an admission.
+
 ## 2026-09-07 - Write authority follows a constraint's provenance, not the miner's confidence (C4)
 
 **Context**: Four in-table premise measures had been refused as gates, each after seeing the

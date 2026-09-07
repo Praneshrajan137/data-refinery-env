@@ -1,0 +1,103 @@
+{
+  "corpora": {
+    "flights": {
+      "arms": {
+        "c4_declared_authority": {
+          "corrupted_a_clean_cell": 0,
+          "net_cells_improved": 0,
+          "no_op_on_a_clean_cell": 0,
+          "repaired_a_real_error": 0,
+          "write_precision": null,
+          "writes": 0,
+          "wrong_value_on_a_real_error": 0
+        },
+        "legacy_mined_authority": {
+          "corrupted_a_clean_cell": 0,
+          "net_cells_improved": 0,
+          "no_op_on_a_clean_cell": 0,
+          "repaired_a_real_error": 0,
+          "write_precision": null,
+          "writes": 0,
+          "wrong_value_on_a_real_error": 0
+        }
+      },
+      "delta": {
+        "corruptions_prevented": 0,
+        "repairs_given_up": 0
+      },
+      "mined_fds_accepted": 0,
+      "real_errors_in_shared_columns": 4920,
+      "rows": 2376,
+      "status": "measured"
+    },
+    "hospital": {
+      "arms": {
+        "c4_declared_authority": {
+          "corrupted_a_clean_cell": 0,
+          "net_cells_improved": 0,
+          "no_op_on_a_clean_cell": 0,
+          "repaired_a_real_error": 0,
+          "write_precision": null,
+          "writes": 0,
+          "wrong_value_on_a_real_error": 0
+        },
+        "legacy_mined_authority": {
+          "corrupted_a_clean_cell": 0,
+          "net_cells_improved": 1,
+          "no_op_on_a_clean_cell": 0,
+          "repaired_a_real_error": 1,
+          "write_precision": 1.0,
+          "writes": 1,
+          "wrong_value_on_a_real_error": 0
+        }
+      },
+      "delta": {
+        "corruptions_prevented": 0,
+        "repairs_given_up": 1
+      },
+      "mined_fds_accepted": 85,
+      "real_errors_in_shared_columns": 509,
+      "rows": 1000,
+      "status": "measured"
+    },
+    "rayyan": {
+      "arms": {
+        "c4_declared_authority": {
+          "corrupted_a_clean_cell": 0,
+          "net_cells_improved": 0,
+          "no_op_on_a_clean_cell": 0,
+          "repaired_a_real_error": 0,
+          "write_precision": null,
+          "writes": 0,
+          "wrong_value_on_a_real_error": 0
+        },
+        "legacy_mined_authority": {
+          "corrupted_a_clean_cell": 0,
+          "net_cells_improved": 0,
+          "no_op_on_a_clean_cell": 0,
+          "repaired_a_real_error": 0,
+          "write_precision": null,
+          "writes": 0,
+          "wrong_value_on_a_real_error": 0
+        }
+      },
+      "delta": {
+        "corruptions_prevented": 0,
+        "repairs_given_up": 0
+      },
+      "mined_fds_accepted": 0,
+      "real_errors_in_shared_columns": 948,
+      "rows": 1000,
+      "status": "measured"
+    }
+  },
+  "method": "run_repair_pipeline in dry_run mode, twice per corpus, differing only in mined_constraints_grant_write_authority. The premise is built through infer_schema + build_constraint_review_artifact + accept-all, i.e. the objects the user's own commands run. Scoring vocabulary matches scripts/bench/measure_deductive_coverage.py.",
+  "note": "The K4 fence harness measures the repairer and verifier directly and cannot see the authority gate, which is why this arm exists separately rather than as a column there.",
+  "predictions_tested": [
+    "P3",
+    "P4",
+    "P5"
+  ],
+  "preregistration": "eval/preregistration/premise_acquisition.md",
+  "schema_version": "dataforge_premise_write_exposure_v1"
+}

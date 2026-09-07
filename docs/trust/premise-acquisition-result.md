@@ -144,6 +144,74 @@ refusal instead of a proven-vs-blocked split, and `independent_verification` rep
 where no value is a write candidate. "Zero writes is not a safety result" applies to this change
 first.
 
+## P3 measured, and it refutes itself: three instruments disagree
+
+Artifact: `eval/results/premise_acquisition_write_exposure.json`. Both arms run
+`run_repair_pipeline` in `dry_run`, differing only in
+`mined_constraints_grant_write_authority`, with all mined dependencies accepted.
+
+| corpus | mined FDs | legacy repairs / corruptions | C4 repairs / corruptions |
+| --- | --- | --- | --- |
+| hospital | 85 | **1 / 0** | 0 / 0 |
+| flights | 0 | 0 / 0 | 0 / 0 |
+| rayyan | 0 | 0 / 0 | 0 / 0 |
+
+**P5 is confirmed.** flights and rayyan are unchanged, because their miner finds no dependency
+and C4 has nothing to withdraw.
+
+**P3 is refuted as stated.** It predicted `corrupted_a_clean_cell` falling from 116 to 0 and
+`repaired_a_real_error` falling from 451 to 0. Measured through the pipeline: **1 to 0 repairs,
+and 0 to 0 corruptions.** C4's measured benefit on hospital is *zero corruptions prevented*,
+because the shipped pipeline was already not making those writes.
+
+### Why, and this is the part worth keeping
+
+On hospital the pipeline detects **10,373 issues** (10,192 of them `fd_violation`) and records
+**10,368 `attempted_not_fixed`** with the reason *"No repair proposal was available for this
+issue."* The refusal is the **repairer abstaining**, not the verifier rejecting: with 85
+applicable dependencies, the lexicographically-first one usually agrees with the cell's current
+value, and the shipped rule then returns `None` rather than falling through to another
+dependency. That early-abstain is deliberate -- falling through was measured to cause +45
+corruptions -- and its side effect is that almost nothing is ever proposed.
+
+### The finding, which is larger than P3
+
+**The figures 451 repairs / 116 corruptions / write precision 0.7954 are not pipeline writes.**
+They come from `scripts/bench/measure_deductive_coverage.py`, which imports the detector and the
+repairer directly and runs **no verifier and no auto-apply gate**, so it measures the repairer's
+*choice rule* rather than what a user's `dataforge repair` does. `measure_on_my_table` reproduces
+those same numbers via `blast_radius`, which is also not the pipeline.
+
+So three instruments disagree about the same question, and only one of them is what a user runs:
+
+| instrument | hospital writes, mined premise | runs the verifier? | runs the auto-apply gate? |
+| --- | --- | --- | --- |
+| `measure_deductive_coverage.py` | 567 (451 repairs, 116 corruptions) | no | no |
+| `measure_on_my_table` (`blast_radius`) | 567 | no | no |
+| `run_repair_pipeline` -- **the shipped path** | **1** | yes | yes |
+
+This is not a claim that the 451 figure is wrong about what it measures. It is a claim that it
+has been **quoted for something it does not measure** -- including by an earlier draft of
+PRODUCT.md 1.5 written during this same task, which is how confidently the substitution happens.
+`docs/trust/shipped-premise-result.md` is titled around the word "shipped" while resting on a
+proposal-level instrument, and the 2026-09-01 audit recorded 451 as "user-reachable repair".
+
+**Deliberately not resolved here.** Whether the pipeline's single write or the harness's 567 is
+the number that should anchor this project's capability claim is a scoping decision that deserves
+its own pre-registration, not a paragraph appended to a document whose subject is something else.
+What is settled is that they are different numbers about different things and must stop being
+used interchangeably.
+
+### What this does to the case for C4
+
+It moves it from empirical to architectural, and the honest version is weaker and more durable.
+C4 does not prevent 116 corruptions. It converts a refusal that was **incidental** -- a
+by-product of the repairer's choice rule, which a future change to that rule could remove without
+anyone noticing -- into one that is **principled, named, and tested in both directions**. A
+guarantee that holds by accident is not a guarantee. That argument survives P3's refutation, and
+H1 is what supports it: the premise cannot be validated in-table, so authority must not rest on
+it.
+
 ## Limitations
 
 - **The negative labels are the authors' and still noisy.** They annotated design FDs by hand;

@@ -88,16 +88,36 @@ protocol.
 
 `PRODUCT.md` says elsewhere, and means: **zero writes is not a safety result.** Withholding
 write authority from mined constraints removes the product's only path from a table with no
-declared schema to an unsupervised repair. On the reference corpus that path produced **451
-real repairs and 116 clean-cell corruptions** (write precision 0.7954, roughly one write in
-five damaging good data); a declared premise on the same table produced **393 repairs and no
-corruptions**.
+declared schema to an unsupervised repair.
 
-So the honest framing is not that the product became safer. It is that **capability moved from
-the miner's guess to the user's stated premise** -- the capability was never in the miner. What
-a user gets by default is detection, a named refusal reason, and a one-line way to authorise
-the writes deliberately. What a user loses is a repair that happened without them saying what
-was true about their data.
+**Measured through the shipped pipeline, that cost is one cell.** On hospital, with all 85 mined
+dependencies accepted, `dataforge repair` writes **1** cell before the change and **0** after;
+flights and rayyan write 0 in both arms because their miner finds no dependency
+(`eval/results/premise_acquisition_write_exposure.json`).
+
+**A correction, because an earlier draft of this section made exactly the error this document
+polices.** The figures *451 repairs / 116 corruptions / write precision 0.7954* are widely quoted
+in this repository, including by an earlier version of this section, as what a mined premise
+does. They are **repairer-proposal figures from `measure_deductive_coverage.py`, which runs no
+verifier and no auto-apply gate** -- not pipeline writes. Presenting them as the cost of C4
+attributed one instrument's numbers to another, which is the protocol-comparability defect
+[docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md)
+was written about. The three instruments do not agree, and only the pipeline is what a user runs;
+the discrepancy is recorded and left open in
+[docs/trust/premise-acquisition-result.md](docs/trust/premise-acquisition-result.md).
+
+So the honest case for C4 is **architectural, not empirical**. It is not that the change prevents
+116 corruptions -- measured through the pipeline it prevents none, because the shipped repairer
+was already abstaining. It is that authority to write rested on a premise nobody can validate:
+across ten externally annotated tables no in-table quality measure transfers, and the best of
+four discards 16 of 143 hand-annotated true dependencies when carried to an unseen table. C4
+makes a refusal that was previously **incidental** -- a by-product of the repairer's choice rule
+-- into one that is **principled and named**. A guarantee that holds by accident is not a
+guarantee.
+
+What a user gets by default is detection, a named refusal reason, and a one-line way to
+authorise the writes deliberately. What a user loses is one repair on the reference corpus, and a
+repair that would have happened without them saying what was true about their data.
 
 Two consequences worth naming rather than discovering:
 

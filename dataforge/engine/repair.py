@@ -1975,12 +1975,12 @@ def run_repair_pipeline(
             verifier_reason=(
                 "Held for human review: the only constraint covering this column was "
                 "MINED from your table and accepted in review, not declared. Accepting a "
-                "mined candidate is not the same evidence as declaring a constraint, so it "
-                "does not confer the right to write -- on the reference corpus, writes "
-                "authorised this way repaired 451 real errors and corrupted 116 clean cells, "
-                "while the declared premise repaired 393 and corrupted none. Declare the "
-                "constraint in a schema to authorise these writes, or pass "
-                "mined_constraints_grant_write_authority to restore the previous behaviour."
+                "mined candidate is not the same evidence as declaring a constraint, and no "
+                "in-table quality measure fixes that: across ten externally annotated tables "
+                "the best of four discards 16 of 143 hand-annotated true dependencies when "
+                "carried to an unseen table. Declare the constraint in a schema to authorise "
+                "these writes, or pass mined_constraints_grant_write_authority to restore "
+                "the previous behaviour."
             ),
         )
         + _suggestion_candidates(
@@ -2012,13 +2012,13 @@ def run_repair_pipeline(
                 (
                     "Held for human review: the only dependency covering this column was "
                     "MINED from your table, not declared. Accepting a mined candidate in "
-                    "review is not the same evidence as declaring a constraint, so it does "
-                    "not confer the right to write -- on the reference corpus, writes "
-                    "authorised that way repaired 451 real errors and corrupted 116 clean "
-                    "cells, while the declared premise repaired 393 and corrupted none. "
-                    "Declare the dependency in a schema to authorise these writes, or set "
-                    "mined_constraints_grant_write_authority to restore the previous "
-                    "behaviour."
+                    "review is not the same evidence as declaring a constraint. Across ten "
+                    "externally annotated tables, no in-table quality measure transfers: the "
+                    "best of four discards 16 of 143 hand-annotated true dependencies when "
+                    "carried to an unseen table, so a confidence floor cannot make a mined "
+                    "premise safe to write from. Declare the dependency in a schema to "
+                    "authorise these writes, or set mined_constraints_grant_write_authority "
+                    "to restore the previous behaviour."
                 )
                 if withhold_mined_fd_authority
                 else (

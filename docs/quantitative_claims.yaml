@@ -970,6 +970,47 @@ claims:
     note: >-
       K5 fixed a minimum of four foldable tables, below which leave-one-table-out is not a
       validation and H1 must be reported as untested. Ten satisfies it.
+
+  # --- P3: what C4 actually costs, measured through the pipeline ---
+  # These bind the numbers that REFUTED P3. Registered because the refutation is the finding:
+  # the widely-quoted 451/116 figures are repairer proposals, not pipeline writes, and an
+  # earlier draft of PRODUCT.md 1.5 quoted them as the cost of C4.
+
+  - id: p3_hospital_legacy_repairs
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_write_exposure.json
+    pointer: /corpora/hospital/arms/legacy_mined_authority/repaired_a_real_error
+    format: "{:d}"
+    expect: "1"
+    context: "1 / 0"
+    note: >-
+      The shipped pipeline writes ONE cell on hospital under the full mined premise, against
+      the 451 that measure_deductive_coverage reports for the same premise without a verifier
+      or an auto-apply gate. This single number is why P3 is refuted and why the case for C4
+      is architectural rather than empirical.
+
+  - id: p3_hospital_legacy_corruptions
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_write_exposure.json
+    pointer: /corpora/hospital/arms/legacy_mined_authority/corrupted_a_clean_cell
+    format: "{:d}"
+    expect: "0"
+    context: "0 to 0 corruptions"
+    note: >-
+      Zero corruptions prevented by C4 on hospital, because the shipped repairer was already
+      abstaining. Bound so that a future change to the repairer's choice rule -- which is what
+      makes this zero -- cannot silently move it.
+
+  - id: p3_hospital_mined_fds
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_write_exposure.json
+    pointer: /corpora/hospital/mined_fds_accepted
+    format: "{:d}"
+    expect: "85"
+    context: "hospital | 85"
+    note: >-
+      Matches the accept_all arm of the K4 fence exactly, which is the evidence that both
+      instruments are measuring the same premise and differ only in what they run afterwards.
   - id: decisions_additivity_isolated
     doc: DECISIONS.md
     artifact: eval/results/constraint_additivity.json
