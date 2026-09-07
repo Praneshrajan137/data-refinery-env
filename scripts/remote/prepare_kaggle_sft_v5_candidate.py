@@ -16,12 +16,12 @@ from typing import Any
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATASET_DIR = ROOT / "training" / "kaggle_sft_v5_handoff"
-DEFAULT_KERNEL_DIR = ROOT / "training" / "kaggle_sft_v5_kernel"
+DEFAULT_DATASET_DIR = ROOT / "archive" / "training" / "kaggle_sft_v5_handoff"
+DEFAULT_KERNEL_DIR = ROOT / "archive" / "training" / "kaggle_sft_v5_kernel"
 DEFAULT_TRAJECTORY = ROOT / "data" / "sft_traj" / "expert_v5_repair_curriculum.jsonl"
 DEFAULT_SPLIT_MANIFEST = ROOT / "data" / "sft_traj" / "split_manifest_v4_candidate.json"
 DEFAULT_CURRICULUM_REPORT = ROOT / "eval" / "results" / "sft_v5_repair_curriculum_report.json"
-DEFAULT_SFT_CONFIG = ROOT / "training" / "configs" / "sft_05b_v5.yaml"
+DEFAULT_SFT_CONFIG = ROOT / "archive" / "training" / "configs" / "sft_05b_v5.yaml"
 SFT_SCRIPT = ROOT / "scripts" / "remote" / "kaggle_sft_v5_candidate.py"
 DATASET_ID = "praneshrajan15/dataforge-sft-v5-handoff"
 KERNEL_ID = "praneshrajan15/dataforge-0-5b-sft-v5-candidate"
@@ -40,17 +40,17 @@ SOURCE_EXCLUDES = (
     ".ruff_cache",
     ".venv",
     "__pycache__",
-    "training/kaggle_grpo_smoke_handoff",
-    "training/kaggle_grpo_smoke_kernel",
-    "training/kaggle_grpo_candidate_handoff",
-    "training/kaggle_grpo_candidate_kernel",
-    "training/kaggle_sft_v5_handoff",
-    "training/kaggle_sft_v5_kernel",
-    "training/kaggle_sft_v6_handoff",
-    "training/kaggle_sft_v6_kernel",
-    "training/kaggle_sft_v7_handoff",
-    "training/kaggle_sft_v7_kernel",
-    "training/kaggle_dataset_v3.zip",
+    "archive/training/kaggle_grpo_smoke_handoff",
+    "archive/training/kaggle_grpo_smoke_kernel",
+    "archive/training/kaggle_grpo_candidate_handoff",
+    "archive/training/kaggle_grpo_candidate_kernel",
+    "archive/training/kaggle_sft_v5_handoff",
+    "archive/training/kaggle_sft_v5_kernel",
+    "archive/training/kaggle_sft_v6_handoff",
+    "archive/training/kaggle_sft_v6_kernel",
+    "archive/training/kaggle_sft_v7_handoff",
+    "archive/training/kaggle_sft_v7_kernel",
+    "archive/training/kaggle_dataset_v3.zip",
 )
 
 

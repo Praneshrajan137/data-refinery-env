@@ -392,8 +392,11 @@ def main() -> int:
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from trl import SFTConfig, SFTTrainer
 
-    from training.grpo_eval import build_heldout_tasks, evaluate_causal_lm
-    from training.sft_promotion import build_sft_v5_promotion_report, sft_v5_promotion_gate_failures
+    from archive.training.grpo_eval import build_heldout_tasks, evaluate_causal_lm
+    from archive.training.sft_promotion import (
+        build_sft_v5_promotion_report,
+        sft_v5_promotion_gate_failures,
+    )
 
     if not torch.cuda.is_available():
         raise RuntimeError("Kaggle GPU runtime is required for SFT-v5 candidate.")

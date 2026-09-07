@@ -8,16 +8,16 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
-NOTEBOOK = ROOT / "training" / "kaggle" / "sft_warmup_kaggle.ipynb"
-CONFIG = ROOT / "training" / "configs" / "sft_05b.yaml"
-CONFIG_V2 = ROOT / "training" / "configs" / "sft_05b_v2.yaml"
-CONFIG_V3 = ROOT / "training" / "configs" / "sft_05b_v3.yaml"
-CONFIG_V4 = ROOT / "training" / "configs" / "sft_05b_v4.yaml"
-CONFIG_V5 = ROOT / "training" / "configs" / "sft_05b_v5.yaml"
-CONFIG_V6 = ROOT / "training" / "configs" / "sft_05b_v6.yaml"
-CONFIG_V7 = ROOT / "training" / "configs" / "sft_05b_v7.yaml"
-CONFIG_V8 = ROOT / "training" / "configs" / "sft_05b_v8.yaml"
-CONFIG_V9 = ROOT / "training" / "configs" / "sft_05b_v9.yaml"
+NOTEBOOK = ROOT / "archive" / "training" / "kaggle" / "sft_warmup_kaggle.ipynb"
+CONFIG = ROOT / "archive" / "training" / "configs" / "sft_05b.yaml"
+CONFIG_V2 = ROOT / "archive" / "training" / "configs" / "sft_05b_v2.yaml"
+CONFIG_V3 = ROOT / "archive" / "training" / "configs" / "sft_05b_v3.yaml"
+CONFIG_V4 = ROOT / "archive" / "training" / "configs" / "sft_05b_v4.yaml"
+CONFIG_V5 = ROOT / "archive" / "training" / "configs" / "sft_05b_v5.yaml"
+CONFIG_V6 = ROOT / "archive" / "training" / "configs" / "sft_05b_v6.yaml"
+CONFIG_V7 = ROOT / "archive" / "training" / "configs" / "sft_05b_v7.yaml"
+CONFIG_V8 = ROOT / "archive" / "training" / "configs" / "sft_05b_v8.yaml"
+CONFIG_V9 = ROOT / "archive" / "training" / "configs" / "sft_05b_v9.yaml"
 
 
 def _notebook_source() -> str:

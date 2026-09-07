@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from training.grpo_contract import batch_item, score_grpo_completion
+from archive.training.grpo_contract import batch_item, score_grpo_completion
 
 
 def dataforge_reward(completions: list[Any], **kwargs: Any) -> list[float]:

@@ -282,7 +282,7 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
 def _prepare_dataset(config: dict[str, Any]) -> tuple[Any, dict[str, Any], int]:
     from datasets import Dataset
 
-    from training.grpo_readiness import (
+    from archive.training.grpo_readiness import (
         GrpoReadinessSettings,
         analyze_grpo_readiness,
         build_prompt_example,
@@ -515,14 +515,14 @@ def main() -> int:
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from trl import GRPOConfig, GRPOTrainer
 
-    from scripts.model.verify_grpo_release import verify_local_grpo_artifact_dir
-    from training.grpo_config import build_grpo_config_kwargs
-    from training.grpo_eval import (
+    from archive.training.grpo_config import build_grpo_config_kwargs
+    from archive.training.grpo_eval import (
         build_heldout_tasks,
         evaluate_causal_lm,
         grpo_gate_failures,
     )
-    from training.rewards.dataforge_reward import dataforge_reward
+    from archive.training.rewards.dataforge_reward import dataforge_reward
+    from scripts.model.verify_grpo_release import verify_local_grpo_artifact_dir
 
     if not torch.cuda.is_available():
         raise RuntimeError("Kaggle GPU runtime is required for GRPO candidate.")

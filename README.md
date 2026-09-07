@@ -555,27 +555,34 @@ model-quality claim. Verify release artifacts before citing them:
 
 ## Week 12 GRPO Path
 
+> **ARCHIVED 2026-09-07 — not a product capability.** This subsystem was moved to
+> [`archive/training/`](archive/README.md) because it never passed its own gate and never
+> contributed a single write: best recorded `sft_f1` **0.0202**, and the v7 candidate
+> proposed nothing at all on 576 opportunities. The section below is retained as a record of
+> what was built, not as something to use or cite. Nothing here is on the repair write path,
+> and `tests/unit/test_archive_excision.py` fails if the product imports any of it.
+
 The repository now contains a gated GRPO post-training path for free-tier
 experiments:
 
-- `training/configs/grpo_05b.yaml` targets `DataForge-0.5B-SFT` -> `DataForge-0.5B-GRPO`.
-- `training/configs/grpo_05b_v2.yaml` preserves the verified v1 stack while
+- `archive/training/configs/grpo_05b.yaml` targets `DataForge-0.5B-SFT` -> `DataForge-0.5B-GRPO`.
+- `archive/training/configs/grpo_05b_v2.yaml` preserves the verified v1 stack while
   starting a balanced-recall improvement cycle toward strict macro F1 `>=0.25`;
   it uses Kaggle OAuth via `C:\Users\Pranesh\.kaggle\credentials.json` and
   keeps public model updates blocked until the v2 gate passes.
-- `training/configs/sft_05b_v5.yaml` defines the completed private SFT
+- `archive/training/configs/sft_05b_v5.yaml` defines the completed private SFT
   repair-curriculum diagnostic candidate over `expert_v5_repair_curriculum.jsonl`;
   it failed predecessor gates and is not a public model-quality claim.
 - `scripts/remote/prepare_kaggle_sft_v5_candidate.py` and
   `scripts/remote/kaggle_sft_v5_candidate.py` package and run the private
   SFT-v5 Kaggle candidate. Its report is preserved as failed diagnostic
   evidence, not a GRPO predecessor.
-- `training/configs/sft_05b_v6.yaml` defines the completed private
+- `archive/training/configs/sft_05b_v6.yaml` defines the completed private
   contract-first diagnostic over `expert_v6_contract_minimal.jsonl`. The staged Kaggle path
   defaults to a 20-step smoke, then a 60-step no-upload diagnostic, and only
   allows candidate promotion if `sft_v6_candidate_eval_report.json` has
   `promote_to_grpo: true` and the private checkpoint was uploaded.
-- `training/configs/sft_05b_v7.yaml` defines the next private parse-latch
+- `archive/training/configs/sft_05b_v7.yaml` defines the next private parse-latch
   candidate over `expert_v7_parse_latch.jsonl`. It exists because the
   contract-v3 SFT-v6 diagnostic removed `reason` leakage and schema-case
   errors, but still failed parse/action consistency and active repair.
@@ -583,15 +590,15 @@ experiments:
   SFT-v7 parse-latch Kaggle rung on top of the versioned SFT runner. Candidate
   mode requires a visible HF token before GPU work because GRPO-v3 may only
   consume an uploaded private predecessor.
-- `training/configs/grpo_05b_v3.yaml` consumes only a promoted SFT-v7
+- `archive/training/configs/grpo_05b_v3.yaml` consumes only a promoted SFT-v7
   parse-latch predecessor and runs a
   50-step smoke, 250-step no-upload diagnostic, and 500-step gated candidate.
   It targets strict macro F1 `>=0.25`, parse success `>=0.99`, schema-case
   errors `0`, not-inferable F1 `>=0.95`, and deterministic-normalization F1
   `>=0.50`; these are config gates, not achieved evidence.
-- `training/configs/grpo_15b.yaml` requires a verified `DataForge-1.5B-SFT`
+- `archive/training/configs/grpo_15b.yaml` requires a verified `DataForge-1.5B-SFT`
   prerequisite before attempting `DataForge-1.5B-GRPO`.
-- `training/rewards/dataforge_reward.py` scores completions locally through the
+- `archive/training/rewards/dataforge_reward.py` scores completions locally through the
   strict `repair_contract_v2` action format: explicit JSON action, exact
   allowed columns, valid rows, and no schema-case drift.
 - `scripts/model/grpo_readiness_report.py` writes a local, non-claim diagnostic
@@ -600,7 +607,7 @@ experiments:
 - `scripts/data/audit_real_world_sources.py` verifies canonical Raha source
   revisions, source hashes, row counts, and ground-truth cell counts before
   trajectory generation; stale local caches and embedded fixtures are refused.
-- `training/kaggle/grpo_kaggle.ipynb` defaults to a 50-step no-upload smoke
+- `archive/training/kaggle/grpo_kaggle.ipynb` defaults to a 50-step no-upload smoke
   stage, then permits 500/1000-step candidates only when readiness and the
   held-out gate allow it. Hub upload is blocked unless GRPO beats SFT by at
   least 3 absolute F1 points on `DataForge-Bench-light-verified`.
@@ -658,7 +665,7 @@ model, diagnostic, blocked, and roadmap evidence. Use
 wording.
 
 The planned HF model-family matrix is now manifest-driven in
-`training/configs/model_family.yaml`. It covers the `0.5B`, `1.5B`, `3B`, and
+`archive/training/configs/model_family.yaml`. It covers the `0.5B`, `1.5B`, `3B`, and
 `7B` sizes across gated post-training stages. The public-row report at
 `eval/results/model_family_public_verified_20260609.json` verifies only the
 0.5B SFT and 0.5B GRPO rows; larger SFT/GRPO/GiGPO rows remain missing or

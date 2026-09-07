@@ -117,7 +117,7 @@ def test_sdist_contents_audit_rejects_legacy_and_generated_files(tmp_path: Path)
         "data_quality_env/legacy.py",
         "tests/test_leaked.py",
         "benchmark.py",
-        "training/kaggle/sft_warmup.ipynb",
+        "archive/training/kaggle/sft_warmup.ipynb",
         "dataforge/__pycache__/leaked.pyc",
     }
     _write_sdist(sdist_path, members)

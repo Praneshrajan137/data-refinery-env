@@ -164,7 +164,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--card",
         dest="card_template",
         type=Path,
-        default=Path("training/MODEL_CARD_TEMPLATE.md"),
+        default=Path("archive/training/MODEL_CARD_TEMPLATE.md"),
     )
     parser.add_argument("--repo-id", default="auto")
     return parser

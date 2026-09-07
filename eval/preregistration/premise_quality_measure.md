@@ -192,7 +192,7 @@ left unchanged so the change stays visible.
 
 `mu+` **does not penalise an exact dependency for being unfalsifiable.** For an exact
 dependency `pdep(X->Y) == 1`, so the numerator `(1 - pdep(X->Y))` is zero and the
-singleton-correction factor `(N-1)/(N-|dom_X|)` — however large — is multiplied by zero.
+singleton-correction factor `(N-1)/(N-|dom_X|)` ï¿½ however large ï¿½ is multiplied by zero.
 `mu+` returns 1.0 whether the dependency rests on two testable rows or two thousand. `g3'`
 shares the property, for the same reason: both are error-based measures normalised so that
 zero measured error scores 1.
@@ -204,7 +204,7 @@ recorded here rather than quietly accommodated because it narrows C3.
 
 - **P1 and P2 are narrowed.** C3 can only discriminate among **approximate** dependencies.
   The prediction still stands for hospital, because its measured false dependencies carry
-  `confidence` between 0.9050 and 0.9620 and are therefore approximate — the correction does
+  `confidence` between 0.9050 and 0.9620 and are therefore approximate ï¿½ the correction does
   bite on them. But P2's mechanism is now stated precisely: `ZipCode -> HospitalName` is
   expected to fail C3 **because it has violations concentrated in a few testable rows**, not
   merely because its determinant is sparse. If it turns out to be exact on the rows present,
@@ -212,7 +212,7 @@ recorded here rather than quietly accommodated because it narrows C3.
 - **A new kill criterion, K5.** If the dependencies responsible for the measured corruption
   are *exact* on the dirty data, `mu+` cannot reject them, C3 does not address the observed
   damage, and the honest report is that the measure does not gate this failure. The response
-  is not to add a support threshold on top — that is K4 again.
+  is not to add a support threshold on top ï¿½ that is K4 again.
 - **The pre-existing near-key guard is load-bearing and stays.**
   `_MAX_DETERMINANT_UNIQUE_FRACTION = 0.9` is what rejects an exact dependency on a
   near-unique determinant. It is a constant that predates C3, C3 does not remove it, and P5
@@ -222,3 +222,68 @@ recorded here rather than quietly accommodated because it narrows C3.
 
 P5 still holds: C3 introduces no constant. The threshold remains 0 and 0 remains derived
 from the permutation null. K4 is unaffected and is still the criterion most likely to bind.
+
+## AMENDMENT 2 (2026-09-07)
+
+**Recorded after the corpus was checksum-verified and the measurement re-run.** This amendment
+does not reinterpret a result; it records that the first result was computed against the wrong
+input, and what changed when that was fixed. The text above is left unchanged, including the
+statements this amendment falsifies, so the correction stays visible.
+
+### The corpus was not the corpus this document cites
+
+The local `included_candidates.csv` held **1,170** candidates in a 68,995-byte file. The
+published artifact on Zenodo record 8098909 holds **1,262** in 79,075 bytes. The candidate
+universe *defines the negative label set*, so every separation count in
+`docs/trust/premise-quality-measure-result.md` was computed against an unverified premise â€” in
+a document about unverified premises.
+
+It was found by adding checksum verification (`scripts/bench/fetch_rwd_corpus.py`), not by
+re-reading anything, and `docs_truth` then refused the stale prose. Both halves matter: a
+checksum found it, and a claim ledger stopped it being quietly overwritten.
+
+**Also corrected: the licence.** This document states "MIT" at line 104. The Zenodo record
+states **CC-BY-4.0**. The wrong value had propagated to the measurement script, the emitted
+artifact and the result document. Line 104 stands, per the no-edit rule; the three live
+surfaces are fixed.
+
+### A bias in the candidate universe that was not known when C3 was written
+
+`excluded_candidates.csv` was not read before. The authors excluded a candidate when no tuple
+had both attributes present **or when its `g3_prime` value was too small**. The universe is
+therefore already `g3'`-filtered, which truncates the low end of the `g3_prime` distribution
+and flatters every error-based measure normalised the same way â€” `g3_prime` directly, and
+`mu+` by construction. This **weakens** the case for a gate and was working in C3's favour
+undetected.
+
+### What changed, and one thing that changed against us
+
+All ten tables are now downloaded and verified, where this document could previously speak to
+three. Counts moved; **no separation verdict changed**:
+
+| figure | unverified | verified |
+| --- | --- | --- |
+| hospital candidates | 74 | 75 |
+| hospital `mu+` false-above-zero | 45/45 | 46/46 |
+| dblp10k candidates | 567 | 620 |
+| dblp10k `mu+` false-above-zero | 356/490 | 407/543 |
+| dblp10k `g3'` false-above-zero | 466/490 | **543/543** |
+| adult candidates | 116 | 111 |
+
+The `g3'` row is the one to read. On the unverified universe `g3'` had *some* discrimination on
+dblp10k; on the published one it has **none**. That is a larger movement than `mu+`'s and it
+runs against the measure this document reports alongside `mu+`, which is the direction a
+correction should be checked in rather than the direction that flatters the conclusion.
+
+### P4 is now measurable, and is refuted
+
+P4 predicted `mu+ > 0` separating on "at least 6 of the 10" tables. Measured across all ten:
+**`mu_plus` separates perfectly on 4**, the other three measures on 3. P4 joins P1 and P2 as
+refuted. The verdict of the document â€” C3 refused, `mu+` retained as a reported field â€” is
+unchanged and now rests on the full corpus rather than on a three-table subset.
+
+Worse for any future gate than the count: on `claims`, `tax` and
+`t_biocase_identification_r91800` the ordering **inverts**, with an annotated-false candidate
+scoring the maximum 1.0 at or above some annotated-true candidate. No threshold can separate a
+class whose maximum carries the wrong label. That is the evidence
+`eval/preregistration/premise_acquisition.md` was written to test properly.

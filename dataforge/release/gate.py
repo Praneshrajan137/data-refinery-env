@@ -105,7 +105,7 @@ REJECTED_SDIST_PREFIXES = (
     "node_modules/",
     "logs/",
     "eval/",
-    "training/",
+    "archive/",
     "playground/",
     "playground-model/",
     "dataforge-mcp/",

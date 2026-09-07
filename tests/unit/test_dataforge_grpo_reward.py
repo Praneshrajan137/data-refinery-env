@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from training.rewards.dataforge_reward import dataforge_reward
+from archive.training.rewards.dataforge_reward import dataforge_reward
 
 
 def _completion(repairs: list[dict[str, object]], *, action: str = "submit_repairs") -> str:

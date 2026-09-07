@@ -5,7 +5,7 @@ AMENDMENT 1 before reading any number this produces.
 
 The corpus is `rwd` from Parciak, Vandevoort, Neven, Peeters and Vansummeren, *Measuring
 Approximate Functional Dependencies: a Comparative Study*, ICDE 2024 (arXiv:2312.06296),
-MIT-licensed, Zenodo record 8098909. It supplies two things this repository has never had:
+CC-BY-4.0, Zenodo record 8098909. It supplies two things this repository has never had:
 
 - `ground_truth.csv` -- 143 dependencies annotated TRUE by hand across 10 real tables.
 - `included_candidates.csv` -- the 1,170-candidate universe those annotations were made
@@ -199,19 +199,48 @@ def main() -> int:
             "candidates": scored,
         }
 
+    measured = [n for n, r in per_table.items() if r.get("status") == "measured"]
+    absent = [n for n, r in per_table.items() if r.get("status") != "measured"]
+    # Tables that can support a leave-one-table-out fold: both label classes non-empty.
+    foldable = [
+        n
+        for n in measured
+        if per_table[n]["annotated_true"] > 0
+        and per_table[n]["candidates_scored"] - per_table[n]["annotated_true"] > 0
+    ]
+
     payload = {
         "schema_version": "dataforge_premise_quality_rwd_v1",
         "preregistration": "eval/preregistration/premise_quality_measure.md",
+        # The declared arm, emitted so no reader can widen a conclusion past its evidence.
+        # `premise_acquisition.md` fixes K5 at 4 foldable tables; below that, a
+        # leave-one-table-out result is not a validation and must be reported as untested.
+        "scope": {
+            "tables_in_published_universe": len(by_table),
+            "tables_measured": len(measured),
+            "tables_absent": sorted(absent),
+            "tables_foldable": len(foldable),
+            "arm": ("10_table" if len(measured) == len(by_table) else f"{len(measured)}_table"),
+            "conclusions_are_about": sorted(measured),
+            "k5_minimum_foldable_tables": 4,
+            "k5_satisfied": len(foldable) >= 4,
+        },
         "corpus": {
             "name": "rwd",
             "source": "Parciak et al., ICDE 2024, arXiv:2312.06296",
             "repository": "UHasselt-DSI-Data-Systems-Lab/paper-afd-comparative-study",
             "zenodo": "8098909",
-            "license": "MIT",
+            "license": "CC-BY-4.0",
+            "fetched_and_verified_by": "scripts/bench/fetch_rwd_corpus.py",
             "negatives": (
                 "the authors' published included_candidates.csv universe minus "
                 "ground_truth.csv, NOT a closed-world assumption over this repository's "
                 "own miner output"
+            ),
+            "negatives_bias": (
+                "the authors excluded a candidate when no tuple had both attributes present "
+                "OR when its g3_prime was too small, so the universe is already g3'-filtered "
+                "and this flatters every error-based measure normalised the same way"
             ),
         },
         "measures_imported_from": "dataforge.premise_quality",

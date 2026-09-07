@@ -870,10 +870,13 @@ claims:
     artifact: eval/results/premise_quality_rwd.json
     pointer: /tables/hospital.csv/separation/mu_plus/false_above_zero
     format: "{:d}"
-    expect: "45"
-    context: "45 of 45 annotated-false candidates"
+    expect: "46"
+    context: "46 of 46 annotated-false candidates"
     note: >-
       The number that refuted P1. A gate at mu+ > 0 excludes nothing on this corpus.
+      Was 45 until 2026-09-07, when the local included_candidates.csv was found not to match
+      the Zenodo record it cites (1,170 rows against the published 1,262). This claim is the
+      one that caught the stale prose after the corpus was re-verified.
   - id: rwd_hospital_mu_plus_max_false
     doc: docs/trust/premise-quality-measure-result.md
     artifact: eval/results/premise_quality_rwd.json
@@ -897,19 +900,26 @@ claims:
     artifact: eval/results/premise_quality_rwd.json
     pointer: /tables/dblp10k.csv/separation/mu_plus/false_above_zero
     format: "{:d}"
-    expect: "356"
-    context: "356/490"
+    expect: "407"
+    context: "407/543"
     note: >-
-      mu+ is the only one of the four measures with any discrimination on dblp10k, where both
-      incumbents score 490 of 490 above zero. This is why it is retained as a reported field
-      after being refused as a gate.
+      mu+ is the only one of the four measures with any discrimination on dblp10k, where all
+      three others score 543 of 543 above zero. This is why it is retained as a reported field
+      after being refused as a gate. On the unverified corpus g3_prime scored 466/490 here; on
+      the published one it scores 543/543, so the correction cost g3_prime its only claim to
+      discrimination -- a larger movement than mu+'s, and against the measure reported
+      alongside it.
   - id: rwd_dblp_candidates_scored
     doc: docs/trust/premise-quality-measure-result.md
     artifact: eval/results/premise_quality_rwd.json
     pointer: /tables/dblp10k.csv/candidates_scored
     format: "{:d}"
-    expect: "567"
-    context: "567"
+    expect: "620"
+    context: "620"
+    note: >-
+      620 on the checksum-verified published candidate universe; 567 on the unverified local
+      copy the first run used. Bound here because the candidate count defines the negative
+      label set, so it is the number whose being wrong invalidates every separation figure.
   - id: decisions_additivity_isolated
     doc: DECISIONS.md
     artifact: eval/results/constraint_additivity.json
@@ -1162,3 +1172,85 @@ claims:
     note: >-
       Derived in the validation script rather than by hand, so the factor printed to a user is
       bound to the artifact. Reading 567 as damage overstates the true 116 by this much.
+
+  # --- External literature positioning ---
+  # These bind the citation-only comparison table to the prose that interprets it. Before this
+  # block, NO value from sota_comparison.json was registered anywhere in this ledger: the whole
+  # external comparison sat outside docs_truth. That is the surface where being wrong is least
+  # recoverable, because a mis-citation damages a third party rather than only this project.
+
+  - id: sota_bclean_hospital_f1
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/0/f1
+    format: "{:.3f}"
+    expect: "0.976"
+    context: "BClean"
+    note: >-
+      The strongest single-system row of the very table this repository transcribes its own
+      baseline from. Quoting it is the reading least favourable to us, which is the correct
+      direction to err when citing a competitor.
+
+  - id: sota_bclean_pip_hospital_f1
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/1/f1
+    format: "{:.3f}"
+    expect: "0.980"
+    context: "PI/PIP"
+    note: Best hospital correction F1 in BClean Table 4.
+
+  - id: sota_pclean_hospital_f1
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/2/f1
+    format: "{:.3f}"
+    expect: "0.962"
+    context: "PClean"
+    note: Second-strongest cited system on hospital.
+
+  - id: sota_raha_baran_bclean_protocol_hospital_f1
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/6/f1
+    format: "{:.3f}"
+    expect: "0.730"
+    context: "Raha+Baran"
+    note: >-
+      NOT a figure Raha or Baran published -- BClean configured and ran them. This repository
+      attributed it to the Raha authors for months.
+
+  - id: sota_cocoon_hospital_f1
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/8/f1
+    format: "{:.3f}"
+    expect: "0.900"
+    context: "Cocoon"
+    note: >-
+      Above this repository on hospital, and measured with ground truth supplied to the
+      cleaning step -- the premise-provenance difference this document exists to name.
+
+  - id: sota_cocoon_flights_recall
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/9/recall
+    format: "{:.3f}"
+    expect: "0.420"
+    context: "recall"
+    note: >-
+      Cocoon abstains on the flights arrival-time dependency and argues that preserving the
+      uncertainty is preferable -- independent corroboration that not writing is the correct
+      behaviour on the dependency DataForge also refuses to act on.
+
+  - id: sota_raha_baran_cocoon_rerun_hospital_f1
+    doc: docs/trust/baseline-protocol-comparability.md
+    artifact: eval/results/sota_comparison.json
+    pointer: /rows/10/f1
+    format: "{:.3f}"
+    expect: "0.720"
+    context: "Cocoon, Table 1"
+    note: >-
+      An independent re-run of the same baseline BClean reports at 0.730, reproducing it
+      within 0.01 under a different protocol. This is why the baseline cannot be dismissed as
+      an artifact of one paper's configuration.

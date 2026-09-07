@@ -702,39 +702,39 @@
       "tests/unit/test_test_mapped.py"
     ]
   },
-  "training/configs/sft_05b.yaml": {
+  "archive/training/configs/sft_05b.yaml": {
     "direct_tests": [
       "tests/unit/test_sft_notebook_contract.py"
     ]
   },
-  "training/configs/grpo_05b.yaml": {
+  "archive/training/configs/grpo_05b.yaml": {
     "direct_tests": [
       "tests/unit/test_grpo_configs.py"
     ]
   },
-  "training/configs/grpo_15b.yaml": {
+  "archive/training/configs/grpo_15b.yaml": {
     "direct_tests": [
       "tests/unit/test_grpo_configs.py"
     ]
   },
-  "training/configs/model_family.yaml": {
+  "archive/training/configs/model_family.yaml": {
     "direct_tests": [
       "tests/unit/test_model_family_manifest.py",
       "tests/unit/test_model_family_verifier.py"
     ]
   },
-  "training/grpo_config.py": {
+  "archive/training/grpo_config.py": {
     "direct_tests": [
       "tests/unit/test_grpo_configs.py"
     ]
   },
-  "training/grpo_contract.py": {
+  "archive/training/grpo_contract.py": {
     "direct_tests": [
       "tests/unit/test_dataforge_grpo_reward.py",
       "tests/unit/test_grpo_contract_parity.py"
     ]
   },
-  "training/grpo_readiness.py": {
+  "archive/training/grpo_readiness.py": {
     "direct_tests": [
       "tests/unit/test_grpo_readiness.py"
     ]
@@ -746,34 +746,34 @@
       "tests/unit/test_full_vision_gate.py"
     ]
   },
-  "training/rewards/dataforge_reward.py": {
+  "archive/training/rewards/dataforge_reward.py": {
     "direct_tests": [
       "tests/unit/test_dataforge_grpo_reward.py",
       "tests/unit/test_grpo_contract_parity.py"
     ]
   },
-  "training/gigpo_advantage.py": {
+  "archive/training/gigpo_advantage.py": {
     "direct_tests": [
       "tests/unit/test_model_family_manifest.py"
     ]
   },
-  "training/kaggle/sft_warmup_kaggle.ipynb": {
+  "archive/training/kaggle/sft_warmup_kaggle.ipynb": {
     "direct_tests": [
       "tests/unit/test_sft_notebook_contract.py"
     ]
   },
-  "training/kaggle/grpo_kaggle.ipynb": {
+  "archive/training/kaggle/grpo_kaggle.ipynb": {
     "direct_tests": [
       "tests/unit/test_grpo_notebook_contract.py"
     ]
   },
-  "training/MODEL_CARD_TEMPLATE.md": {
+  "archive/training/MODEL_CARD_TEMPLATE.md": {
     "direct_tests": [
       "tests/unit/test_publish_model.py",
       "tests/unit/test_sft_notebook_contract.py"
     ]
   },
-  "training/DATASET_README.md": {
+  "archive/training/DATASET_README.md": {
     "direct_tests": [
       "tests/unit/test_sft_trajectories.py",
       "tests/unit/test_sft_release_verifier.py"

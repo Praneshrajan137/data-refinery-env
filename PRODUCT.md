@@ -422,6 +422,17 @@ reached by design, which is precisely why it has to be stated rather than drawn 
   summary is that these systems win on accuracy and DataForge does not compete there.
   Figures and provenance: the citation-only table in `BENCHMARK_REPORT.md`, which this file
   deliberately does not restate (see the note at the top on where numbers live).
+  **Why none of it is head-to-head, and the one axis that actually differs:**
+  [docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md).
+  Their premises were supplied by a user or an oracle; ours was mined from the dirty table.
+  That is a harder problem and it is where our measured failures live -- so the honest
+  reading is not "we are behind", it is that the numbers answer different questions.
+- **LLM-based cleaners are now ahead of us too, and one of them corroborates abstention.**
+  Cocoon (arXiv:2410.15547) outscores DataForge on hospital. On flights it abstains, arguing
+  the benchmark's arrival-time dependency is ambiguous and that preserving the uncertainty is
+  preferable -- the same conclusion this project reached about the same dependency, reached
+  independently by a system that beats it on accuracy. That convergence is better evidence for
+  the abstention thesis than any score of ours, and it is not protocol-comparable either.
 - **Conformal / guaranteed automatic repair is prior art, and must be cited as such.**
   Jäger & Biessmann, *From Data Imputation to Data Cleaning* (AISTATS 2024, PMLR v238),
   proposes Conformal Data Cleaning: cell-level automatic identification *and fixing* of
@@ -465,6 +476,18 @@ or teams already well served by maintained assertion suites. It is currently bes
 suited to local tabular profiling, provable repair, benchmark research, and
 training/evaluation work. Choosing the honest scope is part of the doctrine.
 
+**And one thing it is no longer for at all.** The supervised/RL training subsystem was
+excised on 2026-09-07 and now lives, frozen, in [archive/training/](archive/README.md). It
+never passed its own gate and never contributed a write: best recorded `sft_f1` 0.0202, with
+the v7 candidate proposing nothing on 576 opportunities. This is section 1.3's rule applied to
+this repository rather than restated by it -- an audit found that "name the consumer before
+hardening" had been satisfied by *disclosure* rather than *reallocation*, with the subsystem
+documented as unconsumed and then maintained anyway. The excision deleted **no tests and no
+coverage**: every test still runs against the archived package, because three of them are
+parity tests over `dataforge/repair_contract.py` and `dataforge/release/model_family.py`, and
+removing them would have destroyed product coverage under cover of a cleanup.
+`tests/unit/test_archive_excision.py` fails if any product module imports the archive.
+
 ---
 
 ## 11. Authority and pointers
@@ -476,6 +499,8 @@ training/evaluation work. Choosing the honest scope is part of the doctrine.
 - Trust properties: the accuracy frontier ([docs/trust/accuracy-frontier.md](docs/trust/accuracy-frontier.md)),
   the inferred-guard gap registry ([docs/trust/inferred-guard-gaps.md](docs/trust/inferred-guard-gaps.md)),
   and constraint circularity ([docs/trust/constraint-circularity.md](docs/trust/constraint-circularity.md)).
+- External positioning and why no cited number is head-to-head:
+  [docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md).
 - Decision history and rationale: [DECISIONS.md](DECISIONS.md).
 - Product center of gravity (verification-layer-first, staged): [docs/STRATEGY.md](docs/STRATEGY.md).
 - Agent-session gotchas and conventions: [CLAUDE.md](CLAUDE.md).

@@ -7,14 +7,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-from training.grpo_config import GrpoConfigError, build_grpo_config_kwargs, load_grpo_config
+from archive.training.grpo_config import GrpoConfigError, build_grpo_config_kwargs, load_grpo_config
 
 ROOT = Path(__file__).resolve().parents[2]
-CONFIG_05B = ROOT / "training" / "configs" / "grpo_05b.yaml"
-CONFIG_05B_V2 = ROOT / "training" / "configs" / "grpo_05b_v2.yaml"
-CONFIG_05B_V3 = ROOT / "training" / "configs" / "grpo_05b_v3.yaml"
-CONFIG_05B_V4 = ROOT / "training" / "configs" / "grpo_05b_v4.yaml"
-CONFIG_15B = ROOT / "training" / "configs" / "grpo_15b.yaml"
+CONFIG_05B = ROOT / "archive" / "training" / "configs" / "grpo_05b.yaml"
+CONFIG_05B_V2 = ROOT / "archive" / "training" / "configs" / "grpo_05b_v2.yaml"
+CONFIG_05B_V3 = ROOT / "archive" / "training" / "configs" / "grpo_05b_v3.yaml"
+CONFIG_05B_V4 = ROOT / "archive" / "training" / "configs" / "grpo_05b_v4.yaml"
+CONFIG_15B = ROOT / "archive" / "training" / "configs" / "grpo_15b.yaml"
 
 
 def test_grpo_05b_config_uses_supported_v1_stack_and_free_tier_hparams() -> None:

@@ -6,11 +6,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
-from dataforge.datasets.registry import DATASET_REGISTRY
-from dataforge.repair_contract import CONTRACT_VERSION_V3
-from training.grpo_contract import TruthCell
-from training.grpo_eval import (
+from archive.training.grpo_contract import TruthCell
+from archive.training.grpo_eval import (
     GrpoEvalTask,
     build_heldout_tasks,
     evaluate_completions,
@@ -18,6 +15,9 @@ from training.grpo_eval import (
     evaluate_product_constrained_finish_baseline,
     grpo_gate_failures,
 )
+from dataforge.datasets.real_world import GroundTruthCell, RealWorldDataset
+from dataforge.datasets.registry import DATASET_REGISTRY
+from dataforge.repair_contract import CONTRACT_VERSION_V3
 
 
 def _fake_dataset(name: str = "hospital") -> RealWorldDataset:
@@ -63,7 +63,7 @@ def test_heldout_task_manifest_is_deterministic_and_label_safe(monkeypatch, tmp_
         assert kwargs["allow_embedded_fallback"] is False
         return _fake_dataset(name)
 
-    monkeypatch.setattr("training.grpo_eval.load_real_world_dataset", fake_loader)
+    monkeypatch.setattr("archive.training.grpo_eval.load_real_world_dataset", fake_loader)
 
     tasks_a, manifest_a = build_heldout_tasks(
         datasets=("hospital",),
@@ -90,7 +90,7 @@ def test_heldout_tasks_can_use_contract_minimal_v3(monkeypatch, tmp_path: Path) 
     def fake_loader(name: str, **kwargs: object) -> RealWorldDataset:
         return _fake_dataset(name)
 
-    monkeypatch.setattr("training.grpo_eval.load_real_world_dataset", fake_loader)
+    monkeypatch.setattr("archive.training.grpo_eval.load_real_world_dataset", fake_loader)
 
     tasks, _ = build_heldout_tasks(
         datasets=("hospital",),

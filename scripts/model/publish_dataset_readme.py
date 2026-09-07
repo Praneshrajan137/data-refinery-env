@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 
 from scripts.model.verify_sft_release import DEFAULT_DATASET_REPO  # noqa: E402
 
-DEFAULT_README = Path("training/DATASET_README.md")
+DEFAULT_README = Path("archive/training/DATASET_README.md")
 
 
 class DatasetCardApi(Protocol):

@@ -7,8 +7,8 @@ must stay byte-identical.
 
 from __future__ import annotations
 
+from archive.training.grpo_contract import score_grpo_completion
 from dataforge.repair_contract import render_calibrated_completion
-from training.grpo_contract import score_grpo_completion
 
 _ALLOWED = ["A", "B"]
 _ROWS = [0, 1]

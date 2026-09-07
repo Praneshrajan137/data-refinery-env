@@ -5,6 +5,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, replace
 
+from archive.training.gigpo_advantage import (
+    EpisodeRollout,
+    canonical_observation_hash,
+    compute_gigpo_advantages,
+)
 from dataforge.release.model_family import (
     FAMILY_REPORT_SCHEMA_VERSION,
     MODEL_FAMILY_SIZES,
@@ -15,11 +20,6 @@ from dataforge.release.model_family import (
     load_model_family_manifest,
     render_stage_config,
     resolve_base_license,
-)
-from training.gigpo_advantage import (
-    EpisodeRollout,
-    canonical_observation_hash,
-    compute_gigpo_advantages,
 )
 
 

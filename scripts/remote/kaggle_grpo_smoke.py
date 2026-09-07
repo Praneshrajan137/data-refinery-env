@@ -231,7 +231,7 @@ def _sft_v7_predecessor_blockers(config: dict[str, Any]) -> list[str]:
 def _prepare_dataset(config: dict[str, Any]) -> tuple[Any, dict[str, Any], int]:
     from datasets import Dataset
 
-    from training.grpo_readiness import (
+    from archive.training.grpo_readiness import (
         GrpoReadinessSettings,
         analyze_grpo_readiness,
         build_prompt_example,
@@ -396,8 +396,8 @@ def main() -> int:
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from trl import GRPOConfig, GRPOTrainer
 
-    from training.grpo_config import build_grpo_config_kwargs
-    from training.rewards.dataforge_reward import dataforge_reward
+    from archive.training.grpo_config import build_grpo_config_kwargs
+    from archive.training.rewards.dataforge_reward import dataforge_reward
 
     if not torch.cuda.is_available():
         raise RuntimeError("Kaggle GPU runtime is required for GRPO smoke.")

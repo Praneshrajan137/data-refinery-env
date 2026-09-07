@@ -12,7 +12,7 @@ from typing import Any, cast
 
 from dataforge.datasets.registry import DATASET_REGISTRY
 from dataforge.repair_contract import CONTRACT_VERSION_V2, SYSTEM_PROMPT
-from training.grpo_contract import score_grpo_completion
+from archive.training.grpo_contract import score_grpo_completion
 
 GRPO_BALANCED_RECALL_SYSTEM_PROMPT = (
     SYSTEM_PROMPT

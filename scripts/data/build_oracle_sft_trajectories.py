@@ -49,7 +49,7 @@ from scripts.data.collect_sft_trajectories import (  # noqa: E402
     validate_trajectory_record,
 )
 
-DEFAULT_CONFIG = Path("training/configs/sft_05b.yaml")
+DEFAULT_CONFIG = Path("archive/training/configs/sft_05b.yaml")
 DEFAULT_SPLIT_MANIFEST = Path("data/sft_traj/split_manifest.json")
 DEFAULT_SPLIT_SEED = 42
 DEFAULT_EVAL_FRACTION = 0.1

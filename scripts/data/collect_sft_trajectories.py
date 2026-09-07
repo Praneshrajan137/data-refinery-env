@@ -1875,9 +1875,9 @@ def push_trajectory_dataset(
     }
     config_filename = config_filename_by_trajectory.get(output.name, "sft_05b.yaml")
     for path, path_in_repo in (
-        (Path("training/DATASET_README.md"), "README.md"),
-        (Path("training/configs") / config_filename, config_filename),
-        (Path("training/MODEL_CARD_TEMPLATE.md"), "MODEL_CARD_TEMPLATE.md"),
+        (Path("archive/training/DATASET_README.md"), "README.md"),
+        (Path("archive/training/configs") / config_filename, config_filename),
+        (Path("archive/training/MODEL_CARD_TEMPLATE.md"), "MODEL_CARD_TEMPLATE.md"),
         (split_manifest, split_manifest.name),
     ):
         if path.exists():
@@ -1925,7 +1925,7 @@ def ensure_ready_for_push(
     config_name = config_name_by_trajectory.get(output.name, "sft_05b.yaml")
     validate_sft_readiness(
         jsonl=output,
-        config_path=Path("training/configs") / config_name,
+        config_path=Path("archive/training/configs") / config_name,
         split_manifest=split_manifest,
         min_records=ready_min_records,
     )

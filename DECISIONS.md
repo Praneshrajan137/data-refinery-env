@@ -10,9 +10,200 @@ Format for every entry:
 **Reviewed with**: who (if anyone) sanity-checked it.
 **Reversal criteria**: what evidence would make us switch.
 
+## Standing notice: entries are historical, and superseded claims are not edited out
+
+This log is newest-first and append-only. An entry records what was decided and what was
+believed **on its date**. Where a later entry supersedes an earlier one, the earlier text is
+left standing, because PRODUCT.md section 5 forbids rewriting frozen historical evidence to
+look better. Reading an old entry as a current claim is therefore a mistake.
+
+Two retractions are load-bearing enough to name here, because they appear in pre-2026-09-01
+entries in language the honesty doctrine now forbids:
+
+- **"beats cited SOTA" / "the one measured SOTA win"** (used of hospital correction F1 0.7926).
+  Retracted. The 0.7926 figure and the 0.730 Raha+Baran baseline are **not measured under an
+  identical protocol**, and the table the baseline was transcribed from reports two systems
+  above DataForge on hospital. Current position: PRODUCT.md section 9 and
+  [docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md).
+- **0.7926 as a regression floor.** Retracted 2026-08-27. It was measured with a stack that
+  still auto-applied `type_mismatch` and `decimal_shift`; both were removed *on measurement*,
+  so no current configuration can reproduce it. Treating it as a floor inverted the incentive.
+
+Because these lines must stand, `tests/unit/test_claim_comparability_guard.py` deliberately
+excludes this file from its line-level scan and polices the surfaces that state current
+claims instead. That exclusion is recorded in the test, not implied.
+
 ---
 
-## 2026-09-01 - Keep the bespoke attestation for now, and name premise acquisition as the only work that changes what the product can do
+## 2026-09-07 - Excise the training subsystem to archive/, and let the rule that condemned it decide what stays
+
+**Context**: An audit recorded the training/RL subsystem as contributing nothing: best
+recorded `sft_f1` **0.0202**, the v7 candidate at **0.0** with `parse_success` 0.0 on 576
+opportunities, and **zero** cells written on the user-reachable path. PRODUCT.md section 1.3
+had already extracted the governing rule -- *before hardening a component, name its
+consumer* -- and the audit's sharpest finding was that this rule had been satisfied by
+**disclosure rather than reallocation**: the subsystem was documented as unconsumed, in
+detail, and kept and maintained anyway.
+
+**Three of my own planning figures were wrong, and measuring them changed the scope**:
+- The "~313 MB of artifacts" is **`eval/results/`**, which is the frozen historical evidence
+  PRODUCT.md section 5 forbids touching and which the claim ledger reads. Deleting it would
+  have been a doctrine violation dressed as a cleanup. `training/` is **14.1 MB / 63 files**.
+- `dataforge/env/` was scoped for removal, but it carries **79 passing tests** and a CI gate
+  (`openapi_contract.py`, also in `make type`). The measured failure was the trained model,
+  not the environment. It stays.
+- I briefly believed shipped code imported `training/` (`dataforge/release/model_family.py`).
+  Those are **string literals** in a generated training-config manifest, not imports. Checked
+  before reporting a bug that did not exist.
+
+**Alternatives**:
+- *Delete it.* Rejected: destroys a factual record of work done, for no benefit git history
+  does not already provide.
+- *Leave it and document it.* Rejected: that is precisely the disclosure-instead-of-
+  reallocation pattern this entry exists to end.
+- *Archive it and delete its 57 tests with it.* Rejected on inspection, and this is the part
+  worth keeping.
+
+**Decision**: `training/` moved to `archive/training/`, with the partition decided by the same
+rule that condemned the subsystem. Three of the eight dependent test files turned out to be
+**parity tests over product code** --
+
+| Test | Product module it pins |
+| --- | --- |
+| `tests/unit/test_grpo_contract_parity.py` | `dataforge/repair_contract.py` |
+| `tests/unit/test_grpo_calibration_reward.py` | `dataforge/repair_contract.py` |
+| `tests/unit/test_model_family_manifest.py` | `dataforge/release/model_family.py` |
+
+-- so deleting them would have removed **product** coverage under cover of a cleanup. Every
+test still runs, importing `archive.training.*`. The suite is **2719 passed / 9 skipped**,
+byte-identical to the count before the move: the excision deleted no coverage and broke
+nothing. `archive/` is refused in the sdist (`REJECTED_SDIST_PREFIXES`), excluded from `ruff`
+and `mypy --strict`, and unpackaged.
+
+**Reasoning**: The rule "name the consumer" does not only condemn; it also *discriminates*.
+Applied honestly it says two archived modules (`grpo_contract.py`, `gigpo_advantage.py`) do
+have a consumer and must survive, while thirteen do not. A blunter reading -- delete the
+directory -- would have failed the rule while appearing to enforce it.
+
+New gate `tests/unit/test_archive_excision.py` (6 tests) AST-scans every product module and
+fails if any imports `archive.*`, because a move alone does not keep code out; nothing else
+stopped a future edit from reintroducing a dependency on code that no gate checks and no wheel
+contains. Falsified by planting `import archive.training.grpo_config` in
+`dataforge/observability.py`: exit 1, offender named, tree reverted clean.
+
+**Two mistakes made during this work, recorded rather than quietly repaired**:
+1. An over-broad path replacement rewrote **frozen artifacts** -- `docs/evidence/ledger.json`
+   and two `eval/results/**/launch_report.json`. Restored and confirmed byte-identical to
+   `HEAD` before anything was committed.
+2. My first integrity check reported 18 files as modified. It was **wrong**: `git rev-parse
+   HEAD:<path>` prints its argument to stdout *as well as* erroring, so never-tracked files
+   compared as "changed". The authoritative check is git's own rename detection, which reports
+   **41 pure renames (R100)** and **4 modified** -- `grpo_eval.py`, `grpo_readiness.py`,
+   `rewards/__init__.py`, `rewards/dataforge_reward.py`, whose only edits are the
+   intra-package imports that had to move with the package.
+
+**One distinction that had to be drawn explicitly.** `docs/evidence/ledger.json` is not purely
+frozen: `test_evidence_ledger_rejects_missing_evidence_path` requires its `evidence` paths to
+resolve. So it is a live index whose *claims* are frozen. Two path pointers were updated and
+**no claim text was touched** -- verified by reading the diff. Repointing a pointer when a file
+moves is maintenance; editing a measurement would be falsification.
+
+**Reviewed with**: nobody.
+
+**Reversal criteria**: If a learned corrector ever writes a cell on the user-reachable path,
+un-archive it and say so with the measurement. Until then, `archive/README.md` carries the
+evidence and the excision stands.
+
+---
+
+**Context**: An audit had recorded four outward-facing falsifications, and the 2026-09-01
+remediation fixed the prose for all of them: PRODUCT.md section 9 now cites Conformal Data
+Cleaning, concedes that BClean and PClean are above us on hospital, records Monte Carlo's gated
+remediation, and qualifies reversibility against Iceberg/Delta. Re-checking before acting found
+that work already done, so this entry is about what the remediation did **not** reach -- the
+machinery, and everything outside the repository.
+
+Four defects, each the same shape as the ones this project keeps finding:
+
+1. **The citation generator had diverged from its artifact.**
+   `scripts/bench/run_sota_comparison.py` emitted 4 rows while
+   `eval/results/sota_comparison.json` held 8. The 2026-09-01 fix added BClean 0.976, BClean
+   (PI/PIP) 0.980, PClean 0.962 and GARF by hand and never to the generator. Running the
+   documented regeneration command would therefore have **deleted the correction and restored
+   the two-weakest-rows mis-citation**. The existing test called `build_sota_payload()` and
+   asserted the schema version and per-row evidence kind -- never the row POPULATION.
+2. **`test_claim_comparability_guard.py` policed 2 documents out of 45.** `_TRUST_DOCS` was a
+   hand-named pair while `docs/trust/` held 43 files. The gate whose entire purpose is to catch
+   claims whose population is narrower than it appears had exactly that defect.
+3. **No value from `sota_comparison.json` was registered in `docs/quantitative_claims.yaml`.**
+   The whole external comparison sat outside `docs_truth` -- the one surface where being wrong
+   damages a third party rather than only this project.
+4. **`scripts/bench/` was covered by no gate at all** -- not `ruff check`, not
+   `ruff format --check`, not `mypy --strict` -- while the Makefile runs its scripts and a unit
+   test imports from it.
+
+And outside the repository: the GitHub description still read *"Research-grade OpenEnv RL
+environment ... 3 progressively challenging tasks"*, with no topics. The single most-read
+sentence about this project advertised the one subsystem that never passed its own gate (best
+`sft_f1` 0.0202). PRODUCT.md section 9 is impeccable and essentially unreachable.
+
+**Alternatives**:
+- *Hand-edit the JSON again and move on.* Rejected: it is what created defect 1.
+- *Add Cocoon to prose only.* Rejected: an uncited stronger row is the same misleading-citation
+  defect the artifact's own note already concedes.
+- *Add all of `scripts/bench` to `mypy --strict`.* Measured first: **33 errors in 12 files.**
+  Rejected as scope creep dressed as rigour.
+
+**Decision**:
+- **Cocoon (arXiv:2410.15547, Table 1) is now cited**, with its PDF SHA-256, as four rows:
+  Cocoon hospital 0.900 and flights 0.570, plus its **independent re-run of Raha+Baran** at
+  hospital 0.720 / flights 0.700.
+- **The generator is authoritative.** Rows carry per-row provenance, the report renders one
+  bullet per distinct source derived from the rows, and
+  `test_generator_matches_the_committed_artifact` pins generator output to the committed file.
+  Falsified against the pre-change artifact: 8 rows vs 12, guard fires.
+- **The comparability guard derives its population** (README + PRODUCT + all of `docs/trust`),
+  with a floor test so it cannot shrink back and a test proving it can still fail.
+  `DECISIONS.md` is explicitly excluded, because three pre-2026-09-01 entries state the
+  retracted "beats cited SOTA" claim and PRODUCT.md section 5 forbids editing history to look
+  better. A standing retraction notice at the top of this file carries the correction instead.
+- **Seven external claims registered** in the ledger (106 -> 113), falsified by perturbing
+  0.976 to 0.977 and confirming `docs_truth` refuses.
+- **`scripts/bench` added to the ruff gates** -- free, it was already clean at 42 files -- and
+  the two artifact generators added to `mypy --strict` (186 -> 189 files).
+- **New document**: [docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md).
+- **Front door fixed**: description rewritten to the actual thesis, 10 topics added.
+
+**Reasoning**: The most valuable finding was not the row we went to add. It was three facts in
+Cocoon's own paper that settle the comparability question from outside this project:
+
+- Every figure in Cocoon Table 1 is measured with a premise supplied from **outside the table**
+  -- it "use[s] the LLM provided ground truth", gives HoloClean ground-truth denial constraints,
+  and gives Baran ground-truth feedback on 20 clean cells. Our 0.7926 was measured with a
+  premise **mined from the dirty table**. The numbers answer different questions, and the axis
+  they differ on is premise provenance -- which is the next unit of work, independently arrived
+  at.
+- Cocoon reports it **could not replicate HoloClean's published hospital recall**. That is
+  first-party evidence that a hospital score is a property of a harness, from a paper with no
+  stake in our argument.
+- Cocoon **abstains** on the flights arrival-time dependency and argues that preserving the
+  uncertainty is preferable. An independent system that outscores us examined the exact
+  dependency DataForge refuses to act on and concluded that not writing is correct. That is the
+  second time an outside party has independently reproduced one of this project's conclusions,
+  after the `rwd` annotators omitted `ZIPCode -> HospitalName`.
+
+Citing 0.976 rather than BClean's own abstract headline of "up to 0.9" is deliberate: it is the
+reading least favourable to this repository, which is the correct direction to err.
+
+**Reviewed with**: nobody. No design partner exists; that remains the true blocker.
+
+**Reversal criteria**: If Cocoon's Table 1 column order is ever shown to differ from the
+benchmark order its prose gives (hospital, flights, beers, rayyan, movies), the four Cocoon rows
+must be re-transcribed -- the HTML rendering drops the header row, and this is recorded as a
+transcription risk in the document's own limitations. If `scripts/bench`'s 33 mypy errors are
+fixed, add the whole directory to `make type` and delete this deferral.
+
+---
 
 **Context**: An independent end-to-end audit was run against this repository, with external
 grounding rather than internal citation only. It confirmed most of what this project claims

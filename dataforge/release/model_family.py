@@ -206,7 +206,7 @@ def project_root() -> Path:
 
 def default_manifest_path() -> Path:
     """Return the default model-family manifest path."""
-    return project_root() / "training" / "configs" / "model_family.yaml"
+    return project_root() / "archive" / "training" / "configs" / "model_family.yaml"
 
 
 def repo_id_for(owner: str, size: str, stage: str) -> str:
@@ -496,7 +496,7 @@ def _render_grpo_config(entry: ModelFamilyEntry, *, dataset_repo: str) -> dict[s
             "sft_model_repo": entry.predecessor_repo,
             "grpo_model_repo_template": f"{{hf_user}}/{entry.slug}",
             "config_filename": Path(entry.config_path).name,
-            "reward_module": "training/rewards/dataforge_reward.py",
+            "reward_module": "archive/training/rewards/dataforge_reward.py",
         },
         "model": {
             "base_model": entry.base_model,
@@ -537,7 +537,7 @@ def _render_grpo_config(entry: ModelFamilyEntry, *, dataset_repo: str) -> dict[s
             "use_cache": False,
         },
         "reward": {
-            "function": "training.rewards.dataforge_reward:dataforge_reward",
+            "function": "archive.training.rewards.dataforge_reward:dataforge_reward",
             "prompt_contract_version": "repair_contract_v2",
             "local_stateless": True,
             "endpoint_healthcheck_only": True,
@@ -579,7 +579,7 @@ def _render_gigpo_config(entry: ModelFamilyEntry, *, dataset_repo: str) -> dict[
             "grpo_model_repo": entry.predecessor_repo,
             "gigpo_model_repo_template": f"{{hf_user}}/{entry.slug}",
             "config_filename": Path(entry.config_path).name,
-            "advantage_module": "training/gigpo_advantage.py",
+            "advantage_module": "archive/training/gigpo_advantage.py",
         },
         "model": {
             "base_model": entry.base_model,
@@ -617,7 +617,7 @@ def _render_gigpo_config(entry: ModelFamilyEntry, *, dataset_repo: str) -> dict[
             "use_cache": False,
         },
         "reward": {
-            "function": "training.rewards.dataforge_reward:dataforge_reward",
+            "function": "archive.training.rewards.dataforge_reward:dataforge_reward",
             "local_stateless": True,
             "canonical_observation_hashes": True,
         },

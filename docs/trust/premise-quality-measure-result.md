@@ -1,9 +1,21 @@
 # Premise quality: mu+ does not gate, and the reason is a small-sample artifact
 
-Executes `eval/preregistration/premise_quality_measure.md` and its AMENDMENT 1. Artifact:
-`eval/results/premise_quality_rwd.json`. Reproduce with
-`python scripts/bench/measure_premise_quality_rwd.py` after placing the `rwd` corpus under
-`.benchmarks/rwd/`.
+Executes `eval/preregistration/premise_quality_measure.md` and its AMENDMENT 1 and 2.
+Artifact: `eval/results/premise_quality_rwd.json`. Reproduce with
+`python scripts/bench/fetch_rwd_corpus.py` followed by
+`python scripts/bench/measure_premise_quality_rwd.py`.
+
+> **CORRECTED 2026-09-07, and the correction is worth more than the numbers it changed.**
+> The first run of this measurement used a local `included_candidates.csv` that **did not match
+> the Zenodo record this document cites**: 1,170 candidates against the published 1,262, a
+> 68,995-byte file against 79,075. The candidate universe defines the negative label set, so
+> every count below was computed against a premise that was itself unverified -- in a document
+> whose entire subject is unverified premises. It was caught by adding checksum verification
+> (`scripts/bench/fetch_rwd_corpus.py`) rather than by re-reading anything, and `docs_truth`
+> then refused the stale prose, which is the gate working as designed.
+> The corpus is also **CC-BY-4.0, not MIT** as three places in this repository stated.
+> **All 10 tables are now downloaded and checksum-verified**, where this document previously
+> reported 3. The separation verdicts below did not change. The counts did.
 
 **Verdict: C3 is refused. Two kill criteria fired and the gate is not shipped.** The measure
 stays a reported field, which is where it already was. What follows is why, and the mechanism
@@ -11,16 +23,25 @@ turns out to be more informative than the gate would have been.
 
 ## What was measured
 
-`rwd` (Parciak et al., ICDE 2024, arXiv:2312.06296; MIT; Zenodo 8098909) supplies 143
-hand-annotated true dependencies over 10 real tables **and** the 1,170-candidate universe
-those annotations were made against. Three tables were scored — the largest annotated set,
-the smallest table, and hospital:
+`rwd` (Parciak et al., ICDE 2024, arXiv:2312.06296; CC-BY-4.0; Zenodo 8098909) supplies 143
+hand-annotated true dependencies over 10 real tables **and** the 1,262-candidate universe
+those annotations were made against. All ten tables are now scored:
 
 | table | rows | candidates scored | annotated true | annotated false |
 | --- | --- | --- | --- | --- |
-| `hospital.csv` | 114,919 | 74 | 29 | 45 |
-| `dblp10k.csv` | 10,000 | 567 | 77 | 490 |
-| `adult.csv` | 32,561 | 116 | 2 | 114 |
+| `hospital.csv` | 114,919 | 75 | 29 | 46 |
+| `dblp10k.csv` | 10,000 | 620 | 77 | 543 |
+| `adult.csv` | 32,561 | 111 | 2 | 109 |
+| `claims.csv` | 97,231 | 58 | 4 | 54 |
+| `tax.csv` | 1,000,000 | 95 | 3 | 92 |
+| `t_biocase_identification_r91800_c38.csv` | 91,799 | 116 | 14 | 102 |
+| `t_biocase_gathering_r90992_c35.csv` | 90,991 | 79 | 1 | 78 |
+| `t_biocase_gathering_agent_r72738_c18.csv` | 72,737 | 62 | 7 | 55 |
+| `t_biocase_gathering_namedareas_r137711_c11.csv` | 137,710 | 44 | 5 | 39 |
+| `t_biocase_identification_highertaxon_r562959_c3.csv` | 562,958 | 2 | 1 | 1 |
+
+Every candidate resolved on every table: `candidates_unresolved` is 0 for all ten, so no
+count above is a column-name mismatch reading as a measurement.
 
 Measures are imported from `dataforge.premise_quality`, the module the miner uses. Nothing
 was reimplemented.
@@ -30,6 +51,13 @@ would need a closed-world assumption over *our* miner's output. They did not: th
 published `included_candidates.csv`, so the negative set is **their** closed world, defined
 before we arrived. The label noise that remains is theirs and is stated in their paper, not
 ours.
+
+**One bias in that universe, now that `excluded_candidates.csv` has been read.** The authors
+excluded a candidate when no tuple had both attributes present **or when its `g3_prime` value
+was too small**. The candidate universe is therefore already `g3'`-filtered, which truncates
+the low end of the `g3_prime` distribution and flatters any `g3'`-derived measure -- including
+`mu+`, which shares the same error-based normalisation. This was not known when C3 was
+pre-registered and it weakens, not strengthens, the case for a gate.
 
 ## The result that refutes P1 and P2
 
@@ -43,7 +71,7 @@ dependencies that caused 23 of 25 sampled corruptions on RAHA hospital — would
 | `ZIPCode -> HospitalOwner` | **false** | **0.9140** | 0.9347 |
 | `ZIPCode -> City` | true | 1.0000 | 1.0000 |
 
-Not near zero. A gate at `mu+ > 0` admits both, and **45 of 45 annotated-false candidates on
+Not near zero. A gate at `mu+ > 0` admits both, and **46 of 46 annotated-false candidates on
 hospital score above zero.** P1 and P2 are refuted as stated.
 
 ### Why, and this is the part worth keeping
@@ -94,23 +122,48 @@ Annotated-false candidates scoring above zero, lower is better:
 
 | measure | hospital | dblp10k | adult |
 | --- | --- | --- | --- |
-| `mu_plus` | 45/45 | **356/490** | **109/114** |
-| `g3_prime` | 45/45 | 466/490 | 114/114 |
-| `confidence` | 45/45 | 490/490 | 114/114 |
-| `tested_confidence` | 45/45 | 490/490 | 114/114 |
+| `mu_plus` | 46/46 | **407/543** | **104/109** |
+| `g3_prime` | 46/46 | 543/543 | 109/109 |
+| `confidence` | 46/46 | 543/543 | 109/109 |
+| `tested_confidence` | 46/46 | 543/543 | 109/109 |
 
 Highest-scoring false candidate, lower is better:
 
 | measure | hospital | dblp10k | adult |
 | --- | --- | --- | --- |
-| `mu_plus` | **0.9694** | 1.0 | **0.8981** |
-| `g3_prime` | 0.9941 | 1.0 | 0.9696 |
-| `confidence` | 0.9943 | 1.0 | 0.9898 |
-| `tested_confidence` | 0.9943 | 1.0 | 0.9807 |
+| `mu_plus` | **0.9694** | 1.0000 | **0.8981** |
+| `g3_prime` | 0.9941 | 1.0000 | 0.9696 |
+| `confidence` | 0.9943 | 1.0000 | 0.9898 |
+| `tested_confidence` | 0.9943 | 1.0000 | 0.9807 |
 
 `mu+` is the only measure with any discrimination on dblp10k, and it leaves the widest margin
 on the two tables where separation exists. It earns its place as a reported field beside
 `tested_confidence`. It does not earn a gate.
+
+**The correction cost `g3'` its only claim to discrimination.** On the unverified universe it
+scored 466/490 on dblp10k; on the published one it scores **543/543** — no discrimination at
+all. That is a larger change than the `mu+` one and it runs against the measure this document
+reports alongside `mu+`, which is the direction a correction should be checked in.
+
+### All ten tables, which is what the refusal now rests on
+
+Perfect separation by *some* threshold, per measure, across the full corpus:
+
+| measure | tables with perfect separation |
+| --- | --- |
+| `mu_plus` | **4 of 10** — adult, hospital, `t_biocase_gathering_r90992`, `t_biocase_identification_highertaxon` |
+| `g3_prime` | 3 of 10 |
+| `confidence` | 3 of 10 |
+| `tested_confidence` | 3 of 10 |
+
+The original P4 predicted separation "on **at least 6 of the 10** tables". Measured: **4**.
+**P4 is refuted**, and it is refuted on the full corpus rather than on the three-table subset
+that was all this document could previously speak to.
+
+Worse for the gate than the count: on `claims`, `tax` and `t_biocase_identification_r91800`
+the ordering **inverts** — an annotated-false candidate scores the maximum 1.0 while some
+annotated-true candidate scores at or below it. No threshold, fitted or otherwise, can
+separate a class whose maximum belongs to the wrong label.
 
 ## K4 is the criterion that matters, and it holds
 

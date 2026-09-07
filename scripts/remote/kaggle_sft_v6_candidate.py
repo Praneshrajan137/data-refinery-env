@@ -699,12 +699,15 @@ def main() -> int:
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from trl import SFTConfig, SFTTrainer
 
-    from training.grpo_eval import (
+    from archive.training.grpo_eval import (
         build_heldout_tasks,
         evaluate_causal_lm,
         evaluate_product_constrained_finish_baseline,
     )
-    from training.sft_promotion import build_sft_promotion_report, sft_promotion_gate_failures
+    from archive.training.sft_promotion import (
+        build_sft_promotion_report,
+        sft_promotion_gate_failures,
+    )
 
     gpu_metadata = _require_supported_gpu(torch, input_spec["candidate_label"])
     _log_event("gpu_ready", **gpu_metadata)

@@ -703,7 +703,7 @@ def test_push_trajectory_dataset_uploads_dataset_readme(tmp_path: Path) -> None:
 
 
 def test_dataset_readme_documents_oracle_labels_and_smoke_lineage() -> None:
-    readme = Path("training/DATASET_README.md").read_text(encoding="utf-8")
+    readme = Path("archive/training/DATASET_README.md").read_text(encoding="utf-8")
 
     assert "expert_v1.jsonl" in readme
     assert "oracle_from_clean_diff" in readme

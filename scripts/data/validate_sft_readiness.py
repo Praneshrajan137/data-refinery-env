@@ -32,7 +32,7 @@ from dataforge.repair_contract import (  # noqa: E402
 )
 from scripts.data.collect_sft_trajectories import validate_trajectory_record  # noqa: E402
 
-DEFAULT_CONFIG = Path("training/configs/sft_05b.yaml")
+DEFAULT_CONFIG = Path("archive/training/configs/sft_05b.yaml")
 DEFAULT_JSONL = Path("data/sft_traj/expert_v1.jsonl")
 DEFAULT_SPLIT_MANIFEST = Path("data/sft_traj/split_manifest.json")
 DEFAULT_MIN_RECORDS = 32

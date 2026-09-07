@@ -135,10 +135,15 @@ def test_training_config_pinning_debt_does_not_grow() -> None:
     becomes a permanent one.
     """
     sites = _mutable_ref_sites(_source_files(executable_only=False))
-    non_training = [site for site in sites if not site.startswith("training")]
+    # Sites carry native separators, so normalise before matching a prefix. The training
+    # subsystem moved to `archive/training/` on 2026-09-07 when it was excised from the
+    # product surface; the pinning debt moved with it and is still only accepted there.
+    non_training = [
+        site for site in sites if not site.replace("\\", "/").startswith("archive/training")
+    ]
     assert not non_training, (
-        f"unpinned fetch outside training/: {non_training}. Only training configs carry "
-        "accepted pinning debt."
+        f"unpinned fetch outside archive/training/: {non_training}. Only archived training "
+        "configs carry accepted pinning debt."
     )
     assert len(sites) <= _TRAINING_CONFIG_DEBT_CEILING, (
         f"training-config pinning debt grew from {_TRAINING_CONFIG_DEBT_CEILING} to "

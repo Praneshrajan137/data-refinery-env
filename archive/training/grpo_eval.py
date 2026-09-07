@@ -25,7 +25,7 @@ from dataforge.repair_contract import (
     score_repair_fixes_canonicalized,
     validate_repair_action_json_schema_payload,
 )
-from training.grpo_contract import TruthCell
+from archive.training.grpo_contract import TruthCell
 
 BENCHMARK_NAME = "DataForge-Bench-light-verified"
 TASK_MANIFEST_SCHEMA = "dataforge_grpo_eval_task_manifest_v1"

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 
+from archive.training.grpo_contract import TruthCell, score_grpo_completion
 from dataforge.repair_contract import (
     parse_repair_action,
     repair_failure_taxonomy,
     score_repair_fixes,
 )
-from training.grpo_contract import TruthCell, score_grpo_completion
 
 
 def _completion(column: str, value: str) -> str:

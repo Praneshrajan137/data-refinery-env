@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from training.sft_promotion import (
+from archive.training.sft_promotion import (
     active_repair_metrics,
     build_sft_v5_promotion_report,
     build_sft_v6_promotion_report,

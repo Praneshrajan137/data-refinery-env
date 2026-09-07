@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import json
 
-from dataforge.datasets.registry import DATASET_REGISTRY
-from dataforge.repair_contract import CONTRACT_VERSION_V2, SYSTEM_PROMPT
-from training.grpo_readiness import (
+from archive.training.grpo_readiness import (
     GRPO_BALANCED_RECALL_SYSTEM_PROMPT,
     GrpoReadinessSettings,
     analyze_grpo_readiness,
     build_prompt_example,
 )
+from dataforge.datasets.registry import DATASET_REGISTRY
+from dataforge.repair_contract import CONTRACT_VERSION_V2, SYSTEM_PROMPT
 
 
 def _record(

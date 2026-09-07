@@ -163,7 +163,7 @@
         "eval/results/kaggle_sft_v9_smoke_v1_failure/failure_report.json",
         "eval/results/kaggle_sft_v9_smoke_v2_relaunch/launch_report.json",
         "scripts/data/build_action_envelope_curriculum.py",
-        "training/configs/sft_05b_v9.yaml"
+        "archive/training/configs/sft_05b_v9.yaml"
       ],
       "id": "model_05b_sft_v9_private_candidate_preflight",
       "metrics": {
@@ -188,7 +188,7 @@
       "claim": "GRPO-v4 is staged but blocked until a private SFT-v9 or later predecessor passes promotion gates.",
       "claim_policy": "Planning/config evidence only; no training or model-quality claim.",
       "evidence_paths": [
-        "training/configs/grpo_05b_v4.yaml"
+        "archive/training/configs/grpo_05b_v4.yaml"
       ],
       "id": "model_05b_grpo_v4_blocked",
       "public_claim_allowed": false,

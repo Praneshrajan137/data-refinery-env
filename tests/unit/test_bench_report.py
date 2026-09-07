@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from dataforge.bench.report import (
 from scripts.bench.run_sota_comparison import build_sota_payload
 
 _FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "bench"
+_ROOT = Path(__file__).resolve().parents[2]
 
 
 class TestReportHelpers:
@@ -91,6 +93,74 @@ class TestReportHelpers:
         assert source["title"] == "BClean: A Bayesian Data Cleaning System"
         assert source["url"] == "https://arxiv.org/abs/2311.06517"
         assert len(source["source_sha256"]) == 64
+
+        # Every row must cite one of the DECLARED sources -- not necessarily the
+        # primary one. This assertion previously read
+        # `row["source_title"] == source["title"]`, which silently required the
+        # artifact to be single-source and would have rejected citing a second
+        # paper at all. The property that actually matters is that no row carries
+        # unattributed provenance.
+        declared = payload["sources"]
+        assert isinstance(declared, list)
+        titles = {str(entry["source_title"]) for entry in declared}
+        hashes = {str(entry["source_sha256"]) for entry in declared}
+        assert source["title"] in titles
+
         for row in payload["rows"]:
             assert row["evidence_kind"] == "citation_only"
-            assert row["source_title"] == source["title"]
+            assert row["source_title"] in titles
+            assert row["source_sha256"] in hashes
+            assert len(str(row["source_sha256"])) == 64
+            assert row["source_short"]
+            assert row["source_table"]
+
+    def test_generator_matches_the_committed_artifact(self) -> None:
+        """The generator must be the single source of truth for the committed JSON.
+
+        It was not. On 2026-09-01 four rows (BClean 0.976, BClean PI/PIP, PClean,
+        GARF) were added to `eval/results/sota_comparison.json` by hand and never to
+        `run_sota_comparison.py`, which kept emitting the original four. Running the
+        documented regeneration command would therefore have deleted the correction
+        and restored the two-weakest-rows mis-citation it existed to fix.
+
+        The pre-existing test could not catch it: it asserted the schema version and
+        per-row evidence kind, never the row POPULATION. Same defect class as the
+        four gates in this repository found unable to fail -- good assertions about a
+        check's logic, none about its effect.
+        """
+        committed = json.loads(
+            (_ROOT / "eval" / "results" / "sota_comparison.json").read_text(encoding="utf-8")
+        )
+
+        assert build_sota_payload() == committed, (
+            "eval/results/sota_comparison.json has diverged from its generator. "
+            "Regenerate with `python scripts/bench/run_sota_comparison.py` and rerun "
+            "`python scripts/bench/generate_report.py`; never hand-edit the artifact."
+        )
+
+    def test_every_system_above_us_on_hospital_is_cited(self) -> None:
+        """Omitting a stronger row of a correctly-cited table is a misleading citation.
+
+        This is the rule the 2026-09-01 audit extracted after the table was found to
+        hold only the two weakest rows of BClean Table 4. Pinning the known-stronger
+        systems means dropping one becomes a test failure rather than a quiet
+        improvement in how the comparison reads.
+        """
+        payload = build_sota_payload()
+        hospital = {
+            str(row["method"]): float(row["f1"])
+            for row in payload["rows"]
+            if row["dataset"] == "hospital"
+        }
+
+        # Each of these is published ABOVE this repository's 0.7926 on hospital.
+        for method, expected in {
+            "BClean": 0.976,
+            "BClean (PI/PIP)": 0.980,
+            "PClean": 0.962,
+            "Cocoon": 0.900,
+        }.items():
+            assert method in hospital, (
+                f"{method} is published above us on hospital and must be cited"
+            )
+            assert hospital[method] == expected

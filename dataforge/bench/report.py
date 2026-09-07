@@ -30,6 +30,64 @@ def _render_table(headers: list[str], rows: list[list[str]]) -> str:
     return "\n".join(lines)
 
 
+def _row_source_label(row: dict[str, object]) -> str:
+    """Return a short per-row provenance label, e.g. ``BClean T4``.
+
+    Falls back to the full title when ``source_short`` is absent, so fixtures and
+    older artifacts still render a real citation rather than a blank cell.
+    """
+    short = str(row.get("source_short") or row.get("source_title") or "unknown")
+    table = str(row.get("source_table") or "")
+    compact = table.replace("Table ", "T")
+    return f"{short} {compact}".strip()
+
+
+def _render_source_provenance(
+    raw_rows: list[object],
+    primary: object,
+) -> str:
+    """Render one provenance bullet per DISTINCT source cited by the rows.
+
+    Derived from the rows, never restated. The previous version printed a single
+    hardcoded source line taken from the top-level ``source`` key; once the artifact
+    cited a second paper, that line named only the first one while the table below it
+    displayed rows transcribed from the second. A single source line above rows drawn
+    from two different tables is itself a mis-citation, which is the defect class this
+    section exists to avoid.
+    """
+    seen: dict[str, dict[str, str]] = {}
+    for row in raw_rows:
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("source_sha256") or row.get("source_title") or "")
+        if not key or key in seen:
+            continue
+        seen[key] = {
+            "title": str(row.get("source_title") or "Unknown source"),
+            "url": str(row.get("source_url") or ""),
+            "table": str(row.get("source_table") or ""),
+            "sha256": str(row.get("source_sha256") or ""),
+            "retrieved": str(row.get("retrieved_at_utc") or ""),
+        }
+
+    if not seen and isinstance(primary, dict):
+        seen["primary"] = {
+            "title": str(primary.get("title") or "Unknown source"),
+            "url": str(primary.get("url") or ""),
+            "table": str(primary.get("table") or ""),
+            "sha256": str(primary.get("source_sha256") or ""),
+            "retrieved": str(primary.get("retrieved_at_utc") or ""),
+        }
+
+    bullets = [
+        f"- [{entry['title']}]({entry['url']}); {entry['table']}; "
+        f"source SHA-256 `{entry['sha256']}`; retrieved `{entry['retrieved']}`."
+        for entry in seen.values()
+    ]
+    heading = "Sources" if len(bullets) > 1 else "Source"
+    return f"{heading}:\n\n" + "\n".join(bullets) + "\n\n"
+
+
 def load_agent_output(path: Path) -> BenchmarkRunOutput:
     """Load agent comparison JSON output."""
     return BenchmarkRunOutput.model_validate(json.loads(path.read_text(encoding="utf-8")))
@@ -216,19 +274,13 @@ def render_benchmark_report(
             f"{float(row['precision']):.3f}",
             f"{float(row['recall']):.3f}",
             f"{float(row['f1']):.3f}",
+            _row_source_label(row),
             str(row.get("note", "Citation-only literature result.")),
         ]
         for row in raw_rows
         if isinstance(row, dict)
     ]
     source = sota_output.get("source", {})
-    source_title = (
-        source.get("title", "Unknown source") if isinstance(source, dict) else "Unknown source"
-    )
-    source_url = source.get("url", "") if isinstance(source, dict) else ""
-    source_table = source.get("table", "") if isinstance(source, dict) else ""
-    source_hash = source.get("source_sha256", "") if isinstance(source, dict) else ""
-    source_retrieved = source.get("retrieved_at_utc", "") if isinstance(source, dict) else ""
     skip_reasons = _collect_skip_reasons(agent_output.aggregates)
     skip_note = ""
     if skip_reasons:
@@ -268,13 +320,12 @@ def render_benchmark_report(
         + "## Per-Dataset Local Results\n\n"
         + "\n\n".join(per_dataset_sections)
         + "\n\n## Citation-Only SOTA Reference\n\n"
-        + f"Source: [{source_title}]({source_url}); {source_table}; "
-        + f"source SHA-256 `{source_hash}`; retrieved `{source_retrieved}`.\n\n"
+        + _render_source_provenance(raw_rows, source)
         + "HoloClean rows are transcribed from BClean Table 4; see "
         + "[HoloClean 2017](https://www.vldb.org/pvldb/vol10/p1190-rekatsinas.pdf) "
         + "for the original system description.\n\n"
         + _render_table(
-            ["Method", "Dataset", "Precision", "Recall", "F1", "Note"],
+            ["Method", "Dataset", "Precision", "Recall", "F1", "Source", "Note"],
             sota_rows,
         )
         + "\n\n## Methodology\n\n"

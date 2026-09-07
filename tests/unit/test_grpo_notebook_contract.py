@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-NOTEBOOK = ROOT / "training" / "kaggle" / "grpo_kaggle.ipynb"
+NOTEBOOK = ROOT / "archive" / "training" / "kaggle" / "grpo_kaggle.ipynb"
 
 
 def _payload() -> dict[str, object]:
