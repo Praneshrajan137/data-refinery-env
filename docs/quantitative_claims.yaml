@@ -920,6 +920,56 @@ claims:
       620 on the checksum-verified published candidate universe; 567 on the unverified local
       copy the first run used. Bound here because the candidate count defines the negative
       label set, so it is the number whose being wrong invalidates every separation figure.
+
+  # --- H1: no in-table measure transfers across held-out tables ---
+  # These are the numbers that justify abandoning the search for a fifth statistic, so they are
+  # bound rather than restated. The second one is the decisive one: a gate does not merely fail
+  # to exclude false dependencies, it destroys true ones.
+
+  - id: h1_mu_plus_clean_folds
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_h1.json
+    pointer: /measures/mu_plus/folds_separating
+    format: "{:d}"
+    expect: "4"
+    context: "4 / 10"
+    note: >-
+      The best of four measures separates cleanly on 4 of 10 held-out tables. K1 required
+      every fold, so H1 stands and no measure is shipped as a gate.
+
+  - id: h1_mu_plus_true_dependencies_discarded
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_h1.json
+    pointer: /measures/mu_plus/total_true_dependencies_discarded
+    format: "{:d}"
+    expect: "16"
+    context: "discards 16 of the 143"
+    note: >-
+      The decisive figure. Carried to a table it was not fitted on, the best available measure
+      discards 16 of the 143 hand-annotated true dependencies. A premise gate that loses real
+      constraints to exclude spurious ones is the net-harm case, not a win.
+
+  - id: h1_confidence_true_dependencies_discarded
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_h1.json
+    pointer: /measures/confidence/total_true_dependencies_discarded
+    format: "{:d}"
+    expect: "23"
+    context: "discards 23"
+    note: >-
+      `confidence` is the measure the shipped miner's 0.9 emission floor actually uses, and it
+      is the worst of the four on transfer.
+
+  - id: h1_foldable_tables
+    doc: docs/trust/premise-acquisition-result.md
+    artifact: eval/results/premise_acquisition_h1.json
+    pointer: /verdict/foldable_table_count
+    format: "{:d}"
+    expect: "10"
+    context: "10 of 10 are foldable"
+    note: >-
+      K5 fixed a minimum of four foldable tables, below which leave-one-table-out is not a
+      validation and H1 must be reported as untested. Ten satisfies it.
   - id: decisions_additivity_isolated
     doc: DECISIONS.md
     artifact: eval/results/constraint_additivity.json

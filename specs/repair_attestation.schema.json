@@ -198,6 +198,7 @@
                   "floor_cannot_verify",
                   "inferred_fd_not_declared",
                   "invalid_target",
+                  "mined_constraint_not_declared",
                   "not_inferable_from_data",
                   "out_of_inferred_domain",
                   "safety_denied",

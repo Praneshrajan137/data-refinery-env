@@ -2,7 +2,7 @@
  * GENERATED FILE -- DO NOT EDIT BY HAND.
  *
  * Source:      dataforge/domain/vocabulary.py
- * Source hash: sha256:15d4d0e1fdb40fb7feb637f30f1236265431b8e16f3a6d792232a01b58decfbc
+ * Source hash: sha256:57c8ba2bd6876dffebf34faecb11b1fbe109fcb22246fddb34bdfbd87a21eabd
  * Generator:   scripts/ci/generate_domain_vocabulary.py
  * Verify:      python scripts/ci/generate_domain_vocabulary.py --check
  *              (or, without Python: npm run audit:vocabulary)
@@ -87,6 +87,7 @@ export type ReviewReason =
   | "ambiguous_fd"
   | "out_of_inferred_domain"
   | "inferred_fd_not_declared"
+  | "mined_constraint_not_declared"
   | "unverified_transposition"
   | "unverified_entity_consensus"
   | "stale_precondition"
@@ -103,6 +104,7 @@ export const REVIEW_REASON_HUMAN: Record<string, string> = {
   ambiguous_fd: "The functional dependency was ambiguous, so no single correct value could be derived.",
   out_of_inferred_domain: "The proposed value falls outside the values inferred from the column.",
   inferred_fd_not_declared: "The supporting dependency was inferred, not declared, so it is not auto-applied.",
+  mined_constraint_not_declared: "The only constraint covering this column was mined from the table and accepted in review, not declared. Accepting a mined candidate is not the same evidence as declaring a constraint, so it does not confer the right to write.",
   unverified_transposition: "A transposition was proposed but could not be proven.",
   unverified_entity_consensus: "Sibling rows for this entity agree on a different value, but agreement is evidence, not proof, so it is suggested rather than applied.",
   stale_precondition: "The row changed after the proposal, so it was not applied.",
@@ -110,7 +112,7 @@ export const REVIEW_REASON_HUMAN: Record<string, string> = {
 };
 
 /** Every review reason, for runtime membership checks in a verifier. */
-export const REVIEW_REASONS: readonly ReviewReason[] = ["failed_conformal_threshold", "safety_escalation", "safety_denied", "not_inferable_from_data", "verifier_rejected", "floor_cannot_verify", "ambiguous_fd", "out_of_inferred_domain", "inferred_fd_not_declared", "unverified_transposition", "unverified_entity_consensus", "stale_precondition", "invalid_target"] as const;
+export const REVIEW_REASONS: readonly ReviewReason[] = ["failed_conformal_threshold", "safety_escalation", "safety_denied", "not_inferable_from_data", "verifier_rejected", "floor_cannot_verify", "ambiguous_fd", "out_of_inferred_domain", "inferred_fd_not_declared", "mined_constraint_not_declared", "unverified_transposition", "unverified_entity_consensus", "stale_precondition", "invalid_target"] as const;
 
 /** Issue severity, ascending. */
 export type Severity =

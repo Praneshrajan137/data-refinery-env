@@ -339,6 +339,12 @@ def test_repair_pipeline_uses_only_accepted_constraints(tmp_path: Path) -> None:
             mode="dry_run",
             constraints=artifact,
             constraints_artifact_sha256="a" * 64,
+            # The subject here is artifact PLUMBING -- that an accepted candidate reaches the
+            # repairer and produces a verified fix. Since 2026-09-07 a mined constraint does
+            # not confer write AUTHORITY (C4), so the opt-in is passed to keep this test
+            # measuring plumbing rather than silently becoming a test of the write default.
+            # The default is specified in tests/integration/test_premise_provenance_authority.py.
+            mined_constraints_grant_write_authority=True,
         )
     )
 

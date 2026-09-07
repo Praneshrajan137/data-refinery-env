@@ -388,6 +388,24 @@ class RepairPipelineRequest(BaseModel):
     confirm_escalations: bool = False
     allow_unproven_autoapply: bool = False
     require_declared_fds_for_autoapply: bool = False
+    mined_constraints_grant_write_authority: bool = False
+    """Whether human-accepted MINED constraints confer the right to write (C4).
+
+    Default ``False``, which is the change. A mined constraint still participates in
+    detection and in verification; it does not grant write authority to its columns.
+
+    Set ``True`` to restore the pre-2026-09-07 behaviour, in which accepting a mined
+    candidate in ``dataforge constraints review`` was treated as equivalent to declaring
+    it. That equivalence is unmeasured and is upstream of every corruption this project
+    has measured. See ``eval/preregistration/premise_acquisition.md`` and
+    ``docs/trust/premise-acquisition-result.md``.
+
+    **This makes the zero-config path write less, and that is not automatically a win.**
+    PRODUCT.md: "Zero writes is not a safety result." The trade is that capability moves
+    from the miner's guess to the user's stated premise -- on hospital, the mined premise
+    produced 451 repairs with 116 corruptions, while the declared premise produced 393
+    with none. The capability was never in the miner.
+    """
     fd_detection_source: FdDetectionSource = "accepted"
     allow_entity_consensus: bool = False
     corrector_pool_constrained: bool = False
@@ -1776,13 +1794,46 @@ def run_repair_pipeline(
     # stay byte-identical.
     corrector_policy = request.corrector_policy or corrector_default_policy()
     authoritative_schema_present = effective_schema is not None
-    # Per-column authority. This path is where the table-level flag was most dangerous:
-    # ``external`` provenance is NOT in _LLM_PROVENANCE, so a fix labelled proven here
-    # auto-applies immediately without needing to clear any calibration threshold.
-    covered_columns = authoritative_columns(effective_schema)
+    # C4: WRITE AUTHORITY FOLLOWS THE CONSTRAINT'S PROVENANCE, NOT THE MINER'S CONFIDENCE.
+    #
     # Authority is per COLUMN, not per table: a schema that constrains one column says
-    # nothing about any other. See authoritative_columns() for the defect this fixes.
-    covered_columns = authoritative_columns(effective_schema)
+    # nothing about any other. See authoritative_columns() for the defect that fixed.
+    # This line decides which SCHEMA confers that authority, which is a separate question
+    # and the one that produced every measured corruption.
+    #
+    # `effective_schema` is the declared schema merged with candidates a human ACCEPTED in
+    # `dataforge constraints review`. Granting authority from it treats "a reviewer clicked
+    # accept on a mined candidate" as equivalent to "a human declared this constraint". That
+    # equivalence has never been measured -- `eval/preregistration/reviewer_decision_quality.md`
+    # was written to measure it and needs recruited humans -- and all 116 clean-cell
+    # corruptions on hospital trace to four false mined dependencies that passed review.
+    #
+    # It is not fixed with a confidence floor. `docs/trust/premise-acquisition-result.md`
+    # measures four in-table measures across ten externally annotated tables: the best of them
+    # discards 16 of 143 hand-annotated true dependencies when its threshold is carried to a
+    # table it was not fitted on. The statistic a floor would read does not carry the signal.
+    #
+    # So authority comes from `request.repair_schema` -- what the user actually declared.
+    # Mined constraints still take part in VERIFICATION via `effective_schema`, which only
+    # makes the check stricter; they simply do not confer the right to write.
+    authority_schema = (
+        effective_schema
+        if request.mined_constraints_grant_write_authority
+        else request.repair_schema
+    )
+    covered_columns = authoritative_columns(authority_schema)
+    # Columns that WOULD have had write authority if a mined constraint conferred it. Used
+    # only to give the hold an honest reason: without this, these fixes report
+    # "no authoritative schema", which is false -- there is one, the constraint just was not
+    # declared. A misleading reason on a correct refusal is still a truthfulness defect.
+    mined_only_columns: frozenset[str] = frozenset()
+    if not request.mined_constraints_grant_write_authority and effective_schema is not None:
+        mined_only_columns = authoritative_columns(effective_schema) - covered_columns
+
+    def _held_for_mined_premise(fix: ProposedFix) -> bool:
+        """True when this fix was held because its only cover was a mined constraint."""
+        return fix.fix.column in mined_only_columns
+
     scope_guard_reason: str | None = None
     # Scope guard, before drift. A conformal certificate is valid only for data
     # exchangeable with its calibration sample, and the cheapest decidable necessary
@@ -1811,9 +1862,17 @@ def run_repair_pipeline(
     # fd_violation correction auto-applies only when its dependent column is covered
     # by a HAND-DECLARED FD. A correction justified only by an inferred (reviewed or
     # not) FD is held -- because an approximate inferred FD can be coincidental and
-    # its majority-repair would overwrite legitimate variation. Off by default.
+    # its majority-repair would overwrite legitimate variation.
+    #
+    # C4 makes this the DEFAULT rather than an opt-in, and the reason it has to live here
+    # rather than at `covered_columns` is worth stating: `verification_strength_for` treats a
+    # `deterministic` fix as proven by construction, independent of which columns the schema
+    # covers. So narrowing authority alone does not hold an FD repair -- it only gates
+    # untrusted provenance. Both halves are needed, and discovering that took a test that
+    # asserted the write did not happen and watched it happen anyway.
     inferred_fd_held: list[ProposedFix] = []
-    if request.require_declared_fds_for_autoapply:
+    withhold_mined_fd_authority = not request.mined_constraints_grant_write_authority
+    if request.require_declared_fds_for_autoapply or withhold_mined_fd_authority:
         declared_fd_dependents = (
             frozenset(fd.dependent for fd in request.repair_schema.functional_dependencies)
             if request.repair_schema is not None
@@ -1898,12 +1957,30 @@ def run_repair_pipeline(
             ),
         )
         + _suggestion_candidates(
-            [f for f in plausibility_suggestions if f.provenance != "entity_consensus"],
+            [
+                f
+                for f in plausibility_suggestions
+                if f.provenance != "entity_consensus" and not _held_for_mined_premise(f)
+            ],
             review_reason="floor_cannot_verify",
             verifier_reason=(
                 "Held for human review: only the advisory inferred guard could "
                 "vouch for this value (no authoritative schema); it is not proven, "
                 "so it is never auto-applied unless allow_unproven_autoapply is set."
+            ),
+        )
+        + _suggestion_candidates(
+            [f for f in plausibility_suggestions if _held_for_mined_premise(f)],
+            review_reason="mined_constraint_not_declared",
+            verifier_reason=(
+                "Held for human review: the only constraint covering this column was "
+                "MINED from your table and accepted in review, not declared. Accepting a "
+                "mined candidate is not the same evidence as declaring a constraint, so it "
+                "does not confer the right to write -- on the reference corpus, writes "
+                "authorised this way repaired 451 real errors and corrupted 116 clean cells, "
+                "while the declared premise repaired 393 and corrupted none. Declare the "
+                "constraint in a schema to authorise these writes, or pass "
+                "mined_constraints_grant_write_authority to restore the previous behaviour."
             ),
         )
         + _suggestion_candidates(
@@ -1926,12 +2003,30 @@ def run_repair_pipeline(
         )
         + _suggestion_candidates(
             inferred_fd_held,
-            review_reason="inferred_fd_not_declared",
+            review_reason=(
+                "mined_constraint_not_declared"
+                if withhold_mined_fd_authority
+                else "inferred_fd_not_declared"
+            ),
             verifier_reason=(
-                "Held for human review: this FD correction is justified only by an "
-                "inferred functional dependency, and require_declared_fds_for_autoapply "
-                "is set. Inferred FDs can be coincidental (constraint circularity), so "
-                "strict mode never auto-applies a correction without a declared FD."
+                (
+                    "Held for human review: the only dependency covering this column was "
+                    "MINED from your table, not declared. Accepting a mined candidate in "
+                    "review is not the same evidence as declaring a constraint, so it does "
+                    "not confer the right to write -- on the reference corpus, writes "
+                    "authorised that way repaired 451 real errors and corrupted 116 clean "
+                    "cells, while the declared premise repaired 393 and corrupted none. "
+                    "Declare the dependency in a schema to authorise these writes, or set "
+                    "mined_constraints_grant_write_authority to restore the previous "
+                    "behaviour."
+                )
+                if withhold_mined_fd_authority
+                else (
+                    "Held for human review: this FD correction is justified only by an "
+                    "inferred functional dependency, and require_declared_fds_for_autoapply "
+                    "is set. Inferred FDs can be coincidental (constraint circularity), so "
+                    "strict mode never auto-applies a correction without a declared FD."
+                )
             ),
         )
         + _detection_only_suggestions(issues)
@@ -2028,6 +2123,14 @@ class VerifyAndApplyRequest(BaseModel):
     confirm_escalations: bool = False
     allow_unproven_autoapply: bool = False
     require_independent_agreement: bool = True
+    mined_constraints_grant_write_authority: bool = False
+    """See :class:`RepairPipelineRequest`. Same default and same reason (C4).
+
+    This path matters more, not less: an ``external`` fix is untrusted provenance, so its
+    strength rests entirely on whether its column is covered by an authoritative constraint.
+    A constraint mined from the table and accepted in review must not be what supplies that
+    cover -- that is the 2026-08-09 defect with the miner substituted for the user.
+    """
 
     model_config = ConfigDict(
         strict=True,
@@ -2077,7 +2180,16 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
     columns = set(column_names(df))
     total_rows = row_count(df)
     authoritative_schema_present = effective_schema is not None
-    covered_columns = authoritative_columns(effective_schema)
+    # C4, same rule as `run_repair_pipeline`. This path matters MORE here, not less: an
+    # `external` fix is untrusted provenance, so its strength depends entirely on whether its
+    # column is covered. Letting an accepted MINED constraint confer that cover is the exact
+    # shape of the 2026-08-09 defect -- narrow evidence granting authority over a value nobody
+    # checked -- with the evidence now coming from the miner rather than from the user.
+    covered_columns = authoritative_columns(
+        effective_schema
+        if request.mined_constraints_grant_write_authority
+        else request.repair_schema
+    )
     verification_schema = infer_verification_schema(df) if effective_schema is None else None
 
     safety_filter = SafetyFilter()

@@ -79,7 +79,86 @@ def workspace(tmp_path: Path) -> Path:
 
 
 class TestTheZeroConfigJourneyWrites:
-    """profile -> review --accept -> repair --apply -> audit -> revert, with no schema anywhere."""
+    """profile -> review --accept -> repair --apply -> audit -> revert, with no schema anywhere.
+
+    **Changed 2026-09-07 (C4), and the change is the point.** Acceptance in review no longer
+    authorises a write by itself: the write step now requires explicit consent via
+    `--trust-mined-constraints`, or a declared schema. The chain below therefore tests the
+    *consented* zero-config journey, and
+    :meth:`TestTheZeroConfigJourneyWrites.test_acceptance_alone_now_refuses_with_a_named_reason`
+    pins the default refusal.
+
+    Why the chain is still tested with the flag rather than deleted: write -> audit -> revert is
+    the reversibility guarantee, and this is its only end-to-end coverage from a mined premise.
+    Removing it to reflect the new default would have traded a real guarantee for a tidy diff.
+    """
+
+    def test_acceptance_alone_now_refuses_with_a_named_reason(self, workspace: Path) -> None:
+        """The C4 default on the published journey: mined + accepted still does not write.
+
+        This is the test that would have failed before 2026-09-07, and it is the one that makes
+        the new default observable at the CLI surface a user actually touches.
+        """
+        source = workspace / SOURCE_NAME
+        original = source.read_bytes()
+        _json(
+            _run(
+                workspace,
+                "profile",
+                str(source),
+                "--constraints-out",
+                str(workspace / "constraints.json"),
+                "--json",
+            )
+        )
+        review = _json(
+            _run(
+                workspace,
+                "constraints",
+                "review",
+                str(workspace / "constraints.json"),
+                "--no-tui",
+                "--json",
+            )
+        )
+        target = next(
+            c
+            for c in review["candidates"]
+            if c["kind"] == "functional_dependency" and c["target"] == "state -> city"
+        )
+        _json(
+            _run(
+                workspace,
+                "constraints",
+                "review",
+                str(workspace / "constraints.json"),
+                "--accept",
+                target["candidate_id"],
+                "--no-tui",
+                "--json",
+            )
+        )
+
+        applied = _json_any_exit(
+            _run(
+                workspace,
+                "repair",
+                str(source),
+                "--constraints",
+                str(workspace / "constraints.json"),
+                "--apply",
+                "--json",
+            )
+        )
+        receipt = applied["receipt"]
+
+        assert receipt["fixes_count"] == 0, "a mined premise must not authorise a write"
+        assert source.read_bytes() == original
+        # The acceptance still reached the engine -- this is a refusal to WRITE, not a failure
+        # to read the artifact. Distinguishing those is the whole value of the reason field.
+        assert receipt["accepted_constraint_ids"] == [target["candidate_id"]]
+        reasons = {s.get("review_reason") for s in receipt["suggested_fixes"]}
+        assert "mined_constraint_not_declared" in reasons, reasons
 
     def test_the_published_journey_repairs_reverts_and_verifies(self, workspace: Path) -> None:
         """One test for the whole chain, because the chain is the claim.
@@ -141,6 +220,10 @@ class TestTheZeroConfigJourneyWrites:
                 "--constraints",
                 str(workspace / "constraints.json"),
                 "--apply",
+                # C4: acceptance alone no longer authorises the write. This flag is the
+                # explicit consent, and passing it is what keeps the write -> audit -> revert
+                # chain under test rather than deleting the only coverage of it.
+                "--trust-mined-constraints",
                 "--json",
             )
         )

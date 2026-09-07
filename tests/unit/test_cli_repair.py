@@ -295,6 +295,10 @@ class TestRepairCommand:
                 str(constraints_path),
                 "--dry-run",
                 "--json",
+                # C4: a mined constraint no longer confers write authority by default. The
+                # subject here is that the accepted ARTIFACT is used, so the opt-in keeps it
+                # measuring that.
+                "--trust-mined-constraints",
             ],
         )
 
@@ -416,7 +420,15 @@ class TestRepairCommand:
         with patch(
             "dataforge.engine.repair.append_created_transaction", side_effect=OSError("disk full")
         ):
-            result = runner.invoke(app, ["repair", str(csv_path), "--apply"])
+            # `--trust-mined-constraints` is required for this test to mean anything. The
+            # mocked fix is an `fd_violation` with no declared schema, which C4 holds -- so
+            # without the opt-in no transaction would be attempted at all and this test would
+            # pass VACUOUSLY, asserting the source is untouched while nothing tried to touch
+            # it. The subject is rollback on a transaction-log write failure, which requires
+            # reaching the write.
+            result = runner.invoke(
+                app, ["repair", str(csv_path), "--apply", "--trust-mined-constraints"]
+            )
 
         assert result.exit_code != 0
         assert csv_path.read_bytes() == original_bytes
@@ -613,7 +625,13 @@ class TestRepairCommand:
                 "dataforge.engine.repair.apply_transaction", return_value="txn-2026-04-21-abcdef"
             ),
         ):
-            result = runner.invoke(app, ["repair", str(csv_path), "--apply"])
+            # `--trust-mined-constraints` because the mocked fix is an `fd_violation` with no
+            # declared schema, which C4 now holds -- correctly, since nothing declared that
+            # dependency. The subject here is the partial-success SUMMARY, so the opt-in keeps
+            # the test measuring the summary rather than the authority rule.
+            result = runner.invoke(
+                app, ["repair", str(csv_path), "--apply", "--trust-mined-constraints"]
+            )
 
         assert result.exit_code == 0
         assert "Week 3 Summary" in result.output

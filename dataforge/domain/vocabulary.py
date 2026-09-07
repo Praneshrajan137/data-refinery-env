@@ -302,6 +302,7 @@ ReviewReason = Literal[
     "ambiguous_fd",
     "out_of_inferred_domain",
     "inferred_fd_not_declared",
+    "mined_constraint_not_declared",
     "unverified_transposition",
     "unverified_entity_consensus",
     "stale_precondition",
@@ -326,6 +327,11 @@ REVIEW_REASON_HUMAN: Final[dict[str, str]] = {
     "inferred_fd_not_declared": (
         "The supporting dependency was inferred, not declared, so it is not auto-applied."
     ),
+    "mined_constraint_not_declared": (
+        "The only constraint covering this column was mined from the table and accepted in "
+        "review, not declared. Accepting a mined candidate is not the same evidence as "
+        "declaring a constraint, so it does not confer the right to write."
+    ),
     "unverified_transposition": "A transposition was proposed but could not be proven.",
     "unverified_entity_consensus": (
         "Sibling rows for this entity agree on a different value, but agreement is "
@@ -345,6 +351,7 @@ REVIEW_REASONS: Final[tuple[ReviewReason, ...]] = (
     "ambiguous_fd",
     "out_of_inferred_domain",
     "inferred_fd_not_declared",
+    "mined_constraint_not_declared",
     "unverified_transposition",
     "unverified_entity_consensus",
     "stale_precondition",

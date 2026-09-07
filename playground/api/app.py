@@ -1761,7 +1761,15 @@ def _apply_handoff(source_name: str, receipt: RepairReceiptView) -> ApplyHandoff
     apply_command = f"dataforge repair {source_ref} --apply"
     if receipt.accepted_constraint_ids:
         dry_run_command = f"dataforge repair {source_ref} --constraints constraints.json --dry-run"
-        apply_command = f"dataforge repair {source_ref} --constraints constraints.json --apply"
+        # C4 (2026-09-07): accepting a MINED constraint no longer authorises a write, so the
+        # command printed here must carry the explicit consent flag or it would refuse and the
+        # playground would be handing the user a command that does not do what it implies.
+        # Emitting the flag is the honest option; silently omitting it and letting the user
+        # discover the refusal would be a worse demo than showing the requirement.
+        apply_command = (
+            f"dataforge repair {source_ref} --constraints constraints.json "
+            "--trust-mined-constraints --apply"
+        )
     txn_ref = receipt.txn_id or "<txn-id>"
     return ApplyHandoff(
         source_name=source_name,

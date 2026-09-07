@@ -387,6 +387,17 @@ def repair(
             help="Non-interactively confirm soft safety escalations such as aggregate-sensitive edits.",
         ),
     ] = False,
+    trust_mined_constraints: Annotated[
+        bool,
+        typer.Option(
+            "--trust-mined-constraints",
+            help="Let constraints MINED from your table and accepted in `constraints review` "
+            "authorise writes, as they did before 2026-09-07. Off by default: accepting a "
+            "mined candidate is not the same evidence as declaring one. On the reference "
+            "corpus this authorised 451 real repairs and 116 clean-cell corruptions, while a "
+            "declared premise repaired 393 and corrupted none. Prefer --schema.",
+        ),
+    ] = False,
     allow_entity_consensus: Annotated[
         bool,
         typer.Option(
@@ -677,6 +688,7 @@ def repair(
                 corrector_reference_confidences=corrector_reference,
                 corrector_calibration_scope=corrector_scope,
                 fd_detection_source=_parse_fd_detection(fd_detection),
+                mined_constraints_grant_write_authority=trust_mined_constraints,
             ),
             review_ranker=ranker,
             review_ranker_max_cells=review_rank_max_cells,

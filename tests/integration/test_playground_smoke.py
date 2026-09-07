@@ -713,8 +713,17 @@ def test_analyze_accepts_reviewed_constraints(client: TestClient) -> None:
     assert second.status_code == 200
     body = second.json()
     assert fd_candidate["candidate_id"] in body["receipt"]["accepted_constraint_ids"]
-    assert any(repair["detector_id"] == "fd_violation" for repair in body["repairs"])
-    assert body["apply_handoff"]["apply_command"].endswith("--constraints constraints.json --apply")
+    # C4 (2026-09-07): the acceptance reaches the engine and drives DETECTION, but a mined
+    # constraint no longer confers write authority, so the correction is held rather than
+    # proposed as a repair. The playground follows the shipped default deliberately -- a demo
+    # that wrote where the CLI refuses would misrepresent the product.
+    assert not any(repair["detector_id"] == "fd_violation" for repair in body["repairs"])
+    reasons = {suggestion.get("review_reason") for suggestion in body["receipt"]["suggested_fixes"]}
+    assert "mined_constraint_not_declared" in reasons, reasons
+    # The printed command must therefore carry the explicit consent, or it would refuse.
+    assert body["apply_handoff"]["apply_command"].endswith(
+        "--constraints constraints.json --trust-mined-constraints --apply"
+    )
 
 
 @pytest.mark.integration
@@ -920,12 +929,27 @@ def test_verify_scenario_unknown_is_404(client: TestClient) -> None:
 @pytest.mark.integration
 @pytest.mark.parametrize("name", ["hospital_10rows", "flights_10rows", "beers_10rows"])
 def test_verify_fixes_curated_batch_yields_guardrail_split(client: TestClient, name: str) -> None:
-    """The scripted untrusted-agent batch proves the correct edit and blocks the rest.
+    """The scripted untrusted-agent batch blocks every proposal, and names why.
 
-    Fetches the sample bytes via the API so the content-derived constraint ids in
-    the scenario match the posted file, then asserts the full guardrail story:
-    exactly one proven would-apply fix, the corrupting/stale/invalid proposals
-    held or rejected with honest reasons, and a certificate that re-verifies.
+    **Changed 2026-09-07 (C4), and the change costs this demo something real.** The scenario
+    creates its premise by accepting MINED constraints. Since a mined constraint no longer
+    confers write authority, the one correctly-typed edit that used to be `proven` and
+    would-apply is now held like the other three, so the batch no longer demonstrates a
+    *split* -- it demonstrates uniform refusal.
+
+    The flag `mined_constraints_grant_write_authority` would restore the split, and it is
+    deliberately NOT used here: the playground would then show a write that the shipped CLI
+    default refuses, which is a misrepresentation of the product and the honesty doctrine
+    forbids it. The honest cost is that this demo is now weaker than
+    `test_verify_fixes_without_schema_holds_everything` is able to distinguish.
+
+    **Restoring the split requires a DECLARED premise in the scenario, not a flag.** That is
+    recorded as follow-up work rather than papered over, because the guardrail split is the
+    single most legible demonstration this product has.
+
+    What is still asserted, and still worth asserting: the three genuinely bad proposals are
+    each rejected for their own distinct, honest reason -- which is the part a user needs to
+    trust -- and the certificate re-verifies.
     """
     scenario = client.get(f"/api/verify-scenarios/{name}").json()
     csv_bytes = client.get(f"/api/samples/{name}").content
@@ -946,18 +970,25 @@ def test_verify_fixes_curated_batch_yields_guardrail_split(client: TestClient, n
     assert body["authoritative_schema"] is True
     assert body["proposer"] == scenario["proposer"]
 
-    # Exactly the one correctly-typed edit is proven and would apply.
-    assert len(body["would_apply"]) == 1
-    assert body["would_apply"][0]["verification_strength"] == "proven"
+    # No external value is proven from a mined premise.
+    assert body["would_apply"] == []
 
-    # The corrupting / stale / invalid proposals are each blocked with an honest reason.
+    # The corrupting / stale / invalid proposals are each blocked with an honest reason. This
+    # is the assertion that still carries the guardrail claim.
     reasons = {held["review_reason"] for held in body["receipt"]["suggested_fixes"]}
     assert {"verifier_rejected", "stale_precondition", "invalid_target"} <= reasons
 
     # Nothing was written; the receipt re-verifies as a certificate.
     assert body["receipt"]["applied"] is False
     assert body["certificate"]["ok"] is True
-    assert body["receipt"]["independent_verification"] == "agreed"
+    # `independent_verification` was "agreed" while one fix was a write candidate. With none,
+    # it is honestly "not_run": the differential SMT+Direct agreement is reported for values
+    # that could be written, and there are none. Note this does NOT mean verification was
+    # skipped -- the `verifier_rejected` reason above is the verifier doing its job on the
+    # corrupting proposal. Asserting the weaker value deliberately, because claiming "agreed"
+    # when no candidate reached that gate would be the exact kind of unearned certificate
+    # claim this product exists to refuse.
+    assert body["receipt"]["independent_verification"] == "not_run"
 
 
 @pytest.mark.integration

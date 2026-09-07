@@ -203,6 +203,40 @@ class TestOneConstraintDoesNotGrantBlanketAuthority:
     def test_fix_on_the_covered_column_still_applies(self) -> None:
         # The fix must not become a blanket refusal: authority over the column the schema
         # DOES constrain is exactly what an authoritative schema is for.
+        #
+        # `mined_constraints_grant_write_authority=True` reproduces the exact 2026-08-09
+        # conditions, where an ACCEPTED MINED `column_type` candidate was the authority. C4
+        # (2026-09-07) now closes this escalation a second and independent way -- a mined
+        # constraint confers no authority at all, so the `city` write is refused even before
+        # per-column scoping is consulted. The flag is passed here deliberately so this test
+        # keeps measuring per-column scoping rather than silently becoming a test of C4.
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "t.csv"
+            source.write_bytes(_CSV)
+            accepted = self._accepted_one_column_type(source)
+
+            result = verify_and_apply(
+                VerifyAndApplyRequest(
+                    source_path=source,
+                    fixes=[ExternalFix(row=0, column="id", new_value="9")],
+                    mode="apply",
+                    constraints=accepted,
+                    confirm_escalations=True,
+                    mined_constraints_grant_write_authority=True,
+                )
+            )
+
+            assert result.receipt.applied is True
+            assert source.read_bytes() != _CSV
+
+    def test_c4_refuses_the_covered_column_too_when_the_authority_is_mined(self) -> None:
+        """The second, independent closure of the 2026-08-09 escalation.
+
+        The original fix scoped authority to the columns a schema constrains. C4 goes
+        further: a constraint MINED from the table and accepted in review confers no write
+        authority on any column, so even the covered column is refused. Pinned because a
+        defect closed twice should stay closed twice.
+        """
         with tempfile.TemporaryDirectory() as temp_dir:
             source = Path(temp_dir) / "t.csv"
             source.write_bytes(_CSV)
@@ -218,5 +252,5 @@ class TestOneConstraintDoesNotGrantBlanketAuthority:
                 )
             )
 
-            assert result.receipt.applied is True
-            assert source.read_bytes() != _CSV
+            assert result.receipt.applied is False
+            assert source.read_bytes() == _CSV

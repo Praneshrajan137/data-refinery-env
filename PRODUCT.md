@@ -69,9 +69,45 @@ protocol.
   `eval/preregistration/entailment_strength.md`. What has **not** changed is the limit itself: a
   weak premise still yields a weak proof, and the gate cannot judge whether the constraints you
   declared are the right ones.
+- **Not that a MINED constraint can authorise a write.** Since 2026-09-07 write authority
+  follows a constraint's **provenance**, not the miner's confidence in it. A dependency
+  discovered in your table and accepted in `dataforge constraints review` drives detection and
+  verification but confers **no right to write**; that needs a declared schema, or the explicit
+  `--trust-mined-constraints` opt-in. The reason is measured, not assumed: across ten
+  externally annotated tables, the best of four in-table quality measures **discards 16 of 143
+  hand-annotated true dependencies** when its threshold is carried to a table it was not fitted
+  on, so no confidence floor can rescue a mined premise
+  ([docs/trust/premise-acquisition-result.md](docs/trust/premise-acquisition-result.md)).
+  **This makes the zero-config path write nothing by default. That is a trade, not a safety
+  result** -- see section 1.5.
 - **Not authenticity without a key.** Signing is optional and proves a keyholder
   produced the payload. Key distribution and trust roots are deployment policy and out
   of scope; an unsigned attestation is reported `unsigned`, never `verified`.
+
+### 1.5 What C4 costs, stated where a reader cannot miss it
+
+`PRODUCT.md` says elsewhere, and means: **zero writes is not a safety result.** Withholding
+write authority from mined constraints removes the product's only path from a table with no
+declared schema to an unsupervised repair. On the reference corpus that path produced **451
+real repairs and 116 clean-cell corruptions** (write precision 0.7954, roughly one write in
+five damaging good data); a declared premise on the same table produced **393 repairs and no
+corruptions**.
+
+So the honest framing is not that the product became safer. It is that **capability moved from
+the miner's guess to the user's stated premise** -- the capability was never in the miner. What
+a user gets by default is detection, a named refusal reason, and a one-line way to authorise
+the writes deliberately. What a user loses is a repair that happened without them saying what
+was true about their data.
+
+Two consequences worth naming rather than discovering:
+
+- The hosted playground's guardrail demo now shows **uniform refusal** rather than a
+  proven-vs-blocked split, because its premise is mined. Restoring the split needs a declared
+  premise in the scenario, not a flag; the playground deliberately does not pass the opt-in,
+  because a demo that writes where the CLI refuses would misrepresent the product.
+- `independent_verification` is reported `not_run` where no value is a write candidate. That is
+  weaker than the previous `agreed`, and it is correct: claiming agreement at a gate nothing
+  reached would be an unearned certificate claim.
 
 ### 1.3 The same lesson, learned twice (2026-08-25)
 

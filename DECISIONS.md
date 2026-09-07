@@ -35,7 +35,81 @@ claims instead. That exclusion is recorded in the test, not implied.
 
 ---
 
-## 2026-09-07 - Excise the training subsystem to archive/, and let the rule that condemned it decide what stays
+## 2026-09-07 - Write authority follows a constraint's provenance, not the miner's confidence (C4)
+
+**Context**: Four in-table premise measures had been refused as gates, each after seeing the
+data, each for its own reason. Rather than propose a fifth, the question was raised a level:
+*is premise validity decidable from the table at all?*
+`eval/preregistration/premise_acquisition.md` was written first, with K1 fixed so a positive
+answer would kill the constructive half.
+
+**Measured** (`docs/trust/premise-acquisition-result.md`, all ten `rwd` tables, leave-one-table-out
+with the threshold fitted generously on nine and tested on the tenth):
+
+| measure | clean folds | true dependencies discarded |
+| --- | --- | --- |
+| `mu_plus` | 4 / 10 | **16** |
+| `g3_prime` | 2 / 10 | 17 |
+| `tested_confidence` | 2 / 10 | 18 |
+| `confidence` | 1 / 10 | 23 |
+
+K1 did not fire. H1 stands. The decisive column is the second: the **best** measure discards 16
+of 143 hand-annotated true dependencies when carried to an unseen table, and `confidence` -- the
+measure the shipped 0.9 emission floor actually uses -- discards 23. A threshold that is clean on
+hospital discards 4 of 7 true dependencies on `t_biocase_gathering_agent` and 3 of 5 on
+`namedareas`. **The threshold barely moves; the tables move under it**, because what these
+measures read is the determinant-group-size distribution, which is a property of the instance and
+not of the dependency.
+
+**Decision**: ship C4 **as the default**. A constraint mined from the table and accepted in
+`constraints review` drives detection and verification but confers no write authority. Authority
+comes from the declared schema. Opt out with `--trust-mined-constraints`. The hold is reported as
+`mined_constraint_not_declared`, a new review reason, because the existing
+`floor_cannot_verify` says "no authoritative schema" and that would have been false.
+
+**Alternatives**:
+- *A fifth statistic.* Rejected: that is K4 wearing a new measure, and it has now been paid four
+  times.
+- *A confidence floor on `to_schema()`.* Rejected by this measurement -- the statistic a floor
+  would read does not carry the signal.
+- *Ship C4 as opt-in.* Rejected by the user after the cost was quantified. It is the
+  disclosure-instead-of-reallocation pattern the 2026-09-01 audit named.
+
+**Two things implementation exposed, both worth reusing**:
+1. **Narrowing `covered_columns` is not sufficient.** `verification_strength_for` treats a
+   `deterministic` fix as proven by construction regardless of which columns the schema covers,
+   so the authority set gates only untrusted provenance. The deterministic FD path needed the
+   declared-FD requirement as well. Found by a test that asserted the write did not happen and
+   watching it happen anyway.
+2. **The whole suite passed unchanged when C4 was switched on**, which was evidence that nothing
+   in 2,753 tests exercised the mined-premise write path *as a subject* -- not evidence of
+   safety. Twelve tests failed once the mechanism was complete, and their names were the old
+   specification.
+
+**The cost, accepted explicitly rather than discovered**: the default now writes nothing on a
+table with no declared schema; the playground guardrail demo shows uniform refusal rather than a
+proven-vs-blocked split (restoring the split needs a declared premise in the scenario, not a
+flag -- the playground deliberately does not pass the opt-in, because a demo that writes where
+the CLI refuses would misrepresent the product); and `independent_verification` reports `not_run`
+where no value is a write candidate, which is weaker than the previous `agreed` and correct.
+Recorded in PRODUCT.md 1.5 where a reader cannot miss it, because "zero writes is not a safety
+result" applies to this change first.
+
+**Also corrected while here**: two tests were saved from going VACUOUS.
+`test_transaction_log_write_failure_leaves_source_untouched` would have asserted "source
+untouched" while nothing attempted a write; the opt-in is passed so it still reaches the write
+path. That failure mode -- a guard that keeps passing because the thing it guards stopped
+happening -- is the one to watch for after any change that withdraws a capability.
+
+**Reviewed with**: the user, on the default. The evidence decided the mechanism; the default was
+a product call and was put to them with the numbers.
+
+**Reversal criteria**: K2 -- if the declared arm's numbers move (hospital oracle must stay at
+393 repairs / 0 corruptions), C4 is withdrawn. Separately, if any measure is ever shown to
+separate on every held-out fold of a corpus with real annotations while discarding no true
+dependency, ship that measure and reconsider this.
+
+---
 
 **Context**: An audit recorded the training/RL subsystem as contributing nothing: best
 recorded `sft_f1` **0.0202**, the v7 candidate at **0.0** with `parse_success` 0.0 on 576

@@ -205,7 +205,18 @@ def test_constraints_review_acceptance_feeds_repair(tmp_path: Path) -> None:
     )
     repair_result = runner.invoke(
         app,
-        ["repair", str(csv_path), "--constraints", str(constraints_path), "--dry-run", "--json"],
+        [
+            "repair",
+            str(csv_path),
+            "--constraints",
+            str(constraints_path),
+            "--dry-run",
+            "--json",
+            # C4 (2026-09-07): a mined constraint no longer confers write authority. This
+            # test's subject is that review acceptance FEEDS repair, so the opt-in keeps it
+            # measuring the feed rather than the write default.
+            "--trust-mined-constraints",
+        ],
         catch_exceptions=False,
     )
 
