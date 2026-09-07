@@ -174,6 +174,15 @@ def bench(
             "and print the per-error-class coverage matrix. No API keys required.",
         ),
     ] = False,
+    allow_coverage_loss: Annotated[
+        bool,
+        typer.Option(
+            "--allow-coverage-loss",
+            help="Permit overwriting the output artifact even when this run produces "
+            "fewer method/dataset pairs than it already holds. Off by default, because "
+            "a narrow diagnostic run would otherwise destroy committed evidence in place.",
+        ),
+    ] = False,
 ) -> None:
     """Run real-world benchmark methods across cached benchmark datasets."""
     if quick:
@@ -196,6 +205,7 @@ def bench(
             really_run_big_bench=really_run_big_bench,
             cache_root=cache_root,
             verify_dataset_hashes=verify_dataset_hashes,
+            allow_coverage_loss=allow_coverage_loss,
         )
     except Exception as exc:
         _console.print(

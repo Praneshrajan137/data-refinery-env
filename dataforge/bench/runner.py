@@ -318,6 +318,7 @@ def run_agent_comparison(
     reproduction_command: str | None = None,
     seed_list: list[int] | None = None,
     verify_dataset_hashes: bool = True,
+    allow_coverage_loss: bool = False,
 ) -> BenchmarkRunOutput:
     """Run the selected benchmark methods across real-world datasets.
 
@@ -495,5 +496,5 @@ def run_agent_comparison(
         records=records,
         aggregates=aggregates,
     )
-    write_run_output(output, output_json)
+    write_run_output(output, output_json, allow_coverage_loss=allow_coverage_loss)
     return output

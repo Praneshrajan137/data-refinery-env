@@ -15,7 +15,9 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-_HARNESS = Path(__file__).resolve().parents[2] / "scripts" / "bench" / "measure_premise_write_exposure.py"
+_HARNESS = (
+    Path(__file__).resolve().parents[2] / "scripts" / "bench" / "measure_premise_write_exposure.py"
+)
 
 
 def _load():

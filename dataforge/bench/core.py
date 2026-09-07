@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import importlib.metadata as package_metadata
+import json
 import platform
 import subprocess
 import sys
 from collections import OrderedDict
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from math import ceil
 from pathlib import Path
@@ -712,7 +714,64 @@ def aggregate_seed_results(
     return aggregates
 
 
-def write_run_output(output: BenchmarkRunOutput, path: Path) -> None:
-    """Serialize benchmark run output to JSON."""
+class BenchmarkCoverageLossError(RuntimeError):
+    """Raised when writing a benchmark run would drop coverage an existing artifact holds."""
+
+
+def _coverage(records: Iterable[object]) -> set[tuple[str, str]]:
+    """Return the (method, dataset) pairs a run covers.
+
+    Accepts both the pydantic records of a fresh run and the plain dicts of an artifact
+    already on disk, because the guard has to compare one against the other.
+    """
+    pairs: set[tuple[str, str]] = set()
+    for record in records:
+        method = (
+            record.get("method") if isinstance(record, dict) else getattr(record, "method", None)
+        )
+        dataset = (
+            record.get("dataset") if isinstance(record, dict) else getattr(record, "dataset", None)
+        )
+        if isinstance(method, str) and isinstance(dataset, str):
+            pairs.add((method, dataset))
+    return pairs
+
+
+def write_run_output(
+    output: BenchmarkRunOutput,
+    path: Path,
+    *,
+    allow_coverage_loss: bool = False,
+) -> None:
+    """Serialize benchmark run output to JSON, refusing to silently narrow committed evidence.
+
+    ``dataforge bench`` defaults to writing ``eval/results/agent_comparison.json``, which is a
+    committed artifact that docs and gates read. A narrower run -- one method, one dataset, one
+    seed, as a diagnostic -- therefore used to **destroy** the twelve-record set in place with no
+    warning, and the loss was only recoverable because the file happens to be tracked by git.
+
+    That is not hypothetical: it happened on 2026-09-07 while investigating the hospital anchor,
+    and the twelve-record artifact had to be restored with ``git checkout``. Frozen evidence that
+    any diagnostic command can overwrite is not frozen.
+
+    So an overwrite is permitted only when it **preserves or extends** the (method, dataset)
+    coverage already on disk. Re-running the full matrix is allowed; quietly replacing it with a
+    slice is not. Pass ``allow_coverage_loss=True`` to overwrite deliberately.
+    """
+    if path.exists() and not allow_coverage_loss:
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+            previous = _coverage(existing.get("records", []))
+        except (OSError, ValueError, AttributeError):
+            previous = set()  # An unreadable artifact is not evidence worth protecting.
+        dropped = previous - _coverage(output.records)
+        if dropped:
+            listed = ", ".join(f"{method}/{dataset}" for method, dataset in sorted(dropped))
+            raise BenchmarkCoverageLossError(
+                f"Refusing to overwrite {path}: it holds results this run does not produce "
+                f"({listed}). Writing would destroy committed evidence that docs and gates "
+                f"read. Re-run the full matrix, write elsewhere with --output-json, or pass "
+                f"--allow-coverage-loss if narrowing the artifact is what you intend."
+            )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(output.model_dump_json(indent=2), encoding="utf-8")
