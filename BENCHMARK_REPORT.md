@@ -11,7 +11,7 @@
 - Seeds: 3
 - Exact seed list: 0, 1, 2
 - Evidence schema: `dataforge_benchmark_run_v2`
-- Git commit: `236df758dbdd3d55bfa99d02eea64928e6dd8979`; dirty worktree: `true`
+- Git commit: `6280b643b9b47ff735c2476b534dd6bc979044ff`; dirty worktree: `true`
 - Free-tier quota units: `max(llm_calls / 1000, (prompt_tokens + completion_tokens) / 100000)`
 - GRPO compute cost is reported as free-tier GPU-hours, not dollars.
 - Dataset bytes are pinned to BigDaMa/raha revision `7be1334b8c7bbdac3f47ef514fb3e1e8c5fc181c` for hospital, flights; dirty/clean SHA-256s are recorded in the JSON metadata.
@@ -20,7 +20,7 @@
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3585 | 0.4430 | 0.3963 | 361.50 | 0.0000 | 0.0000 |
+| heuristic | 0.3949 | 0.4430 | 0.4176 | 291.00 | 0.0000 | 0.0000 |
 | random | 0.0057 | 0.0004 | 0.0008 | 125.50 | 0.0000 | 0.0000 |
 
 ## Per-Dataset Local Results
@@ -30,14 +30,14 @@
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
 | random | 0.0065 +/- 0.0113 | 0.0007 +/- 0.0012 | 0.0012 +/- 0.0021 | 51.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
-| heuristic | 0.7170 +/- 0.0000 | 0.8861 +/- 0.0000 | 0.7926 +/- 0.0000 | 630.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
+| heuristic | 0.7898 +/- 0.0000 | 0.8861 +/- 0.0000 | 0.8352 +/- 0.0000 | 572.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
 
 ### Flights
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
 | random | 0.0050 +/- 0.0087 | 0.0002 +/- 0.0003 | 0.0004 +/- 0.0007 | 200.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
-| heuristic | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 93.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
+| heuristic | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 10.0000 +/- 0.0000 | 0.0000 +/- 0.0000 | 0.0000 +/- 0.0000 |
 
 ## Citation-Only SOTA Reference
 

@@ -79,8 +79,9 @@ DATASET_REGISTRY: dict[str, DatasetMetadata] = {
         tier_reason=(
             "Errors are injected, and the entire error model is one substituted character: "
             "509 of 509 corrupted cells contain an 'x'. HoloClean's and HoloDetect's own "
-            "authors call it an easy benchmark in print, and the field has moved 0.83 -> "
-            "0.99 while this project's anchor sits at 0.7926. Measured on real errors, the "
+            "authors call it an easy benchmark in print, and the field reports 0.83 -> "
+            "0.99 on it; this project's anchor of 0.8352 sits at the bottom of that "
+            "published range. Measured on real errors, the "
             "same detector family runs at precision 0.025-0.037 versus 0.561 here "
             "(docs/trust/real-error-detection-result.md). Retained as a fixed regression "
             "tripwire, which is a real role; demoted from flagship, which it was not."

@@ -217,7 +217,7 @@ reproduce with `dataforge bench --quick`):
 
 | Dataset  | Error provenance | Tier | Correction F1 | Detection coverage (recall by class)                    |
 | -------- | ---------------- | ---- | ------------- | ------------------------------------------------------- |
-| hospital | injected         | tripwire   | 0.7926  | value_format 1.00, text_normalization 0.87, other 1.00  |
+| hospital | injected         | tripwire   | 0.8352  | value_format 1.00, text_normalization 0.87, other 1.00  |
 | flights  | contested        | diagnostic | 0.0000  | missing_value 1.00 (2370 cells)                         |
 
 **Provenance note, 2026-08-25.** The hospital correction F1 above was measured with a
@@ -234,7 +234,9 @@ Neither row is a headline claim, and the two middle columns say why:
 - **hospital's errors are injected, and the entire error model is one substituted
   character** -- 509 of 509 corrupted cells contain an `x` (`birminghxm` ->
   `birmingham`). HoloClean's and HoloDetect's own authors describe it in print as an easy
-  benchmark, and the field has moved 0.83 -> 0.99 while this number sits at 0.7926. It is
+  benchmark, and the field reports 0.83 -> 0.99 on it. This project's 0.8352 sits at the bottom
+  of that published range, which says more about how easy the benchmark is than about this
+  repository. It is
   retained as a fixed regression **tripwire**, which is a real and useful role, and it is
   not evidence of capability on real errors. The upper end of that range used to be an
   unsourced assertion; the citation-only SOTA table in
@@ -747,11 +749,11 @@ backend provider key is explicitly configured.
 ## Benchmark Results
 
 <!-- BENCH:START -->
-Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `236df758dbdd`, dirty `true`).
+Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `6280b643b9b4`, dirty `true`).
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3585 | 0.4430 | 0.3963 | 361.50 | 0.0000 | 0.0000 |
+| heuristic | 0.3949 | 0.4430 | 0.4176 | 291.00 | 0.0000 | 0.0000 |
 | random | 0.0057 | 0.0004 | 0.0008 | 125.50 | 0.0000 | 0.0000 |
 
 See `BENCHMARK_REPORT.md` for per-dataset tables, error bars, and citation-only SOTA rows.

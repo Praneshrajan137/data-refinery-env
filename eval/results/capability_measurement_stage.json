@@ -1,0 +1,51 @@
+{
+  "arms": {
+    "pipeline_c4_declared_authority": {
+      "f1": 0.0,
+      "fn": 509,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tp": 0,
+      "writes": 0
+    },
+    "pipeline_legacy_mined_authority": {
+      "f1": 0.0039,
+      "fn": 508,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 0.002,
+      "tp": 1,
+      "writes": 1
+    },
+    "proposal_stage_published_path": {
+      "f1": 0.8352,
+      "fn": 58,
+      "fp": 120,
+      "precision": 0.7898,
+      "recall": 0.8861,
+      "tp": 451,
+      "writes": 571
+    }
+  },
+  "dataset": "hospital",
+  "ground_truth_cells": 509,
+  "method": "Three arms over one table, one ground truth and one scorer, differing ONLY in the stage at which the correction set is taken: proposal_stage reproduces dataforge/bench/methods.py::_repairs_from_proposed_fixes (no verifier, no safety filter, no auto-apply gate), while the pipeline arms take run_repair_pipeline's would-apply set in dry_run mode. Because the scorer is shared, a difference between arms can only be caused by the stage.",
+  "preregistration": "eval/preregistration/capability_measurement_stage.md",
+  "published_f1": 0.8352,
+  "published_f1_source": "eval/results/agent_comparison.json, gated against the code by scripts/ci/anchor_truth.py -- deliberately not a constant in this file",
+  "schema_version": "dataforge_capability_stage_v1",
+  "scorer": "dataforge.bench.core.score_repairs (imported, not reimplemented)",
+  "verdict": {
+    "f1_ratio_proposal_over_best_pipeline": 214.2,
+    "h2_headline_not_attainable_through_write_path": true,
+    "k1_no_material_gap": false,
+    "k2_instrument_reproduces_published_f1": true,
+    "p1_c4_f1_is_zero": true,
+    "p2_legacy_f1_at_most_one_percent": true,
+    "p3_proposal_stage_reproduced": true,
+    "p4_pipeline_precision_at_least_proposal": true,
+    "p5_tp_ratio_exceeds_100x": true,
+    "true_positive_ratio_proposal_over_pipeline": 451.0
+  }
+}

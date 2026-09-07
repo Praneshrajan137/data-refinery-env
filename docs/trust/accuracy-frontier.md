@@ -24,16 +24,26 @@ Every cell error falls into one of four honest classes:
 ## Per-dataset frontier (measured)
 
 ### hospital — the flagship / regression anchor
-- Deterministic correction **F1 0.7926** under DataForge's own scoring harness.
+- Deterministic correction **F1 0.8352** under DataForge's own scoring harness, on a corpus
+  whose errors are **injected** and whose entire error model is one substituted character.
+  That is 451 true positives, 120 false positives and 58 misses. **Corrected 2026-09-07:** this
+  read 0.7926 for 54 days after the code stopped producing it. `tp` and `fn` never moved; the
+  gain is entirely 178 -> 120 false positives, across `c207617` (refuse uncheckable-detector
+  writes) and `4ad3760` (strict-majority choice). Both were deliberate precision changes whose
+  effect on this number nobody measured.
   For reference, the Raha+Baran error-correction baseline is **0.73** (transcribed
   from BClean Table 4, arXiv:2311.06517). **Comparability caveat:** these two
   numbers are **not measured under an identical protocol** — DataForge's is
   computed by its own harness on its dirty/clean cut and scoring rules; the 0.73 is
   BClean's reported figure under BClean's protocol (possibly different dirty/clean
-  versions, cell set, and denominator). So 0.7926 is best read as *competitive
+  versions, cell set, and denominator). So 0.8352 is best read as *competitive
   with / in the range of the Raha+Baran baseline under our scoring*, not a
   protocol-controlled head-to-head win. It is the one measured deterministic
-  correction result and a hard floor: it must never regress.
+  correction result. It is **not** a floor that must never regress: treating it as one inverts
+  the incentive, because the only way to "hold" a past value is to re-admit detectors that were
+  removed for corrupting data. What guards it now is `scripts/ci/anchor_truth.py`, which re-runs
+  the measurement and fails when the committed artifact stops describing the code -- in either
+  direction, and on `tp`/`fp`/`fn` as well as F1.
 - Dominated by FD/typo errors that ARE derivable (FD majority/lookup,
   decimal-shift inverse) -> **AUTO-CORRECTABLE**. `value_format` and
   `text_normalization` are well **DETECTED** (recall ~1.0 / ~0.87).

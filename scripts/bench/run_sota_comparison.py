@@ -187,7 +187,7 @@ def build_sota_payload() -> dict[str, Any]:
             # LLM provided ground truth", HoloClean was given ground-truth denial
             # constraints, and Baran was given ground-truth feedback on 20 clean cells. That
             # is a premise supplied from outside the table, which is exactly the axis our
-            # 0.7926 differs on -- see docs/trust/baseline-protocol-comparability.md.
+            # 0.8352 differs on -- see docs/trust/baseline-protocol-comparability.md.
             _citation_row(
                 method="Cocoon",
                 dataset="hospital",

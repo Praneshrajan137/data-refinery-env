@@ -81,7 +81,9 @@ are the problems, and which of them are proven?" at that scale.
   the governing constitution; where it and this spec disagree, it wins.
 - [docs/design/quantitative-grammar.md](../docs/design/quantitative-grammar.md)
   supplies L1-L5.
-- Invariants this spec must not change: hospital heuristic F1 stays 0.7926; the
+- Invariants this spec must not change: hospital heuristic F1 stays at whatever
+  `scripts/ci/anchor_truth.py` reproduces (0.8352 as of 2026-09-07; this line read 0.7926 until
+  the anchor was reconciled, and naming a fixed number here is what let it go stale); the
   five-runtime-dependency triage records are updated rather than contradicted;
   overtrust-impossibility (§7.1) holds in the renderer as well as the DOM.
 
@@ -155,7 +157,8 @@ are the problems, and which of them are proven?" at that scale.
 - Standard gates: `make lint`, `make type`, `make test`
 - Contract gates: `python scripts/ci/openapi_contract.py --check`,
   `python scripts/ci/readme_truth.py`, `python scripts/ci/docs_truth.py --check`
-- Regression anchor: hospital heuristic F1 unchanged at 0.7926
+- Regression anchor: hospital heuristic F1 unchanged, enforced by `scripts/ci/anchor_truth.py`
+  against the committed artifact rather than against a number written here
 
 ## 8. Acceptance Gate
 

@@ -209,7 +209,7 @@ not pedantic.
 - **Not a recall claim.** 88 unambiguous error values total. Recall rests on double-digit
   support and must always be reported with its bound.
 - **Not comparable to `BENCHMARK_REPORT.md`.** Those are cell-level correction numbers;
-  these are distinct-value detection numbers. `hospital` F1 0.7926 and RT-bench F1 0.0444
+  these are distinct-value detection numbers. `hospital` F1 0.8352 and RT-bench F1 0.0444
   are not two points on one scale.
 - **Not a verdict on the write gate.** Detection has no write path. Nothing here may be
   used to add a detector to `CONSTRAINT_CHECKABLE_DETECTORS`; that allowlist asks whether

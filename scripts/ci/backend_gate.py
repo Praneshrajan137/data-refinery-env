@@ -51,6 +51,7 @@ MYPY_PATHS = [
     "scripts/ci/readme_truth.py",
     "scripts/ci/benchmark_truth.py",
     "scripts/ci/docs_truth.py",
+    "scripts/ci/anchor_truth.py",
     "scripts/release/full_vision_external_gate.py",
     "scripts/ci/installed_package_smoke.py",
     "scripts/ci/openapi_contract.py",
@@ -1133,6 +1134,16 @@ def main() -> int:
                     "benchmark truth", [PYTHON, "scripts/ci/benchmark_truth.py", "--check"]
                 ),
                 GateCommand("docs truth", [PYTHON, "scripts/ci/docs_truth.py", "--check"]),
+                # Added 2026-09-07. The three gates above all read
+                # eval/results/agent_comparison.json and all compared it to something other
+                # than the code: benchmark truth to the generated report, docs truth to prose,
+                # test_corpus_tiering to a constant. So prose was checked against the artifact
+                # and the artifact against prose, and nothing re-ran the benchmark. The hospital
+                # anchor drifted 0.7926 -> 0.8178 -> 0.8352 across c207617 and 4ad3760 and every
+                # gate stayed green for 54 days; flights' false positives fell 92 -> 9 unseen,
+                # because its F1 stayed 0.0 and nothing compared fp. This is the missing
+                # code-to-artifact edge, and it compares tp/fp/fn as well as F1 for that reason.
+                GateCommand("anchor truth", [PYTHON, "scripts/ci/anchor_truth.py", "--check"]),
                 GateCommand(
                     "vocabulary projection",
                     [PYTHON, "scripts/ci/generate_domain_vocabulary.py", "--check"],

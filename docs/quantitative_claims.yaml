@@ -1345,3 +1345,74 @@ claims:
       An independent re-run of the same baseline BClean reports at 0.730, reproducing it
       within 0.01 under a different protocol. This is why the baseline cannot be dismissed as
       an artifact of one paper's configuration.
+
+  # --- The hospital anchor, registered at last (2026-09-07) ---
+  # This number is cited in PRODUCT.md, README.md, docs/STRATEGY.md, three trust documents and
+  # two specs, and carried ZERO registered claims while it silently drifted 0.7926 -> 0.8178 ->
+  # 0.8352 across c207617 and 4ad3760. docs_truth is an allowlist, so an unregistered number is
+  # invisible to it. These claims stop the PROSE drifting from the artifact;
+  # scripts/ci/anchor_truth.py stops the ARTIFACT drifting from the code. Both edges are needed:
+  # the loop was previously prose <-> artifact with the code outside it.
+
+  - id: hospital_heuristic_anchor_f1
+    doc: docs/trust/accuracy-frontier.md
+    artifact: eval/results/agent_comparison.json
+    pointer: /records/3/f1
+    format: "{:.4f}"
+    expect: "0.8352"
+    context: "F1 0.8352"
+    note: >-
+      The project's most-cited number. Proposal-stage correction F1 on hospital under the
+      project's own harness, on injected single-character errors. Not protocol-comparable with
+      any figure in the citation-only SOTA table; see baseline-protocol-comparability.md.
+
+  - id: hospital_heuristic_anchor_false_positives
+    doc: docs/trust/accuracy-frontier.md
+    artifact: eval/results/agent_comparison.json
+    pointer: /records/3/fp
+    format: "{:d}"
+    expect: "120"
+    context: "120 false positives"
+    note: >-
+      Registered because F1 alone could not see the drift on flights, where false positives fell
+      92 -> 9 while F1 stayed 0.0000. A gate that watches only the headline ratio is blind to
+      the component that moved.
+
+  # --- H2: the stage at which the headline is measured (2026-09-07) ---
+  # The single most consequential pair of numbers in this repository: the published figure and
+  # the figure a user can actually obtain. Registered so neither can move without the other
+  # being re-examined.
+
+  - id: capability_stage_proposal_f1
+    doc: docs/trust/capability-measurement-stage.md
+    artifact: eval/results/capability_measurement_stage.json
+    pointer: /arms/proposal_stage_published_path/f1
+    format: "{:.4f}"
+    expect: "0.8352"
+    context: "**0.8352**"
+    note: >-
+      Measured by the same scorer as the pipeline arms, so the gap between them cannot be
+      attributed to scoring. Binds the published path.
+
+  - id: capability_stage_pipeline_legacy_f1
+    doc: docs/trust/capability-measurement-stage.md
+    artifact: eval/results/capability_measurement_stage.json
+    pointer: /arms/pipeline_legacy_mined_authority/f1
+    format: "{:.4f}"
+    expect: "0.0039"
+    context: "**0.0039**"
+    note: >-
+      What the shipped pipeline writes on hospital under a mined premise with legacy write
+      authority: one cell, correct. The gap to 0.8352 is a stage difference, not a scoring one.
+
+  - id: capability_stage_f1_ratio
+    doc: docs/trust/capability-measurement-stage.md
+    artifact: eval/results/capability_measurement_stage.json
+    pointer: /verdict/f1_ratio_proposal_over_best_pipeline
+    format: "{:.1f}"
+    expect: "214.2"
+    context: "**214.2x on F1**"
+    note: >-
+      The factor by which the published number exceeds the best figure attainable through the
+      shipped write path. If a future change to the repairer's choice rule or the verifier moves
+      this, the docs must be revisited rather than the ratio quietly re-emitted.

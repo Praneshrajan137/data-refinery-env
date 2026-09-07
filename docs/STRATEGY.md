@@ -24,7 +24,7 @@ equally strong:
 | Byte-for-byte reversible, hash-chained journal | **Differentiated** | `transactions/`; `test_revert_is_bytes_identical.py`; runtime journaled-revert test |
 | Portable, re-verifiable trust certificate | **Differentiated** | `certificate.verify_certificate` / `reverify_certificate`; independent in data, execution, and (schema path) implementation |
 | Distribution-free auto-apply gate (conformal + drift) | **Differentiated** | `conformal.py`; enforced by `release/corrector_gate.py` |
-| Deterministic correction accuracy | **Weak / narrow** | hospital F1 0.7926 (one dataset, under our scoring); flights 0.00 deterministic -> **0.4467 with cross-row entity consensus** (`allow_entity_consensus`); tax sampled 0.00 with 708 false positives |
+| Deterministic correction accuracy | **Weak / narrow** | hospital F1 0.8352 (one dataset with injected errors, under our scoring); flights 0.00 deterministic -> **0.4467 with cross-row entity consensus** (`allow_entity_consensus`); tax sampled 0.00 with 708 false positives |
 | LLM corrector accuracy | **Not usable for auto-apply; usable as a proposer when pool-constrained** | free-text ~6-16% precision, ECE ~0.8 (auto-applies nothing, correctly). Constraining it to SELECT from the column's frequent-value pool lifts proposal precision to 0.85 (measured hospital, `--corrector-pool-constrained`); still review-only, never auto-applied |
 
 The moat is the trust machinery; the repairer is, today, commodity and narrow.
@@ -207,7 +207,11 @@ exploits *cross-row redundancy*, which is real reference information. Trust-hone
 a majority can be wrong, so the consensus value is `plausibility_only` - held as a
 pre-filled one-click suggestion by default, auto-applied only under
 `allow_unproven_autoapply`, recorded as not-proven in the certificate, reversible.
-The locked hospital anchor stays byte-identical (0.7926) with the flag off.
+The hospital anchor is unchanged by the flag itself. **Correction 2026-09-07:** this line
+previously read "stays byte-identical (0.7926)", which was false by then -- the anchor had
+already moved to 0.8178 at `c207617` and to 0.8352 at `4ad3760`, both precision gains unrelated
+to this flag. The claim survived because nothing re-ran the benchmark; see
+`scripts/ci/anchor_truth.py`.
 Reproducible evidence: `dataforge/detectors/entity_consensus.py`,
 `dataforge/repairers/entity_consensus.py`, DECISIONS 2026-07-26.
 

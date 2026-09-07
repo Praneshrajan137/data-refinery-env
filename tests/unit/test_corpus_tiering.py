@@ -34,11 +34,19 @@ from dataforge.datasets.registry import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _ARTIFACT = PROJECT_ROOT / "eval" / "results" / "agent_comparison.json"
 
-# The documented floor. Asserted exactly, not as an inequality: the claim in the docs is
+# The documented anchor. Asserted exactly, not as an inequality: the claim in the docs is
 # that this specific measurement is reproducible, and an inequality would silently accept
 # a number that drifted upward for the wrong reason (a relabelled corpus, a changed
 # scorer) as readily as one that genuinely improved.
-_HOSPITAL_HEURISTIC_F1 = 0.7926
+#
+# CORRECTED 2026-09-07: this read 0.7926 for 54 days after the code stopped producing it, and
+# THIS TEST COULD NOT NOTICE. It compares the committed artifact to a constant here, so prose was
+# checked against the artifact and the artifact against prose with the code outside the loop --
+# the exact mirror of the failure this file's docstring warns about. The code-to-artifact edge is
+# now `scripts/ci/anchor_truth.py`, which re-runs `run_heuristic_episode`. This test remains
+# useful for what it can see: that the artifact and the documented number agree.
+_HOSPITAL_HEURISTIC_F1 = 0.8352
+_HOSPITAL_HEURISTIC_FP = 120
 _TOLERANCE = 1e-4
 
 
@@ -62,14 +70,17 @@ class TestAnchorNumbers:
         assert isinstance(record["tp"], int)
         assert record["tp"] > 0, "precondition: the anchor must rest on real true positives"
         assert record["fn"] == 58
-        assert record["fp"] == 178
+        assert record["fp"] == _HOSPITAL_HEURISTIC_FP
 
         f1 = record["f1"]
         assert isinstance(f1, float)
         assert abs(f1 - _HOSPITAL_HEURISTIC_F1) < _TOLERANCE, (
             f"hospital heuristic F1 is {f1}, documented anchor is {_HOSPITAL_HEURISTIC_F1}. "
-            "This number is cited in PRODUCT.md, README.md, CLAUDE.md and two specs. If the "
-            "change is intended, update those together with this test and record why."
+            "This number is cited in PRODUCT.md, README.md, docs/STRATEGY.md, three trust "
+            "documents and two specs. If the change is intended, update those together with "
+            "this test and record why. Note that this test compares the ARTIFACT to a constant; "
+            "scripts/ci/anchor_truth.py is what compares the artifact to the CODE, and it is the "
+            "one that catches drift."
         )
 
     def test_flights_heuristic_zero_is_recorded_as_measured(self) -> None:
@@ -82,6 +93,10 @@ class TestAnchorNumbers:
         assert record["f1"] == 0.0
         assert isinstance(record["fn"], int)
         assert record["fn"] > 0, "precondition: there were errors to miss"
+        # fp is pinned because F1 alone was demonstrably blind here: flights' false positives
+        # fell 92 -> 9 across c207617 and 4ad3760 while this F1 stayed exactly 0.0000, so every
+        # assertion above passed throughout the drift.
+        assert record["fp"] == 9
 
 
 class TestCorpusTiering:

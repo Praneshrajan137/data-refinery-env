@@ -226,7 +226,9 @@ independent verification.
 - [ ] Unknown enum, unknown version, and missing field all REJECT.
 - [ ] An unsigned attestation reports `unsigned`, never `verified`.
 - [ ] A wrong-key signature REJECTS.
-- [ ] `hospital` correction F1 unchanged at 0.7926.
+- [ ] `hospital` correction F1 unchanged, checked by `scripts/ci/anchor_truth.py` against the
+      committed artifact. (This item read "unchanged at 0.7926" until 2026-09-07; a checklist
+      that names a literal cannot notice when the literal stops being reproducible.)
 
 ## Appendix A - Toy cases
 

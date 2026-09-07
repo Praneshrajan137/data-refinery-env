@@ -49,11 +49,11 @@ the production playground surface and release URL.
 ## Benchmark Evidence
 
 <!-- BENCH:START -->
-Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `236df758dbdd`, dirty `true`).
+Generated from `eval/results/agent_comparison.json` (schema `dataforge_benchmark_run_v2`, seeds `0, 1, 2`, git `6280b643b9b4`, dirty `true`).
 
 | Method | Precision | Recall | F1 | Avg Steps | Quota Units | GPU Hours |
 | --- | --- | --- | --- | --- | --- | --- |
-| heuristic | 0.3585 | 0.4430 | 0.3963 | 361.50 | 0.0000 | 0.0000 |
+| heuristic | 0.3949 | 0.4430 | 0.4176 | 291.00 | 0.0000 | 0.0000 |
 | random | 0.0057 | 0.0004 | 0.0008 | 125.50 | 0.0000 | 0.0000 |
 
 See `BENCHMARK_REPORT.md` for per-dataset tables, error bars, and citation-only SOTA rows.

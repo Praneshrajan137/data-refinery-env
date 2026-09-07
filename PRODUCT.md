@@ -39,11 +39,24 @@ and had no CLI command that could check it. `docs/STRATEGY.md` names the consequ
 *"A certificate with a named consumer is a product; one without is a log line."*
 
 **Leading with "repair" put the weakest axis first.** Measured deterministic correction
-is one dataset at F1 0.7926, one at 0.0000, one sampled at 0.0000 with 696 false
+is one dataset at F1 0.8352, one at 0.0000, one sampled at 0.0000 with 696 false
 positives, and no LLM error class has earned auto-apply at any tested error budget. The
 verification machinery is what holds: on an adversarial corpus, 0 of 14
 constraint-violating proposals were written under a properly constrained schema. Leading
 with repair invited a comparison the product does not win and does not need to.
+
+**And that 0.8352 is measured at proposal stage, before this product's own gates.** It counts
+what the detector and repairer propose; it does not survive the verifier and the auto-apply gate.
+Through `dataforge repair` on the same table with the same premise the figure is **0.0039** — one
+cell, written correctly — because 570 of 571 candidates are discarded. The gap is 214.2x, it is a
+stage difference rather than a scoring one, and it is measured in
+[docs/trust/capability-measurement-stage.md](docs/trust/capability-measurement-stage.md). The
+cited BClean and Cocoon figures are end-to-end results, so this is a comparability defect on an
+axis entirely within this project's control — deeper than the dataset and premise differences
+recorded in
+[docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md).
+Which of the two numbers should anchor the capability claim is not settled here; what is settled
+is that they are different quantities.
 
 The new sentence is narrower and checkable. "Verifiable" now means something specific:
 a published format, two independent implementations, and committed conformance vectors
@@ -366,7 +379,7 @@ model cards, and release evidence:
   only an aggregate that hides where the tool is weak.
 - **Qualify every claim precisely.** State exactly what a number measures and
   against what baseline, **and whether two numbers are protocol-comparable.**
-  DataForge's hospital correction result (0.7926) is measured by its own harness;
+  DataForge's hospital correction result (0.8352) is measured by its own harness;
   the Raha+Baran baseline (0.73, transcribed from BClean Table 4) is measured under
   BClean's protocol. They are **not a protocol-controlled head-to-head**, so the
   honest phrasing is "competitive with / in the range of the Raha+Baran baseline

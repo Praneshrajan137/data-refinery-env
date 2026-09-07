@@ -2,7 +2,7 @@
 
 This document establishes one claim and then dismantles the comparison that claim invites:
 
-**DataForge's hospital correction F1 of 0.7926 is not protocol-comparable with any figure in
+**DataForge's hospital correction F1 of 0.8352 is not protocol-comparable with any figure in
 `BENCHMARK_REPORT.md`'s citation-only table, and the axis they differ on is not scoring or
 tuning. It is where the premise came from.**
 
@@ -66,7 +66,7 @@ being asked:
 Every figure in Cocoon Table 1 is therefore measured with a premise handed in from outside the
 table. BClean is explicitly a system in which a user supplies or corrects a Bayesian network.
 
-DataForge's 0.7926 was measured with a premise **mined from the dirty table itself**. That is a
+DataForge's 0.8352 was measured with a premise **mined from the dirty table itself**. That is a
 strictly harder problem, and it is also the problem where this repository's measured failures
 live: all 116 clean-cell corruptions on hospital trace to four false mined dependencies. See
 [shipped-premise-result.md](shipped-premise-result.md) and

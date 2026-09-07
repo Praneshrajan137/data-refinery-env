@@ -35,6 +35,65 @@ claims instead. That exclusion is recorded in the test, not implied.
 
 ---
 
+## 2026-09-07 - The headline anchor was stale for 54 days, and it is measured at a stage users cannot reach
+
+**Two findings, one root cause.** Both were found by trying to measure something else.
+
+**1. The anchor drifted and every gate stayed green.** `dataforge bench --methods heuristic
+--datasets hospital` produces **0.8352**; the committed artifact and eleven documents said 0.7926.
+`git bisect run` over 187 commits attributes it exactly: `c207617` (2026-08-22, refuse
+uncheckable-detector writes) moved false positives 178 -> 143, and `4ad3760` (2026-08-25,
+strict-majority choice) moved them 143 -> 120. `tp` (451) and `fn` (58) never moved, so both were
+genuine precision gains. `4ad3760` recorded "hospital byte-identical" in its own pre-registration
+on the strength of a WRITE-PATH measurement while the proposal stage moved by 23. flights also
+drifted, 92 -> 9 false positives, entirely unseen because its F1 stayed 0.0000.
+
+**Why nothing caught it.** Three gates read `eval/results/agent_comparison.json` and every one
+compared it to something other than the code: `benchmark_truth` to the generated report,
+`docs_truth` to prose, `test_corpus_tiering` to a constant in the test. Prose was verified against
+the artifact and the artifact against prose, and **the code sat outside the loop.**
+`test_corpus_tiering`'s own docstring names the mirror-image failure -- "does not help if the
+artifact itself is overwritten by a bad run" -- while committing this one. The anchor also carried
+**zero** registered `docs_truth` claims, and that gate is an allowlist, so it could not see the
+project's most-cited number at all.
+
+Closed by `scripts/ci/anchor_truth.py`, which re-runs `run_heuristic_episode` and compares
+`tp`/`fp`/`fn` as well as F1 -- fp because F1 alone was demonstrably blind on flights. Wired
+unconditionally into `backend_gate`, because a gate that runs when someone remembers is not a gate.
+
+**2. The number is measured at proposal stage.** Pre-registered in
+`eval/preregistration/capability_measurement_stage.md`; result in
+`docs/trust/capability-measurement-stage.md`. One table, one ground truth, one scorer imported
+rather than reimplemented, arms differing only in stage:
+
+| arm | writes | F1 | precision |
+| --- | --- | --- | --- |
+| proposal stage (published path) | 571 | 0.8352 | 0.7898 |
+| pipeline, legacy mined authority | 1 | 0.0039 | 1.0000 |
+| pipeline, C4 shipped default | 0 | 0.0000 | 0.0000 |
+
+**H2 confirmed at 214.2x on F1, 451x on true positives.** All five predictions held. The producer,
+`run_heuristic_episode`, calls `_repairs_from_proposed_fixes` -- detectors plus repairer, scored
+directly, with **no verifier, no safety filter and no auto-apply gate** -- on a schema built with
+`include_inferred_constraints=True`, i.e. the mined premise C4 now declines to write from.
+
+**This is not a verdict against the gates.** The pipeline's one write is correct, precision 1.0000
+against the proposal stage's 0.7898; the gates trade recall for precision as designed. It is a
+verdict about where the number is measured, and it is a comparability defect deeper than
+`baseline-protocol-comparability.md` records, on the one axis wholly within this project's control:
+BClean and Cocoon report what their systems output, this project reported what its repairer
+proposes before its own gates reject 99.8% of it.
+
+**Not settled, deliberately.** Which of 0.8352, 0.0039 or 0.0000 should anchor the capability claim
+is left open, along with the obvious missing fourth arm -- the pipeline under a DECLARED premise,
+where the product's real claim lives and which no instrument reports end-to-end. That needs its own
+pre-registration.
+
+**K2 earned its place.** The harness's first run scored the published path at 0.8352 against a
+documented 0.7926 and K2 blocked the entire result. Criticising a headline with an instrument that
+cannot reproduce it would have been the same error. K2 now reads the anchor from the gated artifact
+rather than a constant, because a constant is precisely what rotted.
+
 ## 2026-09-07 - P3 refuted: the 451/116 figures are proposals, not writes, and I quoted them as writes
 
 **Decision.** Retain C4, on an architectural argument, and record that the empirical argument

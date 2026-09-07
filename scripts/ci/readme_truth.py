@@ -869,7 +869,7 @@ def check_corpus_tier_claims(docs: list[Path]) -> list[str]:
 
     The qualifier requirement rather than a ban is deliberate. ``hospital`` must remain
     discussable -- it is the project's regression tripwire and the subject of several
-    trust documents -- but a reader meeting "F1 0.7926 on hospital" with no nearby word
+    trust documents -- but a reader meeting "F1 0.8352 on hospital" with no nearby word
     like "injected" or "tripwire" is being invited to read a benchmark artifact as a
     capability claim.
 
