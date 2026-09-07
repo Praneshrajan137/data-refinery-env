@@ -35,6 +35,27 @@ from the table**, so a repair is visible to the next flag immediately.
 
 ``TableLike`` also admits pandas DataFrames, which carry no revision counter. For those the index
 degrades to building per call -- the previous behaviour, no worse -- rather than guessing.
+
+## That degradation was silently active on this index's only caller
+
+Recorded 2026-09-07, because "no worse" turned out to understate the cost of being *reachable by
+accident*. `dataforge/bench/methods.py::_repairs_from_proposed_fixes` was the sole caller of
+`propose_fixes`, and it passed a pandas frame. So the index never indexed once on the benchmark
+path: 64,227 rescans of `rows_for_key`, driving **11.7M pandas scalar ``.at[]`` lookups** through
+`cell_value` and a 128M-iteration generator. Profiled on hospital, ``run_all_detectors`` took 0.94s
+and ``propose_fixes`` took **207s**.
+
+Nothing was wrong with the degradation contract. What was wrong is that the caller supplied a
+representation the contract cannot serve, and the failure mode is invisible -- the answers are
+identical, only the cost changes, so no test could see it. The caller now converts to a ``Table``.
+Verdict-identical on both corpora (hospital 10,373 issues, 571 proposals, tp 451, fp 120, fn 58,
+F1 0.8352; flights 9 proposals), hospital's pass 74.8s -> 4.3s, and `scripts/ci/anchor_truth.py`
+end to end 65s -> 6.1s.
+
+**The lesson is about the metric, not the fix.** Two wall-clock readings of the identical pass
+disagreed threefold, 65s and 209s, exactly as the `rows_for_key` docstring below already warns.
+`tests/unit/test_bench_subject_is_indexable.py` therefore asserts `builds`/`hits`/`scans` and that
+the caller's subject is *stampable*, and asserts no timing whatsoever.
 """
 
 from __future__ import annotations

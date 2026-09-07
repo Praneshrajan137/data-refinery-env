@@ -24,9 +24,12 @@ from dataforge.repairers import propose_fixes
 from dataforge.repairers.llm_corrector import LLMCorrectorRepairer
 from dataforge.review import ReviewRanker
 from dataforge.schema_inference import infer_schema
+from dataforge.table import Table
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    import pandas as pd
 
     from dataforge.agent.providers import Message
 
@@ -43,6 +46,26 @@ def _reproduction_command(method: str, dataset: str, seeds: int) -> str:
     return f"dataforge bench --methods {method} --datasets {dataset} --seeds {seeds}"
 
 
+def _as_table(frame: pd.DataFrame) -> Table:
+    """Return an independent ``Table`` over ``frame``'s cells.
+
+    Independent by construction: ``Table.__init__`` copies every row into its own dict, so the
+    result shares no storage with ``frame`` and needs no ``copy(deep=True)`` in front of it.
+
+    Materialised column-major and then zipped into rows, rather than via ``iterrows()``, because
+    ``iterrows`` yields a Series per row and so coerces a mixed-dtype row to one common dtype --
+    silently rewriting cells on any corpus that is not uniformly ``object``. Both current corpora
+    are, so this guards a future dataset rather than fixing a present bug, but it is the same class
+    of representation accident that made the index stop indexing.
+    """
+    columns = [str(column) for column in frame.columns]
+    column_values = [frame[column].tolist() for column in frame.columns]
+    return Table(
+        columns,
+        (dict(zip(columns, row, strict=True)) for row in zip(*column_values, strict=True)),
+    )
+
+
 def _repairs_from_proposed_fixes(
     dataset: RealWorldDataset,
     *,
@@ -56,15 +79,38 @@ def _repairs_from_proposed_fixes(
     ``allow_entity_consensus`` (default off) enables the cross-row consensus
     repairer; it is off for the heuristic baseline so that path stays
     byte-identical, and on for the entity_consensus method.
+
+    ## Why the subject is a ``Table`` and not the DataFrame
+
+    ``DeterminantGroupIndex`` can only cache determinant groupings when the table can prove it has
+    not mutated, which means ``Table.column_revision``. A pandas frame carries no revision counter,
+    so ``dataforge/fd_index.py`` documents that for those "the index degrades to building per
+    call" -- and this function was its only caller, passing a frame.
+
+    The result was that the index never indexed. Profiling hospital: ``run_all_detectors`` 0.94s,
+    ``propose_fixes`` **207s**, with ``rows_for_key`` running 64,227 O(rows) rescans that drove
+    11.7M pandas scalar ``.at[]`` lookups. Converting the subject to a ``Table`` takes hospital's
+    detect-and-propose pass from 74.8s to 4.3s and is **verdict-identical** -- 10,373 issues, 571
+    proposals, tp 451, fp 120, fn 58, F1 0.8352, and flights unchanged at 9 proposals -- which is
+    the condition this change had to meet, because `scripts/ci/anchor_truth.py` and five
+    ``docs_truth`` claims are pinned to exactly those numbers.
+
+    It is also more faithful, and that is the better reason. ``dataforge repair`` reads a ``Table``
+    (`dataforge/engine/repair.py`), so the bench was measuring a representation no user ever runs.
+
+    ``infer_schema`` keeps the DataFrame: it is a pandas-side profiler, and it is not in the hot
+    path (0.11s). Two independent ``Table`` instances are built rather than one shared instance,
+    preserving exactly the isolation the three ``copy(deep=True)`` calls used to provide -- the FD
+    index is per-propose-pass, so sharing would buy nothing.
     """
     inferred_schema = infer_schema(dataset.dirty_df.copy(deep=True)).to_schema(
         include_inferred_constraints=True
     )
-    issues = run_all_detectors(dataset.dirty_df.copy(deep=True), schema=inferred_schema)
+    issues = run_all_detectors(_as_table(dataset.dirty_df), schema=inferred_schema)
     detected_cells = {(issue.row, issue.column) for issue in issues}
     proposals = propose_fixes(
         issues,
-        dataset.dirty_df.copy(deep=True),
+        _as_table(dataset.dirty_df),
         inferred_schema,
         cache_dir=None,
         allow_llm=False,

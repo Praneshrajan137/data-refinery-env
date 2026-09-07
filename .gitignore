@@ -73,7 +73,11 @@ playground/web/test-results/
 playground/api/web/
 data/sft_traj/*.jsonl
 !data/sft_traj/.gitkeep
-training/kaggle/.ipynb_checkpoints/
+# Paths under archive/ rather than training/: the ML subsystem was excised to archive/training/
+# on 2026-09-07, which silently broke these three rules and made seven kaggle_*_kernel/ bundles
+# show up as untracked. A stale ignore rule fails open -- it stops hiding things rather than
+# erroring -- so a `git add -A` would have swept them in.
+archive/training/kaggle/.ipynb_checkpoints/
 
 # Generated ML run payloads and Kaggle handoff bundles. Commit compact reports,
 # configs, and scripts; keep heavyweight weights/checkpoints local or on HF/Kaggle.
@@ -91,5 +95,5 @@ eval/results/kaggle_grpo_smoke_v*/
 eval/results/kaggle_grpo_v3_smoke_v*/
 eval/results/kaggle_sft_v5_candidate_v*/
 eval/results/kaggle_sft_v6_smoke_v*/
-training/kaggle_*_handoff/
-training/kaggle_*_kernel/
+archive/training/kaggle_*_handoff/
+archive/training/kaggle_*_kernel/

@@ -35,6 +35,57 @@ claims instead. That exclusion is recorded in the test, not implied.
 
 ---
 
+## 2026-09-07 - The FD index never indexed on the benchmark path, and only a counter could tell
+
+**Decision.** Convert the benchmark's subject to a `Table` in
+`dataforge/bench/methods.py::_repairs_from_proposed_fixes`, and police the fix with the index's
+own counters rather than a stopwatch.
+
+**How it was found.** Investigating whether `scripts/ci/anchor_truth.py` at ~65s was too expensive
+to run unconditionally. Profiling first, rather than caching what looked expensive:
+
+| stage | hospital |
+| --- | --- |
+| `infer_schema` | 0.11s |
+| `run_all_detectors` | 0.94s |
+| **`propose_fixes`** | **207.12s** |
+
+The proposed remedy -- cache the detector pass -- would have saved 0.94s of 209s. `cProfile`
+localised the real cost to `fd_index.rows_for_key`: 64,227 calls driving **11.7M pandas scalar
+`.at[]` lookups** through `cell_value`, with a 128M-iteration generator.
+
+**Cause.** `DeterminantGroupIndex` caches groupings only when the subject can prove it has not
+mutated, i.e. `Table.column_revision`. `_stamp()` returns `None` for a pandas frame, and
+`fd_index`'s docstring documents that such subjects "degrade to building per call -- the previous
+behaviour, no worse". `_repairs_from_proposed_fixes` was `propose_fixes`'s **only** caller and
+passed a frame, so the index never indexed once on this path. "No worse" understated the cost of a
+contract being reachable by accident: the answers are identical and only the cost changes, so no
+correctness test could ever have seen it.
+
+**Why this was a decision gate, not a refactor.** `Table` stringifies every cell, and the anchor is
+pinned at F1 0.8352 / tp 451 / fp 120 / fn 58 by `anchor_truth` and five `docs_truth` claims. The
+conversion was measured before being adopted, on both corpora, and had to be verdict-identical or be
+abandoned in favour of an explicit snapshot mode. It was: 10,373 issues, 571 proposals and every
+scoring number unchanged, flights unchanged at 9 proposals. Had it moved a number, that would have
+been a finding -- the published figure depending on a representation no user runs -- and not a
+licence to edit the anchor to match a refactor.
+
+**Result.** hospital's detect-and-propose pass 74.8s -> 4.3s; `anchor_truth` end to end 65s -> 6.1s,
+which settles the affordability question that started this.
+
+**Not user-facing, and I said otherwise before checking.** `propose_fixes` has exactly one caller.
+`dataforge repair` reads a `Table` (`dataforge/engine/repair.py`) and never calls it, so the shipped
+CLI always had the fast path. I had claimed users were waiting minutes; that was wrong. The real
+defect was subtler and worth more: **the bench was measuring a representation no user ever runs**,
+which is a milder form of the stage-and-instrument confusion recorded in the two entries below.
+
+**The metric is the lesson.** Two wall-clock readings of the identical pass disagreed threefold, 65s
+and 209s -- precisely what `rows_for_key`'s docstring already warned, having retracted a claim after
+three repeats of identical code spanned 79.8 to 352.2 ms/fix.
+`tests/unit/test_bench_subject_is_indexable.py` asserts `builds`/`hits`/`scans` and that the
+caller's subject is stampable, and asserts no timing at all. A performance guarantee expressed as a
+duration cannot be enforced on this pass; expressed as a count, it can.
+
 ## 2026-09-07 - The headline anchor was stale for 54 days, and it is measured at a stage users cannot reach
 
 **Two findings, one root cause.** Both were found by trying to measure something else.
