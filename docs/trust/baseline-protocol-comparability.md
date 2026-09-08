@@ -72,8 +72,24 @@ live: all 116 clean-cell corruptions on hospital trace to four false mined depen
 [shipped-premise-result.md](shipped-premise-result.md) and
 [premise-quality-measure-result.md](premise-quality-measure-result.md).
 
+**Third axis, added 2026-09-08, and it removes the consolation in the paragraph above.** The
+mined-premise framing implies that DataForge is solving a harder problem and would do better if
+handed a premise the way these baselines are. **Measured, it would not.** Through the shipped write
+path on hospital, a premise authored from the corpus's public data dictionary writes **zero**
+cells, and a premise admitted *by ground truth* — strictly more than any baseline is handed —
+reaches only **F1 0.1918**. So "supply us a premise too" is not the missing ingredient.
+
+The deeper defect is that 0.8352 is a **proposal-stage** figure: it counts what the detector and
+repairer propose, before this project's own verifier and auto-apply gate, while every figure in
+Cocoon Table 1 and BClean Table 4 is what those systems *output*. So the three axes on which these
+numbers are not comparable are **dataset**, **premise**, and **stage** — and the last is entirely
+within this project's control. Full result:
+[declared-premise-capability.md](declared-premise-capability.md) and
+[capability-measurement-stage.md](capability-measurement-stage.md).
+
 The honest reading is not "we are 0.18 behind." It is that the numbers answer different
-questions, and nobody has published the number that would settle ours.
+questions, and the number that would settle ours has now been measured by us rather than published
+by anyone else: **there is no demonstrated end-to-end correction capability on hospital.**
 
 ### 3.2 Hospital numbers demonstrably do not transfer between harnesses
 

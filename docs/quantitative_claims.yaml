@@ -1550,3 +1550,19 @@ claims:
     note: >-
       Binds the size of the frozen premise to the prose. K3 binds its content by hash; this
       binds the count, so a dependency cannot be added or dropped without the document moving.
+
+  - id: declared_premise_oracle_proposal_stage_repairs
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/deductive_coverage_hospital.json
+    pointer: /arms/oracle/shipped_rule/correct
+    format: "{:d}"
+    expect: "393"
+    context: "**393**"
+    note: >-
+      A CROSS-INSTRUMENT claim, and the reason it is registered. This document compares the oracle
+      premise's 54 writes through the pipeline against the 393 repairs the SAME premise produces at
+      proposal stage, and that 393 comes from a different harness and a different artifact
+      (measure_deductive_coverage.py). An unregistered cross-instrument number is exactly the
+      citation that rots -- it is the shape of the defect this whole line of work exists to
+      correct. Note the pointer: /arms/ORACLE/. Any future prose calling this a declared premise is
+      wrong.

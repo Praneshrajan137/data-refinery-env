@@ -210,7 +210,10 @@ not pedantic.
   support and must always be reported with its bound.
 - **Not comparable to `BENCHMARK_REPORT.md`.** Those are cell-level correction numbers;
   these are distinct-value detection numbers. `hospital` F1 0.8352 and RT-bench F1 0.0444
-  are not two points on one scale.
+  are not two points on one scale. The 0.8352 is additionally a **proposal-stage** figure and
+  is **not** an end-to-end result: through the shipped write path a declared premise on that
+  corpus writes nothing, and the ground-truth-admitted ceiling does not exceed F1 0.1918. See
+  [declared-premise-capability.md](declared-premise-capability.md).
 - **Not a verdict on the write gate.** Detection has no write path. Nothing here may be
   used to add a detector to `CONSTRAINT_CHECKABLE_DETECTORS`; that allowlist asks whether
   a proposed value can be *checked*, which detection cannot answer.

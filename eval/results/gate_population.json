@@ -3013,6 +3013,7 @@
     "declared_premise_declared_writes",
     "declared_premise_oracle_candidates",
     "declared_premise_oracle_f1",
+    "declared_premise_oracle_proposal_stage_repairs",
     "declared_premise_oracle_write_precision",
     "declared_premise_oracle_writes",
     "declared_premise_premise_sha256_frozen",
