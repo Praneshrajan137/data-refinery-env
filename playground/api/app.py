@@ -714,6 +714,15 @@ class VerifyScenarioView(BaseModel):
     fixes: list[ExternalFixInput]
     accepted_constraint_ids: list[str]
     note: str
+    declared_schema: str | None = None
+    """Name of the bundled sample whose DECLARED premise authorises this batch, if any.
+
+    A mined constraint accepted in review stopped conferring write authority with C4
+    (2026-09-07), which left this surface unable to prove anything and showing uniform
+    refusal instead of the split its own copy promises. A declared schema restores it. Only
+    `hospital_10rows` ships one; the other samples have no declared premise and correctly
+    prove nothing, which is a contrast worth showing rather than papering over.
+    """
 
 
 class VerifyFixesResponse(BaseModel):
@@ -1995,6 +2004,7 @@ def _verify_fixes_upload(
     proposer: str,
     confirm_escalations: bool,
     allow_unproven: bool,
+    declared_schema: str | None = None,
 ) -> VerifyFixesResponse:
     """Verify externally-proposed fixes through the shared gate (stateless dry run).
 
@@ -2024,6 +2034,7 @@ def _verify_fixes_upload(
                 source_path=upload_path,
                 fixes=fixes,
                 mode="dry_run",
+                schema=_declared_schema_for_sample(declared_schema) if declared_schema else None,
                 constraints=constraints_artifact,
                 proposer=proposer,
                 confirm_escalations=confirm_escalations,
@@ -2044,7 +2055,7 @@ def _verify_fixes_upload(
         ),
         proposer=proposer,
         proposed_count=len(fixes),
-        authoritative_schema=bool(accepted_constraint_ids),
+        authoritative_schema=bool(declared_schema),
         would_apply=_fix_views(result.fixes),
         receipt=receipt,
         verification=VerificationSummary(
@@ -2079,9 +2090,10 @@ _VERIFY_SCENARIOS: dict[str, dict[str, Any]] = {
             {"row": 0, "column": "ghost_column", "new_value": "x"},
         ],
         "note": (
-            "A triage agent proposed four edits. Only the correctly-typed edit is proven and "
-            "would apply; a type-corrupting value, a stale edit, and an edit to a non-existent "
-            "column are each blocked with an honest reason."
+            "A triage agent proposed four edits against a DECLARED schema. Only the "
+            "correctly-typed edit is proven and would apply; a type-corrupting value, a stale "
+            "edit, and an edit to a non-existent column are each blocked with an honest reason. "
+            "This verifies a fix someone else proposed -- it is not DataForge finding repairs."
         ),
     },
     "beers_10rows": {
@@ -2094,9 +2106,10 @@ _VERIFY_SCENARIOS: dict[str, dict[str, Any]] = {
             {"row": 0, "column": "ghost_column", "new_value": "x"},
         ],
         "note": (
-            "A catalog agent proposed four edits. Only the correctly-typed edit is proven and "
-            "would apply; a type-corrupting value, a stale edit, and an edit to a non-existent "
-            "column are each blocked with an honest reason."
+            "A catalog agent proposed four edits. This sample ships NO declared schema, so "
+            "nothing can be proven and all four are correctly held or rejected -- a mined "
+            "constraint accepted in review is not evidence enough to authorise a write. "
+            "Compare the hospital scenario, which does have a declared premise."
         ),
     },
     "flights_10rows": {
@@ -2109,9 +2122,10 @@ _VERIFY_SCENARIOS: dict[str, dict[str, Any]] = {
             {"row": 0, "column": "ghost_column", "new_value": "x"},
         ],
         "note": (
-            "An ingest agent proposed four edits. Only the correctly-typed edit is proven and "
-            "would apply; a type-corrupting value, a stale edit, and an edit to a non-existent "
-            "column are each blocked with an honest reason."
+            "An ingest agent proposed four edits. This sample ships NO declared schema, so "
+            "nothing can be proven and all four are correctly held or rejected -- a mined "
+            "constraint accepted in review is not evidence enough to authorise a write. "
+            "Compare the hospital scenario, which does have a declared premise."
         ),
     },
 }
@@ -2159,7 +2173,30 @@ def _build_verify_scenario(name: str) -> VerifyScenarioView:
         fixes=[ExternalFixInput(**fix) for fix in spec["fixes"]],
         accepted_constraint_ids=accepted_ids,
         note=str(spec["note"]),
+        declared_schema=name if (SAMPLES_DIR / f"{name}.schema.yaml").exists() else None,
     )
+
+
+def _declared_schema_for_sample(name: str) -> Any | None:
+    """Load the DECLARED premise shipped beside a bundled sample, if it has one.
+
+    Read through the shipped ``dataforge.cli.common.load_schema`` -- the same function behind
+    ``dataforge repair --schema`` -- so this surface proves things through the door a real user
+    uses rather than through a playground-only construction.
+
+    ``name`` is validated against ``ALLOWED_SAMPLES`` by every caller before it reaches here, so
+    no request-supplied string can select a path. Returning ``None`` is normal: only
+    ``hospital_10rows`` ships a declared premise, and a sample without one correctly proves
+    nothing.
+    """
+    from dataforge.cli.common import load_schema
+
+    if name not in ALLOWED_SAMPLES:
+        return None
+    schema_path = SAMPLES_DIR / f"{name}.schema.yaml"
+    if not schema_path.exists():
+        return None
+    return load_schema(schema_path)
 
 
 def _normalize_repair_mode(raw: str | None) -> str:
@@ -2765,6 +2802,7 @@ async def verify_fixes(
     file: UploadFile,
     fixes: str = Form(...),
     accepted_constraint_ids: str | None = Form(default=None),
+    declared_schema: str | None = Form(default=None),
     proposer: str = Form(default="external-agent"),
     confirm_escalations: bool = Form(default=True),
     allow_unproven: bool = Form(default=False),
@@ -2800,6 +2838,7 @@ async def verify_fixes(
                 proposer=clean_proposer,
                 confirm_escalations=confirm_escalations,
                 allow_unproven=allow_unproven,
+                declared_schema=declared_schema,
             ),
         )
     except HTTPException:

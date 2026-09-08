@@ -307,6 +307,9 @@ export class DataForgeClient {
     if (options.allowUnproven !== undefined) {
       formData.append("allow_unproven", String(options.allowUnproven));
     }
+    if (options.declaredSchema) {
+      formData.append("declared_schema", options.declaredSchema);
+    }
     return this.requestJson<VerifyFixesResponse>("/api/verify-fixes", {
       method: "POST",
       body: formData,

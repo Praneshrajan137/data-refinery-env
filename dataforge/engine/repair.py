@@ -1929,7 +1929,24 @@ def run_repair_pipeline(
     applied = False
     reason = "No accepted fixes were produced."
 
+    # A capped batch is HELD, not dropped. Until 2026-09-08 this branch emptied
+    # `accepted_fixes` and routed them nowhere, so on hospital 152 verified and
+    # ground-truth-correct repairs vanished into neither `fixes` nor `suggested_fixes` -- a user
+    # saw zero repairs AND an empty review queue, with the cause only in `receipt.reason`, which
+    # no harness or gate read. Measured in `docs/trust/fd-repair-yield-mechanism.md`; the change
+    # is pre-registered in `eval/preregistration/batch_escalation_visibility.md`.
+    #
+    # The cap is NOT weakened: `accepted_fixes` is still emptied, so the write set is unchanged
+    # (K1 pins that). Every other gate in this pipeline surfaces what it will not auto-apply with
+    # a structured review reason, and this one now does too.
+    batch_held: list[ProposedFix] = []
+    batch_held_reason: ReviewReason = "safety_escalation"
+
     if batch_safety.verdict != SafetyVerdict.ALLOW:
+        batch_held = accepted_fixes
+        batch_held_reason = (
+            "safety_denied" if batch_safety.verdict == SafetyVerdict.DENY else "safety_escalation"
+        )
         accepted_fixes = []
         reason = batch_safety.reason
     elif request.mode == "apply" and accepted_fixes:
@@ -2050,6 +2067,14 @@ def run_repair_pipeline(
             ),
         )
         + _detection_only_suggestions(issues)
+        + _suggestion_candidates(
+            batch_held,
+            review_reason=batch_held_reason,
+            verifier_reason=(
+                "Held for human review: this correction was verified, but the BATCH it belongs to "
+                f"did not clear the safety constitution. {batch_safety.reason}"
+            ),
+        )
     )
     proof_obligations = _proof_obligations(attempt_groups)
     root_causes = _root_causes(issues, attempt_groups)
@@ -2283,7 +2308,17 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
     txn_id: str | None = None
     post_sha256: str | None = None
     applied = False
+    # Held, not dropped -- the same correction applied in `run_repair_pipeline`. This is the path
+    # the hosted playground calls, so a silently emptied batch here means an external proposer is
+    # told nothing at all about work that was verified. See
+    # `eval/preregistration/batch_escalation_visibility.md`.
+    batch_held: list[ProposedFix] = []
+    batch_held_reason: ReviewReason = "safety_escalation"
     if batch_safety.verdict != SafetyVerdict.ALLOW:
+        batch_held = auto
+        batch_held_reason = (
+            "safety_denied" if batch_safety.verdict == SafetyVerdict.DENY else "safety_escalation"
+        )
         auto = []
         reason = batch_safety.reason
     elif request.mode == "apply" and auto:
@@ -2357,6 +2392,14 @@ def verify_and_apply(request: VerifyAndApplyRequest) -> RepairPipelineResult:
             invalid_target,
             review_reason="invalid_target",
             verifier_reason="Rejected: unknown column, out-of-range row, or duplicate cell edit.",
+        )
+        + _suggestion_candidates(
+            batch_held,
+            review_reason=batch_held_reason,
+            verifier_reason=(
+                "Held for human review: this external fix was verified, but the BATCH it belongs "
+                f"to did not clear the safety constitution. {batch_safety.reason}"
+            ),
         )
     )
 

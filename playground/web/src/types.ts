@@ -443,6 +443,14 @@ export interface VerifyScenario {
   fixes: ExternalFix[];
   accepted_constraint_ids: string[];
   note: string;
+  /**
+   * Name of the bundled sample whose DECLARED premise authorises this batch, or null.
+   *
+   * Only `hospital_10rows` ships one. A mined constraint accepted in review stopped conferring
+   * write authority with C4, so a scenario without a declared premise correctly proves nothing --
+   * and that contrast is part of what the surface demonstrates.
+   */
+  declared_schema: string | null;
 }
 
 export interface VerifyFixesResponse {
@@ -467,4 +475,6 @@ export interface VerifyFixesOptions {
   proposer?: string;
   confirmEscalations?: boolean;
   allowUnproven?: boolean;
+  /** Bundled sample name whose declared premise should authorise this batch. */
+  declaredSchema?: string | null;
 }

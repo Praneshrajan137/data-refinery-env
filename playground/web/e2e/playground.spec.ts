@@ -102,7 +102,12 @@ function verifyScenarioPayload() {
       { row: 0, column: "ghost_column", new_value: "x" },
     ],
     accepted_constraint_ids: ["cnd-er-type", "cnd-rating-type"],
-    note: "A triage agent proposed four edits. Only the correctly-typed edit is proven.",
+    // A DECLARED premise is what confers write authority; accepted MINED constraints stopped
+    // doing so with C4, which is why this scenario needs one to prove anything at all.
+    declared_schema: "hospital_10rows",
+    note:
+      "A triage agent proposed four edits against a DECLARED schema. Only the correctly-typed " +
+      "edit is proven and would apply.",
   };
 }
 
@@ -427,7 +432,11 @@ test("guardrail verifies an untrusted agent batch and passes accessibility", asy
   // 1. Choose a dataset, then load the scripted untrusted-agent batch.
   await page.locator(".guardrail-intake").getByRole("button", { name: /Hospital/ }).click();
   await page.getByRole("button", { name: "Load scripted agent batch" }).click();
-  await expect(page.getByText(/Authoritative schema: 2 accepted constraints/)).toBeVisible();
+  // Only a DECLARED premise confers write authority. This assertion read "Authoritative schema: 2
+  // accepted constraints" until 2026-09-08, which described accepted MINED constraints -- and
+  // since C4 those prove nothing, so the chip was claiming an authority it did not have while the
+  // split assertion below was unsatisfiable.
+  await expect(page.getByText(/Declared schema/)).toBeVisible();
 
   // 2. Verify the proposals (keyboard-activate to stay robust across viewports).
   const verifyButton = page.getByRole("button", { name: "Verify proposed fixes" });

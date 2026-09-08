@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -105,6 +106,56 @@ def verify_space_backend(
         repair = _post_sample_csv(client, backend_url, sample_csv, "/api/repair")
         if repair.status_code != 200:
             raise RuntimeError(f"Repair endpoint failed: {repair.status_code} {repair.text[:200]}")
+
+        # The guardrail surface was NOT checked here at all until 2026-09-08, which is part of why
+        # it could degrade to uniform refusal on a deployed Space without anyone noticing. The
+        # assertion that matters is that something is actually PROVEN: a guardrail which can only
+        # ever refuse demonstrates nothing, and refusal is indistinguishable from a broken premise.
+        scenario = client.get(f"{backend_url}/api/verify-scenarios/hospital_10rows")
+        if scenario.status_code != 200:
+            raise RuntimeError(
+                f"Verify-scenario endpoint failed: {scenario.status_code} {scenario.text[:200]}"
+            )
+        scenario_payload = scenario.json()
+        if scenario_payload.get("declared_schema") != "hospital_10rows":
+            raise RuntimeError(
+                "The hospital scenario reports no declared premise, so it cannot prove anything: "
+                f"declared_schema={scenario_payload.get('declared_schema')!r}"
+            )
+
+        with sample_csv.open("rb") as handle:
+            verify = client.post(
+                f"{backend_url}/api/verify-fixes",
+                files={"file": ("hospital_10rows.csv", handle, "text/csv")},
+                data={
+                    "fixes": json.dumps(scenario_payload["fixes"]),
+                    "accepted_constraint_ids": json.dumps(
+                        scenario_payload["accepted_constraint_ids"]
+                    ),
+                    "proposer": scenario_payload["proposer"],
+                    "declared_schema": scenario_payload["declared_schema"],
+                },
+            )
+        if verify.status_code != 200:
+            raise RuntimeError(
+                f"Verify-fixes endpoint failed: {verify.status_code} {verify.text[:200]}"
+            )
+        verify_payload = verify.json()
+        if not verify_payload.get("would_apply"):
+            raise RuntimeError(
+                "The guardrail scenario proved nothing on the deployed backend. Every proposal was "
+                "held, so the surface is demonstrating uniform refusal rather than the "
+                "proven / held / rejected split its own copy promises."
+            )
+        held_reasons = {
+            str(item.get("review_reason"))
+            for item in verify_payload.get("receipt", {}).get("suggested_fixes", [])
+        }
+        if not {"verifier_rejected", "stale_precondition", "invalid_target"} <= held_reasons:
+            raise RuntimeError(
+                f"The guardrail scenario did not block for all three distinct reasons: "
+                f"{sorted(held_reasons)}"
+            )
 
     print(f"Verified HF Space backend {backend_url}")
 

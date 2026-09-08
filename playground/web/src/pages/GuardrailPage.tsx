@@ -34,6 +34,9 @@ export function GuardrailPage({
   const [fixes, setFixes] = useState<ExternalFix[]>([]);
   const [proposer, setProposer] = useState("external-agent");
   const [acceptedConstraintIds, setAcceptedConstraintIds] = useState<string[]>([]);
+  // Only a DECLARED premise confers write authority since C4; an accepted mined constraint does
+  // not. Carried separately so the surface can prove something instead of only ever refusing.
+  const [declaredSchema, setDeclaredSchema] = useState<string | null>(null);
   const [confirmEscalations, setConfirmEscalations] = useState(true);
   const [allowUnproven, setAllowUnproven] = useState(false);
   const [scenarioNote, setScenarioNote] = useState<string | null>(null);
@@ -59,6 +62,7 @@ export function GuardrailPage({
     setScenarioNote(null);
     setFixes([]);
     setAcceptedConstraintIds([]);
+    setDeclaredSchema(null);
     try {
       const sampleFile = await client.sample(value);
       setFile(sampleFile);
@@ -78,6 +82,7 @@ export function GuardrailPage({
     setScenarioNote(null);
     setFixes([]);
     setAcceptedConstraintIds([]);
+    setDeclaredSchema(null);
     const validation = validateCsvFile(chosen, maxUploadBytes);
     if (!validation.ok) {
       setProblem(localProblem(validation.message ?? "The CSV file could not be accepted."));
@@ -101,6 +106,7 @@ export function GuardrailPage({
       const scenario = await client.verifyScenario(sampleName);
       setFixes(scenario.fixes);
       setAcceptedConstraintIds(scenario.accepted_constraint_ids);
+      setDeclaredSchema(scenario.declared_schema);
       setProposer(scenario.proposer);
       setScenarioNote(scenario.note);
     } catch (error) {
@@ -132,6 +138,7 @@ export function GuardrailPage({
         proposer,
         confirmEscalations,
         allowUnproven,
+        declaredSchema,
       });
       setResult(response);
       setState("ready");
@@ -222,15 +229,20 @@ export function GuardrailPage({
             ) : null}
           </div>
           {scenarioNote ? <p className="guardrail-scenario-note">{scenarioNote}</p> : null}
-          {acceptedConstraintIds.length > 0 ? (
+          {declaredSchema ? (
             <p className="guardrail-schema-chip" role="status">
-              <ShieldCheck aria-hidden="true" /> Authoritative schema:{" "}
-              {acceptedConstraintIds.length} accepted constraint
-              {acceptedConstraintIds.length === 1 ? "" : "s"}
+              <ShieldCheck aria-hidden="true" /> Declared schema &mdash; correctly-typed edits can be
+              proven. This verifies fixes someone else proposed; it is not DataForge finding
+              repairs.
             </p>
           ) : (
             <p className="guardrail-schema-chip guardrail-schema-chip--none">
-              No authoritative schema &mdash; proposals can only be held, never proven.
+              No declared schema &mdash; proposals can only be held, never proven.{" "}
+              {acceptedConstraintIds.length > 0
+                ? `${acceptedConstraintIds.length} mined constraint${
+                    acceptedConstraintIds.length === 1 ? "" : "s"
+                  } accepted in review, which is not evidence enough to authorise a write.`
+                : null}
             </p>
           )}
 
