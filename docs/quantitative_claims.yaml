@@ -1566,3 +1566,89 @@ claims:
       citation that rots -- it is the shape of the defect this whole line of work exists to
       correct. Note the pointer: /arms/ORACLE/. Any future prose calling this a declared premise is
       wrong.
+
+  # --- H6: the capability was gated by a 100-cell batch cap (2026-09-08) ---
+  # The first end-to-end correction result this project has measured, and the retraction of
+  # "there is no demonstrated end-to-end correction capability on hospital". Every number here
+  # is meaningless without its CONFIGURATION, so the flag is in every context string.
+
+  - id: fd_yield_declared_confirmed_f1
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /escalation_gate/declared__confirm_escalations_true/f1
+    format: "{:.4f}"
+    expect: "0.4599"
+    context: "**0.4599**"
+    note: >-
+      End-to-end correction F1 on hospital under a declared premise with --confirm-escalations.
+      Retracts the previous "no demonstrated end-to-end capability" claim. Must never be quoted
+      without the flag: the same premise scores 0.0000 without it.
+
+  - id: fd_yield_declared_confirmed_writes
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /escalation_gate/declared__confirm_escalations_true/writes
+    format: "{:d}"
+    expect: "152"
+    context: "**152**"
+    note: >-
+      Cells written. 152 of 509 real errors, all correct. Pinned separately from the F1 so a
+      change in volume cannot hide behind a rounded score.
+
+  - id: fd_yield_declared_confirmed_precision
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /escalation_gate/declared__confirm_escalations_true/precision
+    format: "{:.4f}"
+    expect: "1.0000"
+    context: "**1.0000**"
+    note: >-
+      Zero wrong values and zero clean cells corrupted. This is what makes the result worth
+      having: the write path trades recall for perfect precision, now demonstrated rather than
+      asserted.
+
+  - id: fd_yield_declared_default_writes
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /escalation_gate/declared__confirm_escalations_false/writes
+    format: "{:d}"
+    expect: "0"
+    context: "declared premise, shipped default"
+    note: >-
+      The shipped default still writes nothing, because the batch exceeds the 100-cell cap and
+      the fixes are discarded silently. Bound to the table row: context is mandatory at this
+      length, and prose wraps.
+
+  - id: fd_yield_direct_leg_accepts
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /arms/declared/verifier_leg_attribution/direct_leg_accepts
+    format: "{:d}"
+    expect: "160"
+    context: "**160**"
+    note: >-
+      Proposals the independently-written DirectVerifier proves on the declared premise. The
+      pipeline wrote 0 of them, which is what localised the loss downstream of the verifier.
+
+  - id: fd_yield_predictor_agreement
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /arms/declared/predictor_vs_shipped_agreement
+    format: "{:.4f}"
+    expect: "1.0000"
+    context: "**1.0000 on all five arms**"
+    note: >-
+      K2. The structural predictor reimplements direct.py:245-260 and agrees with the shipped
+      verifier exactly, which is what licensed reporting H4 as REFUTED rather than as a harness
+      bug.
+
+  - id: fd_yield_oracle_writes_under_the_cap
+    doc: docs/trust/fd-repair-yield-mechanism.md
+    artifact: eval/results/fd_repair_yield_mechanism.json
+    pointer: /escalation_gate/oracle__confirm_escalations_false/writes
+    format: "{:d}"
+    expect: "54"
+    context: "oracle premise, either"
+    note: >-
+      The oracle premise never needed the flag because 54 is under the cap. It never looked
+      better than the declared premise; it looked smaller.

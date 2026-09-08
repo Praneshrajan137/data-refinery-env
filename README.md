@@ -232,6 +232,15 @@ nothing more. Evidence, with the decision rule fixed before the result was known
 [docs/trust/declared-premise-capability.md](docs/trust/declared-premise-capability.md)
 and [docs/trust/capability-measurement-stage.md](docs/trust/capability-measurement-stage.md).
 
+**Corrected 2026-09-08 — the note above is superseded and is retained because superseded claims are
+not edited out.** The declared premise's zero was a refusal on **volume**, not on evidence: a batch
+rewriting more than 100 cells is discarded entirely, and silently. Adding `--confirm-escalations`,
+which is **not** a code change but a documented flag, corrects **152** of hospital's 509 real errors
+at precision **1.0000** with **zero** corruptions, for end-to-end F1 **0.4599**. That figure is
+verified and is **not** protocol-comparable with published end-to-end baselines, and it must not be
+quoted without its flag, because the same premise scores 0.0000 without it. See
+[docs/trust/fd-repair-yield-mechanism.md](docs/trust/fd-repair-yield-mechanism.md).
+
 **Provenance note, 2026-08-25.** The hospital correction F1 above was measured with a
 deterministic stack that included `type_mismatch` and `decimal_shift` in the auto-apply
 set. Both have since been removed from it on measurement, so this figure is a record of

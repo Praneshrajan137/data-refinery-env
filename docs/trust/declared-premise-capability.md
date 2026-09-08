@@ -1,4 +1,31 @@
-# A declared premise repairs nothing on hospital, and the ceiling is not the premise's fault
+# A declared premise repairs nothing *by default*, and the cause is a 100-cell batch cap
+
+> **RETRACTION, 2026-09-08, one commit after this document was written.** This document concluded
+> that *"there is no demonstrated end-to-end correction capability on hospital"* and that the write
+> path's suppression of repairs was **not** attributable to premise quality. The second half is
+> correct. **The first half is false and is retracted.**
+>
+> The same premise, through the same write path, with one shipped and documented flag
+> (`--confirm-escalations`), writes **152 of 509 real errors correctly at precision 1.0000 with zero
+> corruptions — F1 0.4599.** Every number below is reproducible and every interpretation of the zero
+> is wrong: the pipeline was not refusing on evidence, it was refusing on **volume**.
+> `dataforge/engine/repair.py:1920-1932` discards the whole batch when it exceeds 100 cells, and
+> discards it **silently** — into neither `result.fixes` nor `receipt.suggested_fixes`.
+>
+> **The oracle premise never looked better than the declared premise. It looked smaller** — 54 cells
+> is under the cap, 152 is not.
+>
+> Full result and the two hypotheses refuted on the way:
+> [fd-repair-yield-mechanism.md](fd-repair-yield-mechanism.md). This document is left standing
+> because PRODUCT.md §5 forbids rewriting frozen evidence to look better; read it as what was
+> believed on 2026-09-08 **before** a flag was varied.
+>
+> **The durable lesson is about the instrument, not the cap.** The receipt carried
+> `safety_verdict = escalate` and the exact string `NO_HIGH_VOLUME_AUTO_APPLY` the entire time. Five
+> instruments reported a bare zero and none reported *why*, because they recorded `writes`, `tp` and
+> `fp` and never the batch verdict. **A pipeline-stage measurement that does not record why the
+> pipeline refused is an incomplete instrument.**
+
 
 **Pre-registration:** [`eval/preregistration/declared_premise_capability.md`](../../eval/preregistration/declared_premise_capability.md)
 (H3, P1-P6, K1-K6, plus AMENDMENT 1 recording that three of six predictions were refuted).

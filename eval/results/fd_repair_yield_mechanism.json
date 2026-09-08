@@ -1,0 +1,298 @@
+{
+  "arms": {
+    "declared": {
+      "arm": "declared",
+      "correctness_of_direct_accepted_proposals": {
+        "precision_against_ground_truth": 1.0,
+        "repaired_a_real_error": 160,
+        "would_touch_a_clean_cell": 0,
+        "wrong_value_on_a_real_error": 0
+      },
+      "dependent_columns": 13,
+      "every_fd_holds_on_clean": true,
+      "failure_dispositions": {
+        "attempted_not_fixed": 7549,
+        "reason_names_a_functional_dependency": 243
+      },
+      "fd_count": 15,
+      "joint_verification_headroom": {
+        "additional_cells_a_joint_check_would_accept": 195,
+        "joint_acceptable": 343,
+        "single_cell_acceptable": 148
+      },
+      "max_determinants_per_dependent": 3,
+      "pipeline_actual_writes": 0,
+      "predictor_predicted_writes": 160,
+      "predictor_vs_shipped_agreement": 1.0,
+      "predictor_vs_shipped_disagreements": [],
+      "shipped_proposals": 444,
+      "verifier_leg_attribution": {
+        "by_smt_verdict_among_direct_accepts": {
+          "direct_accept__smt_accept": 160
+        },
+        "differential_accepts": 160,
+        "direct_leg_accepts": 160
+      },
+      "violation_group_shape": {
+        "groups_with_three_or_more_violations": 129,
+        "groups_with_two_violations": 155,
+        "singleton_violation_groups": 160
+      }
+    },
+    "declared_plus_condition_redundancy": {
+      "arm": "declared_plus_condition_redundancy",
+      "correctness_of_direct_accepted_proposals": {
+        "precision_against_ground_truth": 1.0,
+        "repaired_a_real_error": 175,
+        "would_touch_a_clean_cell": 0,
+        "wrong_value_on_a_real_error": 0
+      },
+      "dependent_columns": 13,
+      "every_fd_holds_on_clean": true,
+      "failure_dispositions": {
+        "attempted_not_fixed": 7577,
+        "reason_names_a_functional_dependency": 247
+      },
+      "fd_count": 17,
+      "joint_verification_headroom": {
+        "additional_cells_a_joint_check_would_accept": 167,
+        "joint_acceptable": 309,
+        "single_cell_acceptable": 142
+      },
+      "max_determinants_per_dependent": 3,
+      "pipeline_actual_writes": 0,
+      "predictor_predicted_writes": 175,
+      "predictor_vs_shipped_agreement": 1.0,
+      "predictor_vs_shipped_disagreements": [],
+      "shipped_proposals": 506,
+      "verifier_leg_attribution": {
+        "by_smt_verdict_among_direct_accepts": {
+          "direct_accept__smt_accept": 175
+        },
+        "differential_accepts": 175,
+        "direct_leg_accepts": 175
+      },
+      "violation_group_shape": {
+        "groups_with_three_or_more_violations": 196,
+        "groups_with_two_violations": 135,
+        "singleton_violation_groups": 175
+      }
+    },
+    "declared_plus_earlier_sorting_determinant": {
+      "arm": "declared_plus_earlier_sorting_determinant",
+      "correctness_of_direct_accepted_proposals": {
+        "precision_against_ground_truth": 1.0,
+        "repaired_a_real_error": 168,
+        "would_touch_a_clean_cell": 0,
+        "wrong_value_on_a_real_error": 0
+      },
+      "dependent_columns": 13,
+      "every_fd_holds_on_clean": true,
+      "failure_dispositions": {
+        "attempted_not_fixed": 7570,
+        "reason_names_a_functional_dependency": 249
+      },
+      "fd_count": 16,
+      "joint_verification_headroom": {
+        "additional_cells_a_joint_check_would_accept": 180,
+        "joint_acceptable": 319,
+        "single_cell_acceptable": 139
+      },
+      "max_determinants_per_dependent": 3,
+      "pipeline_actual_writes": 0,
+      "predictor_predicted_writes": 168,
+      "predictor_vs_shipped_agreement": 1.0,
+      "predictor_vs_shipped_disagreements": [],
+      "shipped_proposals": 476,
+      "verifier_leg_attribution": {
+        "by_smt_verdict_among_direct_accepts": {
+          "direct_accept__smt_accept": 168
+        },
+        "differential_accepts": 168,
+        "direct_leg_accepts": 168
+      },
+      "violation_group_shape": {
+        "groups_with_three_or_more_violations": 163,
+        "groups_with_two_violations": 145,
+        "singleton_violation_groups": 168
+      }
+    },
+    "oracle": {
+      "arm": "oracle",
+      "correctness_of_direct_accepted_proposals": {
+        "precision_against_ground_truth": 1.0,
+        "repaired_a_real_error": 217,
+        "would_touch_a_clean_cell": 0,
+        "wrong_value_on_a_real_error": 0
+      },
+      "dependent_columns": 13,
+      "every_fd_holds_on_clean": true,
+      "failure_dispositions": {
+        "attempted_not_fixed": 8075,
+        "reason_names_a_functional_dependency": 339
+      },
+      "fd_count": 53,
+      "joint_verification_headroom": {
+        "additional_cells_a_joint_check_would_accept": 73,
+        "joint_acceptable": 118,
+        "single_cell_acceptable": 45
+      },
+      "max_determinants_per_dependent": 8,
+      "pipeline_actual_writes": 54,
+      "predictor_predicted_writes": 217,
+      "predictor_vs_shipped_agreement": 1.0,
+      "predictor_vs_shipped_disagreements": [],
+      "shipped_proposals": 1560,
+      "verifier_leg_attribution": {
+        "by_smt_verdict_among_direct_accepts": {
+          "direct_accept__smt_accept": 217
+        },
+        "differential_accepts": 217,
+        "direct_leg_accepts": 217
+      },
+      "violation_group_shape": {
+        "groups_with_three_or_more_violations": 1195,
+        "groups_with_two_violations": 148,
+        "singleton_violation_groups": 217
+      }
+    },
+    "oracle_thinned_to_one_determinant": {
+      "arm": "oracle_thinned_to_one_determinant",
+      "correctness_of_direct_accepted_proposals": {
+        "precision_against_ground_truth": 1.0,
+        "repaired_a_real_error": 138,
+        "would_touch_a_clean_cell": 0,
+        "wrong_value_on_a_real_error": 0
+      },
+      "dependent_columns": 13,
+      "every_fd_holds_on_clean": true,
+      "failure_dispositions": {
+        "attempted_not_fixed": 7225,
+        "reason_names_a_functional_dependency": 246
+      },
+      "fd_count": 13,
+      "joint_verification_headroom": {
+        "additional_cells_a_joint_check_would_accept": 144,
+        "joint_acceptable": 282,
+        "single_cell_acceptable": 138
+      },
+      "max_determinants_per_dependent": 1,
+      "pipeline_actual_writes": 0,
+      "predictor_predicted_writes": 138,
+      "predictor_vs_shipped_agreement": 1.0,
+      "predictor_vs_shipped_disagreements": [],
+      "shipped_proposals": 386,
+      "verifier_leg_attribution": {
+        "by_smt_verdict_among_direct_accepts": {
+          "direct_accept__smt_accept": 138
+        },
+        "differential_accepts": 138,
+        "direct_leg_accepts": 138
+      },
+      "violation_group_shape": {
+        "groups_with_three_or_more_violations": 117,
+        "groups_with_two_violations": 131,
+        "singleton_violation_groups": 138
+      }
+    }
+  },
+  "committed_referents": {
+    "declared": 0,
+    "oracle": 54
+  },
+  "committed_referents_source": "eval/results/declared_premise_capability.json /arms/*/writes -- read from the artifact, deliberately not a constant in this harness",
+  "dataset": "hospital",
+  "escalation_gate": {
+    "declared__confirm_escalations_false": {
+      "batch_safety_reason": "NO_HIGH_VOLUME_AUTO_APPLY: Batches rewriting more than 100 cells require explicit review.",
+      "batch_safety_verdict": "escalate",
+      "confirm_escalations": false,
+      "f1": 0.0,
+      "fn": 509,
+      "fp": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "tp": 0,
+      "write_precision": null,
+      "writes": 0
+    },
+    "declared__confirm_escalations_true": {
+      "batch_safety_reason": "Dry run completed without mutating the source file.",
+      "batch_safety_verdict": "allow",
+      "confirm_escalations": true,
+      "f1": 0.4599,
+      "fn": 357,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 0.2986,
+      "tp": 152,
+      "write_precision": 1.0,
+      "writes": 152
+    },
+    "oracle__confirm_escalations_false": {
+      "batch_safety_reason": "Dry run completed without mutating the source file.",
+      "batch_safety_verdict": "allow",
+      "confirm_escalations": false,
+      "f1": 0.1918,
+      "fn": 455,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 0.1061,
+      "tp": 54,
+      "write_precision": 1.0,
+      "writes": 54
+    },
+    "oracle__confirm_escalations_true": {
+      "batch_safety_reason": "Dry run completed without mutating the source file.",
+      "batch_safety_verdict": "allow",
+      "confirm_escalations": true,
+      "f1": 0.1918,
+      "fn": 455,
+      "fp": 0,
+      "precision": 1.0,
+      "recall": 0.1061,
+      "tp": 54,
+      "write_precision": 1.0,
+      "writes": 54
+    }
+  },
+  "hypothesis": "H4: a single-cell FD repair verifies only when it is the last remaining violation in its determinant group (dataforge/verifier/direct.py:245-260), so yield equals the number of determinant groups containing exactly one differing cell, and premise SIZE matters only through which determinant wins the sort at dataforge/repairers/fd_violation.py:158.",
+  "method": "Five premises over one table. For each: the shipped pipeline in dry_run mode supplies the actual write count; the shipped FDViolationDetector and FDViolationRepairer supply the proposals; and a STRUCTURAL PREDICTOR that never runs the pipeline (accept iff no other row sharing the determinant would still disagree) supplies a predicted write count. K2 checks the predictor against the shipped DirectVerifier per proposal, because a drifted reimplementation would confirm the hypothesis for the wrong reason.",
+  "p6_caveat": "joint_verification_headroom describes a configuration that DOES NOT EXIST. direct.py:104-111 applies a fix list sequentially, verifying each against a frame in which the others are not yet applied, so passing a group as a list today still fails. Any use of this number as a capability claim would be the proposal-stage defect again.",
+  "premise_file": "eval/premises/hospital_declared.yaml",
+  "preregistration": "eval/preregistration/fd_repair_yield_mechanism.md",
+  "schema_version": "dataforge_fd_repair_yield_v1",
+  "verdict": {
+    "declared_end_to_end_f1_with_escalation_confirmed": 0.4599,
+    "h6_capability_was_gated_only_by_the_volume_cap": true,
+    "k1_instrument_reproduces_committed_write_counts": true,
+    "k2_predictor_agrees_with_shipped_verifier": true,
+    "k2_worst_agreement": 1.0,
+    "k3_h4_refuted": true,
+    "k7_loss_is_downstream_of_the_verifier": true,
+    "p10_oracle_writes_within_direct_accepts": true,
+    "p11_confirming_the_escalation_releases_more_than_100_writes": true,
+    "p12_released_writes_at_least_95pc_correct": true,
+    "p13_oracle_batch_verdict_is_allow": true,
+    "p1_oracle_writes_are_singleton_violation_groups": false,
+    "p2_declared_has_no_singleton_violation_groups": false,
+    "p3_dominant_declared_disposition": "attempted_not_fixed",
+    "p4_membership_changes_write_count": false,
+    "p5_predictor_within_tolerance_on_every_arm": false,
+    "p5_relative_error_by_arm": {
+      "declared": 1.0,
+      "declared_plus_condition_redundancy": 1.0,
+      "declared_plus_earlier_sorting_determinant": 1.0,
+      "oracle": 3.0185,
+      "oracle_thinned_to_one_determinant": 1.0
+    },
+    "p5_worst_relative_error": 3.0185,
+    "p6_joint_check_would_accept_more": true,
+    "p7_declared_differential_accepts": 160,
+    "p7_direct_leg_accepts_more_than_differential": false,
+    "p8_dominant_smt_verdict_among_direct_accepts": "direct_accept__smt_accept",
+    "p9_declared_direct_accepted_precision": 1.0,
+    "p9_direct_accepted_precision_at_least_70pc": true
+  },
+  "verifier_scoping_correction": "dataforge/repairers/fd_violation.py:99-103 states the differential verifier 'checks a candidate against the WHOLE schema'. It does not: direct.py:129-133 and smt.py:245-248 both scope to dependencies where the fixed column is the dependent or appears in the determinant. The check IS global over rows, which is the mechanism, but it is not global over the schema."
+}

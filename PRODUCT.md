@@ -69,6 +69,25 @@ So **there is no demonstrated end-to-end correction capability on hospital**, an
 only as a proposal-stage measurement of the detector and repairer. The honest claim is the one
 section 1.3 already reaches for: detection, advisory triage and reversibility.
 
+**Retracted the same day, by measuring one flag.** The paragraph above is wrong, and it is left
+standing because section 5 forbids rewriting evidence to look better. The declared premise's zero was
+not a refusal on evidence — it was a refusal on **volume**.
+`dataforge/engine/repair.py` discards an entire batch that would rewrite more than 100 cells, and
+discards it **silently**, into neither the applied set nor the review queue. With
+`--confirm-escalations`, the same premise through the same write path writes **152 of 509 real errors
+correctly at precision 1.0000 with zero corruptions — F1 0.4599**
+([fd-repair-yield-mechanism.md](docs/trust/fd-repair-yield-mechanism.md)). That is the first
+end-to-end correction result this project has measured, and the stage gap narrows from 214.2x to
+about 1.8x. It must always be quoted with its flag, because the same premise scores 0.0000 without
+it.
+
+Two consequences worth stating plainly. **The oracle premise never looked better than the declared
+premise — it looked smaller**, because 54 cells is under the cap and 152 is not; a premise that finds
+more correct repairs wrote fewer cells. And the durable defect is in the **instrument**: the receipt
+carried `safety_verdict = escalate` and the exact `NO_HIGH_VOLUME_AUTO_APPLY` reason the whole time,
+while five separate harnesses reported a bare zero and none reported why, because they recorded
+writes and true positives and never the batch verdict.
+
 Two things follow that were previously assumed the other way. The gap is **not** a
 premise-quality problem — a premise of thirteen dependencies every one of which ground truth
 admits also writes zero — so no amount of schema authoring closes it. And the advice

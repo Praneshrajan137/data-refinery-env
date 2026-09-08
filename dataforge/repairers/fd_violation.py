@@ -96,11 +96,20 @@ class FDViolationRepairer:
           the product -- reaching a verdict it already had. The other dependency's answer was
           in the same loop, untried. Skipping rejected values is what lets a retry reach it.
 
-        What did NOT happen is corruption. The differential verifier is fail-closed and
-        checks a candidate against the WHOLE schema, so it refused every order-dependent
-        value. All 21 cells whose proposal this change alters were checked individually on
-        hospital: SMT returned UNKNOWN on all 21 and Direct rejected 20 of them, so not one
-        would have been applied. The applied set is unchanged; only the wasted work is gone.
+        What did NOT happen is corruption. The differential verifier is fail-closed and checks a
+        candidate against every dependency that TOUCHES the fixed column, so it refused every
+        order-dependent value. All 21 cells whose proposal this change alters were checked
+        individually on hospital: SMT returned UNKNOWN on all 21 and Direct rejected 20 of them, so
+        not one would have been applied. The applied set is unchanged; only the wasted work is gone.
+
+        **Corrected 2026-09-08.** This paragraph said the verifier "checks a candidate against the
+        WHOLE schema". It does not, and the distinction matters because it was load-bearing here.
+        ``dataforge/verifier/direct.py:129-133`` and ``dataforge/verifier/smt.py:245-248`` both scope
+        to dependencies where the fixed column is the dependent **or appears in a determinant**. The
+        check is global over **rows** for those dependencies, not over the schema. Measured in
+        ``docs/trust/fd-repair-yield-mechanism.md``, and note also that the "SMT returned UNKNOWN"
+        observation above does **not** generalise: on the declared-premise population the SMT leg
+        returned ``accept`` on all 160 proposals the Direct leg proved.
 
         Ranking is by evidence rather than position -- largest voting group, then widest
         majority margin, then determinant name for a total order. Every key is a property of

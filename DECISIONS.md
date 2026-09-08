@@ -35,6 +35,87 @@ claims instead. That exclusion is recorded in the test, not implied.
 
 ---
 
+## 2026-09-08 - The capability was there all along, gated by a 100-cell cap that discarded it silently
+
+**Context**: The previous entry concluded there is **no demonstrated end-to-end correction
+capability on hospital**, on the strength of a declared premise writing 0 cells. It also concluded
+the loss was not a premise-quality problem, since a ground-truth-admitted premise of the same size
+also wrote 0. That second conclusion was right. The first was wrong, and this entry retracts it.
+
+**Alternatives considered before measuring**:
+1. *Accept the architectural-ceiling reading and move on.* Rejected: it is the only identified
+   route to end-to-end capability, so being wrong about it is expensive.
+2. *Assert a mechanism from reading the code.* Rejected twice over, because I did exactly that and
+   was wrong twice.
+3. *Pre-register a mechanism, build a structural predictor, and let it be refuted.* Chosen.
+
+**Decision**: Pre-register `eval/preregistration/fd_repair_yield_mechanism.md` and measure. Two
+hypotheses were refuted before the answer appeared, and both refutations were load-bearing:
+
+- **H4** — a repair verifies only when it is the last remaining violation in its determinant group.
+  A structural predictor reimplementing `direct.py:245-260` agreed with the shipped `DirectVerifier`
+  at **1.0000 on all five arms**, and predicted **160** declared writes against an actual **0**. K3
+  fired; H4 recorded refuted, no terms added to rescue it.
+- **H5** — the z3 leg returns UNKNOWN and fail-closed discards the repair. Refuted outright: SMT
+  returned `accept` on **all 160**, and `differential_verify` accepted all 160. K7 fired: the loss
+  was downstream of the verifier.
+
+**The answer, read from the receipt rather than inferred**:
+
+```
+safety_verdict = escalate
+reason         = NO_HIGH_VOLUME_AUTO_APPLY: Batches rewriting more than 100 cells
+                 require explicit review.
+```
+
+`repair.py:1920-1932` sets `accepted_fixes = []` on a non-ALLOW batch verdict, and the discard is
+**total and silent** — into neither `result.fixes` nor `receipt.suggested_fixes`.
+
+**Result**: with `--confirm-escalations`, the same premise through the same write path writes **152
+of 509 real errors correctly, 0 wrong values, 0 clean cells corrupted — precision 1.0000, F1
+0.4599.** The first end-to-end correction result this project has measured. The stage gap narrows
+from **214.2x to about 1.8x**, and the write path's recall-for-precision trade (1.0000 against the
+proposal stage's 0.7898) is now demonstrated rather than asserted.
+
+**Reasoning**: this explains every arm including the one that looked like success. **The oracle
+premise never looked better than the declared premise — it looked smaller.** 54 cells is under the
+cap; 152 is not. A premise that finds more correct repairs wrote fewer cells, and past 100 it wrote
+none. That inverts the incentive the product rests on.
+
+**The cap is defensible; three things about it are not.** Refusing to rewrite more than 100 cells
+unattended is reasonable, and it is reversible by a documented flag. But exceeding it **discards
+proven fixes silently** where every other gate in the pipeline holds them for review with a
+`review_reason`; it inverts the incentive as above; and **every capability number this project has
+published was measured through it** while no pre-registration, harness or gate recorded
+`receipt.safety_verdict`.
+
+**The durable lesson is about the instrument, not the cap.** The receipt carried
+`safety_verdict = escalate` and that exact reason string the whole time. Five instruments reported a
+bare zero and not one reported *why*, because they recorded `writes`, `tp` and `fp`. **A
+pipeline-stage measurement that does not record why the pipeline refused is an incomplete
+instrument.** That is the third variant of the same defect class this project keeps finding: a
+number measured by one instrument, quoted as if it came from another.
+
+**Also corrected**: `dataforge/repairers/fd_violation.py` claimed the differential verifier "checks
+a candidate against the WHOLE schema". It does not — `direct.py:129-133` and `smt.py:245-248` scope
+to dependencies touching the fixed column. The check is global over **rows**, not the schema. That
+sentence was load-bearing in an argument about why order-dependence had caused no corruption.
+
+**Not changed here, deliberately** (K10): the cap, the safety filter, and every default are
+untouched. Routing a volume-capped batch into `suggested_fixes` instead of dropping it is the
+obvious next change and alters what a shipped receipt contains, so it needs its own
+pre-registration.
+
+**Reviewed with**: nobody. Two pre-registered hypotheses were refuted by the instrument before the
+answer emerged, which is the property that makes this trustworthy without a reviewer.
+
+**Reversal criteria**: if the 152/0.4599 figure moves, `docs_truth` will fail against
+`eval/results/fd_repair_yield_mechanism.json` and the documents must be revisited rather than the
+number re-emitted. If a future change makes the default configuration write a material number of
+cells, the "0.0000 by default" half of the claim is withdrawn.
+
+---
+
 ## 2026-09-08 - A declared premise repairs nothing, and the advice to declare one had no support
 
 **Context**: `docs/trust/capability-measurement-stage.md` left the capability anchor unchosen and

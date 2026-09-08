@@ -395,10 +395,10 @@ def repair(
             "authorise writes, as they did before 2026-09-07. Off by default: accepting a "
             "mined candidate is not the same evidence as declaring one. On the reference "
             "corpus this authorised 451 real repairs and 116 clean-cell corruptions at "
-            "proposal stage. Declaring a schema instead is the safer premise, but on that "
-            "corpus it repairs nothing through this pipeline -- see "
-            "docs/trust/declared-premise-capability.md before expecting --schema to recover "
-            "the capability this flag gives up.",
+            "proposal stage. Declaring a schema is the better premise: with --schema and "
+            "--confirm-escalations it corrects 152 of that corpus's 509 errors with ZERO "
+            "corruptions. Without --confirm-escalations it writes nothing, because a batch over "
+            "100 cells is held. See docs/trust/fd-repair-yield-mechanism.md.",
         ),
     ] = False,
     allow_entity_consensus: Annotated[

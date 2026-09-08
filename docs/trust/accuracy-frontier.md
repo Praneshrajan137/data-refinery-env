@@ -54,6 +54,13 @@ Every cell error falls into one of four honest classes:
   vacuous premise. The ceiling, on a premise admitted *by ground truth* that no user can author,
   is **F1 0.1918** with 54 writes. The Raha+Baran comparison above is therefore doubly
   non-comparable: different protocol, **and** a different stage of a different pipeline.
+- **Corrected again 2026-09-08, and this one is good news.** The bullet above is superseded and
+  retained. The declared premise's zero was a refusal on **volume**, not evidence: a batch rewriting
+  more than 100 cells is discarded whole, and silently. With `--confirm-escalations` the same premise
+  corrects **152** of the 509 real errors at precision **1.0000** with **zero** corruptions, for
+  end-to-end **F1 0.4599** — the first end-to-end correction result this project has measured, and it
+  narrows the stage gap from 214.2x to about 1.8x. Quote it only with its flag: the same premise is
+  0.0000 without it. See [fd-repair-yield-mechanism.md](fd-repair-yield-mechanism.md).
 - Dominated by FD/typo errors that ARE derivable (FD majority/lookup,
   decimal-shift inverse) -> **AUTO-CORRECTABLE**. `value_format` and
   `text_normalization` are well **DETECTED** (recall ~1.0 / ~0.87).

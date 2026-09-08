@@ -147,3 +147,24 @@ nothing auto-loads.
 - Hashing a committed file for a kill criterion? Hash **normalised text**, not bytes.
   `core.autocrlf=true` leaves CRLF in a Windows worktree while git stores LF, so a byte hash
   differs between here and Linux CI and fires the criterion for the wrong reason.
+
+## 2026-09-08 Notes, second entry
+
+- **RETRACTED from the entry above: "no demonstrated end-to-end correction capability on hospital".**
+  That was measured with the shipped default only. The declared premise''s zero was a refusal on
+  **VOLUME**, not evidence: `repair.py` discards an entire batch rewriting more than 100 cells, and
+  discards it **silently** into neither `result.fixes` nor `receipt.suggested_fixes`. With
+  `--confirm-escalations` the same premise corrects **152** of 509 errors at precision **1.0000**
+  with **zero** corruptions, end-to-end **F1 0.4599**
+  ([docs/trust/fd-repair-yield-mechanism.md](docs/trust/fd-repair-yield-mechanism.md)). Always quote
+  it with the flag; the same premise is 0.0000 without it. The oracle premise never looked better
+  than the declared one — it looked **smaller** (54 cells is under the cap, 152 is not).
+- **When a pipeline arm reports zero, record `receipt.safety_verdict` and `receipt.reason` before
+  concluding anything.** Five instruments reported a bare zero and none reported why, because they
+  recorded `writes`/`tp`/`fp` only. A pipeline-stage measurement that does not record *why the
+  pipeline refused* is an incomplete instrument. This is the third variant of the one defect class
+  this repo keeps finding.
+- The differential verifier checks a candidate against the dependencies **touching the fixed
+  column** (`direct.py:129-133`, `smt.py:245-248`), global over **rows** — **not** against the whole
+  schema, whatever `fd_violation.py` used to say. And its z3 leg is not the bottleneck: it returned
+  `accept` on all 160 proposals the Direct leg proved.
