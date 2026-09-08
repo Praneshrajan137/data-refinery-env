@@ -1,0 +1,170 @@
+# A DECLARED premise for the `hospital` corpus, authored WITHOUT looking at ground truth.
+#
+# Executes `eval/preregistration/declared_premise_capability.md`. This file is the premise
+# whose sha256 that document records; K3 voids any run in which the two disagree.
+#
+# ---------------------------------------------------------------------------------------
+# WHY THIS IS NOT THE ORACLE ARM WEARING A DIFFERENT LABEL
+# ---------------------------------------------------------------------------------------
+# `scripts/bench/measure_deductive_coverage.py::discover_oracle_fds` admits a dependency
+# ONLY IF `fd_holds_on_clean(...)` is true -- ground truth *feeds* that arm, and its own
+# docstring says so: "No user has this. It is the ceiling."
+#
+# Nothing here was filtered by ground truth. Every dependency below is authored from one of
+# two warrants that a user has on the day the file lands, and **every one of them stays in
+# this file whether or not it turns out to hold on the clean frame.** Ground truth grades
+# this premise; it never fed it. That distinction is this repository's own stated principle,
+# at `scripts/bench/validate_measure_on_my_table.py`:
+#
+#     "Now, and only now, ground truth enters -- to grade the instrument, never to feed it."
+#
+# The harness reports `declared_fds_refuted_by_ground_truth` as a RESULT. A non-zero value is
+# a finding about what declaring costs, not a defect to be fixed by editing this file. Editing
+# it after a run is exactly the motivated pruning K3 exists to prevent.
+#
+# ---------------------------------------------------------------------------------------
+# THE TWO WARRANTS
+# ---------------------------------------------------------------------------------------
+# `cms_documented`  (13 dependencies)
+#     Public semantics of the CMS Hospital Compare release this corpus is drawn from. The
+#     CMS Certification Number -- `ProviderNumber`, the CCN -- identifies exactly one
+#     certified facility, so every facility-level attribute is functionally determined by
+#     it. CMS measure identifiers are a controlled vocabulary, so a measure code carries one
+#     canonical name and belongs to one clinical condition group. US five-digit ZIPs fall
+#     inside a single state.
+#
+# `format_evident`  (2 dependencies)
+#     Visible in the dirty frame's own values, with no reference to the clean frame:
+#     `Stateavg` holds values of the form `al_scip-card-2`, i.e. the state code and the
+#     measure code joined by an underscore. Reading any two rows shows this. A WEAKER
+#     warrant than `cms_documented` and labelled as such, so the two classes can be
+#     reported apart.
+#
+# ---------------------------------------------------------------------------------------
+# CONSIDERED AND REJECTED -- the audit trail that makes the inclusions checkable
+# ---------------------------------------------------------------------------------------
+# A premise is only as honest as the things it declined to claim. Each rejection below is on
+# a public or dirty-frame-visible ground, never on a ground-truth check.
+#
+#   index -> *                     REJECTED. `index` is a unique row identifier (1000 distinct
+#                                  values in 1000 rows). It determines every column trivially,
+#                                  every determinant group is a singleton, so no vote is
+#                                  reachable and no repair can ever be proposed. A unique-key
+#                                  determinant is a VACUOUS premise: maximally true, worth
+#                                  nothing. Declaring it would inflate the FD count and the
+#                                  apparent column coverage while contributing no capability.
+#
+#   * -> Address2, * -> Address3   REJECTED. Both hold a single distinct value ('empty') in the
+#                                  dirty frame. An FD into a constant column cannot be
+#                                  violated, so it cannot detect or repair anything.
+#
+#   * -> Score, * -> Sample        REJECTED. Measure-level observations that legitimately vary
+#                                  per (facility, measure) row. Not facility-determined, and
+#                                  claiming otherwise would be declaring a false dependency.
+#
+#   City -> State                  REJECTED. Publicly FALSE. City names recur across states
+#                                  (Springfield, Columbus, Portland). This corpus happens to
+#                                  span few states, which would likely make it hold here --
+#                                  declining it anyway is the point: the warrant is public
+#                                  semantics, not what this table happens to contain.
+#
+#   ZipCode -> City                REJECTED. Publicly APPROXIMATE, not exact. A ZIP carries
+#   ZipCode -> CountyName          multiple USPS-accepted place names, and ZIPs straddle county
+#                                  lines. `ZipCode -> State` is kept because that one IS exact.
+#
+#   PhoneNumber -> ProviderNumber  REJECTED. Facilities in one system share switchboard numbers.
+#   HospitalName -> ProviderNumber REJECTED. Hospital names recur nationally ("St. Mary's").
+#                                  The CCN is the identifier; the name is not.
+#
+# ---------------------------------------------------------------------------------------
+# ON THE COLUMN TYPES BELOW: THEY GRANT NO AUTHORITY, BY DESIGN
+# ---------------------------------------------------------------------------------------
+# All 20 columns are declared `str` because that is what this corpus holds and what a user
+# would write. It is load-bearing that this CANNOT be accused of smuggling in write
+# authority: `dataforge.engine.repair.authoritative_columns` counts a column as covered only
+# when its declared type is DISCRIMINATING, and `type_discriminates("str")` is False -- a
+# property established after a measured defect in which declaring every column `str` let
+# 10 of 14 constraint-violating attacks be written and stamped `proven`.
+#
+# So the entire write authority of this premise comes from the `functional_dependencies`
+# below, covering exactly their determinants and dependents, and `fd_violation` writes are
+# further gated to declared DEPENDENTS only. The type map is inert and is here for realism.
+
+columns:
+  index: str
+  ProviderNumber: str
+  HospitalName: str
+  Address1: str
+  Address2: str
+  Address3: str
+  City: str
+  State: str
+  ZipCode: str
+  CountyName: str
+  PhoneNumber: str
+  HospitalType: str
+  HospitalOwner: str
+  EmergencyService: str
+  Condition: str
+  MeasureCode: str
+  MeasureName: str
+  Score: str
+  Sample: str
+  Stateavg: str
+
+# `warrant` is read by the harness for per-class reporting. `load_schema` ignores keys it does
+# not know, so this file remains exactly what `dataforge repair --schema` accepts, and the
+# premise and its justification stay one hash-frozen artifact that cannot drift apart.
+functional_dependencies:
+  # -- The CCN identifies one certified facility; these are its attributes. --
+  - determinant: [ProviderNumber]
+    dependent: HospitalName
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: Address1
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: City
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: State
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: ZipCode
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: CountyName
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: PhoneNumber
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: HospitalType
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: HospitalOwner
+    warrant: cms_documented
+  - determinant: [ProviderNumber]
+    dependent: EmergencyService
+    warrant: cms_documented
+
+  # -- CMS measure identifiers are a controlled vocabulary. --
+  - determinant: [MeasureCode]
+    dependent: MeasureName
+    warrant: cms_documented
+  - determinant: [MeasureCode]
+    dependent: Condition
+    warrant: cms_documented
+
+  # -- US five-digit ZIPs fall inside one state. Kept where ZipCode -> City was not. --
+  - determinant: [ZipCode]
+    dependent: State
+    warrant: cms_documented
+
+  # -- `al_scip-card-2` visibly encodes state and measure code. Weaker warrant, labelled. --
+  - determinant: [Stateavg]
+    dependent: State
+    warrant: format_evident
+  - determinant: [Stateavg]
+    dependent: MeasureCode
+    warrant: format_evident

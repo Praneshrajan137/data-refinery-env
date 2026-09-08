@@ -35,6 +35,98 @@ claims instead. That exclusion is recorded in the test, not implied.
 
 ---
 
+## 2026-09-08 - A declared premise repairs nothing, and the advice to declare one had no support
+
+**Context**: `docs/trust/capability-measurement-stage.md` left the capability anchor unchosen and
+named the measurement the choice needed: the pipeline under a **declared** premise, the empty
+column of the premise-by-stage matrix. Two facts made it urgent. The widely quoted **393 repairs /
+0 corruptions** is the **oracle** arm — dependencies discovered from the *clean* frame and admitted
+only if they hold on ground truth, whose own harness says *"No user has this. It is the ceiling."*
+And two **shipped** sites credited that ceiling to a declared premise, one of them the
+`--trust-mined-constraints` `--help` text read by every user: *"a declared premise repaired 393 and
+corrupted none. Prefer --schema."* So C4's default and the product's central recommendation rested
+on a number no user can obtain.
+
+**Alternatives**:
+1. *Relabel the two sites and stop.* Cheap, honest about the citation, and leaves the substantive
+   question — what a declared premise actually repairs — unanswered. Rejected: the mislabel is a
+   symptom; the empty column is the defect.
+2. *Measure the declared arm only.* Answers the product's claim but cannot distinguish "the user
+   declared badly" from "the pipeline writes nothing regardless". Rejected as uninterpretable
+   alone, which is the same error the single-premise coverage number made.
+3. *Measure declared **and** oracle through the write path, with the anchor decision rule fixed in
+   advance.* Chosen.
+
+**Decision**: Pre-register `eval/preregistration/declared_premise_capability.md` with a premise
+frozen by sha256 **before** ground truth was consulted, measure four arms sharing
+`score_repairs`, and record the anchor rule before seeing the result. Result:
+
+| arm | premise | writes | tp | **F1** |
+| --- | --- | --- | --- | --- |
+| proposal stage | mined | 571 | 451 | **0.8352** |
+| pipeline, C4 default | mined | 0 | 0 | **0.0000** |
+| **pipeline, declared** | **declared** | **0** | 0 | **0.0000** |
+| **pipeline, oracle** | **oracle** | **54** | 54 | **0.1918** |
+
+**Three of six predictions were refuted, including the two I was most confident of.** P1 said the
+declared premise would write something; it writes nothing. P2 said it would beat the mined
+pipeline; it is *worse* than the 0.0039 the mined premise managed under legacy authority. P4 said
+the hand-authored premise would corrupt at least one clean cell; all 15 declared dependencies turned
+out to hold exactly on the clean frame.
+
+**Reasoning**: The zero is a refusal, not an artifact, and the harness had to prove that before it
+was allowed to report. K2 shows the premise **binds** — 8,223 dependency violations raised, no
+absent column, no constant dependent — and the repairer proposes **399** candidate repairs, *more*
+than the oracle premise's **397**. K1a and K1b reproduced two independently gated referents (the
+published anchor to delta 0.000000, and the committed mined-C4 arm's 0/0/0 exactly), so the zero
+describes the product and not the instrument.
+
+**The mechanism finding is the one that changes the product's story.** Two post-hoc probes, labelled
+as such: thinning the oracle premise to one determinant per dependent — thirteen dependencies,
+**every one admitted by ground truth**, same column coverage — also writes **zero**. At equal size a
+declared and a ground-truth-admitted premise are indistinguishable. So the write path's suppression
+of repairs is **not a premise-quality problem**, and *"Prefer --schema"* had no support at **any**
+premise quality. Redundancy in the dependency set is necessary and not sufficient; the mechanism is
+**not** explained, and naming it needs its own pre-registration rather than a paragraph here.
+
+**This does not retract C4.** Nothing was corrupted under either premise and the oracle arm's 54
+writes were all correct at precision 1.0000. What is retracted is the evidence offered for it, and
+the claim in `engine/repair.py` that "capability moves from the miner's guess to the user's stated
+premise". On this corpus it moves nowhere. C4 gives up a capability that was already unreachable.
+
+**The anchor decision, by the pre-committed rule and not by preference**: declared F1 0.0000 is
+below the 0.05 materiality floor, so **there is no demonstrated end-to-end correction capability on
+hospital.** 0.8352 is retained as a proposal-stage measurement of the detector-and-repairer stack
+and relabelled as such in `PRODUCT.md`, `README.md`, `docs/STRATEGY.md` and
+`docs/trust/accuracy-frontier.md`. The rule was written to be inconvenient, and it was.
+
+**Also corrected while here**: `dataforge/cli/repair.py` (user-facing `--help`),
+`dataforge/engine/repair.py` (the C4 docstring) and `tests/unit/test_declared_fd_autoapply.py`
+(a docstring asserting the same conflation). Two sites are left standing because they are
+historical and append-only: this log's own C4 reversal criterion below, which conflates the two
+inside one sentence — *"if the declared arm's numbers move (hospital oracle must stay at 393
+repairs / 0 corruptions)"* — and AMENDMENT 1 of `eval/preregistration/premise_acquisition.md`,
+which writes *"the declared/oracle arm"*. Reading either as a current claim is the mistake the
+standing notice above warns about.
+
+**A trap worth recording because it would have voided the result silently**: K3 hashes the premise
+file, and `core.autocrlf=true` leaves CRLF in a Windows worktree while git stores LF. A byte hash
+would have made the same committed file hash differently here and in Linux CI, firing the kill
+criterion for a reason unrelated to the premise. The hash is taken over normalised text, and
+`eval/premises/.gitattributes` pins `eol=lf` as well. A kill criterion that fires for the wrong
+reason teaches people to ignore it.
+
+**Reviewed with**: nobody. The anchor rule was fixed in the pre-registration before the result was
+known precisely so that this decision did not need a reviewer to be trustworthy.
+
+**Reversal criteria**: if a future change makes the declared arm write a material number of cells
+(F1 >= 0.05) on hospital, the anchor moves to that number and the "no demonstrated end-to-end
+capability" statement is withdrawn. If the mechanism behind the redundancy dependence is
+pre-registered and turns out to be a defect rather than a design, fixing it may do exactly that —
+and that is the highest-value open question this measurement leaves.
+
+---
+
 ## 2026-09-07 - The FD index never indexed on the benchmark path, and only a counter could tell
 
 **Decision.** Convert the benchmark's subject to a `Table` in

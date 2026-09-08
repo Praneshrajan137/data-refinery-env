@@ -1416,3 +1416,137 @@ claims:
       The factor by which the published number exceeds the best figure attainable through the
       shipped write path. If a future change to the repairer's choice rule or the verifier moves
       this, the docs must be revisited rather than the ratio quietly re-emitted.
+
+  # --- H3: what a DECLARED premise repairs through the write path (2026-09-08) ---
+  # The empty column of the premise-by-stage matrix, now measured. The declared arm is a ZERO,
+  # and a zero is the most dangerous result to publish because several bugs produce one, so the
+  # binding counts (issues, candidates) are registered alongside the score. Without them a
+  # reader cannot tell a refusal from an unbound premise.
+
+  - id: declared_premise_declared_f1
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_declared_premise/f1
+    format: "{:.4f}"
+    expect: "0.0000"
+    context: "**0.0000**"
+    note: >-
+      A premise authored from the CMS Hospital Compare data dictionary, loaded by the shipped
+      load_schema, writes nothing through the pipeline on hospital. Not vacuous: see the issue
+      and candidate counts below.
+
+  - id: declared_premise_declared_writes
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_declared_premise/writes
+    format: "{:d}"
+    expect: "0"
+    context: "**pipeline, declared premise**"
+    note: >-
+      Context is mandatory here because the expected string is one character, and it is bound to
+      the results table row rather than to prose, because prose wraps and the gate matches within
+      a single line. Pinned separately from the F1 so that a change from "wrote nothing" to
+      "wrote something wrong" cannot hide behind a rounded score.
+
+  - id: declared_premise_declared_candidates
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_declared_premise/pipeline_counts/candidate_repairs_proposed
+    format: "{:d}"
+    expect: "399"
+    context: "**399**"
+    note: >-
+      The repairer proposes 399 repairs under the declared premise and none survives to a write.
+      This is the number that refutes "the user declared too little": the oracle premise proposes
+      397, fewer, and writes 54.
+
+  - id: declared_premise_declared_fd_issues
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /k2_vacuity_report/fd_issues_raised_on_declared_dependents
+    format: "{:,}"
+    expect: "8,223"
+    context: "**8,223**"
+    note: >-
+      K2's binding evidence. If this ever reaches zero the declared arm is vacuous and its F1
+      must be reported as such rather than as a capability result.
+
+  - id: declared_premise_oracle_f1
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_oracle_premise/f1
+    format: "{:.4f}"
+    expect: "0.1918"
+    context: "**0.1918**"
+    note: >-
+      The ceiling through the shipped write path, on a premise admitted BY ground truth that no
+      user can author. The most important number in this document: it bounds how much of the
+      stage gap better schema authoring could ever close.
+
+  - id: declared_premise_oracle_writes
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_oracle_premise/writes
+    format: "{:d}"
+    expect: "54"
+    context: "writes"
+    note: >-
+      54 writes against the 393 the same oracle premise produces at proposal stage. The write
+      path discards 339 of 393 repairs even when the premise is perfect.
+
+  - id: declared_premise_oracle_write_precision
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_oracle_premise/write_precision
+    format: "{:.4f}"
+    expect: "1.0000"
+    context: "1.0000"
+    note: >-
+      Every write the oracle arm makes is correct. Registered because the argument that the gates
+      are not wrong depends on it, and a drop here would change that argument.
+
+  - id: declared_premise_oracle_candidates
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/pipeline_oracle_premise/pipeline_counts/candidate_repairs_proposed
+    format: "{:d}"
+    expect: "397"
+    context: "**397**"
+    note: >-
+      Fewer candidates than the declared premise, and 54 writes against its zero. Pinned as the
+      other half of the pair that rules out premise coverage as the explanation.
+
+  - id: declared_premise_proposal_f1
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /arms/proposal_stage_anchor/f1
+    format: "{:.4f}"
+    expect: "0.8352"
+    context: "**0.8352**"
+    note: >-
+      K1a. The instrument reproduces the published anchor before it is allowed to report
+      anything, so the zero above is a measurement of the product and not of the harness.
+
+  - id: declared_premise_thinned_oracle_writes
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /mechanism_probes/oracle_thinned_to_one_determinant_per_dependent/writes
+    format: "{:d}"
+    expect: "0"
+    context: "oracle thinned to one determinant per dependent"
+    note: >-
+      The load-bearing probe. Thirteen dependencies every one of which is admitted by ground
+      truth, same column coverage, redundancy removed -- and it writes nothing. This is the
+      evidence that the declared arm's zero is not a penalty for being hand-authored. Bound to
+      the probe table row, because the gate matches a number and its context within one line.
+
+  - id: declared_premise_premise_sha256_frozen
+    doc: docs/trust/declared-premise-capability.md
+    artifact: eval/results/declared_premise_capability.json
+    pointer: /premise_audit/declared/fd_count
+    format: "{:d}"
+    expect: "15"
+    context: "15 functional dependencies"
+    note: >-
+      Binds the size of the frozen premise to the prose. K3 binds its content by hash; this
+      binds the count, so a dependency cannot be added or dropped without the document moving.

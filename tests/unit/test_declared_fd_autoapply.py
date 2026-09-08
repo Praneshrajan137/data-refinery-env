@@ -10,9 +10,17 @@ The evidence is in ``docs/trust/premise-acquisition-result.md``. Across ten exte
 annotated tables, the best of four in-table measures discards 16 of 143 hand-annotated true
 dependencies when its threshold is carried to a table it was not fitted on, so no confidence
 floor can rescue a mined premise. On hospital the mined premise produced 451 repairs with 116
-clean-cell corruptions; the declared premise produced 393 with none.
+clean-cell corruptions at proposal stage.
 
-A HAND-DECLARED FD still auto-applies, unchanged. That is K2 in
+**Corrected 2026-09-08.** That sentence previously continued "the declared premise produced 393
+with none". The 393 / 0 pair is the **oracle** arm -- dependencies discovered from the CLEAN
+frame and admitted only if they hold on ground truth, which no user can author. Measured through
+the pipeline in ``docs/trust/declared-premise-capability.md``, a genuinely declared premise
+writes **zero** cells on hospital, and so does a 13-dependency premise every member of which is
+admitted by ground truth. So the tests below establish that the MECHANISM is live, not that it
+delivers capability on a real corpus.
+
+A HAND-DECLARED FD still auto-applies, unchanged, and that is what these tests pin. That is K2 in
 ``eval/preregistration/premise_acquisition.md``: if the declared arm moves, C4 is withdrawn.
 """
 

@@ -44,6 +44,16 @@ Every cell error falls into one of four honest classes:
   removed for corrupting data. What guards it now is `scripts/ci/anchor_truth.py`, which re-runs
   the measurement and fails when the committed artifact stops describing the code -- in either
   direction, and on `tp`/`fp`/`fn` as well as F1.
+- **Corrected 2026-09-08: this is a PROPOSAL-STAGE figure, and there is no end-to-end
+  correction result on this corpus to put beside it.** "The one measured deterministic correction
+  result" above overstates what 0.8352 describes: it counts what the detector and repairer
+  propose, before the verifier and the auto-apply gate. Measured through the shipped write path in
+  [declared-premise-capability.md](declared-premise-capability.md), a premise authored from this
+  corpus's public data dictionary writes **zero** cells -- while raising 8,223 dependency
+  violations and having the repairer propose 399 repairs, so the zero is a refusal and not a
+  vacuous premise. The ceiling, on a premise admitted *by ground truth* that no user can author,
+  is **F1 0.1918** with 54 writes. The Raha+Baran comparison above is therefore doubly
+  non-comparable: different protocol, **and** a different stage of a different pipeline.
 - Dominated by FD/typo errors that ARE derivable (FD majority/lookup,
   decimal-shift inverse) -> **AUTO-CORRECTABLE**. `value_format` and
   `text_normalization` are well **DETECTED** (recall ~1.0 / ~0.87).

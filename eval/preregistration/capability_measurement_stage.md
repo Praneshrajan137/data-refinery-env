@@ -128,3 +128,54 @@ The original K2 could be satisfied by a number nobody had checked in 54 days.
 **H2 is unaffected in substance.** It predicted the headline is not attainable through the write
 path. The headline is now 0.8352 rather than 0.7926, which makes the predicted gap *larger*, not
 smaller. P1, P2, P4 and P5 stand as written; P3's numeral is superseded by this amendment.
+
+## AMENDMENT 2 (2026-09-08): the fourth arm was run, and it changes what H2 means
+
+**Recorded after `eval/preregistration/declared_premise_capability.md` was executed. Nothing
+above is edited.**
+
+This document's scope section said which number should anchor the capability claim "is a
+**separate decision** that this evidence informs and does not settle", and the write-up named the
+missing fourth arm -- the pipeline under a **declared** premise -- as the measurement that
+decision needed. That arm has now been measured, with its own pre-registration and its own
+decision rule fixed before the result was known.
+
+| arm | premise | writes | tp | **F1** |
+| --- | --- | --- | --- | --- |
+| pipeline, declared premise | declared, frozen by hash | **0** | 0 | **0.0000** |
+| pipeline, oracle premise | admitted BY ground truth | 54 | 54 | **0.1918** |
+
+### H2 is unaffected in substance and strengthened in scope
+
+H2 predicted the headline is not attainable through the shipped write path. It is not, and the
+declared arm makes the claim broader rather than narrower: **no premise measured at any quality
+attains it.** The declared arm is 0.0000 and the ground-truth-admitted ceiling is 0.1918, a 4.4x
+shortfall against 0.8352 on a premise no user can author.
+
+### What the new arm refutes that this document implied
+
+The write-up's closing line -- that the declared-premise path "is where the product's real claim
+lives" -- carried an unstated assumption: that the claim lives there because capability is
+*available* there. It is not. Three of the six predictions in the new pre-registration were
+refuted, and the two that matter are:
+
+- **The declared premise does not beat the mined pipeline.** It writes zero, so it is *worse*
+  through the write path than the 0.0039 recorded above, which at least wrote one correct cell.
+- **The gap is not a premise-quality problem.** A probe in the new document thins the oracle
+  premise to one determinant per dependent -- thirteen dependencies, every one admitted by ground
+  truth, same column coverage -- and it writes **zero**, exactly like the hand-authored premise.
+  At equal size the two premises are indistinguishable. So the near-total suppression of repairs
+  between proposal and write is a property of the pipeline, not of how well a user declares.
+
+That last point is what P4 of this document could not have reached. P4 established that the
+pipeline's writes are *precise*; it said nothing about whether a better premise could make them
+*numerous*. The answer is that it cannot.
+
+### The scoping decision this document deferred is now made
+
+By the rule pre-committed in the new document: the declared arm's F1 of 0.0000 is below the 0.05
+materiality floor, so **there is no demonstrated end-to-end correction capability on hospital**,
+and 0.8352 is retained as a proposal-stage measurement of the detector-and-repairer stack and
+nothing more. K5 of this document -- publish even if it shows the most-quoted number overstates
+shipped capability by two orders of magnitude -- is satisfied a second time, and by a larger
+margin than when it was written.

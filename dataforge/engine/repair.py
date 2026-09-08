@@ -401,10 +401,30 @@ class RepairPipelineRequest(BaseModel):
     ``docs/trust/premise-acquisition-result.md``.
 
     **This makes the zero-config path write less, and that is not automatically a win.**
-    PRODUCT.md: "Zero writes is not a safety result." The trade is that capability moves
-    from the miner's guess to the user's stated premise -- on hospital, the mined premise
-    produced 451 repairs with 116 corruptions, while the declared premise produced 393
-    with none. The capability was never in the miner.
+    PRODUCT.md: "Zero writes is not a safety result."
+
+    **Corrected 2026-09-08. This docstring previously read that "capability moves from the
+    miner's guess to the user's stated premise -- on hospital, the mined premise produced 451
+    repairs with 116 corruptions, while the declared premise produced 393 with none."** Both
+    halves were wrong, and measurably so.
+
+    The 393 / 0 pair is the **oracle** arm of ``measure_deductive_coverage.py``: functional
+    dependencies discovered from the CLEAN frame and admitted only if they hold on ground truth.
+    Its own docstring says "No user has this. It is the ceiling." Calling it "the declared
+    premise" credited a ground-truth-derived upper bound to a user's schema file.
+
+    And capability does not move to the user's premise. Measured through this pipeline in
+    ``docs/trust/declared-premise-capability.md``, a premise authored from the corpus's public
+    data dictionary raises 8,223 FD issues, has the repairer propose 399 repairs, and writes
+    **zero** cells. The ceiling itself -- the oracle premise through this same write path --
+    writes 54 for F1 0.1918 against the proposal stage's 0.8352. A probe in that document
+    settles that this is not a penalty for hand-authoring: a 13-dependency premise every member
+    of which is admitted by ground truth also writes zero.
+
+    So C4 gives up a capability that was already unreachable here rather than relocating it.
+    That does not retract C4 -- nothing was corrupted under either premise, and the oracle arm's
+    54 writes were all correct -- but the empirical case for it is the corruption count, not a
+    transfer of capability to the user.
     """
     fd_detection_source: FdDetectionSource = "accepted"
     allow_entity_consensus: bool = False

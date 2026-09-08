@@ -1,0 +1,12 @@
+# Premise files are hash-frozen evidence: `eval/preregistration/declared_premise_capability.md`
+# records a sha256 of this directory's contents and K3 voids any run in which they disagree.
+#
+# Without this rule, `core.autocrlf=true` on a Windows checkout stores an LF blob while leaving
+# CRLF in the worktree, so the same committed file hashes differently on Windows and in Linux
+# CI -- which would void every run for a reason that has nothing to do with the premise. Pin
+# the stored and checked-out form to LF so the bytes are the same everywhere.
+#
+# The harness normalises line endings before hashing as well. Both, deliberately: this rule
+# keeps the bytes stable, and the normalisation means a checkout that ignores this rule still
+# reproduces the recorded hash rather than failing mysteriously.
+*.yaml text eol=lf

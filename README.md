@@ -215,10 +215,22 @@ is frequently impossible without external knowledge. The tool refuses to guess.
 Measured on the full RAHA benchmark datasets (deterministic stack, no LLM;
 reproduce with `dataforge bench --quick`):
 
-| Dataset  | Error provenance | Tier | Correction F1 | Detection coverage (recall by class)                    |
+| Dataset  | Error provenance | Tier | Correction F1 (proposal stage) | Detection coverage (recall by class)                    |
 | -------- | ---------------- | ---- | ------------- | ------------------------------------------------------- |
 | hospital | injected         | tripwire   | 0.8352  | value_format 1.00, text_normalization 0.87, other 1.00  |
 | flights  | contested        | diagnostic | 0.0000  | missing_value 1.00 (2370 cells)                         |
+
+**Stage note, 2026-09-08 — read this before comparing the column to any published figure.** Those
+are **proposal-stage** numbers: what the detector and repairer propose, before the verifier and the
+auto-apply gate. They are **not** what `dataforge repair` writes, and they are **not**
+protocol-comparable with end-to-end results from other systems. Measured through the shipped write
+path on hospital, a premise authored from that corpus's public data dictionary and supplied via
+`--schema` writes **zero** cells; the ceiling, a premise admitted by ground truth that no user can
+author, does **not** exceed **F1 0.1918**. So this project does **not** claim an end-to-end
+correction capability on hospital: the 0.8352 above is a verified tripwire on the proposal stack and
+nothing more. Evidence, with the decision rule fixed before the result was known:
+[docs/trust/declared-premise-capability.md](docs/trust/declared-premise-capability.md)
+and [docs/trust/capability-measurement-stage.md](docs/trust/capability-measurement-stage.md).
 
 **Provenance note, 2026-08-25.** The hospital correction F1 above was measured with a
 deterministic stack that included `type_mismatch` and `decimal_shift` in the auto-apply

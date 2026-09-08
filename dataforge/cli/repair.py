@@ -394,8 +394,11 @@ def repair(
             help="Let constraints MINED from your table and accepted in `constraints review` "
             "authorise writes, as they did before 2026-09-07. Off by default: accepting a "
             "mined candidate is not the same evidence as declaring one. On the reference "
-            "corpus this authorised 451 real repairs and 116 clean-cell corruptions, while a "
-            "declared premise repaired 393 and corrupted none. Prefer --schema.",
+            "corpus this authorised 451 real repairs and 116 clean-cell corruptions at "
+            "proposal stage. Declaring a schema instead is the safer premise, but on that "
+            "corpus it repairs nothing through this pipeline -- see "
+            "docs/trust/declared-premise-capability.md before expecting --schema to recover "
+            "the capability this flag gives up.",
         ),
     ] = False,
     allow_entity_consensus: Annotated[

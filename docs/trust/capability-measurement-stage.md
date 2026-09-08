@@ -61,7 +61,7 @@ document explains that our figure and BClean's differ in dataset, protocol and p
 adds that they differ in *which stage of the pipeline is being measured* — and unlike the others,
 this axis is entirely within this project's control.
 
-## The scoping decision, now with evidence and still open
+## The scoping decision, settled 2026-09-08 by the measurement it asked for
 
 Three candidate numbers could anchor a capability claim:
 
@@ -73,11 +73,32 @@ Three candidate numbers could anchor a capability claim:
    what a new user gets; says nothing about the declared-premise path, which is where the product
    actually claims to work.
 
-**None of the three is chosen here, and picking one is not this document's job.** What is settled
-is that they are three different quantities and must stop being used interchangeably. The obvious
-missing measurement is the fourth arm — the pipeline under a **declared** premise — which is where
-the product's real claim lives and which no instrument currently reports end-to-end. That needs its
-own pre-registration.
+This document originally declined to pick one, and named the missing fourth arm — the pipeline
+under a **declared** premise — as the measurement the decision needed. That arm has now been run:
+[declared-premise-capability.md](declared-premise-capability.md), pre-registered with the
+decision rule fixed **before** the result was known.
+
+**The declared premise writes zero cells on hospital.** Not vacuously: it raises 8,223 FD issues
+and the repairer proposes 399 repairs, more than the oracle premise's 397. And the ceiling through
+the write path — every dependency admitted *by ground truth* — reaches only **F1 0.1918** with 54
+writes, against the 393 repairs that same premise produces at proposal stage.
+
+So the pre-committed rule fires its second branch, and none of the three numbers above anchors a
+capability claim:
+
+> **There is no demonstrated end-to-end correction capability on hospital.** 0.8352 is retained
+> as a **proposal-stage** measurement of the detector-and-repairer stack, and only that. The
+> product's claim is detection, advisory triage and reversibility — which is what `DECISIONS.md`
+> already recorded as "the honest product" when human-labelled certification died.
+
+**This settles more than the anchor.** H2 said the headline is not attainable through the write
+path. The declared-premise measurement adds *why not*, and it is not the reason anyone assumed:
+the gap is **not** a premise-quality problem. A premise no user can obtain still loses 339 of 393
+repairs, and a 13-dependency premise every member of which ground truth admits writes zero, the
+same as the hand-authored one. Better schema authoring cannot close this, so the recommendation
+*"Prefer --schema"* that shipped in `dataforge repair --help` had no support at any premise
+quality. That help text is corrected.
+
 
 ## What was fixed rather than argued about
 

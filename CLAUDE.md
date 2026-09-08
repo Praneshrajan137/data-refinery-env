@@ -127,3 +127,23 @@ nothing auto-loads.
   work is capability-based (see the DATASET SCOPE RULE above): `hospital` is the
   flagship/regression anchor; `tax`/`rayyan`/`flights` are chosen by the capability
   a change proves, measured before prioritized.
+
+## 2026-09-08 Notes
+
+- **`393 repairs / 0 corruptions` is the ORACLE arm, never a declared premise.** It comes from
+  `discover_oracle_fds`, which admits a dependency only if it holds on the **clean** frame; that
+  harness says "No user has this. It is the ceiling." Five sites had credited it to a user's
+  `--schema`, including `dataforge repair --help`. Before quoting any premise number, name the arm:
+  **oracle** = admitted by ground truth, **mined** = from the dirty frame, **declared** = authored
+  by a user. Ground truth may GRADE a declared premise; the moment it FILTERS one, the arm is an
+  oracle wearing a different label.
+- **There is no demonstrated end-to-end correction capability on hospital.** Measured through the
+  shipped write path, a declared premise writes **0** cells and the oracle ceiling reaches F1
+  **0.1918**, against the proposal-stage **0.8352**
+  ([docs/trust/declared-premise-capability.md](docs/trust/declared-premise-capability.md)). So
+  0.8352 is a proposal-stage tripwire only, and the gap is **not** a premise-quality problem: a
+  13-dependency premise every member of which ground truth admits also writes zero. Do not tell
+  users that declaring a schema recovers the capability C4 gives up.
+- Hashing a committed file for a kill criterion? Hash **normalised text**, not bytes.
+  `core.autocrlf=true` leaves CRLF in a Windows worktree while git stores LF, so a byte hash
+  differs between here and Linux CI and fires the criterion for the wrong reason.

@@ -55,8 +55,26 @@ cited BClean and Cocoon figures are end-to-end results, so this is a comparabili
 axis entirely within this project's control — deeper than the dataset and premise differences
 recorded in
 [docs/trust/baseline-protocol-comparability.md](docs/trust/baseline-protocol-comparability.md).
-Which of the two numbers should anchor the capability claim is not settled here; what is settled
-is that they are different quantities.
+
+**Settled 2026-09-08: none of these numbers anchors a capability claim.** The question left open
+above — which figure should — was decided by measuring the arm it needed, under a rule fixed
+before the result was known
+([docs/trust/declared-premise-capability.md](docs/trust/declared-premise-capability.md)). A
+premise authored from the corpus's public data dictionary, entering through
+`dataforge repair --schema`, writes **zero** cells. It is not vacuous: it raises 8,223 dependency
+violations and the repairer proposes 399 repairs, more than the ground-truth-admitted premise's
+397. That ceiling — a premise **no user can author** — writes 54 cells for **F1 0.1918**.
+
+So **there is no demonstrated end-to-end correction capability on hospital**, and 0.8352 stands
+only as a proposal-stage measurement of the detector and repairer. The honest claim is the one
+section 1.3 already reaches for: detection, advisory triage and reversibility.
+
+Two things follow that were previously assumed the other way. The gap is **not** a
+premise-quality problem — a premise of thirteen dependencies every one of which ground truth
+admits also writes zero — so no amount of schema authoring closes it. And the advice
+*"Prefer --schema"*, which shipped in `dataforge repair --help` on the strength of a figure
+belonging to the ground-truth-derived ceiling, had no support at any premise quality. It is
+corrected.
 
 The new sentence is narrower and checkable. "Verifiable" now means something specific:
 a published format, two independent implementations, and committed conformance vectors
