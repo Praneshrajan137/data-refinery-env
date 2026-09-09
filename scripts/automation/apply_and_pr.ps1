@@ -577,10 +577,18 @@ if (-not $SkipManifest) {
 }
 
 # core.autocrlf is true on this machine and there is no .gitattributes, so a normal checkout
-# produces CRLF files. The snapshot handed to the fire comes from `git archive`, which emits
-# the LF blob content, so the fire's patch carries LF context lines. Applying an LF patch to a
-# CRLF worktree fails on every hunk with "patch does not apply". Forcing autocrlf=false for
-# this throwaway worktree makes it LF, matching the snapshot the patch was generated against.
+# produces CRLF files. Forcing autocrlf=false here makes this throwaway worktree LF.
+#
+# CORRECTION (2026-09-08): this comment previously claimed the snapshot "comes from `git
+# archive`, which emits the LF blob content". That was FALSE. `git archive` applies the same eol
+# conversion as a checkout, so it was emitting a CRLF snapshot, and a fire's patch therefore
+# carried CRLF context lines that could never match this LF worktree. GNU patch says
+# "different line endings"; `git apply` says only "patch does not apply", which reads as a stale
+# snapshot and sent one investigation the wrong way. The defect hid for weeks because a patch
+# that only ADDS files has no context lines to match and applied fine either way - so the
+# pipeline looked healthy while being unable to deliver any modification to an existing file.
+# publish_run_inputs.ps1 now passes -c core.autocrlf=false to git archive and ASSERTS the result
+# is LF. Keep BOTH sides LF; changing one without the other reintroduces the same silent failure.
 # Committing from an LF worktree is harmless: git normalizes to LF in the object store anyway.
 $wt = Invoke-Git @('-c', 'core.autocrlf=false', '-C', $RepoRoot, 'worktree', 'add', '--detach', $WorktreeDir, 'origin/main')
 if (-not (Test-Path (Join-Path $WorktreeDir 'PRODUCT.md'))) {

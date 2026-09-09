@@ -134,7 +134,21 @@ $paths = @(
 $snapshot = Join-Path $WorkDir 'dataforge-snapshot.tar.gz'
 if (Test-Path $snapshot) { Remove-Item $snapshot -Force }
 
-$archiveArgs = @('-C', $RepoRoot, 'archive', '--format=tar.gz', '-o', $snapshot, 'HEAD') + $paths
+# `-c core.autocrlf=false` is LOAD-BEARING, and its absence was a silent, total defect.
+#
+# `git archive` DOES apply the same eol conversion as a checkout, so on this machine
+# (core.autocrlf=true, no .gitattributes) it emitted a CRLF snapshot. The gating worktree is
+# deliberately forced to LF, so a fire's patch carried CRLF context lines that could never match
+# it: GNU patch reports "Hunk #1 FAILED at 1 (different line endings)" and `git apply` reports
+# the far more misleading "patch does not apply", which reads as a stale snapshot.
+#
+# The consequence was that the pipeline could only ever deliver BRAND-NEW files. A new-file hunk
+# has no context lines to match, so those applied fine; the moment a patch modified an existing
+# file it was guaranteed to be rejected. Measured 2026-09-08: the snapshot's test_map.json
+# carried 868 CRLF and PRODUCT.md 617.
+#
+# Note this also corrects a comment in apply_and_pr.ps1 that asserted the opposite.
+$archiveArgs = @('-c', 'core.autocrlf=false', '-C', $RepoRoot, 'archive', '--format=tar.gz', '-o', $snapshot, 'HEAD') + $paths
 $res = Invoke-Native -File 'git' -Arguments $archiveArgs
 if ($res.ExitCode -ne 0 -or -not (Test-Path $snapshot)) {
     Write-Fail "git archive failed (exit $($res.ExitCode))"
@@ -155,6 +169,33 @@ if ($leak.Count -gt 0) {
     Write-Fail "Snapshot contains $($leak.Count) entries under data/. Refusing to publish."
     exit 1
 }
+
+# Line-ending assertion. Verify the property rather than trusting the flag above, because the
+# failure it prevents is invisible at publish time and only surfaces hours later, at the gate,
+# as a misleading "patch does not apply". Probing a real file is the only way to know.
+$probeDir = Join-Path $WorkDir 'eolprobe'
+Remove-Item $probeDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $probeDir -Force | Out-Null
+$null = Invoke-Native -File 'tar' -Arguments @('-xzf', $snapshot, '-C', $probeDir, 'PRODUCT.md', 'test_map.json')
+$eolBad = @()
+foreach ($probeFile in @('PRODUCT.md', 'test_map.json')) {
+    $probePath = Join-Path $probeDir $probeFile
+    if (-not (Test-Path $probePath)) { continue }
+    $pb = [System.IO.File]::ReadAllBytes($probePath)
+    $crlf = 0
+    for ($i = 1; $i -lt $pb.Length; $i++) { if ($pb[$i] -eq 10 -and $pb[$i - 1] -eq 13) { $crlf++ } }
+    if ($crlf -gt 0) { $eolBad += "$probeFile ($crlf CRLF)" }
+}
+Remove-Item $probeDir -Recurse -Force -ErrorAction SilentlyContinue
+if ($eolBad.Count -gt 0) {
+    Write-Fail "Snapshot has CRLF line endings: $($eolBad -join ', '). Refusing to publish."
+    Write-Note 'A CRLF snapshot makes every patch that MODIFIES an existing file unappliable at'
+    Write-Note 'the gate, while patches that only ADD files still work - so the pipeline would'
+    Write-Note 'look healthy and quietly never deliver a modification. Check that git archive is'
+    Write-Note 'invoked with -c core.autocrlf=false.'
+    exit 1
+}
+Write-Note 'snapshot line endings = LF (matches the gating worktree)'
 
 # The stages verify these hashes themselves. Compute them the same way the stages will:
 # md5 for the snapshot, sha256 for the task.

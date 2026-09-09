@@ -57,6 +57,19 @@ Do NOT run scripts/ci/attestation_conformance.py. It shells out to npx vitest an
 Node in this sandbox, so it fails for an environmental reason that has nothing to do with the
 patch. Never run any scripts/ci/mutate_*.py: they rewrite corpora.
 
+EXPECTED, NOT A REGRESSION: if the patch adds any test, `gate_population.py --check` will FAIL
+on the patched tree and pass on the base. That check compares against a frozen registry of
+pytest node ids in eval/results/gate_population.json, so a new test necessarily makes it stale.
+You cannot fix this: regenerating it needs `--emit`, which rewrites a file under eval/results/,
+which is off limits to you. No CI workflow runs this check, so it does not block the pull
+request. Report it plainly as a stale registry needing a human to regenerate, do NOT treat it as
+a reason to mark yourself FAILED, and do NOT try to repair it. Every other check going from pass
+to fail IS attributable to the patch and must be treated as such.
+
+Also run `openapi_contract.py --check` only if fastapi imports; it needs fastapi, which may not
+install. A skip for that reason is an environment limit, not a finding. Say which of the four
+you actually ran.
+
 Then run the unit tier, which is the broadest thing that fits your budget:
 
     /tmp/venv4/bin/pytest tests/unit -q

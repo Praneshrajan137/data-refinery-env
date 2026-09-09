@@ -45,6 +45,17 @@ apply.
 Sanity-check the result: the patch should mention only files you meant to touch. If it lists
 hundreds of files, something leaked; fix the exclusions before continuing.
 
+MAKE THE SMALLEST EDIT THAT WORKS. When adding an entry to an existing file, edit that file in
+place and change only the lines you need. Do NOT load a structured file, re-serialize it, and
+write it back: that reformats the whole file and produces a patch nobody can review.
+
+This is not a style preference, it is a delivery requirement. Observed on a real run: adding 5
+entries to test_map.json by rewriting the file produced a single hunk of 869 removals and 893
+additions for 5 lines of actual change, and the patch was REJECTED at the gate. A targeted edit
+produces a small hunk with local context, which is far more robust. If a patch's diff for an
+existing file is much larger than the change you intended, you rewrote it; go back and edit it
+in place instead.
+
 =====================================================================
 WHAT TO DO
 =====================================================================
