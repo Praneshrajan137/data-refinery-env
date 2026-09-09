@@ -419,7 +419,12 @@
   "dataforge/transactions/log.py": {
     "direct_tests": [
       "tests/unit/test_transactions.py",
+      "tests/unit/test_transaction_audit.py",
+      "tests/unit/test_journal_durability.py",
       "tests/unit/test_cli_repair.py"
+    ],
+    "adversarial_tests": [
+      "tests/adversarial/test_journal_lifecycle_order.py"
     ],
     "property_tests": [
       "tests/property/test_revert_is_bytes_identical.py"

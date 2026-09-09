@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import hashlib
 import json
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from dataforge.transactions.files import fsync_parent_directory
 from dataforge.transactions.txn import RepairTransaction
 
 LEGACY_SCHEMA_VERSION = 1
@@ -147,6 +149,25 @@ def _write_jsonl_line(path: Path, record: dict[str, Any], *, create: bool = Fals
     Older logs remain verifiable unchanged, because verification never depended on the
     on-disk byte layout.
 
+    **The append is fsynced, and until 2026-09-08 it was not.** ``PRODUCT.md`` §8 orders the
+    apply path ``journal + snapshot -> atomic apply``, and ``SPEC_transactions.md`` records
+    transaction-first ordering as non-negotiable. Program order only survives a crash if
+    each write is durable when the next one starts, and the journal was the one leg of that
+    sequence that returned with its record still in the page cache:
+    ``engine/repair.py:_write_snapshot_once`` fsyncs the snapshot handle and
+    ``files.py:atomic_write_bytes`` fsyncs both the data file and its parent directory.
+
+    A power loss in that window leaves the *mutated* CSV durable and the ``created`` or
+    ``applied`` event gone, so there is no transaction id to hand ``dataforge revert`` and
+    the user holds a rewritten file with no receipt -- the exact outcome transaction-first
+    ordering exists to prevent, reached with no error raised anywhere. The parent directory
+    is fsynced on creation for the same reason one level up: ``find_transaction_log``
+    resolves a txn id by listing that directory, so a durable record behind an undurable
+    directory entry is still an invisible transaction.
+
+    The cost is one fsync per event, three per transaction, against a repair that already
+    fsyncs the snapshot and the data file.
+
     Args:
         path: The target JSONL log path.
         record: JSON-serializable record to write.
@@ -168,6 +189,10 @@ def _write_jsonl_line(path: Path, record: dict[str, Any], *, create: bool = Fals
                 )
             )
             handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        if create:
+            fsync_parent_directory(path)
     except OSError as exc:
         raise TransactionLogError(f"Could not write transaction log '{path}': {exc}") from exc
 
@@ -296,6 +321,72 @@ def _v2_reverted_record(log_path: Path, txn_id: str, reverted_at: datetime) -> d
             "txn_id": txn_id,
         }
     )
+
+
+def _lifecycle_errors(records: list[dict[str, Any]]) -> list[str]:
+    """Return every way ``records`` describes a history the product cannot produce.
+
+    The hash chain makes an *edit* to a recorded event visible. It cannot make an
+    **append** visible, because :func:`_v2_applied_record` and :func:`_v2_reverted_record`
+    derive ``event_index`` and ``previous_event_sha256`` from the log's own tail -- so
+    anyone able to write the journal directory, and any caller of the public
+    ``append_*_event`` helpers in the wrong order, extends the chain with a perfectly
+    valid hash. Cryptographic validity is therefore not evidence of a possible history,
+    and until this function existed the audit conflated the two.
+
+    Two of the refused sequences cost a user their revertibility while the audit reported
+    ``verified``, which is why this is a correctness fix rather than tidiness:
+
+    * ``created, applied, reverted, applied`` replays to ``applied=True`` with
+      ``reverted_at`` set -- exactly the condition under which
+      :func:`verify_transaction_log` skips its revertibility block, so neither the
+      post-state hash nor the snapshot's existence is checked -- while
+      ``revert_transaction`` refuses it as already reverted.
+    * A second ``created`` event replays over the first and resets ``applied`` to
+      ``False``, so ``revert_transaction`` reports "recorded but never applied" for a
+      file it did in fact rewrite.
+
+    Scope is deliberately the v2 verifier and nothing else. ``load_transaction`` stays
+    permissive because it is the *recovery* path: a legacy v1 journal is admitted by
+    ``revert_transaction`` by design (see the comment there), and raising during replay
+    would strand a user with a modified file and no way back -- trading a reporting defect
+    for data loss. Placing the invariant in the verifier can only ever withhold, which is
+    the direction PRODUCT.md first principle 5 requires.
+
+    Unknown event types are ignored here; the caller already reports them.
+    """
+    seen: dict[str, int] = {}
+    errors: list[str] = []
+    for index, record in enumerate(records):
+        event_type = record.get("event_type")
+        if event_type not in {"created", "applied", "reverted"}:
+            continue
+        if index == 0 and event_type != "created":
+            errors.append(
+                f"Event 0 is {event_type!r}; a journal must open with its 'created' event, "
+                "or there is no transaction payload to replay."
+            )
+        if event_type in seen:
+            errors.append(
+                f"Event {index} is a second {event_type!r} event (the first was event "
+                f"{seen[event_type]}). Replay keeps the last one, so the earlier state is "
+                "silently discarded."
+            )
+        if event_type == "created" and index != 0:
+            errors.append(
+                f"Event {index} is a 'created' event after the journal opened. Replay "
+                "rebuilds the transaction from it, which resets 'applied' and loses "
+                "revertibility for a file that was already written."
+            )
+        if event_type == "reverted" and "applied" not in seen:
+            errors.append(f"Event {index} reverts a transaction that no 'applied' event precedes.")
+        if "reverted" in seen and index > seen["reverted"]:
+            errors.append(
+                f"Event {index} ({event_type!r}) follows the 'reverted' event at "
+                f"{seen['reverted']}. A reverted transaction is terminal."
+            )
+        seen.setdefault(event_type, index)
+    return errors
 
 
 def append_created_transaction(
@@ -455,6 +546,10 @@ def verify_transaction_log(
 
     Legacy v1 logs remain replayable but cannot be cryptographically verified,
     so they return ``legacy_unverified`` instead of ``verified``.
+
+    For v2 logs the chain is necessary but not sufficient: the event *sequence* is also
+    checked against the lifecycle the product can actually produce, because the chain is
+    extensible by anyone who can append to the journal. See :func:`_lifecycle_errors`.
     """
     try:
         resolved_log_path = log_path.resolve() if log_path is not None else None
@@ -590,6 +685,8 @@ def verify_transaction_log(
 
     if txn_id is not None and resolved_txn_id is not None and resolved_txn_id != txn_id:
         errors.append(f"Expected txn_id '{txn_id}', found '{resolved_txn_id}'.")
+
+    errors.extend(_lifecycle_errors(records))
 
     try:
         transaction = load_transaction(resolved_log_path)
