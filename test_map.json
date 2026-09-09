@@ -816,6 +816,31 @@
       "tests/integration/test_openenv_spec.py"
     ]
   },
+  "scripts/automation/prompts/_preamble.md": {
+    "regression_tests": [
+      "tests/regression/test_automation_prompts.py"
+    ]
+  },
+  "scripts/automation/prompts/stage1-explore.md": {
+    "regression_tests": [
+      "tests/regression/test_automation_prompts.py"
+    ]
+  },
+  "scripts/automation/prompts/stage2-plan.md": {
+    "regression_tests": [
+      "tests/regression/test_automation_prompts.py"
+    ]
+  },
+  "scripts/automation/prompts/stage3-code.md": {
+    "regression_tests": [
+      "tests/regression/test_automation_prompts.py"
+    ]
+  },
+  "scripts/automation/prompts/stage4-verify-commit.md": {
+    "regression_tests": [
+      "tests/regression/test_automation_prompts.py"
+    ]
+  },
   "scripts/ci/backend_gate.py": {
     "direct_tests": [
       "tests/integration/test_playground_smoke.py",
