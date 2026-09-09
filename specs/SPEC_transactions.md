@@ -17,8 +17,18 @@ mutation and every revert must restore the exact original bytes.
 - [ ] `dataforge.engine.repair.run_repair_pipeline()` exposes the public repair pipeline used by non-CLI backends.
 - [ ] `dataforge revert <txn_id>` restores the exact original bytes and verifies the original SHA-256.
 - [ ] Transaction logs are append-only JSONL with a schema-version field on every event.
+- [ ] Every journal append is durable before it returns: the record is fsynced, and
+  creating a log also fsyncs its parent directory. Transaction-first ordering only
+  survives a crash if the journal is durable when the data write starts, and the
+  snapshot and data writes were already fsynced while the journal was not.
 - [ ] Newly written transaction logs use a v2 local hash chain and
   `dataforge audit <txn_id>` verifies event order, payload hashes, and replay.
+- [ ] `dataforge audit <txn_id>` refuses a v2 log whose event *sequence* is not a
+  history the product can produce, even when every event hash is valid: the journal
+  must open with `created`, carry at most one `created`, `applied` and `reverted`
+  event, never record `reverted` before `applied`, and record nothing after
+  `reverted`. The hash chain cannot cover this, because a valid chain is extensible
+  by anyone who can append to the journal.
 - [ ] `type_mismatch` and `decimal_shift` repairers are deterministic and never call the LLM provider.
 - [ ] `fd_violation` repairer prefers deterministic majority rules and caches any LLM fallback under `.dataforge/cache/`.
 - [ ] All Appendix A toy cases pass, including apply -> revert byte-identity round-trip.
@@ -83,7 +93,11 @@ mutation and every revert must restore the exact original bytes.
 ### 6.3a Transaction audit verification
 - Acceptance: new v2 events record `event_index`, `previous_event_sha256`,
   and `event_sha256`; `dataforge audit <txn_id>` exits 0 only for verified v2
-  logs and reports legacy v1 logs as `legacy_unverified`.
+  logs and reports legacy v1 logs as `legacy_unverified`. A hash-valid v2 log
+  whose event sequence is not a producible lifecycle is reported `tampered`,
+  not `verified`. The invariant lives in the verifier only: `load_transaction`
+  stays permissive, because it is the recovery path and refusing there would
+  strand a user with a modified file and no way back.
 - Depends on: 6.2
 - Estimated complexity: M
 
