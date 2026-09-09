@@ -66,8 +66,17 @@ WHAT TO DO
 4. Add test_map.json entries for any new module, as the plan specifies.
 5. Verify what you can afford to verify, in this order of value:
      - the specific tests you wrote:      /tmp/venv/bin/pytest <paths> -q
-     - ruff on the files you touched:     /tmp/venv/bin/ruff check <paths>
-     - mypy on the files you touched:     /tmp/venv/bin/mypy --strict <paths>
+     - ruff LINT on the files you touched: /tmp/venv/bin/ruff check <paths>
+     - ruff FORMAT on those files:         /tmp/venv/bin/ruff format <paths>
+     - mypy on the files you touched:      /tmp/venv/bin/mypy --strict <paths>
+
+   RUN BOTH RUFF COMMANDS. `ruff check` and `ruff format --check` are different gates and
+   `make lint` runs both. Observed on a real run: a new test file passed `ruff check` cleanly,
+   the fire reported "ruff clean", and the local gate then rejected the whole patch because
+   `ruff format --check` wanted the file reformatted. Running `ruff format` (without --check) on
+   the files you created fixes it before it costs you the delivery, so do that rather than only
+   checking.
+
    Do NOT attempt the full suite or the verbatim make targets. Stage 4 does broader
    verification, and the local gate afterwards is authoritative. Spending your whole budget on
    a full-suite run and getting killed mid-run helps nobody.

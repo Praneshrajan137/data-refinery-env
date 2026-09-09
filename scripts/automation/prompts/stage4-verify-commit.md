@@ -74,6 +74,16 @@ Then run the unit tier, which is the broadest thing that fits your budget:
 
     /tmp/venv4/bin/pytest tests/unit -q
 
+Also run both ruff gates over the files the patch touched, because they are separate gates and
+the local `make lint` runs both:
+
+    /tmp/venv4/bin/ruff check <paths touched by the patch>
+    /tmp/venv4/bin/ruff format --check <paths touched by the patch>
+
+A `ruff format --check` failure is a hard stop for the local gate and will discard the patch, so
+if it fails, say so prominently in daily-review.md and mark yourself FAILED. Stage 3 is supposed
+to have run `ruff format` already; if it did not, this is where that costs the night.
+
 If you are running out of time, a partial result you actually observed is worth more than a
 complete run you were killed during. Record what you got.
 

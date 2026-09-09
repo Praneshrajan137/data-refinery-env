@@ -113,6 +113,59 @@ deliverables. Two defences, because one stage forgetting should not leave debris
 preamble tells every stage to `cd` into its source tree first, and `publish_run_inputs.ps1`
 clears those cache prefixes along with the handoffs.
 
+### `git archive` emits CRLF here, and that made every modification unappliable
+
+This was the pipeline's most serious defect and the hardest to see. `git archive` applies the
+same eol conversion as a checkout, so with `core.autocrlf=true` and no `.gitattributes` the
+snapshot was **CRLF** (measured 2026-09-08: `test_map.json` 868 CRLF, `PRODUCT.md` 617). The
+gating worktree is forced to LF, so a fire's patch carried CRLF context lines that could never
+match it.
+
+The failure mode is what made it dangerous. A new-file hunk has no context lines, so patches
+that only **added** files applied fine and the pipeline looked healthy; only a patch **modifying**
+an existing file could hit it. And `git apply` reports just `patch does not apply`, which reads
+as a stale snapshot. GNU patch was the only tool that named the real cause:
+`Hunk #1 FAILED at 1 (different line endings)`.
+
+Fixed by passing `-c core.autocrlf=false` to `git archive`, and asserting the property on a real
+file extracted from the tarball rather than trusting the flag, since the failure is invisible at
+publish time and only surfaces hours later. Proven by converting a rejected patch to LF and
+re-applying it unchanged to the same worktree: clean. **Keep both sides LF.** An earlier comment
+in `apply_and_pr.ps1` asserted the opposite and is corrected in place.
+
+### `ruff check` is not `ruff format --check`
+
+`make lint` runs six commands, and the two ruff invocations are separate gates. A fire that runs
+only `ruff check` reports "ruff clean" honestly and still gets its patch discarded, because
+`ruff format --check` wants the new file reformatted. Observed on a real run. Stage 3 now runs
+`ruff format` (not `--check`) on the files it creates, so the problem is fixed rather than
+merely detected, and stage 4 checks both. This is the same lesson as the gate that once
+approximated `make lint` with two commands: a self-check narrower than the real gate produces
+confident, wrong reassurance.
+
+### Adding any test makes `gate_population` stale, and the fire cannot fix it
+
+`scripts/ci/gate_population.py --check` compares against a frozen registry of pytest node ids in
+`eval/results/gate_population.json`. Any new test makes it stale, and regenerating it needs
+`--emit`, which writes under `eval/results/` — a protected path. No workflow runs this check, so
+it does not block a pull request.
+
+Left unstated, this forces a stage into a judgement call it cannot make: on one run stage 4 saw
+the check pass on base and fail on the patched tree, and marked itself OK on a rationalisation it
+had not verified (it happened to be right about the impact, for a reason it never checked). The
+stage 4 prompt now states the fact outright, so the stage reports it as a stale registry for a
+human to regenerate — while every *other* pass-to-fail transition stays attributable to the
+patch.
+
+### Minimal edits, because a rewrite is not just ugly
+
+Stage 3 once added 5 entries to `test_map.json` by loading and re-serializing it, turning 5 lines
+of intent into one hunk of 869 removals and 893 additions — and the patch was rejected at the
+gate. A targeted hunk with local context is far more robust as well as reviewable, so stage 3 is
+told to edit in place and that a diff much larger than the intended change means it rewrote the
+file.
+
+
 
 ### Exit codes of the local gate
 
