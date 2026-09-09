@@ -541,6 +541,41 @@ Write-Step 'Preparing a clean worktree at origin/main'
 Remove-StaleWorktree
 Invoke-Git @('-C', $RepoRoot, 'fetch', 'origin') | Out-Null
 
+# The snapshot is built from LOCAL HEAD, but the patch is gated against origin/main. When local
+# main is ahead of the remote, the fire sees files that the gating worktree does not, and every
+# test touching them fails - which this script would otherwise report as "the patch REGRESSED
+# the suite". That is a false accusation with a real cost: the patch gets discarded and the
+# actual cause (an unpushed commit) is nowhere in the output.
+#
+# Observed exactly once, on the first full run of this pipeline: 9 new tests asserting that
+# scripts/automation/prompts/* exist passed in the sandbox and failed at the gate, because the
+# commit adding those prompts had not been pushed.
+#
+# So compare lineage explicitly. head_sha is recorded by publish_run_inputs.ps1, so this needs
+# no new plumbing. Refusing here is not a limitation of the gate; gating against a tree the
+# patch was not generated from cannot produce a meaningful verdict either way.
+if (-not $SkipManifest) {
+    $manifestForBase = $null
+    if ($ManifestFile) { $manifestForBase = (Resolve-Path $ManifestFile).Path }
+    elseif (Test-Path (Join-Path $WorkDir 'MANIFEST.json')) { $manifestForBase = Join-Path $WorkDir 'MANIFEST.json' }
+
+    if ($manifestForBase) {
+        $mb = Get-Content $manifestForBase -Raw | ConvertFrom-Json
+        if ($mb.PSObject.Properties.Name -contains 'head_sha' -and $mb.head_sha) {
+            $anc = Invoke-Git @('-C', $RepoRoot, 'merge-base', '--is-ancestor', $mb.head_sha, 'origin/main')
+            if ($anc.ExitCode -ne 0) {
+                $short = $mb.head_sha.Substring(0, 7)
+                Write-Fail "MANIFEST REFUSED: the snapshot was built from $short, which origin/main does not contain."
+                Write-Note 'The sandbox saw source the gating worktree cannot, so any gate result here would be'
+                Write-Note 'meaningless - tests touching the unpushed files would fail and look like a regression.'
+                Write-Note 'Push the commit (or reset local main to the remote) and re-run. Nothing was discarded.'
+                exit 3
+            }
+            Write-Note "snapshot commit $($mb.head_sha.Substring(0,7)) is on origin/main"
+        }
+    }
+}
+
 # core.autocrlf is true on this machine and there is no .gitattributes, so a normal checkout
 # produces CRLF files. The snapshot handed to the fire comes from `git archive`, which emits
 # the LF blob content, so the fire's patch carries LF context lines. Applying an LF patch to a

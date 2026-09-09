@@ -49,6 +49,13 @@ so treat it as an outbox: read inputs from it, write deliverables to it, nothing
 Do NOT use /tmp/dataforge as a path. A read-only mount has been observed there. Use /tmp/base
 and /tmp/src as described below.
 
+YOUR WORKING DIRECTORY IS /workspace, WHICH IS THE OUTBOX. `cd` into your source tree before
+running ANY tool. Observed on the first real run of this pipeline: ruff, mypy and pytest were
+invoked without changing directory first, so they created .ruff_cache/, .mypy_cache/ and
+.benchmarks/ inside /workspace. Nothing broke, but the outbox filled with cache files that the
+next run then has to distinguish from real deliverables. Every command that writes anything
+should run from /tmp/src, /tmp/verify, or wherever your stage works - never from /workspace.
+
 =====================================================================
 OBTAINING THE SOURCE
 =====================================================================

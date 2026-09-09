@@ -169,6 +169,13 @@ $handoffs = @(
     'changes.patch', 'COMMIT_MSG.txt', 'daily-review.md', 'MANIFEST.json'
 )
 
+# Tool cache directories, cleared by prefix. A fire's working directory is /workspace, so a
+# stage that runs ruff, mypy or pytest without changing directory first creates these in the
+# outbox. The prompts now tell every stage to cd into its source tree, but clearing them here
+# too means one stage forgetting cannot leave debris that the next run has to tell apart from
+# real deliverables.
+$cachePrefixes = @('.mypy_cache/', '.ruff_cache/', '.pytest_cache/', '.benchmarks/', '.hypothesis/')
+
 if ($KeepHandoffs) {
     Write-Step 'Keeping previous handoffs (-KeepHandoffs) - stale artifacts may be read as current'
 }
@@ -180,6 +187,11 @@ else {
         # which files existed. Say what was actually done rather than claiming a removal.
         if ($r.ExitCode -ne 0) { Write-Note "  $h : REMOVE failed (exit $($r.ExitCode))" }
         else { Write-Note "  $h : cleared" }
+    }
+    foreach ($c in $cachePrefixes) {
+        $r = Invoke-Sql -Query "REMOVE '$StagePath/$c'"
+        if ($r.ExitCode -ne 0) { Write-Note "  $c : REMOVE failed (exit $($r.ExitCode))" }
+        else { Write-Note "  $c : cleared" }
     }
 }
 

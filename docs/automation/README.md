@@ -88,6 +88,32 @@ today (UTC). The tolerance is not sloppiness: publishing at 00:00 local and pick
 local only land on the same UTC date while the local clock is before 05:30, and the task is
 registered `StartWhenAvailable`, so a sleeping laptop defers the run into a later UTC date.
 
+### The snapshot commit must be on `origin/main`, or the gate cannot judge anything
+
+The snapshot is built from **local `HEAD`**, but the patch is gated in a worktree at
+**`origin/main`**. When local main is ahead of the remote, the fire sees files the gating
+worktree does not, every test touching them fails, and the gate reports *"Patch REGRESSED"* —
+blaming the patch for an unpushed commit and discarding a perfectly good night's work.
+
+Observed on the first full run of this pipeline (2026-09-08): 9 new tests asserting that
+`scripts/automation/prompts/*` exist passed in the sandbox and failed at the gate, because the
+commit that added those prompts had not been pushed. The gate now compares lineage explicitly
+using the manifest's `head_sha` (`git merge-base --is-ancestor`) and exits 3 with the real
+reason. Gating against a tree the patch was not generated from cannot produce a meaningful
+verdict in either direction, so refusing is the only honest option.
+
+**Practical consequence: push `main` before relying on a night's run.**
+
+### A fire's working directory is `/workspace`, which is the outbox
+
+Any tool invoked without `cd` first writes into the stage mount. On the first full run, ruff,
+mypy and pytest created `.ruff_cache/`, `.mypy_cache/` and `.benchmarks/` inside `/workspace`.
+Nothing broke, but the outbox filled with files the next run has to tell apart from real
+deliverables. Two defences, because one stage forgetting should not leave debris: the shared
+preamble tells every stage to `cd` into its source tree first, and `publish_run_inputs.ps1`
+clears those cache prefixes along with the handoffs.
+
+
 ### Exit codes of the local gate
 
 | code | meaning |
