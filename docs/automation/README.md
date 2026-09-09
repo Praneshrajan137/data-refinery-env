@@ -21,26 +21,109 @@ Snowflake-managed sandbox. Each fire runs as the creating user. There is no huma
 available, no clarifying turn, and permission gating is off, so destructive tools
 run unprompted.
 
-The fire plans, implements code changes, and writes two files into the user workspace:
-`changes.patch` and `daily-review.md`. It cannot commit, push, or open a pull request. A
-local script gates the patch and opens the PR. See "The two-stage pipeline" below.
+Each night the work is split across **four fires** — explore, plan, code, verify — which hand
+off through files in the user workspace. None of them can commit, push, or open a pull request.
+A local script gates the final patch and opens the PR. See "The pipeline" below.
 
-## The two-stage pipeline
+> **Why four fires and not one.** A fire is hard-killed at roughly **15 minutes** of wall
+> clock. Measured 2026-09-08: the single monolithic automation that preceded this pipeline
+> (`COCO_ROUTINE_PROJECT`) was killed at exactly **15 min 01 s** on both 2026-09-06 and
+> 2026-09-07, mid-`bash` call, with `context canceled / no HTTP response` as the final message
+> in the transcript. Both nights delivered **nothing**: the deliverable was written only at the
+> end, so being cut off lost the entire run rather than truncating it. Worse, `doctor` reported
+> both fires `SUCCEEDED`, because the enclosing SQL task did succeed — only the agent run
+> inside it died. The stage still held a `daily-review.md` from 2026-09-05 and no
+> `changes.patch` at all.
+>
+> Splitting the work does two independent things. It multiplies the budget (four fires give
+> roughly an hour instead of a quarter of one), and it makes partial progress **durable**:
+> every stage's output is on the stage mount before the next stage starts.
 
-The fire cannot reach GitHub, so implementation and delivery are split. Stage two is
+## The pipeline
+
+Six steps: one local publish, four cloud fires, one local gate. All times `Asia/Calcutta`.
+
+```
+00:00 LOCAL   publish_run_inputs.ps1   snapshot from HEAD + TASK.md + fresh MANIFEST.json
+00:30 CLOUD   stage 1 EXPLORE          reads TASK.md          -> 01-explore.md
+01:00 CLOUD   stage 2 PLAN             reads 01-explore.md    -> 02-plan.md
+01:30 CLOUD   stage 3 CODE             reads 02-plan.md       -> changes.patch + 03-code.md
+02:00 CLOUD   stage 4 VERIFY           reads changes.patch    -> COMMIT_MSG.txt + daily-review.md
+03:00 LOCAL   apply_and_pr.ps1         gates BEFORE/AFTER     -> pull request
+```
+
+Stages are 30 minutes apart: each needs its own 15-minute wall plus slack for a slow start,
+and the chain still finishes an hour before the local pickup.
+
+### The task is data, not prompt text
+
+The four stage prompts are **fixed** and are never edited per task. Tonight's work lives in
+`/workspace/TASK.md`, which stage 1 reads as the sole definition of the job. Set it by editing
+[`scripts/automation/TASK.md`](../../scripts/automation/TASK.md) (start from
+[`TASK.template.md`](../../scripts/automation/TASK.template.md)) and publishing.
+
+This matters because the alternative — inlining the task into the prompts — means touching four
+automations per task, and prompts are baked into the task definition at create time, so four
+copies drift. `create_stages.ps1` assembles each prompt from
+`prompts/_preamble.md` plus one `prompts/stage<N>-*.md`, so the environment facts, the budget
+rule and the handoff contract exist in exactly one place.
+
+**Editing a prompt file does not change a live automation.** Re-run
+`create_stages.ps1 -Recreate`.
+
+### The handoff contract: `MANIFEST.json`
+
+Stages communicate through `/workspace`, and `MANIFEST.json` is what makes that safe. The
+publish step writes it with `run_id`, `task_sha256`, `snapshot_md5` and `head_sha`, and no stage
+entries. Each stage recomputes the two hashes itself, refuses unless they match and unless every
+stage it depends on is recorded `OK`, then appends its own entry.
+
+Without this, the failure is **silent**: a night where stage 1 dies leaves yesterday's
+`01-explore.md` in place for stage 2 to read as though it were today's, and stage 2 would
+reasonably report success. The publish step therefore also **deletes** the previous run's
+artifacts, so the condition is caught twice.
+
+The local gate refuses unless `stages.verify.status == "OK"` and `run_id` is within one day of
+today (UTC). The tolerance is not sloppiness: publishing at 00:00 local and picking up at 03:00
+local only land on the same UTC date while the local clock is before 05:30, and the task is
+registered `StartWhenAvailable`, so a sleeping laptop defers the run into a later UTC date.
+
+### Exit codes of the local gate
+
+| code | meaning |
+| --- | --- |
+| 0 | PR opened, or genuinely nothing to pick up |
+| 1 | BLOCKED: patch did not apply, touched a protected path, or regressed a gate |
+| 2 | RETRIEVAL FAILED: could not reach the workspace, state **unknown** |
+| 3 | MANIFEST REFUSED: no manifest, stage 4 not `OK`, or a previous night's run |
+
+3 is deliberately distinct from both 0 and 2. Read as 0 it looks like a quiet night; read as 2
+it looks like a broken connection. It means neither: the pipeline ran and declined to certify
+its own output.
+
+### What "commit" means here
+
+Stage 4 cannot commit — there is no route to GitHub and no `.git` directory. It produces what a
+commit needs (`COMMIT_MSG.txt`, `daily-review.md`) and certifies the patch by re-applying it to
+a pristine tree and running the four permitted checks. The commit and the PR happen locally.
+
+### The local gate
+
+Stage six is
 [`scripts/automation/apply_and_pr.ps1`](../../scripts/automation/apply_and_pr.ps1).
 
 ```
-FIRE (sandbox)                          LOCAL (this machine)
-  extract snapshot twice                  GET changes.patch + daily-review.md
-  /tmp/base pristine, /tmp/src edited     git worktree at origin/main  (LF!)
-  plan, implement, add tests              gates BEFORE  -> baseline
-  run the 4 permitted checks              git apply --3way -p1
-  diff -ruN base src > changes.patch      gates AFTER
-  write daily-review.md                   no regression? push branch + gh pr create
+CLOUD (sandbox)                         LOCAL (this machine)
+  extract snapshot twice                  GET MANIFEST.json  -> refuse unless certified
+  /tmp/base pristine, /tmp/src edited     GET changes.patch + COMMIT_MSG.txt + review
+  implement per 02-plan.md                git worktree at origin/main  (LF!)
+  regenerate patch after EVERY change     gates BEFORE  -> baseline
+  stage 4 re-applies to a clean tree      git apply --3way -p1
+  run the 4 permitted checks              gates AFTER
+  write COMMIT_MSG.txt + daily-review.md  no regression? push branch + gh pr create
 ```
 
-Four properties of stage two that are deliberate, not incidental:
+Four properties of the local gate that are deliberate, not incidental:
 
 1. **It works in a throwaway `git worktree` at `origin/main`, never in the developer
    checkout.** The checkout routinely carries unrelated in-flight work, so applying a patch
@@ -81,9 +164,23 @@ script asserts the result really is LF before going further.
 It is scheduled, so normally you run nothing. To invoke it by hand:
 
 ```powershell
+# set tonight's task, then publish inputs (also refreshes the snapshot from HEAD)
+powershell -NoProfile -File scripts/automation/publish_run_inputs.ps1
+
+# fire one stage immediately instead of waiting for its cron
+# (EXECUTE TASK runs the exact definition a scheduled fire runs)
+#   EXECUTE TASK "USER$PRANESH07".PUBLIC.COCO_ROUTINE_DF_STAGE1_EXPLORE
+
+# the local gate
 powershell -NoProfile -File scripts/automation/apply_and_pr.ps1
-powershell -NoProfile -File scripts/automation/apply_and_pr.ps1 -DryRun -SkipTests -PatchFile C:\tmp\x.patch
+powershell -NoProfile -File scripts/automation/apply_and_pr.ps1 -DryRun -SkipTests -PatchFile C:\tmp\x.patch -ManifestFile C:\tmp\m.json
 ```
+
+`-PatchFile` without `-ManifestFile` is **refused** (exit 3) rather than silently bypassing the
+lineage gate. That is not pedantry: the last vacuous-success bug here survived three tests
+because every one of them used `-PatchFile` and so never exercised the path being shipped. Use
+`-SkipManifest` if you really want the bypass, and know that you are then testing something
+other than production.
 
 `pwsh` (PowerShell 7) is **not** installed here; use `powershell`.
 
@@ -95,6 +192,7 @@ distance:
 | 0 | A PR was opened, **or** retrieval worked and there was genuinely nothing to pick up |
 | 1 | Blocked: patch did not apply, touched a protected path, or regressed a gate. No PR |
 | 2 | **Retrieval failed.** The workspace could not be reached, so we know *nothing* |
+| 3 | **Manifest refused.** No manifest, stage 4 not `OK`, or a previous night's run. Nothing shipped |
 
 Exit 2 must never be read as "the fire implemented nothing". An earlier version of this
 script conflated those: `cortex sql` does not exist, so the retrieval silently did nothing and
@@ -167,17 +265,46 @@ Start-ScheduledTask   -TaskName 'DataForge automation pickup'   # run now
 ```
 
 
-## Inventory, as of 2026-09-01
+## Inventory, as of 2026-09-08
 
 Everything lives in account **`YCJETJE-SK82196`** (user `PRANESH07`). It is invisible
 from any other account.
 
 | Object | Notes |
 | --- | --- |
-| `USER$PRANESH07.PUBLIC.COCO_ROUTINE_PROJECT` | The `AGENT TASK`. State `started`, `USING CRON 30 0 * * * Asia/Calcutta` (00:30 IST). |
-| `USER$PRANESH07.PUBLIC.DEFAULT$` | Workspace mounted at `/workspace` in the fire. Carries the source snapshot in, and the review out. |
-| `INTEGRATIONS.PUBLIC.GITHUB_PAT` | `TYPE = PASSWORD`, `USERNAME = 'git'`. Injected into the fire as `$GH_TOKEN`. Currently unusable by the fire, since GitHub is unreachable. |
+| `USER$PRANESH07.PUBLIC.COCO_ROUTINE_DF_STAGE1_EXPLORE` | `AGENT TASK`, `USING CRON 30 0 * * * Asia/Calcutta` (00:30 IST). |
+| `USER$PRANESH07.PUBLIC.COCO_ROUTINE_DF_STAGE2_PLAN` | `USING CRON 0 1 * * * Asia/Calcutta` (01:00 IST). |
+| `USER$PRANESH07.PUBLIC.COCO_ROUTINE_DF_STAGE3_CODE` | `USING CRON 30 1 * * * Asia/Calcutta` (01:30 IST). |
+| `USER$PRANESH07.PUBLIC.COCO_ROUTINE_DF_STAGE4_VERIFY` | `USING CRON 0 2 * * * Asia/Calcutta` (02:00 IST). |
+| `USER$PRANESH07.PUBLIC.DEFAULT$` | Workspace mounted at `/workspace`. Carries the snapshot, `TASK.md` and `MANIFEST.json` in, and the handoffs plus `changes.patch` out. |
+| `INTEGRATIONS.PUBLIC.GITHUB_PAT` | `TYPE = PASSWORD`, `USERNAME = 'git'`. Not attached to these automations, since GitHub is unreachable from a fire. |
 | `INTEGRATIONS.PUBLIC.DATAFORGE_REPO` | Git mirror of this repo. Readable from a normal session, **not** readable from a fire. |
+
+The `COCO_ROUTINE_` prefix is added by the CLI; `cortex automation` commands take the bare
+name (`DF_STAGE1_EXPLORE`), while SQL needs the full object name.
+
+All four are created **fully read-write** (`--without-read-only --force`), at the user's
+explicit instruction. Recorded plainly: no stage needs SQL DML, since all four work on the
+sandbox filesystem, which already succeeds under the read-only default. The flag therefore adds
+no capability this pipeline uses while granting four unattended fires per night the ability to
+run DML on any database with an ACCOUNTADMIN token and no human present. To tighten it, drop the
+two flags in `create_stages.ps1` and re-run with `-Recreate`.
+
+`COCO_ROUTINE_PROJECT`, the single monolithic predecessor, was **dropped** on 2026-09-08.
+
+Two Windows scheduled tasks bracket the cloud stages. Both need the laptop awake; Task Scheduler
+cannot run on a powered-off machine, and `WakeToRun` is best-effort only — Windows ignores wake
+timers on battery. `StartWhenAvailable` defers a missed run to the next wake instead of skipping
+the day.
+
+| Task | When | Action |
+| --- | --- | --- |
+| `DataForge automation publish` | 00:00 IST daily | `run_publish.ps1` -> `publish_run_inputs.ps1` |
+| `DataForge automation pickup` | 03:00 IST daily | `run_pickup.ps1` -> `apply_and_pr.ps1` |
+
+Both log to `%LOCALAPPDATA%\dataforge-automation\logs\` (`publish-*.log`, `pickup-*.log`),
+pruned at 30 days. The log name is built in PowerShell, never in a `.cmd`: two earlier attempts
+at `%DATE%` substring parsing produced `pickup-20269-02.log` and then `pickup-+.log`.
 
 `SHOW TASKS` does **not** list agent tasks and will return nothing. Use:
 
@@ -490,6 +617,22 @@ Beyond the environment facts above, an unattended prompt must:
 8. Forbid self-registering measurements. `eval/results/` and `docs/quantitative_claims.yaml`
    are off-limits, so a new measurement is *proposed* in the review with the command that
    produced it, for a human to register. Otherwise the fire writes its own evidence.
+9. **Order the deliverable before the work, and say why.** This is the invariant the 15-minute
+   wall forces, and it is the one a well-meaning prompt gets wrong: an agent told to "write a
+   report when finished" writes nothing when it is cut off at minute 15. Every stage prompt
+   therefore says to write its artifact as soon as there is anything worth handing over, update
+   it in place, and stop new investigation at roughly 10 minutes. A partial artifact on disk is
+   worth more than a complete one that was never written.
+10. **Tell each stage what NOT to do, not only what to do.** Stages 1 and 2 are forbidden from
+    editing `/tmp/src` and from building a virtualenv (a ~141 s install is a sixth of the budget
+    and buys a reading task nothing); stage 1 is additionally forbidden from proposing a
+    solution, because pre-empting stage 2 with a half-considered answer is worse than leaving
+    the question open. Without these, each stage drifts toward doing the whole job badly, which
+    is the failure the split exists to prevent.
+11. **Require a stage to refuse on bad input rather than improvise.** Stage 3 told merely to
+    "follow the plan" will invent one when the plan is missing; it is told explicitly not to.
+    An unattended improvisation produces a large diff nobody can review against an intent
+    nobody recorded.
 
 ## Debugging a fire
 

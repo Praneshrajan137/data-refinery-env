@@ -97,3 +97,7 @@ eval/results/kaggle_sft_v5_candidate_v*/
 eval/results/kaggle_sft_v6_smoke_v*/
 archive/training/kaggle_*_handoff/
 archive/training/kaggle_*_kernel/
+
+# Per-night input for the cloud automation pipeline; the task changes daily and is
+# uploaded to the workspace stage by publish_run_inputs.ps1, not tracked here.
+scripts/automation/TASK.md

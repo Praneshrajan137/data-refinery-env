@@ -33,6 +33,15 @@
 .PARAMETER PatchFile
     Use a local patch file instead of fetching from the workspace. For testing.
 
+.PARAMETER ManifestFile
+    Use a local MANIFEST.json instead of fetching it. For testing the lineage gate itself,
+    which is otherwise only exercisable by waiting for a real night.
+
+.PARAMETER SkipManifest
+    Apply without a manifest at all. Only for testing the pre-manifest behaviour; a real run
+    must never use it, because the manifest is the only thing that distinguishes tonight's
+    verified patch from a leftover file.
+
 .PARAMETER SkipTests
     Skip `make test` (the two pytest passes). Speeds up a smoke test of the plumbing at the
     cost of the gate that matters most. Never use for a real run.
@@ -48,11 +57,23 @@
 
 .NOTES
     Windows PowerShell 5.1. `pwsh` (PowerShell 7) is not installed on this machine.
+
+    Exit codes:
+      0  PR opened, or genuinely nothing to pick up
+      1  BLOCKED: patch did not apply, touched a protected path, or regressed a gate
+      2  RETRIEVAL FAILED: could not reach the workspace, state UNKNOWN
+      3  MANIFEST REFUSED: no manifest, stage 4 not OK, or the run is from a previous night
+
+    3 is deliberately distinct from both 0 and 2. Read as 0 it would look like a quiet night;
+    read as 2 it would look like a broken connection. It means neither: the pipeline ran and
+    declined to certify its own output, which is a normal and useful outcome.
 #>
 [CmdletBinding()]
 param(
     [switch]$DryRun,
     [string]$PatchFile,
+    [string]$ManifestFile,
+    [switch]$SkipManifest,
     [switch]$SkipTests,
     [string]$Connection = 'dataforge_automation'
 )
@@ -159,6 +180,99 @@ function Get-WorkspaceFile {
         Write-Note $res.Output
         return $false
     }
+    return $true
+}
+
+# Decides whether the cloud pipeline actually certified tonight's patch.
+#
+# The four cloud stages hand off through /workspace, and MANIFEST.json is the only record of
+# WHICH night's work is sitting there. Without this check the script cannot tell tonight's
+# verified patch from a changes.patch left behind by a run that died three days ago: a stale
+# file applies just as cleanly as a fresh one, and gates that pass on it would produce a
+# perfectly plausible pull request for work nobody asked for tonight.
+#
+# Three conditions, all required:
+#   1. Stage 4 recorded status OK. Stage 4 is the one that re-applies the patch to a pristine
+#      tree and runs the checks, so its OK is the pipeline's own certification. A stage that
+#      wrote FAILED is telling us not to ship, and that must be honoured, not overridden
+#      because the patch happens to apply here.
+#   2. The run is recent. Compared with a one-day tolerance rather than exact equality: this
+#      script runs at 03:00 local while publishing happens at 00:00 local, and both land on the
+#      same UTC date only while the local clock is before 05:30. More importantly, the task is
+#      registered StartWhenAvailable, so a laptop asleep at 03:00 defers the run to the next
+#      wake, which can be the following morning in a different UTC date. Exact equality would
+#      reject valid work for that reason alone.
+#   3. The manifest parses and carries a run_id. A malformed manifest is a refusal, not a
+#      warning: it means the pipeline's own bookkeeping is broken.
+function Test-Manifest {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path $Path)) {
+        Write-Fail 'MANIFEST REFUSED: no MANIFEST.json was retrieved.'
+        return $false
+    }
+
+    try {
+        $m = Get-Content $Path -Raw | ConvertFrom-Json
+    }
+    catch {
+        Write-Fail "MANIFEST REFUSED: MANIFEST.json did not parse ($($_.Exception.Message))"
+        return $false
+    }
+
+    $runId = $null
+    if ($m.PSObject.Properties.Name -contains 'run_id') { $runId = $m.run_id }
+    if (-not $runId) {
+        Write-Fail 'MANIFEST REFUSED: manifest carries no run_id.'
+        return $false
+    }
+    Write-Note "manifest run_id = $runId"
+    if ($m.PSObject.Properties.Name -contains 'head_sha') { Write-Note "published from  = $($m.head_sha)" }
+
+    $parsed = [datetime]::MinValue
+    if (-not [datetime]::TryParseExact($runId, 'yyyy-MM-dd', $null, 'None', [ref]$parsed)) {
+        Write-Fail "MANIFEST REFUSED: run_id '$runId' is not a yyyy-MM-dd date."
+        return $false
+    }
+    $ageDays = ((Get-Date).ToUniversalTime().Date - $parsed.Date).Days
+    if ($ageDays -lt 0 -or $ageDays -gt 1) {
+        Write-Fail "MANIFEST REFUSED: run_id '$runId' is $ageDays day(s) from today (UTC)."
+        Write-Note 'This is a previous night''s output. Republish inputs rather than shipping it.'
+        return $false
+    }
+    Write-Note "run age = $ageDays day(s) (tolerance 1)"
+
+    if (-not ($m.PSObject.Properties.Name -contains 'stages') -or -not $m.stages) {
+        Write-Fail 'MANIFEST REFUSED: manifest has no stages; no cloud stage recorded a result.'
+        return $false
+    }
+
+    # Report every stage, not just stage 4. When the pipeline stops early this listing is the
+    # fastest way to see WHERE, without reading four transcripts.
+    foreach ($name in @('explore', 'plan', 'code', 'verify')) {
+        if ($m.stages.PSObject.Properties.Name -contains $name) {
+            $st = $m.stages.$name
+            $reason = ''
+            if ($st.PSObject.Properties.Name -contains 'reason' -and $st.reason) { $reason = " - $($st.reason)" }
+            Write-Note ("  {0,-8} {1}{2}" -f $name, $st.status, $reason)
+        }
+        else {
+            Write-Note ("  {0,-8} (did not run)" -f $name)
+        }
+    }
+
+    if (-not ($m.stages.PSObject.Properties.Name -contains 'verify')) {
+        Write-Fail 'MANIFEST REFUSED: stage 4 (verify) never recorded a result.'
+        Write-Note 'The patch was never verified against a pristine tree, so it is not certified.'
+        return $false
+    }
+    if ($m.stages.verify.status -ne 'OK') {
+        Write-Fail "MANIFEST REFUSED: stage 4 reported status '$($m.stages.verify.status)'."
+        Write-Note 'The pipeline declined to certify its own patch. Honouring that.'
+        return $false
+    }
+
+    Write-Note 'manifest OK: stage 4 certified this run'
     return $true
 }
 
@@ -340,13 +454,33 @@ if (-not (Test-Path $WorkDir)) { New-Item -ItemType Directory -Path $WorkDir | O
 # --- 1. Obtain the patch ---------------------------------------------------------------
 Write-Step 'Retrieving the patch'
 
+$localCommitMsg = Join-Path $WorkDir 'COMMIT_MSG.txt'
+
 if ($PatchFile) {
     $localPatch = (Resolve-Path $PatchFile).Path
     Write-Note "Using supplied patch: $localPatch"
+
+    # The manifest gate is still exercised on this path when -ManifestFile is given. That is
+    # deliberate: a previous version of this script shipped a broken retrieval path that every
+    # test bypassed with -PatchFile, so it "passed" three times and then did nothing in
+    # production. A gate only tested through a bypass is not tested.
+    if ($ManifestFile) {
+        Write-Step 'Checking the cloud pipeline manifest (local file)'
+        if (-not (Test-Manifest -Path (Resolve-Path $ManifestFile).Path)) { exit 3 }
+    }
+    elseif (-not $SkipManifest) {
+        Write-Fail 'REFUSING: -PatchFile was given without -ManifestFile.'
+        Write-Note 'Pass -ManifestFile to exercise the real gate, or -SkipManifest to bypass it knowingly.'
+        exit 3
+    }
+    else {
+        Write-Note 'Manifest gate BYPASSED (-SkipManifest). Never do this for a real run.'
+    }
 }
 else {
     $localPatch = Join-Path $WorkDir 'changes.patch'
     if (Test-Path $localPatch) { Remove-Item $localPatch }
+    if (Test-Path $localCommitMsg) { Remove-Item $localCommitMsg }
 
     $listing = Get-WorkspaceListing
     if (-not $listing.Ok) {
@@ -355,6 +489,26 @@ else {
         exit 2
     }
     Write-Note "workspace contains: $($listing.Names -join ', ')"
+
+    # Check the manifest BEFORE fetching or applying anything. If the pipeline did not certify
+    # tonight's work there is no reason to spend a worktree, two venv repoints and two full test
+    # runs (several minutes) discovering that we were going to refuse anyway.
+    Write-Step 'Checking the cloud pipeline manifest'
+    if ($SkipManifest) {
+        Write-Note 'Manifest gate BYPASSED (-SkipManifest). Never do this for a real run.'
+    }
+    else {
+        $localManifest = Join-Path $WorkDir 'MANIFEST.json'
+        if (Test-Path $localManifest) { Remove-Item $localManifest }
+
+        if ($listing.Names -notcontains 'MANIFEST.json') {
+            Write-Fail 'MANIFEST REFUSED: the workspace holds no MANIFEST.json.'
+            Write-Note 'Inputs were never published, or the stage was cleared. Nothing is certified.'
+            exit 3
+        }
+        if (-not (Get-WorkspaceFile -Name 'MANIFEST.json')) { exit 2 }
+        if (-not (Test-Manifest -Path $localManifest)) { exit 3 }
+    }
 
     if ($listing.Names -notcontains 'changes.patch') {
         Write-Note 'Retrieval worked; there is no changes.patch in the workspace.'
@@ -368,6 +522,11 @@ else {
         Write-Fail 'RETRIEVAL FAILED: GET reported success but no local file appeared.'
         exit 2
     }
+
+    # Stage 4 writes this. A missing one is not fatal - the patch and the gates are what matter
+    # - so fall back to a generic message rather than discarding verified work over a subject
+    # line.
+    if ($listing.Names -contains 'COMMIT_MSG.txt') { Get-WorkspaceFile -Name 'COMMIT_MSG.txt' | Out-Null }
 }
 
 $patchBytes = (Get-Item $localPatch).Length
@@ -517,14 +676,35 @@ $(if (Test-Path $reviewLocal) { Get-Content $reviewLocal -Raw } else { '_No revi
 
     Invoke-Git @('-C', $WorktreeDir, 'checkout', '-b', $Branch) | Out-Null
     Invoke-Git (@('-C', $WorktreeDir, 'add', '--') + $changed) | Out-Null
-    Invoke-Git @(
+
+    # Prefer the commit message stage 4 wrote: it names the actual change, whereas the fallback
+    # can only say that something was automated. Guard on non-empty content, not just on the
+    # file existing, because a GET of a zero-byte artifact succeeds and would otherwise produce
+    # a commit with an empty subject line.
+    $commitArgs = @(
         '-C', $WorktreeDir,
         '-c', 'user.email=automation@dataforge.local',
         '-c', 'user.name=DataForge Automation',
-        'commit',
-        '-m', "Automated implementation $Stamp",
-        '-m', 'Written by the daily unattended automation. Gates were run locally against a clean worktree at origin/main; see the PR body for baseline and post-patch results. The agent could not run the test suite itself.'
-    ) | Out-Null
+        'commit'
+    )
+    $useMsgFile = $false
+    if ((Test-Path $localCommitMsg) -and (Get-Item $localCommitMsg).Length -gt 0) {
+        $msgText = (Get-Content $localCommitMsg -Raw)
+        if ($msgText -and $msgText.Trim()) { $useMsgFile = $true }
+    }
+
+    if ($useMsgFile) {
+        Write-Note 'commit message: COMMIT_MSG.txt from stage 4'
+        $commitArgs += @('-F', $localCommitMsg)
+    }
+    else {
+        Write-Note 'commit message: generic fallback (no usable COMMIT_MSG.txt)'
+        $commitArgs += @(
+            '-m', "Automated implementation $Stamp",
+            '-m', 'Written by the daily unattended automation. Gates were run locally against a clean worktree at origin/main; see the PR body for baseline and post-patch results. The agent could not run the full suite itself.'
+        )
+    }
+    Invoke-Git $commitArgs | Out-Null
 
     $push = Invoke-Git @('-C', $WorktreeDir, 'push', 'origin', $Branch)
     Write-Note $push.Output
