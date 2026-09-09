@@ -157,6 +157,35 @@ stage 4 prompt now states the fact outright, so the stage reports it as a stale 
 human to regenerate — while every *other* pass-to-fail transition stays attributable to the
 patch.
 
+### An unchecked `checkout -b` published the wrong work and reported success
+
+The worst failure this pipeline has produced, on 2026-09-09. Branch names were date-only
+(`automation/impl-YYYY-MM-DD`), so a second pickup on the same UTC day collided with the branch
+the first had created. Then:
+
+1. `git checkout -b <branch>` failed, because the branch already existed.
+2. Its exit code went into `Out-Null` and was never checked.
+3. The commit therefore landed on the **detached HEAD**, not on the branch.
+4. `git push origin <branch>` pushed the **pre-existing** branch — an unrelated patch from the
+   earlier run.
+5. `gh pr create` opened a pull request for it.
+6. The script printed `Done` and exited **0**.
+
+So the work that had just been gated was silently discarded, and different, ungated work was
+published in its place, under a clean success report. Three independent defences now exist,
+because each one alone would have prevented it: branch names carry `HHmm` so they cannot
+collide, `checkout -b` is exit-checked and `HEAD` is asserted to be on the branch, and — most
+generally useful — the commit's file list is compared against the gated file list **before the
+push**, so an artefact leaving this machine must match what the gates examined.
+
+This is the fifth instance in this pipeline of one defect class: **an unchecked exit code
+producing a confident false success.** The others were `cortex sql` not existing (retrieval did
+nothing, exit 0), `GET` on a missing file being indistinguishable from a broken connection, gates
+that approximated `make lint` while claiming to run it, and a task reporting `SUCCEEDED` for a
+fire the platform had killed. When something here reports success, ask what it actually verified.
+
+
+
 ### Minimal edits, because a rewrite is not just ugly
 
 Stage 3 once added 5 entries to `test_map.json` by loading and re-serializing it, turning 5 lines

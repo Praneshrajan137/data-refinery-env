@@ -87,7 +87,9 @@ $StagePath  = "snow://workspace/$Workspace/versions/live"
 $WorkDir    = Join-Path $env:TEMP 'dataforge-automation'
 $WorktreeDir = Join-Path $WorkDir 'worktree'
 $Stamp      = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
-$Branch     = "automation/impl-$Stamp"
+# Includes HHmm so two runs on the same UTC day cannot collide. See the incident note at the
+# branch-creation step: a date-only name silently published an earlier run's branch.
+$Branch     = "automation/impl-$Stamp-" + (Get-Date).ToUniversalTime().ToString('HHmm')
 
 # Snowflake CLI and the gate interpreter live in their own venvs, deliberately NOT the repo
 # .venv: a dependency added there would diverge from pyproject.toml and uv.lock and could
@@ -717,7 +719,34 @@ $(if (Test-Path $reviewLocal) { Get-Content $reviewLocal -Raw } else { '_No revi
         exit 0
     }
 
-    Invoke-Git @('-C', $WorktreeDir, 'checkout', '-b', $Branch) | Out-Null
+    # Branch names carry a UTC timestamp, not just the date, and `checkout -b` is EXIT-CHECKED.
+    #
+    # Both details exist because of a real incident on 2026-09-09. A date-only branch name
+    # collided with a branch an earlier pickup had already created that same day. `git checkout
+    # -b` therefore failed; its exit code was discarded into Out-Null; the commit landed on the
+    # detached HEAD instead of the branch; and `git push origin <branch>` then pushed the
+    # PRE-EXISTING branch - an unrelated patch from the earlier run - after which `gh pr create`
+    # opened a pull request for it. The script reported success and exit 0 throughout, and the
+    # work it had just gated was silently discarded while someone else's was published.
+    #
+    # Two independent defences, because either alone would have been enough to prevent it and
+    # neither is expensive: a name that cannot collide, and checking the exit code anyway.
+    $co = Invoke-Git @('-C', $WorktreeDir, 'checkout', '-b', $Branch)
+    if ($co.ExitCode -ne 0) {
+        Write-Note $co.Output
+        Write-Fail "Could not create branch $Branch (exit $($co.ExitCode)). No PR."
+        Write-Note 'Refusing to continue: committing here would land on a detached HEAD and the'
+        Write-Note 'subsequent push would ship whatever that branch name already points at.'
+        exit 1
+    }
+
+    # Prove we are actually ON the branch before committing anything to it.
+    $head = (Invoke-Git @('-C', $WorktreeDir, 'rev-parse', '--abbrev-ref', 'HEAD')).Output.Trim()
+    if ($head -ne $Branch) {
+        Write-Fail "ABORTING: HEAD is '$head', expected '$Branch'."
+        exit 1
+    }
+
     Invoke-Git (@('-C', $WorktreeDir, 'add', '--') + $changed) | Out-Null
 
     # Prefer the commit message stage 4 wrote: it names the actual change, whereas the fallback
@@ -749,6 +778,24 @@ $(if (Test-Path $reviewLocal) { Get-Content $reviewLocal -Raw } else { '_No revi
     }
     Invoke-Git $commitArgs | Out-Null
 
+    # Verify the commit contains exactly what was gated, BEFORE pushing.
+    #
+    # This is the assertion that would have caught the 2026-09-09 incident on its own. Its value
+    # is that it compares the artefact about to leave this machine against the file list the
+    # gates actually ran on, rather than trusting that the preceding steps did what they said.
+    $committed = @((Invoke-Git @('-C', $WorktreeDir, 'diff', '--name-only', 'HEAD~1', 'HEAD')).Output -split "`r?`n" |
+                   Where-Object { $_ -and $_.Trim() } | ForEach-Object { $_.Trim() })
+    $missingFromCommit = @($changed | Where-Object { $committed -notcontains $_ })
+    $extraInCommit = @($committed | Where-Object { $changed -notcontains $_ })
+    if ($missingFromCommit.Count -gt 0 -or $extraInCommit.Count -gt 0) {
+        Write-Fail 'ABORTING before push: the commit does not match the gated file list.'
+        foreach ($f in $missingFromCommit) { Write-Note "  gated but NOT committed: $f" }
+        foreach ($f in $extraInCommit) { Write-Note "  committed but NOT gated: $f" }
+        Write-Note 'Pushing this would publish work the gates never examined.'
+        exit 1
+    }
+    Write-Note "commit contains exactly the $($committed.Count) gated file(s)"
+
     $push = Invoke-Git @('-C', $WorktreeDir, 'push', 'origin', $Branch)
     Write-Note $push.Output
     if ($push.ExitCode -ne 0) {
@@ -759,11 +806,21 @@ $(if (Test-Path $reviewLocal) { Get-Content $reviewLocal -Raw } else { '_No revi
     $bodyFile = Join-Path $WorkDir 'pr_body.md'
     Set-Content -Path $bodyFile -Value $prBody -Encoding UTF8
 
+    # Title from the commit message's subject line when stage 4 wrote one, so the pull request
+    # says what it does. "Automated implementation <date>" is accurate but tells a reviewer
+    # nothing, and these land in a list alongside human PRs.
+    $prTitle = "Automated implementation $Stamp"
+    if ($useMsgFile) {
+        $subject = ((Get-Content $localCommitMsg -Raw) -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
+        if ($subject -and $subject.Trim().Length -gt 0) { $prTitle = $subject.Trim() }
+    }
+    Write-Note "PR title: $prTitle"
+
     Push-Location $WorktreeDir
     try {
         $pr = Invoke-Native -File 'gh' -Arguments @(
             'pr', 'create', '--base', 'main', '--head', $Branch,
-            '--title', "Automated implementation $Stamp",
+            '--title', $prTitle,
             '--body-file', $bodyFile
         )
         Write-Host $pr.Output
